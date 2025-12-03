@@ -1,0 +1,17 @@
+include LICENSE
+include README.md
+include Makefile
+include requirements.txt
+recursive-include axion_hdl *.py *.md
+recursive-include instructions *.md
+recursive-include tests *.py *.vhd *.c *.sh
+exclude *.pyc
+exclude __pycache__
+prune .git
+prune .venv
+prune work
+prune waveforms
+prune output
+prune dist
+prune build
+prune *.egg-info

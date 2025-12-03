@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axion-hdl"
+version = "0.1.0"
+description = "Automated AXI4-Lite Register Interface Generator for VHDL modules"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "Bugra Tufan", email = "bugratufan97@gmail.com"}
+]
+maintainers = [
+    {name = "Bugra Tufan", email = "bugratufan97@gmail.com"}
+]
+keywords = [
+    "vhdl", "axi", "axi4-lite", "fpga", "hdl", "register", "generator",
+    "hardware", "eda", "rtl", "code-generation", "automation"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+    "Topic :: Software Development :: Code Generators",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Natural Language :: English",
+]
+requires-python = ">=3.7"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
+    "black>=21.0",
+    "flake8>=3.9",
+    "build>=0.7",
+    "twine>=3.4",
+]
+
+[project.urls]
+Homepage = "https://github.com/bugratufan/axion-hdl"
+Documentation = "https://github.com/bugratufan/axion-hdl#readme"
+Repository = "https://github.com/bugratufan/axion-hdl"
+"Bug Tracker" = "https://github.com/bugratufan/axion-hdl/issues"
+
+[project.scripts]
+axion-hdl = "axion_hdl.cli:main"
+
+[tool.setuptools]
+packages = ["axion_hdl"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"*" = ["*.md", "*.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.black]
+line-length = 100
+target-version = ['py37', 'py38', 'py39', 'py310', 'py311', 'py312']
+
+[tool.flake8]
+max-line-length = 100
+exclude = [".git", "__pycache__", "build", "dist", ".venv"]
