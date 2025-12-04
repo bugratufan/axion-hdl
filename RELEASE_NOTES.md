@@ -4,7 +4,44 @@ Copy the content below when creating a GitHub release:
 
 ---
 
-# 🚀 Axion-HDL v0.1.0 - Initial Release
+# � Axion-HDL v0.1.1 - CDC Bug Fix Release
+
+**Automated AXI4-Lite Register Interface Generator for VHDL**
+
+## 🐛 Bug Fixes
+
+### CDC Implementation Fixed
+- **Critical**: Fixed missing CDC synchronization process in generated VHDL code
+- CDC sync signals were being declared but never actually used in previous version
+- Now properly implements 3-stage synchronization for cross-domain signals
+
+### Testbench Improvements  
+- Fixed deadlock issue in AXI write procedures where simultaneous `awready`/`wready` assertion caused simulation hang
+- Increased simulation time to allow all 40 requirement tests to complete
+
+## 📦 Installation
+
+```bash
+pip install axion-hdl==0.1.1
+```
+
+## 🔄 Upgrade
+
+```bash
+pip install --upgrade axion-hdl
+```
+
+## 📋 What's Changed
+
+- RO registers now properly sync from `module_clk` → `axi_aclk` domain
+- WO/RW registers now properly sync from `axi_aclk` → `module_clk` domain
+- All 40 requirement tests (24 AXION + 16 AXI-LITE) pass successfully
+
+---
+
+# Previous Release: v0.1.0
+
+# �🚀 Axion-HDL v0.1.0 - Initial Release
 
 **Automated AXI4-Lite Register Interface Generator for VHDL**
 

@@ -5,6 +5,26 @@ All notable changes to Axion-HDL will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2024-12-04
+
+### Fixed
+
+#### CDC Implementation
+- **CDC Synchronization Process**: Fixed missing CDC synchronization process in generated VHDL code. Previously, CDC sync signals were declared but never used.
+- **RO Register CDC**: Read-only registers now properly synchronize input signals through the CDC chain before being read by AXI
+- **WO/RW Register CDC**: Write-only and read-write register outputs now properly pass through CDC synchronization before reaching the module
+
+#### Testbench Improvements
+- **AXI Write Procedure Fix**: Fixed deadlock issue in testbench AXI write procedures where `awready` and `wready` could be asserted simultaneously but were being waited for sequentially
+- **Multiple Procedure Fixes**: Applied same fix to `axi_write_delayed_bready` and `axi_write_early_bready` procedures
+- **Simulation Time**: Increased default simulation stop-time from 100us to 20ms to allow all 40 tests to complete
+
+### Technical Details
+- Added `_generate_cdc_process()` method to generator for proper CDC synchronization
+- CDC now uses 3-stage synchronization by default (configurable via `CDC_STAGE`)
+- RO registers: `module_clk → axi_aclk` synchronization
+- WO/RW registers: `axi_aclk → module_clk` synchronization
+
 ## [0.1.0] - 2024-12-03
 
 ### Added
@@ -73,4 +93,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] SystemVerilog output
 - [ ] GUI interface
 
+[0.1.1]: https://github.com/bugratufan/axion-hdl/releases/tag/v0.1.1
 [0.1.0]: https://github.com/bugratufan/axion-hdl/releases/tag/v0.1.0
