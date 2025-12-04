@@ -157,7 +157,8 @@ class VHDLParser:
                 'relative_address_int': relative_addr,
                 'access_mode': attrs.get('access_mode', 'RW'),
                 'read_strobe': attrs.get('read_strobe', False),
-                'write_strobe': attrs.get('write_strobe', False)
+                'write_strobe': attrs.get('write_strobe', False),
+                'description': attrs.get('description', '')
             }
             
             registers.append(reg_data)

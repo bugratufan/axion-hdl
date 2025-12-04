@@ -156,7 +156,7 @@ Place at the top of VHDL file, near entity declaration:
 Place on the same line as signal declaration:
 
 ```vhdl
-signal my_reg : std_logic_vector(31 downto 0); -- @axion <MODE> [ADDR=<offset>] [R_STROBE] [W_STROBE]
+signal my_reg : std_logic_vector(31 downto 0); -- @axion <MODE> [ADDR=<offset>] [R_STROBE] [W_STROBE] [DESC="description"]
 ```
 
 | Parameter | Values | Description |
@@ -165,6 +165,15 @@ signal my_reg : std_logic_vector(31 downto 0); -- @axion <MODE> [ADDR=<offset>] 
 | `ADDR` | `0x00`-`0xFFFF` | Address offset (optional, auto-assigned if omitted) |
 | `R_STROBE` | flag | Generate read strobe signal |
 | `W_STROBE` | flag | Generate write strobe signal |
+| `DESC` | `"text"` | Register description (appears in documentation) |
+
+#### Examples with Description
+
+```vhdl
+signal status_reg : std_logic_vector(31 downto 0); -- @axion RO DESC="System status flags"
+signal control_reg : std_logic_vector(31 downto 0); -- @axion WO W_STROBE DESC="Main control register"
+signal config_reg : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x10 DESC="Configuration settings"
+```
 
 ### Access Modes
 

@@ -36,16 +36,16 @@ end entity sensor_controller;
 architecture rtl of sensor_controller is
 
     -- Read-Only Registers (Hardware writes, Software reads)
-    signal status_reg : std_logic_vector(31 downto 0); -- @axion RO
-    signal temperature_reg : std_logic_vector(31 downto 0); -- @axion RO R_STROBE
-    signal pressure_reg : std_logic_vector(31 downto 0); -- @axion RO R_STROBE ADDR=0x08
-    signal humidity_reg : std_logic_vector(31 downto 0); -- @axion RO
-    signal error_count_reg : std_logic_vector(31 downto 0); -- @axion RO
+    signal status_reg : std_logic_vector(31 downto 0); -- @axion RO DESC="System status flags"
+    signal temperature_reg : std_logic_vector(31 downto 0); -- @axion RO R_STROBE DESC="Temperature sensor reading"
+    signal pressure_reg : std_logic_vector(31 downto 0); -- @axion RO R_STROBE ADDR=0x08 DESC="Pressure sensor value"
+    signal humidity_reg : std_logic_vector(31 downto 0); -- @axion RO DESC="Humidity sensor value"
+    signal error_count_reg : std_logic_vector(31 downto 0); -- @axion RO DESC="Total error count"
     
     -- Write-Only Registers (Software writes, Hardware reads)
-    signal control_reg : std_logic_vector(31 downto 0); -- @axion WO W_STROBE
-    signal threshold_high_reg : std_logic_vector(31 downto 0); -- @axion WO
-    signal threshold_low_reg : std_logic_vector(31 downto 0); -- @axion WO ADDR=0x20
+    signal control_reg : std_logic_vector(31 downto 0); -- @axion WO W_STROBE DESC="Main control register"
+    signal threshold_high_reg : std_logic_vector(31 downto 0); -- @axion WO DESC="High threshold value"
+    signal threshold_low_reg : std_logic_vector(31 downto 0); -- @axion WO ADDR=0x20 DESC="Low threshold value"
     
     -- Read-Write Registers (Both can access)
     signal config_reg : std_logic_vector(31 downto 0); -- @axion RW

@@ -69,9 +69,10 @@ class DocGenerator:
             r_strobe = "✓" if reg['read_strobe'] else "-"
             w_strobe = "✓" if reg['write_strobe'] else "-"
             offset = reg.get('relative_address', reg['address'])
+            description = reg.get('description', '-')
             lines.append(
                 f"| {reg['address']} | {offset} | `{reg['signal_name']}` | {reg['signal_type']} | 32 | "
-                f"{reg['access_mode']} | {r_strobe} | {w_strobe} | - |"
+                f"{reg['access_mode']} | {r_strobe} | {w_strobe} | {description} |"
             )
         
         lines.extend([
@@ -82,6 +83,10 @@ class DocGenerator:
         
         for reg in module['registers']:
             lines.append(f"#### {reg['signal_name']}")
+            description = reg.get('description', '')
+            if description:
+                lines.append(f"*{description}*")
+                lines.append("")
             lines.append(f"- **Address:** {reg['address']}")
             offset = reg.get('relative_address', reg['address'])
             lines.append(f"- **Offset:** {offset}")
@@ -175,14 +180,19 @@ class CHeaderGenerator:
             offset_int = reg.get('relative_address_int', reg['address_int'])
             signal_width = self._get_signal_width(reg['signal_type'])
             num_regs = self._get_num_regs(signal_width)
+            description = reg.get('description', '')
             
             if num_regs == 1:
                 # Single 32-bit register
                 offset = reg.get('relative_address', reg['address'])
-                lines.append(f"#define {module_prefix}{reg_name_upper}_OFFSET    {offset}")
+                if description:
+                    lines.append(f"#define {module_prefix}{reg_name_upper}_OFFSET    {offset}  /* {description} */")
+                else:
+                    lines.append(f"#define {module_prefix}{reg_name_upper}_OFFSET    {offset}")
             else:
                 # Multi-register signal
-                lines.append(f"/* {reg['signal_name']} is {signal_width} bits wide, occupies {num_regs} registers */")
+                desc_suffix = f" - {description}" if description else ""
+                lines.append(f"/* {reg['signal_name']} is {signal_width} bits wide, occupies {num_regs} registers{desc_suffix} */")
                 for i in range(num_regs):
                     reg_offset = offset_int + (i * 4)
                     lines.append(f"#define {module_prefix}{reg_name_upper}_REG{i}_OFFSET    0x{reg_offset:02X}")
@@ -282,14 +292,16 @@ class CHeaderGenerator:
             offset = reg.get('relative_address', reg['address'])
             signal_width = self._get_signal_width(reg['signal_type'])
             num_regs = self._get_num_regs(signal_width)
+            description = reg.get('description', '')
+            desc_suffix = f" - {description}" if description else ""
             
             if num_regs == 1:
-                lines.append(f"    volatile uint32_t {reg['signal_name']};  /* {offset} - {reg['access_mode']} */")
+                lines.append(f"    volatile uint32_t {reg['signal_name']};  /* {offset} - {reg['access_mode']}{desc_suffix} */")
             else:
                 # Multi-register fields
                 for i in range(num_regs):
                     reg_offset_int = reg.get('relative_address_int', reg['address_int']) + (i * 4)
-                    lines.append(f"    volatile uint32_t {reg['signal_name']}_reg{i};  /* 0x{reg_offset_int:02X} - {reg['access_mode']} ({signal_width}-bit signal, part {i}) */")
+                    lines.append(f"    volatile uint32_t {reg['signal_name']}_reg{i};  /* 0x{reg_offset_int:02X} - {reg['access_mode']} ({signal_width}-bit signal, part {i}){desc_suffix} */")
         
         lines.extend([
             f"}} {module['name']}_regs_t;",
@@ -357,9 +369,14 @@ class XMLGenerator:
         # Registers
         for reg in module['registers']:
             offset = reg.get('relative_address', reg['address'])
+            description = reg.get('description', '')
             lines.extend([
                 '                <spirit:register>',
                 f'                    <spirit:name>{reg["signal_name"]}</spirit:name>',
+            ])
+            if description:
+                lines.append(f'                    <spirit:description>{description}</spirit:description>')
+            lines.extend([
                 f'                    <spirit:addressOffset>{offset}</spirit:addressOffset>',
                 '                    <spirit:size>32</spirit:size>',
                 f'                    <spirit:access>{self._get_xml_access(reg["access_mode"])}</spirit:access>',
