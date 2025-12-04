@@ -56,8 +56,12 @@ uninstall:
 # Testing
 #------------------------------------------------------------------------------
 
-## Run all tests (Python + C + VHDL)
-test: test-python test-address-conflict test-c test-vhdl
+## Run all tests with tabular results
+test:
+	@$(PYTHON) $(TESTS_DIR)/run_tests.py
+
+## Run all tests (legacy format)
+test-legacy: test-python test-address-conflict test-c test-vhdl
 	@echo ""
 	@echo "========================================"
 	@echo "  All tests completed successfully!"

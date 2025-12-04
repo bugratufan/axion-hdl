@@ -40,6 +40,9 @@ output/*
 axion_output/
 waveforms/*
 
+# Test results cache (TEST_RESULTS.md is tracked)
+.test_results/
+
 # Project-specific
 instructions/*
 
