@@ -79,6 +79,18 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         help='Output directory for generated files (default: ./axion_output)'
     )
     
+    parser.add_argument(
+        '-e', '--exclude',
+        action='append',
+        dest='excludes',
+        metavar='PATTERN',
+        default=[],
+        help='Exclude files or directories matching pattern. '
+             'Can be file names, directory names, or glob patterns. '
+             'Can be specified multiple times. '
+             'Examples: -e "error_cases" -e "*_tb.vhd"'
+    )
+    
     # Generation options
     gen_group = parser.add_argument_group('Generation Options')
     
@@ -139,6 +151,10 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     # Add source directories
     for src in args.sources:
         axion.add_src(src)
+    
+    # Add exclusion patterns
+    if args.excludes:
+        axion.exclude(*args.excludes)
     
     # Analyze VHDL files
     if not axion.analyze():

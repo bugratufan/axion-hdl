@@ -57,7 +57,7 @@ uninstall:
 #------------------------------------------------------------------------------
 
 ## Run all tests (Python + C + VHDL)
-test: test-python test-c test-vhdl
+test: test-python test-address-conflict test-c test-vhdl
 	@echo ""
 	@echo "========================================"
 	@echo "  All tests completed successfully!"
@@ -68,6 +68,12 @@ test-python:
 	@echo "Running Python tests..."
 	@$(PYTHON) $(TESTS_DIR)/python/test_axion.py
 	@echo "Python tests passed!"
+
+## Run address conflict detection tests
+test-address-conflict:
+	@echo "Running address conflict detection tests..."
+	@$(PYTHON) $(TESTS_DIR)/python/test_address_conflict.py
+	@echo "Address conflict detection tests passed!"
 
 ## Run C header tests (requires gcc)
 test-c: generate
@@ -118,6 +124,7 @@ generate:
 from axion_hdl import AxionHDL; \
 axion = AxionHDL(output_dir='$(OUTPUT_DIR)'); \
 axion.add_src('$(TESTS_DIR)/vhdl'); \
+axion.exclude('error_cases'); \
 axion.analyze(); \
 axion.generate_all()"
 	@echo "Generation complete. Files in $(OUTPUT_DIR)/"
@@ -130,6 +137,7 @@ generate-vhdl:
 from axion_hdl import AxionHDL; \
 axion = AxionHDL(output_dir='$(OUTPUT_DIR)'); \
 axion.add_src('$(TESTS_DIR)/vhdl'); \
+axion.exclude('error_cases'); \
 axion.analyze(); \
 axion.generate_vhdl()"
 
@@ -141,6 +149,7 @@ generate-headers:
 from axion_hdl import AxionHDL; \
 axion = AxionHDL(output_dir='$(OUTPUT_DIR)'); \
 axion.add_src('$(TESTS_DIR)/vhdl'); \
+axion.exclude('error_cases'); \
 axion.analyze(); \
 axion.generate_c_header()"
 
@@ -152,6 +161,7 @@ generate-docs:
 from axion_hdl import AxionHDL; \
 axion = AxionHDL(output_dir='$(OUTPUT_DIR)'); \
 axion.add_src('$(TESTS_DIR)/vhdl'); \
+axion.exclude('error_cases'); \
 axion.analyze(); \
 axion.generate_documentation(); \
 axion.generate_xml()"

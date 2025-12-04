@@ -54,6 +54,7 @@ class AxionHDL:
         self.output_dir = os.path.abspath(output_dir)
         self.analyzed_modules = []
         self.is_analyzed = False
+        self._exclude_patterns = set()
         
     def set_output_dir(self, dir_path):
         """
@@ -64,6 +65,56 @@ class AxionHDL:
         """
         self.output_dir = os.path.abspath(dir_path)
         print(f"Output directory set to: {self.output_dir}")
+    
+    def exclude(self, *patterns):
+        """
+        Exclude files or directories from parsing.
+        
+        Patterns can be:
+        - File names: "address_conflict_test.vhd"
+        - Directory names: "error_cases", "testbenches"
+        - Glob patterns: "test_*.vhd", "*_tb.vhd"
+        - Multiple patterns at once
+        
+        Args:
+            *patterns: One or more patterns to exclude
+            
+        Example:
+            axion.exclude("error_cases")
+            axion.exclude("*_tb.vhd", "test_*.vhd")
+            axion.exclude("debug_module.vhd", "deprecated")
+        """
+        for pattern in patterns:
+            self._exclude_patterns.add(pattern)
+            print(f"Exclusion added: {pattern}")
+            
+    def include(self, *patterns):
+        """
+        Remove exclusion patterns (re-include previously excluded items).
+        
+        Args:
+            *patterns: One or more patterns to remove from exclusions
+        """
+        for pattern in patterns:
+            if pattern in self._exclude_patterns:
+                self._exclude_patterns.discard(pattern)
+                print(f"Exclusion removed: {pattern}")
+            else:
+                print(f"Pattern not in exclusions: {pattern}")
+                
+    def clear_excludes(self):
+        """Clear all exclusion patterns."""
+        self._exclude_patterns.clear()
+        print("All exclusions cleared.")
+        
+    def list_excludes(self):
+        """List all current exclusion patterns."""
+        if self._exclude_patterns:
+            print("Exclusion patterns:")
+            for pattern in sorted(self._exclude_patterns):
+                print(f"  - {pattern}")
+        else:
+            print("No exclusion patterns defined.")
         
     def add_src(self, dir_path):
         """
@@ -95,6 +146,9 @@ class AxionHDL:
         """
         Analyze all VHDL files in source directories and parse @axion annotations.
         This must be called before any generation functions.
+        
+        Files and directories matching exclusion patterns will be skipped.
+        Use exclude() to add patterns before calling analyze().
         """
         if not self.src_dirs:
             print("Error: No source directories added. Use add_src() first.")
@@ -104,8 +158,17 @@ class AxionHDL:
         print("Starting analysis of VHDL files...")
         print(f"{'='*60}")
         
+        # Show exclusions if any
+        if self._exclude_patterns:
+            print(f"Excluding: {', '.join(sorted(self._exclude_patterns))}")
+        
         # Parse VHDL files
         parser = VHDLParser()
+        
+        # Apply exclusion patterns
+        for pattern in self._exclude_patterns:
+            parser.add_exclude(pattern)
+            
         self.analyzed_modules = parser.parse_vhdl_files(self.src_dirs)
         self.is_analyzed = True
         

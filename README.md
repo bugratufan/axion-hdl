@@ -96,6 +96,9 @@ axion-hdl -s ./rtl -o ./generated --vhdl --c-header
 # Multiple source directories
 axion-hdl -s ./src -s ./ip -o ./output
 
+# Exclude specific files or directories
+axion-hdl -s ./src -o ./output -e "testbenches" -e "*_tb.vhd"
+
 # Show version
 axion-hdl --version
 ```
@@ -111,6 +114,11 @@ axion = AxionHDL(output_dir="./output")
 # Add source directories
 axion.add_src("./src")
 
+# Exclude files or directories (optional)
+axion.exclude("testbenches")        # Exclude directory
+axion.exclude("*_tb.vhd")           # Exclude testbench files
+axion.exclude("debug_module.vhd")   # Exclude specific file
+
 # Analyze VHDL files
 axion.analyze()
 
@@ -122,6 +130,31 @@ axion.generate_vhdl()
 axion.generate_c_header()
 axion.generate_xml()
 axion.generate_documentation()
+```
+
+#### Exclusion Patterns
+
+The `exclude()` method supports various pattern types:
+
+| Pattern Type | Example | Description |
+|--------------|---------|-------------|
+| File name | `"test.vhd"` | Exclude specific file |
+| Directory | `"testbenches"` | Exclude entire directory |
+| Glob pattern | `"*_tb.vhd"` | Exclude files matching pattern |
+| Multiple | `"test_*.vhd"` | Wildcard patterns |
+
+```python
+# Multiple exclusions at once
+axion.exclude("error_cases", "*_tb.vhd", "deprecated")
+
+# Remove exclusion
+axion.include("deprecated")
+
+# List current exclusions
+axion.list_excludes()
+
+# Clear all exclusions
+axion.clear_excludes()
 ```
 
 ### 3. Generated Outputs

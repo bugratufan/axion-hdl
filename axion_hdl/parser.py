@@ -7,7 +7,8 @@ Uses axion_hdl for reusable utilities.
 
 import os
 import re
-from typing import Dict, List, Optional, Tuple
+import fnmatch
+from typing import Dict, List, Optional, Tuple, Set
 
 # Import from axion_hdl (unified package)
 from axion_hdl.address_manager import AddressManager
@@ -24,6 +25,69 @@ class VHDLParser:
         self.axion_signal_pattern = re.compile(
             r'signal\s+(\w+)\s*:\s*([^;]+);\s*--\s*@axion\s+(.+)'
         )
+        # Exclusion patterns (files, directories, or glob patterns)
+        self.exclude_patterns: Set[str] = set()
+        
+    def add_exclude(self, pattern: str):
+        """
+        Add an exclusion pattern.
+        
+        Patterns can be:
+        - File names: "address_conflict_test.vhd"
+        - Directory names: "error_cases"
+        - Glob patterns: "test_*.vhd", "*_tb.vhd"
+        - Path patterns: "tests/error_cases/*"
+        
+        Args:
+            pattern: Pattern to exclude from parsing
+        """
+        self.exclude_patterns.add(pattern)
+        
+    def remove_exclude(self, pattern: str):
+        """Remove an exclusion pattern."""
+        self.exclude_patterns.discard(pattern)
+        
+    def clear_excludes(self):
+        """Clear all exclusion patterns."""
+        self.exclude_patterns.clear()
+        
+    def list_excludes(self) -> List[str]:
+        """Return list of exclusion patterns."""
+        return sorted(list(self.exclude_patterns))
+        
+    def _is_excluded(self, filepath: str) -> bool:
+        """
+        Check if a file path matches any exclusion pattern.
+        
+        Args:
+            filepath: Full path to the file
+            
+        Returns:
+            True if file should be excluded, False otherwise
+        """
+        if not self.exclude_patterns:
+            return False
+            
+        # Get various forms of the path for matching
+        filename = os.path.basename(filepath)
+        dirname = os.path.dirname(filepath)
+        dir_basename = os.path.basename(dirname)
+        
+        for pattern in self.exclude_patterns:
+            # Check filename match
+            if fnmatch.fnmatch(filename, pattern):
+                return True
+            # Check if pattern matches directory name
+            if fnmatch.fnmatch(dir_basename, pattern):
+                return True
+            # Check if pattern is in the full path
+            if pattern in filepath:
+                return True
+            # Check full path glob match
+            if fnmatch.fnmatch(filepath, f"*{pattern}*"):
+                return True
+                
+        return False
         
     def parse_vhdl_files(self, source_dirs: List[str]) -> List[Dict]:
         """
@@ -41,6 +105,10 @@ class VHDLParser:
             vhdl_files = self._find_vhdl_files(src_dir)
             
             for vhdl_file in vhdl_files:
+                # Check exclusions
+                if self._is_excluded(vhdl_file):
+                    continue
+                    
                 module_data = self._parse_vhdl_file(vhdl_file)
                 if module_data and module_data['registers']:
                     modules.append(module_data)
@@ -48,9 +116,12 @@ class VHDLParser:
         return modules
     
     def _find_vhdl_files(self, directory: str) -> List[str]:
-        """Find all VHDL files in directory."""
+        """Find all VHDL files in directory (recursive)."""
         vhdl_files = []
-        for root, _, files in os.walk(directory):
+        for root, dirs, files in os.walk(directory):
+            # Filter out excluded directories to prevent descending into them
+            dirs[:] = [d for d in dirs if not self._is_excluded(os.path.join(root, d))]
+            
             for file in files:
                 if file.endswith(('.vhd', '.vhdl')):
                     vhdl_files.append(os.path.join(root, file))
@@ -74,7 +145,7 @@ class VHDLParser:
         cdc_enabled, cdc_stages, base_address = self._parse_axion_def(content)
         
         # Parse signal annotations with base_address offset
-        registers = self._parse_signal_annotations(content, base_address)
+        registers = self._parse_signal_annotations(content, base_address, entity_name)
         
         if not registers:
             return None
@@ -108,16 +179,17 @@ class VHDLParser:
             
         return cdc_enabled, cdc_stages, base_address
     
-    def _parse_signal_annotations(self, content: str, base_address: int = 0x00) -> List[Dict]:
+    def _parse_signal_annotations(self, content: str, base_address: int = 0x00, module_name: str = "") -> List[Dict]:
         """
         Parse all @axion signal annotations.
         
         Args:
             content: VHDL file content
             base_address: Base address offset to add to all register addresses
+            module_name: Name of the module (for error messages)
         """
         registers = []
-        addr_mgr = AddressManager(start_addr=0x00, alignment=4)
+        addr_mgr = AddressManager(start_addr=0x00, alignment=4, module_name=module_name)
         
         for match in self.axion_signal_pattern.finditer(content):
             signal_name = match.group(1)
@@ -140,9 +212,9 @@ class VHDLParser:
             # Allocate relative address (with signal width for proper spacing)
             manual_addr = attrs.get('address')
             if manual_addr is not None:
-                relative_addr = addr_mgr.allocate_address(manual_addr, signal_width)
+                relative_addr = addr_mgr.allocate_address(manual_addr, signal_width, signal_name)
             else:
-                relative_addr = addr_mgr.allocate_address(signal_width=signal_width)
+                relative_addr = addr_mgr.allocate_address(signal_width=signal_width, signal_name=signal_name)
             
             # Add base address offset to get absolute address
             absolute_addr = base_address + relative_addr

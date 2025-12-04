@@ -33,6 +33,10 @@ def main():
     print("\n[2] Adding source directories...")
     axion.add_src(tests_vhdl_dir)
     
+    # Exclude error test cases (intentionally broken files for testing)
+    print("\n[2.1] Excluding error test cases...")
+    axion.exclude("error_cases")
+    
     # List all added source directories
     print("\n[3] Source directories:")
     axion.list_src()

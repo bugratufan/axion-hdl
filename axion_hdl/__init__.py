@@ -29,7 +29,7 @@ Repository: https://github.com/bugratufan/axion-hdl
 """
 
 # Import core classes for convenient access
-from .address_manager import AddressManager
+from .address_manager import AddressManager, AddressConflictError
 from .vhdl_utils import VHDLUtils
 from .annotation_parser import AnnotationParser
 from .code_formatter import CodeFormatter
@@ -46,16 +46,17 @@ __license__ = "MIT"
 
 # Public API - classes exposed when using 'from axion_hdl import *'
 __all__ = [
-    'AxionHDL',          # Main interface class
-    'AddressManager',     # Address allocation and management
-    'VHDLUtils',          # VHDL parsing utilities
-    'AnnotationParser',   # @axion annotation parser
-    'CodeFormatter',      # Code formatting utilities
-    'VHDLParser',         # VHDL file parser
-    'VHDLGenerator',      # VHDL code generator
-    'DocGenerator',       # Documentation generator
-    'CHeaderGenerator',   # C header file generator
-    'XMLGenerator',       # XML register map generator
+    'AxionHDL',              # Main interface class
+    'AddressManager',        # Address allocation and management
+    'AddressConflictError',  # Exception for address conflicts
+    'VHDLUtils',             # VHDL parsing utilities
+    'AnnotationParser',      # @axion annotation parser
+    'CodeFormatter',         # Code formatting utilities
+    'VHDLParser',            # VHDL file parser
+    'VHDLGenerator',         # VHDL code generator
+    'DocGenerator',          # Documentation generator
+    'CHeaderGenerator',      # C header file generator
+    'XMLGenerator',          # XML register map generator
     '__version__',
     '__author__',
     '__email__',
