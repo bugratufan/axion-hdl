@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  python-tests:
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -21,15 +21,20 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     
+    - name: Install GHDL
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ghdl
+    
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -e .
         pip install pytest pytest-cov
     
-    - name: Run Python tests
+    - name: Run all tests
       run: |
-        pytest tests/python/ -v --cov=axion_hdl --cov-report=xml
+        make test
     
     - name: Upload coverage to Codecov
       if: matrix.python-version == '3.11'
@@ -37,35 +42,6 @@ jobs:
       with:
         file: ./coverage.xml
         fail_ci_if_error: false
-
-  vhdl-tests:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Install GHDL
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ghdl
-    
-    - name: Install axion-hdl
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e .
-    
-    - name: Generate VHDL outputs
-      run: |
-        axion-hdl -s tests/vhdl -o output --all
-    
-    - name: Run VHDL tests
-      run: |
-        make test-vhdl
 
   lint:
     runs-on: ubuntu-latest
