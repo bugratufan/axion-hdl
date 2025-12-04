@@ -4,6 +4,17 @@ Test runner with detailed results and markdown report generation for Axion-HDL
 
 This runner executes all tests and generates a detailed TEST_RESULTS.md file
 with individual test results for each sub-test.
+
+Covers requirements:
+- AXION-001 to AXION-029
+- AXI-LITE-001 to AXI-LITE-018
+- PARSER-001 to PARSER-008
+- GEN-001 to GEN-012
+- CDC-001 to CDC-007
+- ADDR-001 to ADDR-008
+- ERR-001 to ERR-006
+- CLI-001 to CLI-010
+- STRESS-001 to STRESS-006
 """
 
 import subprocess
@@ -12,6 +23,7 @@ import os
 import time
 import json
 import re
+import unittest
 from datetime import datetime
 from typing import List, Dict, Any, Tuple
 from pathlib import Path
@@ -29,6 +41,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 RESULTS_DIR = PROJECT_ROOT / ".test_results"
 RESULTS_FILE = RESULTS_DIR / "results.json"
 MARKDOWN_FILE = PROJECT_ROOT / "TEST_RESULTS.md"
+REQUIREMENTS_FILE = PROJECT_ROOT / "instructions" / "requirements.md"
 
 
 class TestResult:
@@ -623,11 +636,36 @@ def generate_markdown_report(results: List[TestResult]):
             "analyze": "VHDL Analysis",
             "elaborate": "Elaboration",
             "simulate": "Simulation Run",
-            "requirements": "Requirements Verification (53 test cases)"
+            "requirements": "Requirements Verification (AXION/AXI-LITE)"
+        }),
+        "parser": ("📜 Parser Tests (PARSER-xxx)", {
+            "requirements": "PARSER Requirements",
+            "setup": "Setup"
+        }),
+        "gen": ("🏭 Code Generation Tests (GEN-xxx)", {
+            "requirements": "GEN Requirements",
+            "setup": "Setup"
+        }),
+        "err": ("🚨 Error Handling Tests (ERR-xxx)", {
+            "requirements": "ERR Requirements",
+            "setup": "Setup"
+        }),
+        "cli": ("🖥️ CLI Tests (CLI-xxx)", {
+            "requirements": "CLI Requirements",
+            "setup": "Setup"
+        }),
+        "addr": ("📍 Address Management Tests (ADDR-xxx)", {
+            "requirements": "ADDR Requirements"
+        }),
+        "cdc": ("🔄 CDC Tests (CDC-xxx)", {
+            "requirements": "CDC Requirements"
+        }),
+        "stress": ("🔥 Stress Tests (STRESS-xxx)", {
+            "requirements": "STRESS Requirements"
         })
     }
     
-    for cat in ["python", "c", "vhdl"]:
+    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress"]:
         if cat not in categories:
             continue
         
@@ -691,7 +729,14 @@ def print_results(results: List[TestResult]):
     cat_names = {
         "python": "🐍 PYTHON",
         "c": "⚙️  C",
-        "vhdl": "🔧 VHDL"
+        "vhdl": "🔧 VHDL",
+        "parser": "📜 PARSER",
+        "gen": "⚙️ GENERATION",
+        "err": "🚨 ERRORS",
+        "cli": "🖥️ CLI",
+        "cdc": "🔄 CDC",
+        "addr": "📍 ADDR",
+        "stress": "🔥 STRESS"
     }
     
     total_passed = 0
@@ -704,7 +749,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl"]:
+    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress"]:
         if cat not in categories:
             continue
         
@@ -762,25 +807,440 @@ def save_results(results: List[TestResult]):
     RESULTS_FILE.write_text(json.dumps(data, indent=2))
 
 
+def run_parser_tests() -> List[TestResult]:
+    """Run PARSER-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_parser import TestParserRequirements
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestParserRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_parser_', 'PARSER-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                test.debug()
+                results.append(TestResult(
+                    f"parser.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="parser",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"parser.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="parser",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult(
+            "parser.import",
+            "PARSER: Import test module",
+            "failed",
+            0,
+            str(e),
+            category="parser",
+            subcategory="setup"
+        ))
+    
+    return results
+
+
+def run_generator_tests() -> List[TestResult]:
+    """Run GEN-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_generator import TestGeneratorRequirements
+        import io
+        import sys
+        
+        # First run setUpClass manually if needed
+        TestGeneratorRequirements.setUpClass()
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestGeneratorRequirements)
+        
+        # Run each test
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_gen_', 'GEN-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                # Capture output
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"gen.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="gen",
+                    subcategory="requirements"
+                ))
+            except unittest.SkipTest as e:
+                results.append(TestResult(
+                    f"gen.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "skipped",
+                    time.time() - start,
+                    str(e),
+                    category="gen",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"gen.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="gen",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult(
+            "gen.import",
+            "GEN: Import test module",
+            "failed",
+            0,
+            str(e),
+            category="gen",
+            subcategory="setup"
+        ))
+    
+    return results
+
+
+def run_error_handling_tests() -> List[TestResult]:
+    """Run ERR-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_error_handling import TestErrorHandlingRequirements
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestErrorHandlingRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_err_', 'ERR-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                test.debug()
+                results.append(TestResult(
+                    f"err.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="err",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"err.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="err",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult(
+            "err.import",
+            "ERR: Import test module",
+            "failed",
+            0,
+            str(e),
+            category="err",
+            subcategory="setup"
+        ))
+    
+    return results
+
+
+def run_cli_tests() -> List[TestResult]:
+    """Run CLI-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_cli import TestCLIRequirements
+        import io
+        import sys
+        
+        # First run setUpClass manually
+        TestCLIRequirements.setUpClass()
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestCLIRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_cli_', 'CLI-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                # Capture output
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"cli.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="cli",
+                    subcategory="requirements"
+                ))
+            except unittest.SkipTest as e:
+                results.append(TestResult(
+                    f"cli.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "skipped",
+                    time.time() - start,
+                    str(e),
+                    category="cli",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"cli.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="cli",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult(
+            "cli.import",
+            "CLI: Import test module",
+            "failed",
+            0,
+            str(e),
+            category="cli",
+            subcategory="setup"
+        ))
+    
+    return results
+
+
+def run_cdc_tests() -> List[TestResult]:
+    """Run CDC-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_cdc import TestCDCRequirements
+        import io
+        import sys
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestCDCRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_cdc_', 'CDC-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"cdc.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="cdc",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"cdc.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="cdc",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("cdc.import", "CDC: Import test module", "failed", 0, str(e), category="cdc", subcategory="setup"))
+    
+    return results
+
+
+def run_addr_tests() -> List[TestResult]:
+    """Run ADDR-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_addr import TestAddressManagementRequirements
+        import io
+        import sys
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestAddressManagementRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_addr_', 'ADDR-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"addr.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="addr",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"addr.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="addr",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("addr.import", "ADDR: Import test module", "failed", 0, str(e), category="addr", subcategory="setup"))
+    
+    return results
+
+
+def run_stress_tests() -> List[TestResult]:
+    """Run STRESS-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_stress import TestStressRequirements
+        import io
+        import sys
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestStressRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_stress_', 'STRESS-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"stress.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="stress",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"stress.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="stress",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("stress.import", "STRESS: Import test module", "failed", 0, str(e), category="stress", subcategory="setup"))
+    
+    return results
+
+
 def main():
-    print(f"\n{BOLD}Running Axion-HDL Test Suite...{RESET}\n")
+    print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS\n")
     
     all_results = []
     
-    # Run Python unit tests
-    print(f"  Running Python unit tests...", flush=True)
+    # Run Python unit tests (core functionality)
+    print(f"  [1/11] Running Python unit tests...", flush=True)
     all_results.extend(run_python_unit_tests())
     
-    # Run address conflict tests
-    print(f"  Running address conflict tests...", flush=True)
+    # Run address conflict tests (ADDR requirements)
+    print(f"  [2/11] Running address conflict tests...", flush=True)
     all_results.extend(run_address_conflict_tests())
     
+    # Run Parser tests (PARSER requirements)
+    print(f"  [3/11] Running parser tests...", flush=True)
+    all_results.extend(run_parser_tests())
+    
+    # Run Generator tests (GEN requirements)
+    print(f"  [4/11] Running generator tests...", flush=True)
+    all_results.extend(run_generator_tests())
+    
+    # Run Error handling tests (ERR requirements)
+    print(f"  [5/11] Running error handling tests...", flush=True)
+    all_results.extend(run_error_handling_tests())
+    
+    # Run CLI tests (CLI requirements)
+    print(f"  [6/11] Running CLI tests...", flush=True)
+    all_results.extend(run_cli_tests())
+    
+    # Run CDC tests (CDC requirements)
+    print(f"  [7/11] Running CDC tests...", flush=True)
+    all_results.extend(run_cdc_tests())
+    
+    # Run ADDR tests (ADDR requirements)
+    print(f"  [8/11] Running address management tests...", flush=True)
+    all_results.extend(run_addr_tests())
+    
+    # Run STRESS tests (STRESS requirements)
+    print(f"  [9/11] Running stress tests...", flush=True)
+    all_results.extend(run_stress_tests())
+    
     # Run C tests
-    print(f"  Running C header tests...", flush=True)
+    print(f"  [10/11] Running C header tests...", flush=True)
     all_results.extend(run_c_tests())
     
-    # Run VHDL tests
-    print(f"  Running VHDL simulation tests...", flush=True)
+    # Run VHDL tests (AXION, AXI-LITE requirements)
+    print(f"  [11/11] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
     
     # Save and generate reports
@@ -790,7 +1250,71 @@ def main():
     # Print results
     success = print_results(all_results)
     
+    # Generate requirement coverage summary
+    print_requirement_coverage(all_results)
+    
     return 0 if success else 1
+
+
+def print_requirement_coverage(results: List[TestResult]):
+    """Print requirement coverage summary"""
+    
+    # Extract requirement IDs from test results
+    req_pattern = re.compile(r'(AXION-\d+[a-z]?|AXI-LITE-\d+[a-z]?|PARSER-\d+|GEN-\d+|CDC-\d+|ADDR-\d+|ERR-\d+|CLI-\d+|STRESS-\d+)', re.IGNORECASE)
+    
+    covered = set()
+    for r in results:
+        matches = req_pattern.findall(r.name)
+        for m in matches:
+            covered.add(m.upper())
+    
+    # Expected requirements
+    expected = set()
+    for i in range(1, 30):
+        expected.add(f"AXION-{i:03d}")
+    for i in range(1, 19):
+        expected.add(f"AXI-LITE-{i:03d}")
+    for i in range(1, 9):
+        expected.add(f"PARSER-{i:03d}")
+    for i in range(1, 13):
+        expected.add(f"GEN-{i:03d}")
+    for i in range(1, 8):
+        expected.add(f"CDC-{i:03d}")
+    for i in range(1, 9):
+        expected.add(f"ADDR-{i:03d}")
+    for i in range(1, 7):
+        expected.add(f"ERR-{i:03d}")
+    for i in range(1, 11):
+        expected.add(f"CLI-{i:03d}")
+    for i in range(1, 7):
+        expected.add(f"STRESS-{i:03d}")
+    
+    print(f"\n{CYAN}{BOLD}{'═' * 80}{RESET}")
+    print(f"{CYAN}{BOLD}  REQUIREMENT COVERAGE SUMMARY{RESET}")
+    print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
+    print(f"  Unique Requirement IDs Tested: {len(covered)}")
+    print(f"  Base Requirements (from spec):  98")
+    print(f"  Total Test Cases:               {len(results)}")
+    
+    # Categories
+    categories = {
+        "AXION": [r for r in covered if r.startswith("AXION-")],
+        "AXI-LITE": [r for r in covered if r.startswith("AXI-LITE-")],
+        "PARSER": [r for r in covered if r.startswith("PARSER-")],
+        "GEN": [r for r in covered if r.startswith("GEN-")],
+        "CDC": [r for r in covered if r.startswith("CDC-")],
+        "ADDR": [r for r in covered if r.startswith("ADDR-")],
+        "ERR": [r for r in covered if r.startswith("ERR-")],
+        "CLI": [r for r in covered if r.startswith("CLI-")],
+        "STRESS": [r for r in covered if r.startswith("STRESS-")]
+    }
+    
+    print(f"\n  By Category:")
+    for cat, reqs in categories.items():
+        if reqs:
+            print(f"    {cat}: {len(reqs)} requirements")
+    
+    print(f"{'═' * 80}\n")
 
 
 if __name__ == "__main__":

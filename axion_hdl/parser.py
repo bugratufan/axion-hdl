@@ -27,6 +27,75 @@ class VHDLParser:
         )
         # Exclusion patterns (files, directories, or glob patterns)
         self.exclude_patterns: Set[str] = set()
+    
+    def parse_file(self, filepath: str) -> Optional[Dict]:
+        """
+        Parse a single VHDL file and return structured data.
+        
+        Public API for parsing individual files.
+        
+        Args:
+            filepath: Path to the VHDL file
+            
+        Returns:
+            Dictionary with parsed data or None if no valid data found.
+            Keys:
+                - entity_name: Name of the VHDL entity
+                - signals: List of signal dictionaries with:
+                    - name: Signal name
+                    - width: Signal bit width  
+                    - access: Access mode (RO, RW, WO)
+                    - address: Integer address
+                    - r_strobe: Read strobe flag
+                    - w_strobe: Write strobe flag
+                    - description: Signal description
+                - base_addr: Base address for the module
+                - cdc_en: CDC enabled flag
+                - cdc_stage: CDC stage count
+        """
+        result = self._parse_vhdl_file(filepath)
+        if result is None:
+            return None
+            
+        # Convert internal format to test-friendly format
+        signals = []
+        for reg in result.get('registers', []):
+            sig = {
+                'name': reg.get('signal_name', ''),
+                'width': self._extract_width(reg.get('signal_type', '')),
+                'access': reg.get('access_mode', 'RW'),
+                'address': reg.get('relative_address_int', 0),
+                'r_strobe': reg.get('read_strobe', False),
+                'w_strobe': reg.get('write_strobe', False),
+                'description': reg.get('description', '')
+            }
+            signals.append(sig)
+        
+        return {
+            'entity_name': result.get('name'),
+            'signals': signals,
+            'base_addr': result.get('base_address', 0),
+            'cdc_en': result.get('cdc_enabled', False),
+            'cdc_stage': result.get('cdc_stages', 2)
+        }
+    
+    def _extract_width(self, signal_type: str) -> int:
+        """Extract bit width from signal type string."""
+        if signal_type == 'std_logic' or signal_type == '[0:0]':
+            return 1
+        # Match [high:low] format
+        match = re.search(r'\[(\d+):(\d+)\]', signal_type)
+        if match:
+            high = int(match.group(1))
+            low = int(match.group(2))
+            return high - low + 1
+        # Match (high downto low) format
+        match = re.search(r'\((\d+)\s+downto\s+(\d+)\)', signal_type)
+        if match:
+            high = int(match.group(1))
+            low = int(match.group(2))
+            return high - low + 1
+        return 32  # Default width
         
     def add_exclude(self, pattern: str):
         """

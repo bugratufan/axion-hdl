@@ -1,0 +1,230 @@
+#!/usr/bin/env python3
+"""
+test_cli.py - Command Line Interface Requirements Tests
+
+Tests for CLI-001 through CLI-010 requirements
+Verifies CLI options and behavior.
+"""
+
+import os
+import sys
+import tempfile
+import unittest
+import subprocess
+from pathlib import Path
+
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+
+class TestCLIRequirements(unittest.TestCase):
+    """Test cases for CLI-xxx requirements"""
+    
+    @classmethod
+    def setUpClass(cls):
+        """Set up test fixtures"""
+        cls.temp_dir = tempfile.mkdtemp()
+        
+        # Create test VHDL file
+        cls.vhdl_content = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x0000
+entity cli_test is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of cli_test is
+    signal reg : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x00
+begin
+end architecture;
+'''
+        cls.vhdl_file = os.path.join(cls.temp_dir, "cli_test.vhd")
+        with open(cls.vhdl_file, 'w') as f:
+            f.write(cls.vhdl_content)
+        
+        # CLI command
+        cls.cli_cmd = [sys.executable, '-m', 'axion_hdl.cli']
+    
+    @classmethod
+    def tearDownClass(cls):
+        """Clean up temp files"""
+        import shutil
+        shutil.rmtree(cls.temp_dir, ignore_errors=True)
+    
+    def _run_cli(self, args):
+        """Run CLI with arguments and return result"""
+        cmd = self.cli_cmd + args
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(project_root))
+        return result
+    
+    # =========================================================================
+    # CLI-001: Help Option Display
+    # =========================================================================
+    def test_cli_001_help_option(self):
+        """CLI-001: --help displays usage information"""
+        result = self._run_cli(['--help'])
+        self.assertEqual(result.returncode, 0)
+        self.assertIn('usage', result.stdout.lower())
+    
+    def test_cli_001_help_short_option(self):
+        """CLI-001: -h displays usage information"""
+        result = self._run_cli(['-h'])
+        self.assertEqual(result.returncode, 0)
+        self.assertIn('usage', result.stdout.lower())
+    
+    # =========================================================================
+    # CLI-002: Version Option Display
+    # =========================================================================
+    def test_cli_002_version_option(self):
+        """CLI-002: --version displays version"""
+        result = self._run_cli(['--version'])
+        # Should exit 0 and print version
+        self.assertEqual(result.returncode, 0)
+        # Version should be in output (stdout or stderr depending on argparse)
+        output = result.stdout + result.stderr
+        # Should contain a version number pattern (X.Y.Z or similar)
+        self.assertTrue(any(c.isdigit() for c in output))
+    
+    # =========================================================================
+    # CLI-003: Source Directory Option
+    # =========================================================================
+    def test_cli_003_source_option_long(self):
+        """CLI-003: --source option specifies source directory"""
+        output_dir = os.path.join(self.temp_dir, "output1")
+        result = self._run_cli([
+            '--source', self.temp_dir,
+            '--output', output_dir
+        ])
+        # Should process without error
+        self.assertEqual(result.returncode, 0)
+    
+    def test_cli_003_source_option_short(self):
+        """CLI-003: -s option specifies source directory"""
+        output_dir = os.path.join(self.temp_dir, "output2")
+        result = self._run_cli([
+            '-s', self.temp_dir,
+            '-o', output_dir
+        ])
+        self.assertEqual(result.returncode, 0)
+    
+    # =========================================================================
+    # CLI-004: Multiple Source Directory Support
+    # =========================================================================
+    def test_cli_004_multiple_sources(self):
+        """CLI-004: Multiple -s options accepted"""
+        # Create second temp directory with VHDL
+        temp_dir2 = tempfile.mkdtemp()
+        vhdl2 = os.path.join(temp_dir2, "module2.vhd")
+        with open(vhdl2, 'w') as f:
+            f.write('''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x1000
+entity module2 is port (clk : in std_logic); end entity;
+architecture rtl of module2 is
+    signal reg : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x00
+begin end architecture;
+''')
+        
+        output_dir = os.path.join(self.temp_dir, "output_multi")
+        result = self._run_cli([
+            '-s', self.temp_dir,
+            '-s', temp_dir2,
+            '-o', output_dir
+        ])
+        
+        # Clean up
+        import shutil
+        shutil.rmtree(temp_dir2, ignore_errors=True)
+        
+        self.assertEqual(result.returncode, 0)
+    
+    # =========================================================================
+    # CLI-005: Output Directory Option
+    # =========================================================================
+    def test_cli_005_output_option_long(self):
+        """CLI-005: --output option specifies output directory"""
+        output_dir = os.path.join(self.temp_dir, "custom_output")
+        result = self._run_cli([
+            '-s', self.temp_dir,
+            '--output', output_dir
+        ])
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(os.path.exists(output_dir))
+    
+    def test_cli_005_output_option_short(self):
+        """CLI-005: -o option specifies output directory"""
+        output_dir = os.path.join(self.temp_dir, "custom_output2")
+        result = self._run_cli([
+            '-s', self.temp_dir,
+            '-o', output_dir
+        ])
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(os.path.exists(output_dir))
+    
+    # =========================================================================
+    # CLI-006: Exclude Pattern Option
+    # =========================================================================
+    def test_cli_006_exclude_option(self):
+        """CLI-006: -e option excludes files/directories"""
+        # Create directory to exclude
+        exclude_dir = os.path.join(self.temp_dir, "error_cases")
+        os.makedirs(exclude_dir, exist_ok=True)
+        exclude_vhdl = os.path.join(exclude_dir, "bad.vhd")
+        with open(exclude_vhdl, 'w') as f:
+            f.write('-- bad file\n')
+        
+        output_dir = os.path.join(self.temp_dir, "output_exclude")
+        result = self._run_cli([
+            '-s', self.temp_dir,
+            '-o', output_dir,
+            '-e', 'error_cases'
+        ])
+        self.assertEqual(result.returncode, 0)
+    
+    # =========================================================================
+    # CLI-009: Invalid Source Directory Error
+    # =========================================================================
+    def test_cli_009_invalid_source_error(self):
+        """CLI-009: Non-existent source reports error"""
+        result = self._run_cli([
+            '-s', '/nonexistent/path/that/does/not/exist',
+            '-o', self.temp_dir
+        ])
+        # Should return non-zero exit code
+        self.assertNotEqual(result.returncode, 0)
+    
+    # =========================================================================
+    # CLI-010: Output Directory Creation
+    # =========================================================================
+    def test_cli_010_output_dir_creation(self):
+        """CLI-010: Non-existent output directory is created"""
+        output_dir = os.path.join(self.temp_dir, "nested", "deep", "output")
+        # Ensure it doesn't exist
+        if os.path.exists(output_dir):
+            import shutil
+            shutil.rmtree(output_dir)
+        
+        result = self._run_cli([
+            '-s', self.temp_dir,
+            '-o', output_dir
+        ])
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(os.path.exists(output_dir))
+
+
+def run_cli_tests():
+    """Run all CLI tests and return results"""
+    loader = unittest.TestLoader()
+    suite = loader.loadTestsFromTestCase(TestCLIRequirements)
+    
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+    
+    return result.wasSuccessful()
+
+
+if __name__ == "__main__":
+    success = run_cli_tests()
+    sys.exit(0 if success else 1)

@@ -115,6 +115,30 @@ class AxionHDL:
                 print(f"  - {pattern}")
         else:
             print("No exclusion patterns defined.")
+    
+    def get_modules(self):
+        """
+        Get list of analyzed modules.
+        
+        Returns:
+            List of module dictionaries with format:
+            {
+                'entity_name': str,   # Name of the VHDL entity
+                'name': str,          # Same as entity_name  
+                'file': str,          # Path to source file
+                'base_address': int,  # Base address of module
+                'cdc_enabled': bool,  # CDC enabled flag
+                'cdc_stages': int,    # Number of CDC stages
+                'registers': list     # List of register dictionaries
+            }
+        """
+        result = []
+        for module in self.analyzed_modules:
+            # Add entity_name alias for compatibility
+            m = dict(module)
+            m['entity_name'] = m.get('name', '')
+            result.append(m)
+        return result
         
     def add_src(self, dir_path):
         """
