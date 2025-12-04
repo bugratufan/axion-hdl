@@ -378,6 +378,10 @@ class VHDLGenerator:
             "    ",
         ])
         
+        # Generate CDC synchronizer process if CDC is enabled
+        if module_data['cdc_enabled']:
+            lines.extend(self._generate_cdc_process(module_data))
+        
         # Generate write address valid detection (combinational, uses axi_awaddr)
         lines.extend([
             "    -- Write Address Valid Detection (combinational)",
@@ -501,6 +505,9 @@ class VHDLGenerator:
             "    ",
         ])
         
+        cdc_enabled = module_data['cdc_enabled']
+        cdc_last_stage = module_data['cdc_stages'] - 1 if cdc_enabled else 0
+        
         # Generate signal assignments based on port direction
         for reg in module_data['registers']:
             addr_hex = self._addr_to_vhdl_hex(reg["address_int"], module_data)
@@ -508,22 +515,31 @@ class VHDLGenerator:
                 lines.append(f"    -- Read-Only (in port - module provides value, AXI reads): {reg['signal_name']}")
                 if reg['read_strobe']:
                     lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and rd_addr_reg({addr_bits_str}) = {addr_hex}) else '0';")
-                # RO is 'in' port - copy input to internal register for AXI read
-                lines.append(f"    {reg['signal_name']}_reg <= {reg['signal_name']};")
+                # RO is 'in' port - use synchronized value if CDC enabled
+                if cdc_enabled:
+                    lines.append(f"    {reg['signal_name']}_reg <= {reg['signal_name']}_sync{cdc_last_stage};")
+                else:
+                    lines.append(f"    {reg['signal_name']}_reg <= {reg['signal_name']};")
             elif reg['access_mode'] == 'WO':
                 lines.append(f"    -- Write-Only (out port - AXI writes, module reads): {reg['signal_name']}")
                 if reg['write_strobe']:
                     lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and wr_addr_reg({addr_bits_str}) = {addr_hex}) else '0';")
-                # WO is 'out' port - drive output from internal register
-                lines.append(f"    {reg['signal_name']} <= {reg['signal_name']}_reg;")
+                # WO is 'out' port - use synchronized value if CDC enabled
+                if cdc_enabled:
+                    lines.append(f"    {reg['signal_name']} <= {reg['signal_name']}_sync{cdc_last_stage};")
+                else:
+                    lines.append(f"    {reg['signal_name']} <= {reg['signal_name']}_reg;")
             else:  # RW
                 lines.append(f"    -- Read-Write (out port - AXI reads/writes, module reads): {reg['signal_name']}")
                 if reg['read_strobe']:
                     lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and rd_addr_reg({addr_bits_str}) = {addr_hex}) else '0';")
                 if reg['write_strobe']:
                     lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and wr_addr_reg({addr_bits_str}) = {addr_hex}) else '0';")
-                # RW is 'out' port - drive output from internal register
-                lines.append(f"    {reg['signal_name']} <= {reg['signal_name']}_reg;")
+                # RW is 'out' port - use synchronized value if CDC enabled
+                if cdc_enabled:
+                    lines.append(f"    {reg['signal_name']} <= {reg['signal_name']}_sync{cdc_last_stage};")
+                else:
+                    lines.append(f"    {reg['signal_name']} <= {reg['signal_name']}_reg;")
             lines.append("    ")
         
         lines.extend([
@@ -566,3 +582,72 @@ class VHDLGenerator:
         # Convert to hex with proper width
         hex_str = f"{addr_int:0{hex_digits}X}"
         return f'x"{hex_str}"'
+
+    def _generate_cdc_process(self, module_data: Dict) -> List[str]:
+        """Generate CDC synchronization process for cross-domain signals."""
+        lines = []
+        cdc_stages = module_data['cdc_stages']
+        
+        lines.extend([
+            "    ---------------------------------------------------------------------------",
+            f"    -- CDC Synchronizer Process ({cdc_stages}-stage synchronization)",
+            "    -- Synchronizes signals between module_clk and axi_aclk domains",
+            "    -- RO registers: module_clk -> axi_aclk (input to AXI)",
+            "    -- WO/RW registers: axi_aclk -> module_clk (output from AXI)",
+            "    ---------------------------------------------------------------------------",
+        ])
+        
+        # Process for RO registers (module_clk -> axi_aclk)
+        # These are inputs from module that AXI needs to read
+        ro_regs = [reg for reg in module_data['registers'] if reg['access_mode'] == 'RO']
+        if ro_regs:
+            lines.extend([
+                "    -- CDC: Module clock domain to AXI clock domain (for RO registers)",
+                "    process(axi_aclk)",
+                "    begin",
+                "        if rising_edge(axi_aclk) then",
+                "            if axi_aresetn = '0' then",
+            ])
+            # Reset all sync stages
+            for reg in ro_regs:
+                for stage in range(cdc_stages):
+                    lines.append(f"                {reg['signal_name']}_sync{stage} <= (others => '0');")
+            lines.extend([
+                "            else",
+            ])
+            # Synchronization chain
+            for reg in ro_regs:
+                lines.append(f"                -- {reg['signal_name']} synchronization chain")
+                lines.append(f"                {reg['signal_name']}_sync0 <= {reg['signal_name']};")
+                for stage in range(1, cdc_stages):
+                    lines.append(f"                {reg['signal_name']}_sync{stage} <= {reg['signal_name']}_sync{stage-1};")
+            lines.extend([
+                "            end if;",
+                "        end if;",
+                "    end process;",
+                "    ",
+            ])
+        
+        # Process for WO/RW registers (axi_aclk -> module_clk)
+        # These are outputs from AXI that module needs to read
+        wo_rw_regs = [reg for reg in module_data['registers'] if reg['access_mode'] in ['WO', 'RW']]
+        if wo_rw_regs:
+            lines.extend([
+                "    -- CDC: AXI clock domain to Module clock domain (for WO/RW registers)",
+                "    process(module_clk)",
+                "    begin",
+                "        if rising_edge(module_clk) then",
+            ])
+            # Synchronization chain (no reset needed for output sync - follows AXI register values)
+            for reg in wo_rw_regs:
+                lines.append(f"            -- {reg['signal_name']} synchronization chain")
+                lines.append(f"            {reg['signal_name']}_sync0 <= {reg['signal_name']}_reg;")
+                for stage in range(1, cdc_stages):
+                    lines.append(f"            {reg['signal_name']}_sync{stage} <= {reg['signal_name']}_sync{stage-1};")
+            lines.extend([
+                "        end if;",
+                "    end process;",
+                "    ",
+            ])
+        
+        return lines

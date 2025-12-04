@@ -93,7 +93,7 @@ test-vhdl: generate
 		$(GHDL) -a $(GHDL_STD) $(GHDL_WORKDIR) $(TESTS_DIR)/vhdl/multi_module_tb.vhd && \
 		$(GHDL) -e $(GHDL_STD) $(GHDL_WORKDIR) multi_module_tb && \
 		$(GHDL) -r $(GHDL_STD) $(GHDL_WORKDIR) multi_module_tb \
-			--wave=$(WAVEFORMS_DIR)/multi_module_tb_wave.ghw --stop-time=100us && \
+			--wave=$(WAVEFORMS_DIR)/multi_module_tb_wave.ghw --stop-time=1ms && \
 		echo "VHDL simulation tests passed!"; \
 	else \
 		echo "Warning: ghdl not found, skipping VHDL tests"; \

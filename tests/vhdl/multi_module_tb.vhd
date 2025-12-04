@@ -133,7 +133,7 @@ architecture testbench of multi_module_tb is
         variable resp    : out std_logic_vector(1 downto 0)
     ) is
     begin
-        -- Address phase
+        -- Address and Data phase (simultaneous per AXI-Lite spec)
         wait until rising_edge(clk);
         awaddr  <= addr;
         awvalid <= '1';
@@ -141,10 +141,15 @@ architecture testbench of multi_module_tb is
         wstrb   <= strb;
         wvalid  <= '1';
         
+        -- Wait for both ready signals (can be same or different cycles)
         wait until rising_edge(clk) and awready = '1';
         awvalid <= '0';
         
-        wait until rising_edge(clk) and wready = '1';
+        -- wready might have been asserted simultaneously with awready
+        -- or might come in a later cycle
+        if wready /= '1' then
+            wait until rising_edge(clk) and wready = '1';
+        end if;
         wvalid <= '0';
         
         -- Response phase
@@ -401,10 +406,14 @@ architecture testbench of multi_module_tb is
         wvalid  <= '1';
         bready  <= '0';  -- BREADY initially low
         
+        -- Wait for both ready signals (can be same or different cycles)
         wait until rising_edge(clk) and awready = '1';
         awvalid <= '0';
         
-        wait until rising_edge(clk) and wready = '1';
+        -- wready might have been asserted simultaneously with awready
+        if wready /= '1' then
+            wait until rising_edge(clk) and wready = '1';
+        end if;
         wvalid <= '0';
         
         -- Wait for BVALID, then delay before asserting BREADY
@@ -482,10 +491,14 @@ architecture testbench of multi_module_tb is
         wstrb   <= strb;
         wvalid  <= '1';
         
+        -- Wait for both ready signals (can be same or different cycles)
         wait until rising_edge(clk) and awready = '1';
         awvalid <= '0';
         
-        wait until rising_edge(clk) and wready = '1';
+        -- wready might have been asserted simultaneously with awready
+        if wready /= '1' then
+            wait until rising_edge(clk) and wready = '1';
+        end if;
         wvalid <= '0';
         
         -- Wait for BVALID (BREADY already asserted)
