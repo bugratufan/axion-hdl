@@ -1,7 +1,8 @@
 # Axion-HDL
 
 [![PyPI version](https://badge.fury.io/py/axion-hdl.svg)](https://badge.fury.io/py/axion-hdl)
-[![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://github.com/bugratufan/axion-hdl/actions/workflows/tests.yml/badge.svg)](https://github.com/bugratufan/axion-hdl/actions/workflows/tests.yml)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Axion-HDL** is an automated AXI4-Lite register interface generator for VHDL modules. It parses VHDL source files with special `@axion` annotations and generates complete, protocol-compliant AXI4-Lite register interfaces, C headers, XML register maps, and documentation.
