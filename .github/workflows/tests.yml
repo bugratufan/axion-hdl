@@ -61,7 +61,7 @@ jobs:
     
     - name: Generate VHDL outputs
       run: |
-        axion-hdl -s tests/vhdl -o output --vhdl --c-header --xml --markdown
+        axion-hdl -s tests/vhdl -o output --all
     
     - name: Run VHDL tests
       run: |
