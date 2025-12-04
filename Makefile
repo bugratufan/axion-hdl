@@ -88,8 +88,10 @@ test-vhdl: generate
 		mkdir -p $(WORK_DIR) $(WAVEFORMS_DIR) && \
 		$(GHDL) -a $(GHDL_STD) $(GHDL_WORKDIR) $(TESTS_DIR)/vhdl/sensor_controller.vhd && \
 		$(GHDL) -a $(GHDL_STD) $(GHDL_WORKDIR) $(TESTS_DIR)/vhdl/spi_controller.vhd && \
+		$(GHDL) -a $(GHDL_STD) $(GHDL_WORKDIR) $(TESTS_DIR)/vhdl/mixed_width_controller.vhd && \
 		$(GHDL) -a $(GHDL_STD) $(GHDL_WORKDIR) $(OUTPUT_DIR)/sensor_controller_axion_reg.vhd && \
 		$(GHDL) -a $(GHDL_STD) $(GHDL_WORKDIR) $(OUTPUT_DIR)/spi_controller_axion_reg.vhd && \
+		$(GHDL) -a $(GHDL_STD) $(GHDL_WORKDIR) $(OUTPUT_DIR)/mixed_width_controller_axion_reg.vhd && \
 		$(GHDL) -a $(GHDL_STD) $(GHDL_WORKDIR) $(TESTS_DIR)/vhdl/multi_module_tb.vhd && \
 		$(GHDL) -e $(GHDL_STD) $(GHDL_WORKDIR) multi_module_tb && \
 		$(GHDL) -r $(GHDL_STD) $(GHDL_WORKDIR) multi_module_tb \
