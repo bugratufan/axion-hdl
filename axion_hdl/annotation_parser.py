@@ -92,24 +92,44 @@ class AnnotationParser:
         Supports:
             - Boolean flags: "CDC_EN" -> {'cdc_enabled': True}
             - Key-value pairs: "ADDR=0x10" -> {'address': '0x10'}
+            - Quoted strings: DESC="My description" -> {'description': 'My description'}
             - Access modes: "RW", "RO", "WO"
             - Strobes: "R_STROBE", "W_STROBE"
         """
         attrs = {}
-        tokens = attrs_str.split()
+        
+        # First, extract quoted strings (DESC="..." or similar)
+        # This handles spaces within quoted values
+        quoted_pattern = re.compile(r'(\w+)=["\']([^"\']*)["\']')
+        for match in quoted_pattern.finditer(attrs_str):
+            key = match.group(1)
+            value = match.group(2)
+            attrs[self._normalize_key(key)] = value
+        
+        # Remove quoted strings from attrs_str for further processing
+        remaining = quoted_pattern.sub('', attrs_str)
+        
+        # Now process remaining tokens (non-quoted)
+        tokens = remaining.split()
         
         for token in tokens:
             if '=' in token:
-                # Key-value pair
+                # Key-value pair (non-quoted)
                 key, value = token.split('=', 1)
                 key = key.strip()
                 value = value.strip()
+                
+                # Skip if already processed as quoted string
+                if self._normalize_key(key) in attrs:
+                    continue
                 
                 # Convert to appropriate type
                 attrs[self._normalize_key(key)] = self._convert_value(value)
             else:
                 # Boolean flag or mode
                 token = token.strip()
+                if not token:
+                    continue
                 
                 # Check for access modes
                 if token in ['RO', 'RW', 'WO']:
@@ -146,7 +166,8 @@ class AnnotationParser:
             'base_addr': 'base_address',
             'cdc_stage': 'cdc_stages',
             'r_strobe': 'read_strobe',
-            'w_strobe': 'write_strobe'
+            'w_strobe': 'write_strobe',
+            'desc': 'description'
         }
         
         return replacements.get(key, key)

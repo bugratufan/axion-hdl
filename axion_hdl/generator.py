@@ -296,7 +296,11 @@ class VHDLGenerator:
                 else:  # WO or RW
                     port_dir = "out"
                 
-                port_lines.append(f"        {reg['signal_name']} : {port_dir} {signal_type}")
+                # Get description if available
+                description = reg.get('description', '')
+                desc_comment = f"  -- {description}" if description else ""
+                
+                port_lines.append(f"        {reg['signal_name']} : {port_dir} {signal_type}{desc_comment}")
                 
                 # Read strobe (always out)
                 if reg['read_strobe']:
@@ -308,10 +312,19 @@ class VHDLGenerator:
             
             # Add proper separators
             for i, line in enumerate(port_lines):
-                if i < len(port_lines) - 1:
-                    lines.append(line + ";")
+                # Check if line has a description comment
+                if '  -- ' in line:
+                    # Split into signal part and comment part
+                    signal_part, comment_part = line.split('  -- ', 1)
+                    if i < len(port_lines) - 1:
+                        lines.append(f"{signal_part};  -- {comment_part}")
+                    else:
+                        lines.append(f"{signal_part}  -- {comment_part}")  # Last line, no semicolon
                 else:
-                    lines.append(line)  # Last line, no semicolon
+                    if i < len(port_lines) - 1:
+                        lines.append(line + ";")
+                    else:
+                        lines.append(line)  # Last line, no semicolon
                     
         lines.extend([
             "    );",
