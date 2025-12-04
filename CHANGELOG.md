@@ -5,6 +5,51 @@ All notable changes to Axion-HDL will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2024-12-04
+
+### Added
+
+#### Mixed Signal Width Support (AXION-025/026)
+- **Wide Signal Support**: Full support for signals wider than 32 bits (up to 200+ bits tested)
+  - 48-bit, 64-bit, 100-bit, and 200-bit signals verified in simulation
+  - Automatic multi-register allocation for wide signals
+  - Sequential address assignment for register banks (REG0, REG1, REG2, etc.)
+  
+- **Narrow Signal Support**: Full support for signals narrower than 32 bits
+  - 1-bit, 6-bit, 8-bit, 16-bit signals verified in simulation
+  - Proper bit masking in generated code
+  
+- **Multi-Register Access**: Wide signals accessible via multiple AXI transactions
+  - Each 32-bit portion at sequential addresses (BASE+0x00, BASE+0x04, etc.)
+  - Lower bits in lower address, upper bits in higher addresses
+
+#### C Header Enhancements
+- **Signal Width Definitions**: New macros for multi-register signals
+  - `*_WIDTH` - Total signal width in bits
+  - `*_NUM_REGS` - Number of 32-bit registers required
+- **Register Comments**: Documentation comments indicating signal width and register part
+- **Multi-Register Offsets**: Individual offset macros for each register part (REG0, REG1, etc.)
+
+#### VHDL Generator Improvements
+- **Address Validation**: Automatic detection of overlapping multi-register addresses
+- **Address Map Integrity**: Correct address calculation for registers following wide signals
+- **Register Part Comments**: Clear documentation in generated code for multi-register signals
+
+#### Test Suite Expansion
+- **13 New AXION Tests**: AXION-025a through AXION-026f for wide/narrow signal support
+- **Test Reorganization**: AXION-025/026 tests integrated as AXION requirements (after AXION-024)
+- **Total Test Count**: 53 tests (37 AXION requirements + 16 AXI-LITE protocol tests)
+
+### Changed
+- Test structure reorganized: AXION tests (1-37), AXI-LITE tests (38-53)
+- Mixed-width controller added to test suite for comprehensive signal width testing
+
+### Technical Details
+- Wide signals split into ceil(width/32) registers
+- Each register occupies 4 bytes (32 bits) in address space
+- Unused upper bits in final register are zero-padded
+- Multi-register signals maintain atomic read consistency per register
+
 ## [0.1.1] - 2024-12-04
 
 ### Fixed
@@ -93,5 +138,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] SystemVerilog output
 - [ ] GUI interface
 
+[0.2.0]: https://github.com/bugratufan/axion-hdl/releases/tag/v0.2.0
 [0.1.1]: https://github.com/bugratufan/axion-hdl/releases/tag/v0.1.1
 [0.1.0]: https://github.com/bugratufan/axion-hdl/releases/tag/v0.1.0

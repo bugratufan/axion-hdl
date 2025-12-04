@@ -4,7 +4,104 @@ Copy the content below when creating a GitHub release:
 
 ---
 
-# � Axion-HDL v0.1.1 - CDC Bug Fix Release
+# 🚀 Axion-HDL v0.2.0 - Mixed Signal Width Support
+
+**Automated AXI4-Lite Register Interface Generator for VHDL**
+
+## ✨ Highlights
+
+- 📏 **Wide Signal Support**: Signals up to 200+ bits with automatic multi-register allocation
+- 🔢 **Narrow Signal Support**: 1-bit to 31-bit signals with proper masking
+- 📄 **Enhanced C Headers**: Width definitions and multi-register macros
+- 🧪 **Expanded Test Suite**: 53 tests covering all signal width scenarios
+
+## 🆕 New Features
+
+### Mixed Signal Width Support (AXION-025/026)
+
+Now you can use signals of any width in your AXI register interfaces:
+
+```vhdl
+-- Narrow signals (< 32 bits)
+signal enable_flag    : std_logic;                        -- @axion RW (1-bit)
+signal channel_select : std_logic_vector(5 downto 0);     -- @axion RW (6-bit)
+signal threshold      : std_logic_vector(15 downto 0);    -- @axion RW (16-bit)
+
+-- Wide signals (> 32 bits)
+signal counter_48     : std_logic_vector(47 downto 0);    -- @axion RO (48-bit, 2 regs)
+signal timestamp_64   : std_logic_vector(63 downto 0);    -- @axion RO (64-bit, 2 regs)
+signal data_100       : std_logic_vector(99 downto 0);    -- @axion RO (100-bit, 4 regs)
+signal huge_data      : std_logic_vector(199 downto 0);   -- @axion RO (200-bit, 7 regs)
+```
+
+### Multi-Register Access
+
+Wide signals are automatically split across multiple 32-bit registers:
+
+| Signal (100-bit) | Address | Bits |
+|------------------|---------|------|
+| `data_100_REG0`  | 0x00    | [31:0] |
+| `data_100_REG1`  | 0x04    | [63:32] |
+| `data_100_REG2`  | 0x08    | [95:64] |
+| `data_100_REG3`  | 0x0C    | [99:96] |
+
+### Enhanced C Headers
+
+```c
+/* Signal Width Definitions */
+#define MODULE_DATA_100_WIDTH      100
+#define MODULE_DATA_100_NUM_REGS   4
+
+/* Multi-Register Offsets */
+#define MODULE_DATA_100_REG0_OFFSET  0x00
+#define MODULE_DATA_100_REG1_OFFSET  0x04
+#define MODULE_DATA_100_REG2_OFFSET  0x08
+#define MODULE_DATA_100_REG3_OFFSET  0x0C
+```
+
+## 📦 Installation
+
+```bash
+pip install axion-hdl==0.2.0
+```
+
+## 🔄 Upgrade
+
+```bash
+pip install --upgrade axion-hdl
+```
+
+## 📋 What's Changed
+
+### Added
+- Wide signal support (48-bit to 200+ bit) with multi-register allocation
+- Narrow signal support (1-bit to 31-bit) with proper masking
+- C header width definitions (`*_WIDTH`, `*_NUM_REGS` macros)
+- 13 new tests for AXION-025/026 requirements
+- Mixed-width controller test module
+
+### Improved
+- Address validation for overlapping multi-register signals
+- Documentation generation for wide signals
+- Test suite reorganization (37 AXION + 16 AXI-LITE = 53 total)
+
+## 🧪 Test Results
+
+```
+Total Tests: 53
+  - AXION Requirements: 37 (AXION-001 to AXION-026)
+  - AXI-LITE Protocol : 16
+Passed: 53
+Failed: 0
+
+ALL REQUIREMENTS VERIFIED [PASS]
+```
+
+---
+
+# Previous Release: v0.1.1
+
+# 🐛 Axion-HDL v0.1.1 - CDC Bug Fix Release
 
 **Automated AXI4-Lite Register Interface Generator for VHDL**
 
