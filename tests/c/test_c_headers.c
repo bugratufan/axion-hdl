@@ -7,6 +7,7 @@
  *       - Macro definitions with module prefix
  *       - Structure alignment
  *       - No namespace collisions between modules
+ *       - Multi-register signal support (AXION-025/026)
  * 
  * Build: gcc -Wall -Wextra -Werror -pedantic -std=c11 -o test_c_headers test_c_headers.c
  * Run:   ./test_c_headers
@@ -36,10 +37,11 @@ static int tests_failed = 0;
 #define TEST_SECTION(name) printf("\n=== %s ===\n", name)
 
 /*******************************************************************************
- * Include both headers - no conflicts due to module prefixes!
+ * Include all three headers - no conflicts due to module prefixes!
  ******************************************************************************/
 #include "../../output/sensor_controller_regs.h"
 #include "../../output/spi_controller_regs.h"
+#include "../../output/mixed_width_controller_regs.h"
 
 /*******************************************************************************
  * Test: Header Inclusion Without Conflicts
@@ -47,12 +49,16 @@ static int tests_failed = 0;
 void test_header_inclusion(void) {
     TEST_SECTION("Header Inclusion (No Namespace Conflicts)");
     
-    /* Both headers can be included simultaneously without conflicts */
-    TEST_ASSERT(1, "Both headers included without redefinition errors");
+    /* All three headers can be included simultaneously without conflicts */
+    TEST_ASSERT(1, "All three headers included without redefinition errors");
     
     /* Verify each module has its own unique macro names */
     TEST_ASSERT(SENSOR_CONTROLLER_BASE_ADDR != SPI_CONTROLLER_BASE_ADDR,
-                "Module base addresses are distinct");
+                "Sensor and SPI base addresses are distinct");
+    TEST_ASSERT(SPI_CONTROLLER_BASE_ADDR != MIXED_WIDTH_CONTROLLER_BASE_ADDR,
+                "SPI and Mixed-Width base addresses are distinct");
+    TEST_ASSERT(SENSOR_CONTROLLER_BASE_ADDR != MIXED_WIDTH_CONTROLLER_BASE_ADDR,
+                "Sensor and Mixed-Width base addresses are distinct");
 }
 
 /*******************************************************************************
@@ -286,9 +292,17 @@ void test_address_space_isolation(void) {
     TEST_ASSERT(SPI_CONTROLLER_FIFO_STATUS_ADDR >= 0x1000,
                 "All SPI registers at or above 0x1000");
     
+    /* Mixed-width controller should be at 0x2000+ range */
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_BASE_ADDR >= 0x2000,
+                "Mixed-width controller registers start at 0x2000+");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_FINAL_REG_ADDR >= 0x2000,
+                "All mixed-width registers at or above 0x2000");
+    
     /* No overlap */
     TEST_ASSERT(SENSOR_CONTROLLER_INTERRUPT_STATUS_REG_ADDR < SPI_CONTROLLER_CTRL_REG_ADDR,
-                "No address overlap between modules");
+                "No address overlap between Sensor and SPI modules");
+    TEST_ASSERT(SPI_CONTROLLER_FIFO_STATUS_ADDR < MIXED_WIDTH_CONTROLLER_ENABLE_FLAG_ADDR,
+                "No address overlap between SPI and Mixed-width modules");
 }
 
 /*******************************************************************************
@@ -309,6 +323,198 @@ void test_register_pointer_macros(void) {
     #else
     TEST_ASSERT(0, "SPI_CONTROLLER_REGS pointer macro missing");
     #endif
+    
+    #ifdef MIXED_WIDTH_CONTROLLER_REGS
+    TEST_ASSERT(1, "MIXED_WIDTH_CONTROLLER_REGS pointer macro exists");
+    #else
+    TEST_ASSERT(0, "MIXED_WIDTH_CONTROLLER_REGS pointer macro missing");
+    #endif
+}
+
+/*******************************************************************************
+ * AXION-025/026: Mixed Width Controller Tests
+ ******************************************************************************/
+void test_mixed_width_controller_base_address(void) {
+    TEST_SECTION("Mixed-Width Controller Base Address (AXION-025/026)");
+    
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_BASE_ADDR == 0x00002000,
+                "Mixed-width base address is 0x2000");
+}
+
+void test_mixed_width_controller_narrow_signals(void) {
+    TEST_SECTION("Mixed-Width Controller Narrow Signal Offsets");
+    
+    /* 1-bit signals */
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_ENABLE_FLAG_OFFSET == 0x00,
+                "1-bit enable_flag offset is 0x00");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_BUSY_STATUS_OFFSET == 0x04,
+                "1-bit busy_status offset is 0x04");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_TRIGGER_PULSE_OFFSET == 0x08,
+                "1-bit trigger_pulse offset is 0x08");
+    
+    /* 6-bit signals */
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_CHANNEL_SELECT_OFFSET == 0x0C,
+                "6-bit channel_select offset is 0x0C");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_ERROR_CODE_OFFSET == 0x10,
+                "6-bit error_code offset is 0x10");
+    
+    /* 8-bit signal */
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_MODE_SELECT_OFFSET == 0x2C,
+                "8-bit mode_select offset is 0x2C");
+    
+    /* 16-bit signals */
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_TIMESTAMP_HIGH_OFFSET == 0x24,
+                "16-bit timestamp_high offset is 0x24");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_THRESHOLD_VALUE_OFFSET == 0x28,
+                "16-bit threshold_value offset is 0x28");
+    
+    /* 32-bit signals */
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_CONFIG_REG_OFFSET == 0x14,
+                "32-bit config_reg offset is 0x14");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_STATUS_REG_OFFSET == 0x18,
+                "32-bit status_reg offset is 0x18");
+}
+
+void test_mixed_width_controller_wide_signals(void) {
+    TEST_SECTION("Mixed-Width Controller Wide Signal Multi-Register Offsets");
+    
+    /* 48-bit wide_counter: 2 registers */
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_WIDE_COUNTER_REG0_OFFSET == 0x30,
+                "48-bit wide_counter REG0 offset is 0x30");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_WIDE_COUNTER_REG1_OFFSET == 0x34,
+                "48-bit wide_counter REG1 offset is 0x34");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_WIDE_COUNTER_WIDTH == 48,
+                "wide_counter width is 48 bits");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_WIDE_COUNTER_NUM_REGS == 2,
+                "wide_counter uses 2 registers");
+    
+    /* 64-bit long_timestamp: 2 registers */
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_LONG_TIMESTAMP_REG0_OFFSET == 0x38,
+                "64-bit long_timestamp REG0 offset is 0x38");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_LONG_TIMESTAMP_REG1_OFFSET == 0x3C,
+                "64-bit long_timestamp REG1 offset is 0x3C");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_LONG_TIMESTAMP_WIDTH == 64,
+                "long_timestamp width is 64 bits");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_LONG_TIMESTAMP_NUM_REGS == 2,
+                "long_timestamp uses 2 registers");
+    
+    /* 100-bit very_wide_data: 4 registers */
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_VERY_WIDE_DATA_REG0_OFFSET == 0x40,
+                "100-bit very_wide_data REG0 offset is 0x40");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_VERY_WIDE_DATA_REG1_OFFSET == 0x44,
+                "100-bit very_wide_data REG1 offset is 0x44");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_VERY_WIDE_DATA_REG2_OFFSET == 0x48,
+                "100-bit very_wide_data REG2 offset is 0x48");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_VERY_WIDE_DATA_REG3_OFFSET == 0x4C,
+                "100-bit very_wide_data REG3 offset is 0x4C");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_VERY_WIDE_DATA_WIDTH == 100,
+                "very_wide_data width is 100 bits");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_VERY_WIDE_DATA_NUM_REGS == 4,
+                "very_wide_data uses 4 registers");
+    
+    /* 200-bit huge_data: 7 registers */
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_HUGE_DATA_REG0_OFFSET == 0x50,
+                "200-bit huge_data REG0 offset is 0x50");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_HUGE_DATA_REG1_OFFSET == 0x54,
+                "200-bit huge_data REG1 offset is 0x54");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_HUGE_DATA_REG2_OFFSET == 0x58,
+                "200-bit huge_data REG2 offset is 0x58");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_HUGE_DATA_REG3_OFFSET == 0x5C,
+                "200-bit huge_data REG3 offset is 0x5C");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_HUGE_DATA_REG4_OFFSET == 0x60,
+                "200-bit huge_data REG4 offset is 0x60");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_HUGE_DATA_REG5_OFFSET == 0x64,
+                "200-bit huge_data REG5 offset is 0x64");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_HUGE_DATA_REG6_OFFSET == 0x68,
+                "200-bit huge_data REG6 offset is 0x68");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_HUGE_DATA_WIDTH == 200,
+                "huge_data width is 200 bits");
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_HUGE_DATA_NUM_REGS == 7,
+                "huge_data uses 7 registers");
+    
+    /* final_reg after wide signals */
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_FINAL_REG_OFFSET == 0x6C,
+                "final_reg offset is 0x6C (after all wide signals)");
+}
+
+void test_mixed_width_controller_address_continuity(void) {
+    TEST_SECTION("Mixed-Width Controller Address Continuity");
+    
+    /* Verify multi-register signals have contiguous addresses */
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_WIDE_COUNTER_REG1_OFFSET == 
+                MIXED_WIDTH_CONTROLLER_WIDE_COUNTER_REG0_OFFSET + 4,
+                "wide_counter registers are contiguous (REG1 = REG0 + 4)");
+    
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_LONG_TIMESTAMP_REG1_OFFSET == 
+                MIXED_WIDTH_CONTROLLER_LONG_TIMESTAMP_REG0_OFFSET + 4,
+                "long_timestamp registers are contiguous (REG1 = REG0 + 4)");
+    
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_VERY_WIDE_DATA_REG3_OFFSET == 
+                MIXED_WIDTH_CONTROLLER_VERY_WIDE_DATA_REG0_OFFSET + 12,
+                "very_wide_data registers are contiguous (REG3 = REG0 + 12)");
+    
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_HUGE_DATA_REG6_OFFSET == 
+                MIXED_WIDTH_CONTROLLER_HUGE_DATA_REG0_OFFSET + 24,
+                "huge_data registers are contiguous (REG6 = REG0 + 24)");
+    
+    /* Verify final_reg comes after huge_data */
+    TEST_ASSERT(MIXED_WIDTH_CONTROLLER_FINAL_REG_OFFSET == 
+                MIXED_WIDTH_CONTROLLER_HUGE_DATA_REG6_OFFSET + 4,
+                "final_reg follows huge_data (FINAL = HUGE_REG6 + 4)");
+}
+
+void test_mixed_width_controller_access_macros(void) {
+    TEST_SECTION("Mixed-Width Controller Access Macros");
+    
+    /* Check that multi-register read macros exist */
+    #ifdef MIXED_WIDTH_CONTROLLER_READ_WIDE_COUNTER_REG0
+    TEST_ASSERT(1, "READ_WIDE_COUNTER_REG0 macro exists");
+    #else
+    TEST_ASSERT(0, "READ_WIDE_COUNTER_REG0 macro missing");
+    #endif
+    
+    #ifdef MIXED_WIDTH_CONTROLLER_READ_WIDE_COUNTER_REG1
+    TEST_ASSERT(1, "READ_WIDE_COUNTER_REG1 macro exists");
+    #else
+    TEST_ASSERT(0, "READ_WIDE_COUNTER_REG1 macro missing");
+    #endif
+    
+    #ifdef MIXED_WIDTH_CONTROLLER_READ_LONG_TIMESTAMP_REG0
+    TEST_ASSERT(1, "READ_LONG_TIMESTAMP_REG0 macro exists");
+    #else
+    TEST_ASSERT(0, "READ_LONG_TIMESTAMP_REG0 macro missing");
+    #endif
+    
+    #ifdef MIXED_WIDTH_CONTROLLER_READ_LONG_TIMESTAMP_REG1
+    TEST_ASSERT(1, "READ_LONG_TIMESTAMP_REG1 macro exists");
+    #else
+    TEST_ASSERT(0, "READ_LONG_TIMESTAMP_REG1 macro missing");
+    #endif
+    
+    #ifdef MIXED_WIDTH_CONTROLLER_READ_HUGE_DATA_REG6
+    TEST_ASSERT(1, "READ_HUGE_DATA_REG6 macro exists (last reg of 200-bit)");
+    #else
+    TEST_ASSERT(0, "READ_HUGE_DATA_REG6 macro missing");
+    #endif
+    
+    /* Check narrow signal macros */
+    #ifdef MIXED_WIDTH_CONTROLLER_READ_ENABLE_FLAG
+    TEST_ASSERT(1, "READ_ENABLE_FLAG macro exists (1-bit signal)");
+    #else
+    TEST_ASSERT(0, "READ_ENABLE_FLAG macro missing");
+    #endif
+    
+    #ifdef MIXED_WIDTH_CONTROLLER_WRITE_ENABLE_FLAG
+    TEST_ASSERT(1, "WRITE_ENABLE_FLAG macro exists (1-bit RW signal)");
+    #else
+    TEST_ASSERT(0, "WRITE_ENABLE_FLAG macro missing");
+    #endif
+    
+    #ifdef MIXED_WIDTH_CONTROLLER_WRITE_THRESHOLD_VALUE
+    TEST_ASSERT(1, "WRITE_THRESHOLD_VALUE macro exists (16-bit RW signal)");
+    #else
+    TEST_ASSERT(0, "WRITE_THRESHOLD_VALUE macro missing");
+    #endif
 }
 
 /*******************************************************************************
@@ -318,6 +524,7 @@ int main(void) {
     printf("================================================================================\n");
     printf("                   AXION HDL - C Header Test Suite\n");
     printf("                   Testing Module-Prefixed Headers\n");
+    printf("              Including AXION-025/026 Wide Signal Support\n");
     printf("================================================================================\n");
     
     /* Run all tests */
@@ -333,6 +540,13 @@ int main(void) {
     test_access_macros();
     test_address_space_isolation();
     test_register_pointer_macros();
+    
+    /* Mixed-width controller tests (AXION-025/026) */
+    test_mixed_width_controller_base_address();
+    test_mixed_width_controller_narrow_signals();
+    test_mixed_width_controller_wide_signals();
+    test_mixed_width_controller_address_continuity();
+    test_mixed_width_controller_access_macros();
     
     /* Print summary */
     printf("\n================================================================================\n");
