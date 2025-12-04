@@ -7,7 +7,7 @@ name = "axion-hdl"
 version = "0.3.0"
 description = "Automated AXI4-Lite Register Interface Generator for VHDL modules"
 readme = "README.md"
-license = "MIT"
+license = {text = "MIT"}
 authors = [
     {name = "Bugra Tufan", email = "bugratufan97@gmail.com"}
 ]
