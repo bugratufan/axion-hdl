@@ -5,6 +5,58 @@ All notable changes to Axion-HDL will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2024-12-04
+
+### Added
+
+#### Register Description Support (DESC Attribute)
+- **DESC Attribute**: Add human-readable descriptions to register annotations
+  - Syntax: `-- @axion RO DESC="System status flags"`
+  - Supports quoted strings with spaces
+  - Descriptions appear in all generated outputs
+
+- **Documentation Integration**:
+  - Markdown: Description column in register table, italicized in Port Descriptions
+  - C Header: Comments on offset definitions and struct members
+  - XML (IP-XACT): `<spirit:description>` element for each register
+  - VHDL: Comments on port signal declarations
+
+#### Address Conflict Detection
+- **AddressConflictError Exception**: New exception class with detailed error reporting
+  - Shows conflicting register names (existing and new)
+  - Displays module name where conflict occurred
+  - Lists violated requirements (AXION-006, AXION-007, AXION-008)
+  - Suggests solution with corrected address
+
+- **Wide Signal Overlap Detection**: Detects conflicts when wide signals (>32 bits) overlap with other registers
+
+#### Exclude Patterns (File/Directory Filtering)
+- **Python API**: New methods for exclusion management
+  - `exclude(*patterns)` - Add exclusion patterns
+  - `include(*patterns)` - Remove exclusion patterns  
+  - `clear_excludes()` - Clear all exclusions
+  - `list_excludes()` - List current exclusions
+
+- **Pattern Types Supported**:
+  - File names: `"test.vhd"`
+  - Directory names: `"testbenches"`
+  - Glob patterns: `"*_tb.vhd"`, `"test_*.vhd"`
+
+- **CLI Support**: New `-e/--exclude` option
+  - Example: `axion-hdl -s ./src -e "error_cases" -e "*_tb.vhd"`
+
+#### Test Suite
+- **Address Conflict Tests**: New test file `tests/python/test_address_conflict.py`
+  - Basic address conflict detection
+  - No false positives with unique addresses
+  - Wide signal address overlap detection
+- **Error Test Cases**: New directory `tests/vhdl/error_cases/` for intentionally broken files
+
+### Changed
+- Parser now tracks signal names per address for conflict detection
+- AddressManager accepts module_name parameter for better error messages
+- Makefile updated with `test-address-conflict` target
+
 ## [0.2.0] - 2024-12-04
 
 ### Added

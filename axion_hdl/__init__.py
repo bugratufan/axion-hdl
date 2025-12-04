@@ -39,7 +39,7 @@ from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator
 from .axion import AxionHDL
 
 # Package metadata
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __author__ = "Bugra Tufan"
 __email__ = "bugratufan97@gmail.com"
 __license__ = "MIT"

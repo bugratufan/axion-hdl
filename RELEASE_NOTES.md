@@ -4,65 +4,78 @@ Copy the content below when creating a GitHub release:
 
 ---
 
-# 🚀 Axion-HDL v0.2.0 - Mixed Signal Width Support
+# 🚀 Axion-HDL v0.3.0 - Description & Conflict Detection
 
 **Automated AXI4-Lite Register Interface Generator for VHDL**
 
 ## ✨ Highlights
 
-- 📏 **Wide Signal Support**: Signals up to 200+ bits with automatic multi-register allocation
-- 🔢 **Narrow Signal Support**: 1-bit to 31-bit signals with proper masking
-- 📄 **Enhanced C Headers**: Width definitions and multi-register macros
-- 🧪 **Expanded Test Suite**: 53 tests covering all signal width scenarios
+- � **DESC Attribute**: Add human-readable descriptions to registers
+- ⚠️ **Address Conflict Detection**: Clear error messages with requirement references
+- � **Exclude Patterns**: Filter files and directories from parsing
 
 ## 🆕 New Features
 
-### Mixed Signal Width Support (AXION-025/026)
+### Register Descriptions (DESC Attribute)
 
-Now you can use signals of any width in your AXI register interfaces:
+Add documentation directly in your VHDL code:
 
 ```vhdl
--- Narrow signals (< 32 bits)
-signal enable_flag    : std_logic;                        -- @axion RW (1-bit)
-signal channel_select : std_logic_vector(5 downto 0);     -- @axion RW (6-bit)
-signal threshold      : std_logic_vector(15 downto 0);    -- @axion RW (16-bit)
-
--- Wide signals (> 32 bits)
-signal counter_48     : std_logic_vector(47 downto 0);    -- @axion RO (48-bit, 2 regs)
-signal timestamp_64   : std_logic_vector(63 downto 0);    -- @axion RO (64-bit, 2 regs)
-signal data_100       : std_logic_vector(99 downto 0);    -- @axion RO (100-bit, 4 regs)
-signal huge_data      : std_logic_vector(199 downto 0);   -- @axion RO (200-bit, 7 regs)
+signal status_reg : std_logic_vector(31 downto 0);    -- @axion RO DESC="System status flags"
+signal control_reg : std_logic_vector(31 downto 0);   -- @axion WO W_STROBE DESC="Main control register"
+signal config_reg : std_logic_vector(31 downto 0);    -- @axion RW ADDR=0x10 DESC="Configuration settings"
 ```
 
-### Multi-Register Access
+Descriptions appear in all outputs:
+- **Markdown**: Register table and Port Descriptions
+- **C Header**: Comments on definitions
+- **XML**: `<spirit:description>` element
+- **VHDL**: Port signal comments
 
-Wide signals are automatically split across multiple 32-bit registers:
+### Address Conflict Detection
 
-| Signal (100-bit) | Address | Bits |
-|------------------|---------|------|
-| `data_100_REG0`  | 0x00    | [31:0] |
-| `data_100_REG1`  | 0x04    | [63:32] |
-| `data_100_REG2`  | 0x08    | [95:64] |
-| `data_100_REG3`  | 0x0C    | [99:96] |
+Clear, actionable error messages when addresses conflict:
 
-### Enhanced C Headers
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                          ADDRESS CONFLICT ERROR                              ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Address 0x0000 is already assigned in module 'my_module'                     
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Existing register: reg_alpha                                                ║
+║ Conflicting register: reg_beta                                              ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ VIOLATED REQUIREMENTS:                                                       ║
+║   • AXION-006: Each register must have a unique address                      ║
+║   • AXION-007: Address offsets must be correctly calculated                  ║
+║   • AXION-008: No address overlap allowed within a module                    ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ SOLUTION: Change the ADDR attribute for one of the registers:                ║
+║   signal reg_beta : ... -- @axion ... ADDR=0x0004             
+║   Or remove ADDR to use auto-assignment                                      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
 
-```c
-/* Signal Width Definitions */
-#define MODULE_DATA_100_WIDTH      100
-#define MODULE_DATA_100_NUM_REGS   4
+### Exclude Patterns
 
-/* Multi-Register Offsets */
-#define MODULE_DATA_100_REG0_OFFSET  0x00
-#define MODULE_DATA_100_REG1_OFFSET  0x04
-#define MODULE_DATA_100_REG2_OFFSET  0x08
-#define MODULE_DATA_100_REG3_OFFSET  0x0C
+Filter out files and directories from parsing:
+
+```python
+# Python API
+axion.exclude("error_cases")        # Exclude directory
+axion.exclude("*_tb.vhd")           # Exclude testbench files
+axion.exclude("debug.vhd", "test")  # Multiple patterns
+```
+
+```bash
+# CLI
+axion-hdl -s ./src -o ./out -e "testbenches" -e "*_tb.vhd"
 ```
 
 ## 📦 Installation
 
 ```bash
-pip install axion-hdl==0.2.0
+pip install axion-hdl==0.3.0
 ```
 
 ## 🔄 Upgrade
@@ -74,30 +87,33 @@ pip install --upgrade axion-hdl
 ## 📋 What's Changed
 
 ### Added
-- Wide signal support (48-bit to 200+ bit) with multi-register allocation
-- Narrow signal support (1-bit to 31-bit) with proper masking
-- C header width definitions (`*_WIDTH`, `*_NUM_REGS` macros)
-- 13 new tests for AXION-025/026 requirements
-- Mixed-width controller test module
+- DESC attribute for register descriptions
+- AddressConflictError with detailed error messages
+- Exclude patterns for file/directory filtering
+- `-e/--exclude` CLI option
+- Address conflict test suite
 
 ### Improved
-- Address validation for overlapping multi-register signals
-- Documentation generation for wide signals
-- Test suite reorganization (37 AXION + 16 AXI-LITE = 53 total)
+- Error reporting with requirement references
+- Parser tracks signal-to-address mapping
+- Documentation with exclusion examples
 
 ## 🧪 Test Results
 
 ```
-Total Tests: 53
+Total Tests: 53 + 3 (Address Conflict Tests)
   - AXION Requirements: 37 (AXION-001 to AXION-026)
   - AXI-LITE Protocol : 16
-Passed: 53
+  - Address Conflict  : 3
+Passed: All
 Failed: 0
 
 ALL REQUIREMENTS VERIFIED [PASS]
 ```
 
 ---
+
+# Previous Release: v0.2.0 - Mixed Signal Width Support
 
 # Previous Release: v0.1.1
 
