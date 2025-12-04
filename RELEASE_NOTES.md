@@ -4,6 +4,101 @@ Copy the content below when creating a GitHub release:
 
 ---
 
+# 🚀 Axion-HDL v0.3.1 - Comprehensive Test Coverage
+
+**Automated AXI4-Lite Register Interface Generator for VHDL**
+
+## ✨ Highlights
+
+- ✅ **168 Tests Passing**: Comprehensive test suite covering all features
+- 📊 **94% Requirement Coverage**: 92 out of 98 requirements verified
+- 🧪 **8 New Test Modules**: Parser, Generator, CLI, Error Handling, CDC, Address Management, Stress tests
+- 📋 **Enhanced Reporting**: Category-based test results and coverage summary
+
+## 🆕 New Features
+
+### Comprehensive Test Suite
+
+New test modules covering all requirement categories:
+
+| Category | Tests | Requirements | Status |
+|----------|-------|--------------|--------|
+| VHDL Simulation | 62 | AXION-001 to AXION-026, AXI-LITE-* | ✅ All Passing |
+| Parser | 20 | PARSER-001 to PARSER-008 | ✅ All Passing |
+| Code Generation | 30 | GEN-001 to GEN-012 | ✅ All Passing |
+| CLI Interface | 11 | CLI-001 to CLI-010 | ✅ All Passing |
+| Error Handling | 9 | ERR-001 to ERR-006 | ✅ All Passing |
+| CDC | 8 | CDC-001 to CDC-007 | ✅ All Passing |
+| Address Management | 9 | ADDR-001 to ADDR-008 | ✅ All Passing |
+| Stress Tests | 6 | STRESS-001 to STRESS-006 | ✅ All Passing |
+
+### Enhanced Test Runner
+
+```bash
+# Run all tests
+python tests/run_tests.py
+
+# Output shows category-based results
+🐍 PYTHON (10/10 passed)
+⚙️  C (3/3 passed)
+🔧 VHDL (62/62 passed)
+📜 PARSER (20/20 passed)
+⚙️ GENERATION (30/30 passed)
+🚨 ERRORS (9/9 passed)
+🖥️ CLI (11/11 passed)
+🔄 CDC (8/8 passed)
+📍 ADDR (9/9 passed)
+🔥 STRESS (6/6 passed)
+
+TOTAL: 168 tests in ~1.2s
+```
+
+### Coverage Summary
+
+```
+REQUIREMENT COVERAGE SUMMARY
+════════════════════════════════════════
+  Unique Requirement IDs Tested: 108
+  Base Requirements (from spec):  98
+  Total Test Cases:               168
+
+  By Category:
+    AXION: 37 requirements
+    AXI-LITE: 16 requirements
+    PARSER: 8 requirements
+    GEN: 12 requirements
+    CDC: 7 requirements
+    ADDR: 8 requirements
+    ERR: 6 requirements
+    CLI: 8 requirements
+    STRESS: 6 requirements
+```
+
+## 📦 Installation
+
+```bash
+pip install axion-hdl==0.3.1
+```
+
+## 🔧 Running Tests
+
+```bash
+# Full test suite
+make test
+
+# Or directly
+python tests/run_tests.py
+```
+
+## 📄 Test Results
+
+See `TEST_RESULTS.md` for detailed test results including:
+- Individual test status with timing
+- Category-based grouping
+- Requirement traceability
+
+---
+
 # 🚀 Axion-HDL v0.3.0 - Description & Conflict Detection
 
 **Automated AXI4-Lite Register Interface Generator for VHDL**

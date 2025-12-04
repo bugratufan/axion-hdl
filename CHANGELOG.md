@@ -5,6 +5,49 @@ All notable changes to Axion-HDL will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2024-12-04
+
+### Added
+
+#### Comprehensive Test Suite Expansion
+- **New Test Categories**: Added 8 new test modules covering all requirement categories
+  - `test_parser.py` - PARSER-001 to PARSER-008 (20 tests)
+  - `test_generator.py` - GEN-001 to GEN-012 (30 tests)
+  - `test_cli.py` - CLI-001 to CLI-010 (11 tests)
+  - `test_error_handling.py` - ERR-001 to ERR-006 (9 tests)
+  - `test_cdc.py` - CDC-001 to CDC-007 (8 tests)
+  - `test_addr.py` - ADDR-001 to ADDR-008 (9 tests)
+  - `test_stress.py` - STRESS-001 to STRESS-006 (6 tests)
+
+- **Test Coverage Summary**: 
+  - Total tests: 168 (all passing)
+  - Requirements covered: 108 unique IDs (including sub-variants)
+  - Base requirements: 98 (94% coverage)
+
+#### Enhanced Test Runner
+- **Category-based Reporting**: TEST_RESULTS.md now shows tests grouped by category
+  - Python, C, VHDL, PARSER, GEN, ERR, CLI, CDC, ADDR, STRESS sections
+- **Requirement Coverage Summary**: New summary showing coverage by category
+- **Improved Output**: Better terminal output with category-based grouping
+
+#### Parser Improvements
+- **Public `parse_file()` Method**: Added for direct file parsing in tests
+- **Improved Width Extraction**: Better handling of std_logic_vector parsing
+
+#### API Enhancements  
+- **`get_modules()` Method**: New method to retrieve parsed modules for inspection
+
+### Changed
+- **Requirements Documentation**: Updated requirements.md with:
+  - Expanded to 98 requirements across 19 categories
+  - Test Coverage Matrix with status for each requirement
+  - Coverage Statistics (94% complete, 92/98 requirements)
+  - Updated Next Steps section
+
+### Fixed
+- **Test Infrastructure**: Fixed setUpClass handling for generator/cli/stress/cdc/addr tests
+- **Category Display**: Fixed CDC and ADDR sections not appearing in TEST_RESULTS.md
+
 ## [0.3.0] - 2024-12-04
 
 ### Added
