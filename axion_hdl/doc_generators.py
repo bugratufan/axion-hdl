@@ -127,6 +127,20 @@ class CHeaderGenerator:
             
         return output_path
     
+    def _get_signal_width(self, signal_type: str) -> int:
+        """Extract signal width from type string like '[31:0]' or '[47:0]'."""
+        import re
+        match = re.match(r'\[(\d+):(\d+)\]', signal_type)
+        if match:
+            high = int(match.group(1))
+            low = int(match.group(2))
+            return high - low + 1
+        return 32  # Default to 32-bit
+    
+    def _get_num_regs(self, signal_width: int) -> int:
+        """Calculate number of 32-bit registers needed for a signal."""
+        return (signal_width + 31) // 32
+    
     def _generate_header_content(self, module: Dict) -> List[str]:
         """Generate C header content with module-prefixed register names."""
         module_name = module['name'].upper()
@@ -155,10 +169,23 @@ class CHeaderGenerator:
         ]
         
         # Register offsets (relative) - with module prefix
+        # For wide signals (>32 bits), generate _REG0, _REG1, etc. offsets
         for reg in module['registers']:
             reg_name_upper = reg['signal_name'].upper()
-            offset = reg.get('relative_address', reg['address'])
-            lines.append(f"#define {module_prefix}{reg_name_upper}_OFFSET    {offset}")
+            offset_int = reg.get('relative_address_int', reg['address_int'])
+            signal_width = self._get_signal_width(reg['signal_type'])
+            num_regs = self._get_num_regs(signal_width)
+            
+            if num_regs == 1:
+                # Single 32-bit register
+                offset = reg.get('relative_address', reg['address'])
+                lines.append(f"#define {module_prefix}{reg_name_upper}_OFFSET    {offset}")
+            else:
+                # Multi-register signal
+                lines.append(f"/* {reg['signal_name']} is {signal_width} bits wide, occupies {num_regs} registers */")
+                for i in range(num_regs):
+                    reg_offset = offset_int + (i * 4)
+                    lines.append(f"#define {module_prefix}{reg_name_upper}_REG{i}_OFFSET    0x{reg_offset:02X}")
         
         lines.extend([
             "",
@@ -168,7 +195,35 @@ class CHeaderGenerator:
         # Absolute addresses - with module prefix
         for reg in module['registers']:
             reg_name_upper = reg['signal_name'].upper()
-            lines.append(f"#define {module_prefix}{reg_name_upper}_ADDR    {reg['address']}")
+            addr_int = reg['address_int']
+            signal_width = self._get_signal_width(reg['signal_type'])
+            num_regs = self._get_num_regs(signal_width)
+            
+            if num_regs == 1:
+                lines.append(f"#define {module_prefix}{reg_name_upper}_ADDR    {reg['address']}")
+            else:
+                for i in range(num_regs):
+                    reg_addr = addr_int + (i * 4)
+                    lines.append(f"#define {module_prefix}{reg_name_upper}_REG{i}_ADDR    0x{reg_addr:X}")
+        
+        lines.extend([
+            "",
+            "/* Signal Width Definitions (for multi-register signals) */",
+        ])
+        
+        # Add width definitions for wide signals
+        has_wide_signals = False
+        for reg in module['registers']:
+            signal_width = self._get_signal_width(reg['signal_type'])
+            if signal_width > 32:
+                has_wide_signals = True
+                reg_name_upper = reg['signal_name'].upper()
+                num_regs = self._get_num_regs(signal_width)
+                lines.append(f"#define {module_prefix}{reg_name_upper}_WIDTH    {signal_width}")
+                lines.append(f"#define {module_prefix}{reg_name_upper}_NUM_REGS    {num_regs}")
+        
+        if not has_wide_signals:
+            lines.append("/* No signals wider than 32 bits */")
         
         lines.extend([
             "",
@@ -179,10 +234,21 @@ class CHeaderGenerator:
         for reg in module['registers']:
             if reg['access_mode'] in ['RO', 'RW']:
                 reg_name_upper = reg['signal_name'].upper()
-                lines.append(
-                    f"#define {module_prefix}READ_{reg_name_upper}()    "
-                    f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_OFFSET)))"
-                )
+                signal_width = self._get_signal_width(reg['signal_type'])
+                num_regs = self._get_num_regs(signal_width)
+                
+                if num_regs == 1:
+                    lines.append(
+                        f"#define {module_prefix}READ_{reg_name_upper}()    "
+                        f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_OFFSET)))"
+                    )
+                else:
+                    # Multi-register read macros
+                    for i in range(num_regs):
+                        lines.append(
+                            f"#define {module_prefix}READ_{reg_name_upper}_REG{i}()    "
+                            f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_REG{i}_OFFSET)))"
+                        )
         
         lines.append("")
         
@@ -190,10 +256,21 @@ class CHeaderGenerator:
         for reg in module['registers']:
             if reg['access_mode'] in ['WO', 'RW']:
                 reg_name_upper = reg['signal_name'].upper()
-                lines.append(
-                    f"#define {module_prefix}WRITE_{reg_name_upper}(val)    "
-                    f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_OFFSET)) = (val))"
-                )
+                signal_width = self._get_signal_width(reg['signal_type'])
+                num_regs = self._get_num_regs(signal_width)
+                
+                if num_regs == 1:
+                    lines.append(
+                        f"#define {module_prefix}WRITE_{reg_name_upper}(val)    "
+                        f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_OFFSET)) = (val))"
+                    )
+                else:
+                    # Multi-register write macros
+                    for i in range(num_regs):
+                        lines.append(
+                            f"#define {module_prefix}WRITE_{reg_name_upper}_REG{i}(val)    "
+                            f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_REG{i}_OFFSET)) = (val))"
+                        )
         
         lines.extend([
             "",
@@ -203,7 +280,16 @@ class CHeaderGenerator:
         
         for reg in module['registers']:
             offset = reg.get('relative_address', reg['address'])
-            lines.append(f"    volatile uint32_t {reg['signal_name']};  /* {offset} - {reg['access_mode']} */")
+            signal_width = self._get_signal_width(reg['signal_type'])
+            num_regs = self._get_num_regs(signal_width)
+            
+            if num_regs == 1:
+                lines.append(f"    volatile uint32_t {reg['signal_name']};  /* {offset} - {reg['access_mode']} */")
+            else:
+                # Multi-register fields
+                for i in range(num_regs):
+                    reg_offset_int = reg.get('relative_address_int', reg['address_int']) + (i * 4)
+                    lines.append(f"    volatile uint32_t {reg['signal_name']}_reg{i};  /* 0x{reg_offset_int:02X} - {reg['access_mode']} ({signal_width}-bit signal, part {i}) */")
         
         lines.extend([
             f"}} {module['name']}_regs_t;",

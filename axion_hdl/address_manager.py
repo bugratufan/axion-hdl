@@ -37,35 +37,52 @@ class AddressManager:
         self.auto_counter = self.start_addr
         self.assigned_addresses.clear()
         
-    def allocate_address(self, manual_addr: Optional[int] = None) -> int:
+    def allocate_address(self, manual_addr: Optional[int] = None, signal_width: int = 32) -> int:
         """
         Allocate an address, either manually specified or auto-assigned.
         
         Args:
             manual_addr: Manual address specification (hex or decimal)
+            signal_width: Width of the signal in bits (default: 32)
             
         Returns:
-            Allocated address as integer
+            Allocated address as integer (base address for wide signals)
             
         Raises:
             ValueError: If address conflicts or is invalid
+            
+        Note:
+            For signals wider than 32 bits, multiple consecutive 4-byte
+            address slots are reserved. Each 32-bit chunk can be accessed
+            at base_addr + (chunk_index * 4).
         """
+        # Calculate number of registers needed for this signal
+        num_regs = (signal_width + 31) // 32  # Ceiling division
+        size_bytes = num_regs * self.alignment
+        
         if manual_addr is not None:
             # Manual address assignment
             addr = self._validate_address(manual_addr)
-            if addr in self.assigned_addresses:
-                raise ValueError(f"Address conflict: 0x{addr:02X} already assigned")
-            self.assigned_addresses.add(addr)
+            # Check for conflicts across all addresses this signal will occupy
+            for offset in range(0, size_bytes, self.alignment):
+                if (addr + offset) in self.assigned_addresses:
+                    raise ValueError(f"Address conflict: 0x{addr + offset:02X} already assigned")
+            # Mark all addresses as assigned
+            for offset in range(0, size_bytes, self.alignment):
+                self.assigned_addresses.add(addr + offset)
             # Update auto counter if needed
-            self.auto_counter = max(self.auto_counter, addr + self.alignment)
+            self.auto_counter = max(self.auto_counter, addr + size_bytes)
             return addr
         else:
             # Auto address assignment
             addr = self._align_address(self.auto_counter)
-            while addr in self.assigned_addresses:
+            # Find next available contiguous block
+            while any((addr + offset) in self.assigned_addresses for offset in range(0, size_bytes, self.alignment)):
                 addr += self.alignment
-            self.assigned_addresses.add(addr)
-            self.auto_counter = addr + self.alignment
+            # Mark all addresses as assigned
+            for offset in range(0, size_bytes, self.alignment):
+                self.assigned_addresses.add(addr + offset)
+            self.auto_counter = addr + size_bytes
             return addr
     
     def _align_address(self, addr: int) -> int:

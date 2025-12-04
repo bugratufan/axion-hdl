@@ -127,16 +127,22 @@ class VHDLParser:
             # Parse signal type using common utilities
             type_name, high_bit, low_bit = self.vhdl_utils.parse_signal_type(signal_type_str)
             signal_type = self.vhdl_utils.format_signal_type(high_bit, low_bit)
+            signal_width = high_bit - low_bit + 1
+            
+            # Info for signals wider than 32 bits
+            if signal_width > 32:
+                num_regs = (signal_width + 31) // 32
+                print(f"INFO: Signal '{signal_name}' is {signal_width} bits wide -> {num_regs} AXI registers allocated.")
             
             # Parse attributes using annotation parser
             attrs = self.annotation_parser.parse_attributes(attrs_str)
             
-            # Allocate relative address
+            # Allocate relative address (with signal width for proper spacing)
             manual_addr = attrs.get('address')
             if manual_addr is not None:
-                relative_addr = addr_mgr.allocate_address(manual_addr)
+                relative_addr = addr_mgr.allocate_address(manual_addr, signal_width)
             else:
-                relative_addr = addr_mgr.allocate_address()
+                relative_addr = addr_mgr.allocate_address(signal_width=signal_width)
             
             # Add base address offset to get absolute address
             absolute_addr = base_address + relative_addr

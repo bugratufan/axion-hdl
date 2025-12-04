@@ -25,6 +25,146 @@ class VHDLGenerator:
     def __init__(self, output_dir: str):
         self.output_dir = output_dir
         self.formatter = CodeFormatter()
+    
+    @staticmethod
+    def _signal_type_to_vhdl(signal_type: str) -> str:
+        """
+        Convert internal signal type format to VHDL type.
+        
+        Args:
+            signal_type: Internal format like "[31:0]", "[5:0]", "[0:0]"
+            
+        Returns:
+            VHDL type string like "std_logic_vector(31 downto 0)" or "std_logic"
+            
+        Examples:
+            "[31:0]" -> "std_logic_vector(31 downto 0)"
+            "[5:0]"  -> "std_logic_vector(5 downto 0)"
+            "[0:0]"  -> "std_logic"
+        """
+        import re
+        match = re.match(r'\[(\d+):(\d+)\]', signal_type)
+        if match:
+            high = int(match.group(1))
+            low = int(match.group(2))
+            if high == 0 and low == 0:
+                return "std_logic"
+            else:
+                return f"std_logic_vector({high} downto {low})"
+        # Default fallback
+        return "std_logic_vector(31 downto 0)"
+    
+    @staticmethod
+    def _get_signal_width(signal_type: str) -> int:
+        """
+        Get the width of a signal from its type.
+        
+        Args:
+            signal_type: Internal format like "[31:0]", "[5:0]", "[0:0]"
+            
+        Returns:
+            Width in bits
+        """
+        import re
+        match = re.match(r'\[(\d+):(\d+)\]', signal_type)
+        if match:
+            high = int(match.group(1))
+            low = int(match.group(2))
+            return high - low + 1
+        return 32
+    
+    @staticmethod
+    def _expand_to_32bit(signal_name: str, signal_type: str) -> str:
+        """
+        Generate VHDL expression to expand a signal to 32-bit for internal register.
+        
+        Args:
+            signal_name: Name of the source signal
+            signal_type: Internal format like "[31:0]", "[5:0]", "[0:0]"
+            
+        Returns:
+            VHDL expression for 32-bit value
+            
+        Examples:
+            For std_logic:       '(31 downto 1 => '0') & signal_name'
+            For 6-bit vector:    '(31 downto 6 => '0') & signal_name'
+            For 32-bit:          'signal_name'
+            For >32-bit:         'signal_name(31 downto 0)' (first 32 bits only)
+        """
+        import re
+        match = re.match(r'\[(\d+):(\d+)\]', signal_type)
+        if match:
+            high = int(match.group(1))
+            low = int(match.group(2))
+            width = high - low + 1
+            
+            if width > 32:
+                # For signals wider than 32 bits, take only the first 32 bits
+                return f"{signal_name}(31 downto 0)"
+            elif width == 32:
+                return signal_name
+            elif width == 1:  # std_logic
+                return f"(31 downto 1 => '0') & {signal_name}"
+            else:
+                return f"(31 downto {width} => '0') & {signal_name}"
+        return signal_name
+    
+    @staticmethod
+    def _slice_from_32bit(signal_name: str, signal_type: str) -> str:
+        """
+        Generate VHDL expression to slice from 32-bit register to actual width.
+        
+        Args:
+            signal_name: Name of the 32-bit source register
+            signal_type: Internal format like "[31:0]", "[5:0]", "[0:0]"
+            
+        Returns:
+            VHDL expression with proper slicing
+            
+        Examples:
+            For std_logic:       'signal_name(0)'
+            For 6-bit vector:    'signal_name(5 downto 0)'
+            For 32-bit:          'signal_name'
+            For >32-bit:         'signal_name' (only 32 bits available)
+        """
+        import re
+        match = re.match(r'\[(\d+):(\d+)\]', signal_type)
+        if match:
+            high = int(match.group(1))
+            low = int(match.group(2))
+            width = high - low + 1
+            
+            if width > 32:
+                # For signals wider than 32 bits, only first 32 bits are in the register
+                # Return full 32-bit register value
+                return signal_name
+            elif width == 32:
+                return signal_name
+            elif width == 1:  # std_logic
+                return f"{signal_name}(0)"
+            else:
+                return f"{signal_name}({high} downto {low})"
+        return signal_name
+    
+    @staticmethod
+    def _get_num_regs(signal_type: str) -> int:
+        """
+        Get number of 32-bit registers needed for a signal.
+        
+        Args:
+            signal_type: Internal format like "[31:0]", "[63:0]", "[99:0]"
+            
+        Returns:
+            Number of 32-bit registers needed
+        """
+        import re
+        match = re.match(r'\[(\d+):(\d+)\]', signal_type)
+        if match:
+            high = int(match.group(1))
+            low = int(match.group(2))
+            width = high - low + 1
+            return (width + 31) // 32
+        return 1
         
     def generate_module(self, module_data: Dict) -> str:
         """
@@ -144,8 +284,8 @@ class VHDLGenerator:
             # Build list of all port lines first
             port_lines = []
             for i, reg in enumerate(module_data['registers']):
-                # Always use std_logic_vector for 32-bit registers
-                signal_type = "std_logic_vector(31 downto 0)"
+                # Use actual signal type from parsed data
+                signal_type = self._signal_type_to_vhdl(reg['signal_type'])
                 
                 # Port direction based on access mode:
                 # RO: in (module provides value, AXI reads)
@@ -212,16 +352,27 @@ class VHDLGenerator:
             "    -- Register storage",
         ]
         
-        # Add register storage signals
+        # Add register storage signals (32-bit chunks for wide signals)
         for reg in module_data['registers']:
-            lines.append(f"    signal {reg['signal_name']}_reg : std_logic_vector(31 downto 0);")
+            num_regs = self._get_num_regs(reg['signal_type'])
+            if num_regs == 1:
+                lines.append(f"    signal {reg['signal_name']}_reg : std_logic_vector(31 downto 0);")
+            else:
+                for i in range(num_regs):
+                    lines.append(f"    signal {reg['signal_name']}_reg{i} : std_logic_vector(31 downto 0);")
         
         if module_data['cdc_enabled']:
             lines.append("    ")
             lines.append(f"    -- CDC synchronizer ({module_data['cdc_stages']} stages)")
             for reg in module_data['registers']:
-                for stage in range(module_data['cdc_stages']):
-                    lines.append(f"    signal {reg['signal_name']}_sync{stage} : std_logic_vector(31 downto 0);")
+                num_regs = self._get_num_regs(reg['signal_type'])
+                if num_regs == 1:
+                    for stage in range(module_data['cdc_stages']):
+                        lines.append(f"    signal {reg['signal_name']}_sync{stage} : std_logic_vector(31 downto 0);")
+                else:
+                    for i in range(num_regs):
+                        for stage in range(module_data['cdc_stages']):
+                            lines.append(f"    signal {reg['signal_name']}{i}_sync{stage} : std_logic_vector(31 downto 0);")
         
         lines.extend([
             "    ",
@@ -393,10 +544,20 @@ class VHDLGenerator:
         addr_bits_str = self._get_addr_bits(module_data)
         for reg in module_data['registers']:
             if reg['access_mode'] in ['WO', 'RW']:
-                addr_hex = self._addr_to_vhdl_hex(reg["address_int"], module_data)
-                lines.append(f"        if axi_awaddr({addr_bits_str}) = {addr_hex} then")
-                lines.append("            wr_addr_valid_n <= '0';  -- Valid write address")
-                lines.append("        end if;")
+                num_regs = self._get_num_regs(reg['signal_type'])
+                if num_regs == 1:
+                    addr_hex = self._addr_to_vhdl_hex(reg["address_int"], module_data)
+                    lines.append(f"        if axi_awaddr({addr_bits_str}) = {addr_hex} then")
+                    lines.append("            wr_addr_valid_n <= '0';  -- Valid write address")
+                    lines.append("        end if;")
+                else:
+                    # Multi-register signal - add all chunk addresses
+                    for i in range(num_regs):
+                        chunk_addr = reg["address_int"] + (i * 4)
+                        addr_hex = self._addr_to_vhdl_hex(chunk_addr, module_data)
+                        lines.append(f"        if axi_awaddr({addr_bits_str}) = {addr_hex} then")
+                        lines.append(f"            wr_addr_valid_n <= '0';  -- Valid write address ({reg['signal_name']} reg{i})")
+                        lines.append("        end if;")
         
         lines.extend([
             "    end process;",
@@ -413,10 +574,20 @@ class VHDLGenerator:
         
         for reg in module_data['registers']:
             if reg['access_mode'] in ['RO', 'RW']:
-                addr_hex = self._addr_to_vhdl_hex(reg["address_int"], module_data)
-                lines.append(f"        if axi_araddr({addr_bits_str}) = {addr_hex} then")
-                lines.append("            rd_addr_valid_n <= '0';  -- Valid read address")
-                lines.append("        end if;")
+                num_regs = self._get_num_regs(reg['signal_type'])
+                if num_regs == 1:
+                    addr_hex = self._addr_to_vhdl_hex(reg["address_int"], module_data)
+                    lines.append(f"        if axi_araddr({addr_bits_str}) = {addr_hex} then")
+                    lines.append("            rd_addr_valid_n <= '0';  -- Valid read address")
+                    lines.append("        end if;")
+                else:
+                    # Multi-register signal - add all chunk addresses
+                    for i in range(num_regs):
+                        chunk_addr = reg["address_int"] + (i * 4)
+                        addr_hex = self._addr_to_vhdl_hex(chunk_addr, module_data)
+                        lines.append(f"        if axi_araddr({addr_bits_str}) = {addr_hex} then")
+                        lines.append(f"            rd_addr_valid_n <= '0';  -- Valid read address ({reg['signal_name']} reg{i})")
+                        lines.append("        end if;")
         
         lines.extend([
             "    end process;",
@@ -436,7 +607,12 @@ class VHDLGenerator:
         # Reset logic for registers
         for reg in module_data['registers']:
             if reg['access_mode'] in ['WO', 'RW']:
-                lines.append(f"                {reg['signal_name']}_reg <= (others => '0');")
+                num_regs = self._get_num_regs(reg['signal_type'])
+                if num_regs == 1:
+                    lines.append(f"                {reg['signal_name']}_reg <= (others => '0');")
+                else:
+                    for i in range(num_regs):
+                        lines.append(f"                {reg['signal_name']}_reg{i} <= (others => '0');")
         
         lines.extend([
             "            else",
@@ -446,22 +622,29 @@ class VHDLGenerator:
         # Write address decoder with byte-level strobe support
         for reg in module_data['registers']:
             if reg['access_mode'] in ['WO', 'RW']:
-                addr_hex = self._addr_to_vhdl_hex(reg["address_int"], module_data)
-                lines.append(f"                    if wr_addr_reg({addr_bits_str}) = {addr_hex} then")
-                lines.append("                        -- Byte-level write strobe")
-                lines.append("                        if wr_strb_reg(0) = '1' then")
-                lines.append(f"                            {reg['signal_name']}_reg(7 downto 0) <= wr_data_reg(7 downto 0);")
-                lines.append("                        end if;")
-                lines.append("                        if wr_strb_reg(1) = '1' then")
-                lines.append(f"                            {reg['signal_name']}_reg(15 downto 8) <= wr_data_reg(15 downto 8);")
-                lines.append("                        end if;")
-                lines.append("                        if wr_strb_reg(2) = '1' then")
-                lines.append(f"                            {reg['signal_name']}_reg(23 downto 16) <= wr_data_reg(23 downto 16);")
-                lines.append("                        end if;")
-                lines.append("                        if wr_strb_reg(3) = '1' then")
-                lines.append(f"                            {reg['signal_name']}_reg(31 downto 24) <= wr_data_reg(31 downto 24);")
-                lines.append("                        end if;")
-                lines.append("                    end if;")
+                num_regs = self._get_num_regs(reg['signal_type'])
+                base_addr = reg["address_int"]
+                
+                for chunk in range(num_regs):
+                    chunk_addr = base_addr + (chunk * 4)
+                    addr_hex = self._addr_to_vhdl_hex(chunk_addr, module_data)
+                    reg_suffix = f"_reg{chunk}" if num_regs > 1 else "_reg"
+                    
+                    lines.append(f"                    if wr_addr_reg({addr_bits_str}) = {addr_hex} then")
+                    lines.append("                        -- Byte-level write strobe")
+                    lines.append("                        if wr_strb_reg(0) = '1' then")
+                    lines.append(f"                            {reg['signal_name']}{reg_suffix}(7 downto 0) <= wr_data_reg(7 downto 0);")
+                    lines.append("                        end if;")
+                    lines.append("                        if wr_strb_reg(1) = '1' then")
+                    lines.append(f"                            {reg['signal_name']}{reg_suffix}(15 downto 8) <= wr_data_reg(15 downto 8);")
+                    lines.append("                        end if;")
+                    lines.append("                        if wr_strb_reg(2) = '1' then")
+                    lines.append(f"                            {reg['signal_name']}{reg_suffix}(23 downto 16) <= wr_data_reg(23 downto 16);")
+                    lines.append("                        end if;")
+                    lines.append("                        if wr_strb_reg(3) = '1' then")
+                    lines.append(f"                            {reg['signal_name']}{reg_suffix}(31 downto 24) <= wr_data_reg(31 downto 24);")
+                    lines.append("                        end if;")
+                    lines.append("                    end if;")
         
         lines.extend([
             "                end if;",
@@ -480,7 +663,12 @@ class VHDLGenerator:
         # Add read sensitivity list
         for reg in module_data['registers']:
             if reg['access_mode'] in ['RO', 'RW']:
-                lines.append(f"        , {reg['signal_name']}_reg")
+                num_regs = self._get_num_regs(reg['signal_type'])
+                if num_regs == 1:
+                    lines.append(f"        , {reg['signal_name']}_reg")
+                else:
+                    for i in range(num_regs):
+                        lines.append(f"        , {reg['signal_name']}_reg{i}")
         
         lines.extend([
             "    )",
@@ -492,10 +680,17 @@ class VHDLGenerator:
         # Read address decoder
         for reg in module_data['registers']:
             if reg['access_mode'] in ['RO', 'RW']:
-                addr_hex = self._addr_to_vhdl_hex(reg["address_int"], module_data)
-                lines.append(f"            if rd_addr_reg({addr_bits_str}) = {addr_hex} then")
-                lines.append(f"                rd_data_reg <= {reg['signal_name']}_reg;")
-                lines.append("            end if;")
+                num_regs = self._get_num_regs(reg['signal_type'])
+                base_addr = reg["address_int"]
+                
+                for chunk in range(num_regs):
+                    chunk_addr = base_addr + (chunk * 4)
+                    addr_hex = self._addr_to_vhdl_hex(chunk_addr, module_data)
+                    reg_suffix = f"_reg{chunk}" if num_regs > 1 else "_reg"
+                    
+                    lines.append(f"            if rd_addr_reg({addr_bits_str}) = {addr_hex} then")
+                    lines.append(f"                rd_data_reg <= {reg['signal_name']}{reg_suffix};")
+                    lines.append("            end if;")
         
         lines.extend([
             "        end if;",
@@ -511,35 +706,92 @@ class VHDLGenerator:
         # Generate signal assignments based on port direction
         for reg in module_data['registers']:
             addr_hex = self._addr_to_vhdl_hex(reg["address_int"], module_data)
+            signal_type = reg['signal_type']
+            num_regs = self._get_num_regs(signal_type)
+            signal_width = self._get_signal_width(signal_type)
+            
             if reg['access_mode'] == 'RO':
                 lines.append(f"    -- Read-Only (in port - module provides value, AXI reads): {reg['signal_name']}")
                 if reg['read_strobe']:
                     lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and rd_addr_reg({addr_bits_str}) = {addr_hex}) else '0';")
-                # RO is 'in' port - use synchronized value if CDC enabled
-                if cdc_enabled:
-                    lines.append(f"    {reg['signal_name']}_reg <= {reg['signal_name']}_sync{cdc_last_stage};")
+                
+                # RO is 'in' port - assign chunks from input to internal registers
+                if num_regs == 1:
+                    if cdc_enabled:
+                        lines.append(f"    {reg['signal_name']}_reg <= {reg['signal_name']}_sync{cdc_last_stage};")
+                    else:
+                        expanded_input = self._expand_to_32bit(reg['signal_name'], signal_type)
+                        lines.append(f"    {reg['signal_name']}_reg <= {expanded_input};")
                 else:
-                    lines.append(f"    {reg['signal_name']}_reg <= {reg['signal_name']};")
+                    # Wide signal - assign each 32-bit chunk
+                    for i in range(num_regs):
+                        start_bit = i * 32
+                        end_bit = min((i + 1) * 32 - 1, signal_width - 1)
+                        if cdc_enabled:
+                            lines.append(f"    {reg['signal_name']}_reg{i} <= {reg['signal_name']}{i}_sync{cdc_last_stage};")
+                        else:
+                            if end_bit - start_bit + 1 == 32:
+                                lines.append(f"    {reg['signal_name']}_reg{i} <= {reg['signal_name']}({end_bit} downto {start_bit});")
+                            else:
+                                # Last chunk may be smaller than 32 bits
+                                remaining_bits = end_bit - start_bit + 1
+                                lines.append(f"    {reg['signal_name']}_reg{i} <= (31 downto {remaining_bits} => '0') & {reg['signal_name']}({end_bit} downto {start_bit});")
+                                
             elif reg['access_mode'] == 'WO':
                 lines.append(f"    -- Write-Only (out port - AXI writes, module reads): {reg['signal_name']}")
                 if reg['write_strobe']:
                     lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and wr_addr_reg({addr_bits_str}) = {addr_hex}) else '0';")
-                # WO is 'out' port - use synchronized value if CDC enabled
-                if cdc_enabled:
-                    lines.append(f"    {reg['signal_name']} <= {reg['signal_name']}_sync{cdc_last_stage};")
+                
+                # WO is 'out' port - concatenate chunks to output
+                if num_regs == 1:
+                    sliced_reg = self._slice_from_32bit(f"{reg['signal_name']}_reg", signal_type)
+                    if cdc_enabled:
+                        sliced_sync = self._slice_from_32bit(f"{reg['signal_name']}_sync{cdc_last_stage}", signal_type)
+                        lines.append(f"    {reg['signal_name']} <= {sliced_sync};")
+                    else:
+                        lines.append(f"    {reg['signal_name']} <= {sliced_reg};")
                 else:
-                    lines.append(f"    {reg['signal_name']} <= {reg['signal_name']}_reg;")
+                    # Wide signal - concatenate all chunks
+                    if cdc_enabled:
+                        chunks = [f"{reg['signal_name']}{i}_sync{cdc_last_stage}" for i in range(num_regs-1, -1, -1)]
+                    else:
+                        chunks = [f"{reg['signal_name']}_reg{i}" for i in range(num_regs-1, -1, -1)]
+                    
+                    # Handle last chunk if it's smaller than 32 bits
+                    last_chunk_bits = signal_width - (num_regs - 1) * 32
+                    if last_chunk_bits < 32:
+                        chunks[0] = f"{chunks[0]}({last_chunk_bits - 1} downto 0)"
+                    
+                    lines.append(f"    {reg['signal_name']} <= {' & '.join(chunks)};")
+                    
             else:  # RW
                 lines.append(f"    -- Read-Write (out port - AXI reads/writes, module reads): {reg['signal_name']}")
                 if reg['read_strobe']:
                     lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and rd_addr_reg({addr_bits_str}) = {addr_hex}) else '0';")
                 if reg['write_strobe']:
                     lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and wr_addr_reg({addr_bits_str}) = {addr_hex}) else '0';")
-                # RW is 'out' port - use synchronized value if CDC enabled
-                if cdc_enabled:
-                    lines.append(f"    {reg['signal_name']} <= {reg['signal_name']}_sync{cdc_last_stage};")
+                
+                # RW is 'out' port - concatenate chunks to output
+                if num_regs == 1:
+                    sliced_reg = self._slice_from_32bit(f"{reg['signal_name']}_reg", signal_type)
+                    if cdc_enabled:
+                        sliced_sync = self._slice_from_32bit(f"{reg['signal_name']}_sync{cdc_last_stage}", signal_type)
+                        lines.append(f"    {reg['signal_name']} <= {sliced_sync};")
+                    else:
+                        lines.append(f"    {reg['signal_name']} <= {sliced_reg};")
                 else:
-                    lines.append(f"    {reg['signal_name']} <= {reg['signal_name']}_reg;")
+                    # Wide signal - concatenate all chunks
+                    if cdc_enabled:
+                        chunks = [f"{reg['signal_name']}{i}_sync{cdc_last_stage}" for i in range(num_regs-1, -1, -1)]
+                    else:
+                        chunks = [f"{reg['signal_name']}_reg{i}" for i in range(num_regs-1, -1, -1)]
+                    
+                    # Handle last chunk if it's smaller than 32 bits
+                    last_chunk_bits = signal_width - (num_regs - 1) * 32
+                    if last_chunk_bits < 32:
+                        chunks[0] = f"{chunks[0]}({last_chunk_bits - 1} downto 0)"
+                    
+                    lines.append(f"    {reg['signal_name']} <= {' & '.join(chunks)};")
             lines.append("    ")
         
         lines.extend([
@@ -610,17 +862,42 @@ class VHDLGenerator:
             ])
             # Reset all sync stages
             for reg in ro_regs:
-                for stage in range(cdc_stages):
-                    lines.append(f"                {reg['signal_name']}_sync{stage} <= (others => '0');")
+                num_regs = self._get_num_regs(reg['signal_type'])
+                if num_regs == 1:
+                    for stage in range(cdc_stages):
+                        lines.append(f"                {reg['signal_name']}_sync{stage} <= (others => '0');")
+                else:
+                    for i in range(num_regs):
+                        for stage in range(cdc_stages):
+                            lines.append(f"                {reg['signal_name']}{i}_sync{stage} <= (others => '0');")
             lines.extend([
                 "            else",
             ])
             # Synchronization chain
             for reg in ro_regs:
-                lines.append(f"                -- {reg['signal_name']} synchronization chain")
-                lines.append(f"                {reg['signal_name']}_sync0 <= {reg['signal_name']};")
-                for stage in range(1, cdc_stages):
-                    lines.append(f"                {reg['signal_name']}_sync{stage} <= {reg['signal_name']}_sync{stage-1};")
+                num_regs = self._get_num_regs(reg['signal_type'])
+                signal_width = self._get_signal_width(reg['signal_type'])
+                
+                if num_regs == 1:
+                    lines.append(f"                -- {reg['signal_name']} synchronization chain")
+                    expanded_input = self._expand_to_32bit(reg['signal_name'], reg['signal_type'])
+                    lines.append(f"                {reg['signal_name']}_sync0 <= {expanded_input};")
+                    for stage in range(1, cdc_stages):
+                        lines.append(f"                {reg['signal_name']}_sync{stage} <= {reg['signal_name']}_sync{stage-1};")
+                else:
+                    lines.append(f"                -- {reg['signal_name']} synchronization chain ({num_regs} chunks)")
+                    for i in range(num_regs):
+                        start_bit = i * 32
+                        end_bit = min((i + 1) * 32 - 1, signal_width - 1)
+                        chunk_width = end_bit - start_bit + 1
+                        
+                        if chunk_width == 32:
+                            lines.append(f"                {reg['signal_name']}{i}_sync0 <= {reg['signal_name']}({end_bit} downto {start_bit});")
+                        else:
+                            lines.append(f"                {reg['signal_name']}{i}_sync0 <= (31 downto {chunk_width} => '0') & {reg['signal_name']}({end_bit} downto {start_bit});")
+                        
+                        for stage in range(1, cdc_stages):
+                            lines.append(f"                {reg['signal_name']}{i}_sync{stage} <= {reg['signal_name']}{i}_sync{stage-1};")
             lines.extend([
                 "            end if;",
                 "        end if;",
@@ -640,10 +917,19 @@ class VHDLGenerator:
             ])
             # Synchronization chain (no reset needed for output sync - follows AXI register values)
             for reg in wo_rw_regs:
-                lines.append(f"            -- {reg['signal_name']} synchronization chain")
-                lines.append(f"            {reg['signal_name']}_sync0 <= {reg['signal_name']}_reg;")
-                for stage in range(1, cdc_stages):
-                    lines.append(f"            {reg['signal_name']}_sync{stage} <= {reg['signal_name']}_sync{stage-1};")
+                num_regs = self._get_num_regs(reg['signal_type'])
+                
+                if num_regs == 1:
+                    lines.append(f"            -- {reg['signal_name']} synchronization chain")
+                    lines.append(f"            {reg['signal_name']}_sync0 <= {reg['signal_name']}_reg;")
+                    for stage in range(1, cdc_stages):
+                        lines.append(f"            {reg['signal_name']}_sync{stage} <= {reg['signal_name']}_sync{stage-1};")
+                else:
+                    lines.append(f"            -- {reg['signal_name']} synchronization chain ({num_regs} chunks)")
+                    for i in range(num_regs):
+                        lines.append(f"            {reg['signal_name']}{i}_sync0 <= {reg['signal_name']}_reg{i};")
+                        for stage in range(1, cdc_stages):
+                            lines.append(f"            {reg['signal_name']}{i}_sync{stage} <= {reg['signal_name']}{i}_sync{stage-1};")
             lines.extend([
                 "        end if;",
                 "    end process;",
