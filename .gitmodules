@@ -1,0 +1,3 @@
+[submodule "axion-common"]
+	path = axion-common
+	url = https://github.com/bugratufan/axion-common.git
