@@ -21,13 +21,33 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
           # Clone the wiki repository
-          # We use the GITHUB_TOKEN for authentication
           git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git" wiki_repo
           
-          # Sync files
-          # We use rsync to copy docs/wiki/* to wiki_repo/
-          # --delete ensures deleted files are removed from Wiki
-          rsync -av --delete --exclude '.git' docs/wiki/ wiki_repo/
+          # Determine destination based on branch
+          BRANCH_NAME="${GITHUB_REF##*/}"
+          
+          if [ "$BRANCH_NAME" = "main" ]; then
+            echo "Syncing to Wiki Root (Production)"
+            DEST_DIR="wiki_repo"
+            # Sync to root, protect 'develop' folder and .git
+            RSYNC_OPTS="-av --delete --exclude develop --exclude .git"
+            
+          elif [ "$BRANCH_NAME" = "develop" ]; then
+            echo "Syncing to Wiki/develop (Development)"
+            DEST_DIR="wiki_repo/develop"
+            mkdir -p "$DEST_DIR"
+            # Sync to develop subdir
+            RSYNC_OPTS="-av --delete --exclude .git"
+            
+          else
+            echo "Branch $BRANCH_NAME not configured for Wiki Sync. Exiting."
+            exit 0
+          fi
+          
+          # Run Rsync
+          echo "Source: docs/wiki/"
+          echo "Desc:   $DEST_DIR"
+          rsync $RSYNC_OPTS docs/wiki/ "$DEST_DIR/"
           
           # Commit and Push
           cd wiki_repo
@@ -35,6 +55,6 @@ jobs:
           if git diff-index --quiet HEAD; then
             echo "No changes to sync"
           else
-            git commit -m "chore: Sync wiki from docs/wiki [skip ci]"
+            git commit -m "chore: Sync wiki from docs/wiki ($BRANCH_NAME) [skip ci]"
             git push
           fi
