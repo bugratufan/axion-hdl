@@ -460,6 +460,11 @@ def run_vhdl_tests() -> List[TestResult]:
         return results
     
     work_dir = PROJECT_ROOT / "work"
+    # Clean work directory to force reanalysis of all VHDL files
+    # This prevents "file has changed and must be reanalysed" errors
+    if work_dir.exists():
+        import shutil
+        shutil.rmtree(work_dir)
     work_dir.mkdir(exist_ok=True)
     
     ghdl_opts = ["--std=08", f"--workdir={work_dir}"]
@@ -639,6 +644,16 @@ def run_vhdl_tests() -> List[TestResult]:
     # Ensure clean elaboration
     if (PROJECT_ROOT / "multi_module_tb").exists():
         (PROJECT_ROOT / "multi_module_tb").unlink()
+    
+    # Reanalyze all generated files to prevent "file has changed" errors
+    # This is needed because axion.generate_vhdl() may regenerate files mid-test
+    for gen_file in ["sensor_controller_axion_reg.vhd", "spi_controller_axion_reg.vhd", "mixed_width_controller_axion_reg.vhd"]:
+        gen_path = PROJECT_ROOT / "output" / gen_file
+        if gen_path.exists():
+            run_command(["ghdl", "-a"] + ghdl_opts + [str(gen_path)])
+    # Also reanalyze the testbench
+    run_command(["ghdl", "-a"] + ghdl_opts + [str(PROJECT_ROOT / "tests" / "vhdl" / "multi_module_tb.vhd")])
+    
     success, duration, output = run_command(["ghdl", "-e"] + ghdl_opts + ["multi_module_tb"])
     status = "passed" if success else "failed"
     results.append(TestResult(test_id, name, status, duration, output,
@@ -732,6 +747,15 @@ def run_vhdl_tests() -> List[TestResult]:
     waveform_dir.mkdir(exist_ok=True)
     wave_file = waveform_dir / "multi_module_tb_wave.ghw"
     
+    # CRITICAL: Reanalyze and re-elaborate before simulation
+    # The XML generation step above may have regenerated files, causing stale analysis
+    for gen_file in ["sensor_controller_axion_reg.vhd", "spi_controller_axion_reg.vhd", "mixed_width_controller_axion_reg.vhd"]:
+        gen_path = PROJECT_ROOT / "output" / gen_file
+        if gen_path.exists():
+            run_command(["ghdl", "-a"] + ghdl_opts + [str(gen_path)])
+    run_command(["ghdl", "-a"] + ghdl_opts + [str(PROJECT_ROOT / "tests" / "vhdl" / "multi_module_tb.vhd")])
+    run_command(["ghdl", "-e"] + ghdl_opts + ["multi_module_tb"])
+    
     success, duration, output = run_command([
         "ghdl", "-r"] + ghdl_opts + [
         "multi_module_tb",
@@ -754,6 +778,10 @@ def run_vhdl_tests() -> List[TestResult]:
         # Fallback: just record overall simulation result
         status = "passed" if success else "failed"
         # Include full output if failed for debugging
+        if status == "failed":
+            print(f"\n{'='*80}\nDEBUG: multi_module_tb FAILED - Full output:\n{'='*80}")
+            print(output[:5000] if output else "No output captured")
+            print(f"{'='*80}\n")
         msg = output if status == "failed" else f"Simulation passed but no requirements matched regex. Output len: {len(output)}"
         results.append(TestResult(test_id, name, status, duration, msg,
                                   category="vhdl", subcategory="simulate"))
