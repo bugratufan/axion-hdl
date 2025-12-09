@@ -23,8 +23,10 @@ Example:
 import os
 from .parser import VHDLParser
 from .xml_input_parser import XMLInputParser
+from .yaml_input_parser import YAMLInputParser
+from .json_input_parser import JSONInputParser
 from .generator import VHDLGenerator
-from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator
+from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator, YAMLGenerator, JSONGenerator
 
 
 class AxionHDL:
@@ -55,6 +57,10 @@ class AxionHDL:
         self.src_files = []  # Individual VHDL files
         self.xml_src_dirs = []  # XML source directories
         self.xml_src_files = []  # Individual XML files
+        self.yaml_src_dirs = []  # YAML source directories
+        self.yaml_src_files = []  # Individual YAML files
+        self.json_src_dirs = []  # JSON source directories
+        self.json_src_files = []  # Individual JSON files
         self.output_dir = os.path.abspath(output_dir)
         self.analyzed_modules = []
         self.is_analyzed = False
@@ -225,6 +231,62 @@ class AxionHDL:
         else:
             print(f"Error: '{normalized_path}' does not exist.")
     
+    def add_yaml_src(self, path):
+        """
+        Add a YAML source file or directory.
+        
+        Args:
+            path: Path to a YAML file (.yaml/.yml) or directory containing YAML files
+        """
+        normalized_path = os.path.abspath(path)
+        
+        if os.path.isfile(normalized_path):
+            ext = os.path.splitext(normalized_path)[1].lower()
+            if ext in ('.yaml', '.yml'):
+                if normalized_path not in self.yaml_src_files:
+                    self.yaml_src_files.append(normalized_path)
+                    print(f"YAML source file added: {normalized_path}")
+                else:
+                    print(f"YAML source file already exists: {normalized_path}")
+            else:
+                print(f"Error: '{normalized_path}' is not a YAML file (.yaml/.yml)")
+        elif os.path.isdir(normalized_path):
+            if normalized_path not in self.yaml_src_dirs:
+                self.yaml_src_dirs.append(normalized_path)
+                print(f"YAML source directory added: {normalized_path}")
+            else:
+                print(f"YAML source directory already exists: {normalized_path}")
+        else:
+            print(f"Error: '{normalized_path}' does not exist.")
+    
+    def add_json_src(self, path):
+        """
+        Add a JSON source file or directory.
+        
+        Args:
+            path: Path to a JSON file (.json) or directory containing JSON files
+        """
+        normalized_path = os.path.abspath(path)
+        
+        if os.path.isfile(normalized_path):
+            ext = os.path.splitext(normalized_path)[1].lower()
+            if ext == '.json':
+                if normalized_path not in self.json_src_files:
+                    self.json_src_files.append(normalized_path)
+                    print(f"JSON source file added: {normalized_path}")
+                else:
+                    print(f"JSON source file already exists: {normalized_path}")
+            else:
+                print(f"Error: '{normalized_path}' is not a JSON file (.json)")
+        elif os.path.isdir(normalized_path):
+            if normalized_path not in self.json_src_dirs:
+                self.json_src_dirs.append(normalized_path)
+                print(f"JSON source directory added: {normalized_path}")
+            else:
+                print(f"JSON source directory already exists: {normalized_path}")
+        else:
+            print(f"Error: '{normalized_path}' does not exist.")
+    
     def add_source(self, path):
         """
         Add a source file or directory with auto-detection based on file extension.
@@ -232,6 +294,8 @@ class AxionHDL:
         This is the unified method that automatically determines file type:
         - .vhd, .vhdl files → VHDL source
         - .xml files → XML source
+        - .yaml, .yml files → YAML source
+        - .json files → JSON source
         - Directories → scanned for supported file types
         
         Args:
@@ -245,12 +309,18 @@ class AxionHDL:
                 self.add_src(normalized_path)
             elif ext == '.xml':
                 self.add_xml_src(normalized_path)
+            elif ext in ('.yaml', '.yml'):
+                self.add_yaml_src(normalized_path)
+            elif ext == '.json':
+                self.add_json_src(normalized_path)
             else:
-                print(f"Error: '{normalized_path}' has unsupported extension. Use .vhd, .vhdl, or .xml")
+                print(f"Error: '{normalized_path}' has unsupported extension. Use .vhd, .vhdl, .xml, .yaml, .yml, or .json")
         elif os.path.isdir(normalized_path):
             # For directories, scan and categorize files
             has_vhdl = False
             has_xml = False
+            has_yaml = False
+            has_json = False
             for root, _, files in os.walk(normalized_path):
                 for f in files:
                     ext = os.path.splitext(f)[1].lower()
@@ -258,23 +328,27 @@ class AxionHDL:
                         has_vhdl = True
                     elif ext == '.xml':
                         has_xml = True
-                    if has_vhdl and has_xml:
-                        break
-                if has_vhdl and has_xml:
-                    break
+                    elif ext in ('.yaml', '.yml'):
+                        has_yaml = True
+                    elif ext == '.json':
+                        has_json = True
             
             if has_vhdl:
                 self.add_src(normalized_path)
             if has_xml:
                 self.add_xml_src(normalized_path)
-            if not has_vhdl and not has_xml:
-                print(f"Warning: No VHDL or XML files found in '{normalized_path}'")
+            if has_yaml:
+                self.add_yaml_src(normalized_path)
+            if has_json:
+                self.add_json_src(normalized_path)
+            if not has_vhdl and not has_xml and not has_yaml and not has_json:
+                print(f"Warning: No supported files found in '{normalized_path}'")
         else:
             print(f"Error: '{normalized_path}' does not exist.")
             
     def analyze(self):
         """
-        Analyze all VHDL and XML files in source directories and files.
+        Analyze all VHDL, XML, YAML, and JSON files in source directories and files.
         This must be called before any generation functions.
         
         Files and directories matching exclusion patterns will be skipped.
@@ -282,9 +356,11 @@ class AxionHDL:
         """
         has_vhdl_sources = bool(self.src_dirs or self.src_files)
         has_xml_sources = bool(self.xml_src_dirs or self.xml_src_files)
+        has_yaml_sources = bool(self.yaml_src_dirs or self.yaml_src_files)
+        has_json_sources = bool(self.json_src_dirs or self.json_src_files)
         
-        if not has_vhdl_sources and not has_xml_sources:
-            print("Error: No sources added. Use add_src(), add_xml_src(), or add_source() first.")
+        if not has_vhdl_sources and not has_xml_sources and not has_yaml_sources and not has_json_sources:
+            print("Error: No sources added. Use add_src(), add_xml_src(), add_yaml_src(), add_json_src(), or add_source() first.")
             return False
         
         self.analyzed_modules = []
@@ -347,6 +423,64 @@ class AxionHDL:
             
             xml_count = len(self.analyzed_modules) - xml_modules_start
             print(f"Found {xml_count} modules from XML files.")
+        
+        # Parse YAML files if any
+        if has_yaml_sources:
+            print(f"\n{'='*60}")
+            print("Starting analysis of YAML files...")
+            print(f"{'='*60}")
+            
+            yaml_parser = YAMLInputParser()
+            for pattern in self._exclude_patterns:
+                yaml_parser.add_exclude(pattern)
+            
+            yaml_modules_start = len(self.analyzed_modules)
+            
+            # Parse files from directories
+            if self.yaml_src_dirs:
+                yaml_modules = yaml_parser.parse_yaml_files(self.yaml_src_dirs)
+                self.analyzed_modules.extend(yaml_modules)
+            
+            # Parse individual files
+            for filepath in self.yaml_src_files:
+                try:
+                    module = yaml_parser.parse_file(filepath)
+                    if module:
+                        self.analyzed_modules.append(module)
+                except Exception as e:
+                    print(f"Warning: Failed to parse {filepath}: {e}")
+            
+            yaml_count = len(self.analyzed_modules) - yaml_modules_start
+            print(f"Found {yaml_count} modules from YAML files.")
+        
+        # Parse JSON files if any
+        if has_json_sources:
+            print(f"\n{'='*60}")
+            print("Starting analysis of JSON files...")
+            print(f"{'='*60}")
+            
+            json_parser = JSONInputParser()
+            for pattern in self._exclude_patterns:
+                json_parser.add_exclude(pattern)
+            
+            json_modules_start = len(self.analyzed_modules)
+            
+            # Parse files from directories
+            if self.json_src_dirs:
+                json_modules = json_parser.parse_json_files(self.json_src_dirs)
+                self.analyzed_modules.extend(json_modules)
+            
+            # Parse individual files
+            for filepath in self.json_src_files:
+                try:
+                    module = json_parser.parse_file(filepath)
+                    if module:
+                        self.analyzed_modules.append(module)
+                except Exception as e:
+                    print(f"Warning: Failed to parse {filepath}: {e}")
+            
+            json_count = len(self.analyzed_modules) - json_modules_start
+            print(f"Found {json_count} modules from JSON files.")
         
         self.is_analyzed = True
         
@@ -522,7 +656,7 @@ class AxionHDL:
         
     def generate_all(self, doc_format="md"):
         """
-        Generate all outputs: VHDL, documentation, XML, and C headers.
+        Generate all outputs: VHDL, documentation, XML, YAML, JSON, and C headers.
         
         Args:
             doc_format: Documentation format - "md", "html", or "pdf"
@@ -535,6 +669,8 @@ class AxionHDL:
         success &= self.generate_vhdl()
         success &= self.generate_documentation(doc_format)
         success &= self.generate_xml()
+        success &= self.generate_yaml()
+        success &= self.generate_json()
         success &= self.generate_c_header()
         
         if success:
@@ -544,3 +680,55 @@ class AxionHDL:
             print(f"{'='*60}")
         
         return success
+    
+    def generate_yaml(self):
+        """
+        Generate YAML register map description.
+        Useful for import into other tools or version control friendly format.
+        """
+        if not self.is_analyzed:
+            print("Error: Analysis not performed. Call analyze() first.")
+            return False
+            
+        print(f"\n{'='*60}")
+        print("Generating YAML register map...")
+        print(f"{'='*60}")
+        
+        # Create output directory if it doesn't exist
+        os.makedirs(self.output_dir, exist_ok=True)
+        
+        # Generate YAML files
+        yaml_gen = YAMLGenerator(self.output_dir)
+        for module in self.analyzed_modules:
+            output_path = yaml_gen.generate_yaml(module)
+            if output_path:
+                print(f"  Generated: {os.path.basename(output_path)}")
+        
+        print(f"\nYAML files generated in: {self.output_dir}")
+        return True
+    
+    def generate_json(self):
+        """
+        Generate JSON register map description.
+        Useful for web applications and API integrations.
+        """
+        if not self.is_analyzed:
+            print("Error: Analysis not performed. Call analyze() first.")
+            return False
+            
+        print(f"\n{'='*60}")
+        print("Generating JSON register map...")
+        print(f"{'='*60}")
+        
+        # Create output directory if it doesn't exist
+        os.makedirs(self.output_dir, exist_ok=True)
+        
+        # Generate JSON files
+        json_gen = JSONGenerator(self.output_dir)
+        for module in self.analyzed_modules:
+            output_path = json_gen.generate_json(module)
+            if output_path:
+                print(f"  Generated: {os.path.basename(output_path)}")
+        
+        print(f"\nJSON files generated in: {self.output_dir}")
+        return True
