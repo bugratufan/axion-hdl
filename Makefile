@@ -92,6 +92,7 @@ test-c: generate
 	fi
 
 ## Run VHDL simulation tests (requires ghdl)
+## Run VHDL simulation tests (requires ghdl)
 test-vhdl: generate
 	@echo "Running VHDL simulation tests..."
 	@if command -v $(GHDL) &> /dev/null; then \
@@ -104,9 +105,15 @@ test-vhdl: generate
 		$(GHDL) -a $(GHDL_STD) $(GHDL_WORKDIR) $(OUTPUT_DIR)/mixed_width_controller_axion_reg.vhd && \
 		$(GHDL) -a $(GHDL_STD) $(GHDL_WORKDIR) $(TESTS_DIR)/vhdl/multi_module_tb.vhd && \
 		$(GHDL) -e $(GHDL_STD) $(GHDL_WORKDIR) multi_module_tb && \
-		$(GHDL) -r $(GHDL_STD) $(GHDL_WORKDIR) multi_module_tb \
-			--wave=$(WAVEFORMS_DIR)/multi_module_tb_wave.ghw --stop-time=1ms && \
-		echo "VHDL simulation tests passed!"; \
+		echo "Running simulation (logging to $(OUTPUT_DIR)/ghdl_run.log)..." && \
+		if ! $(GHDL) -r $(GHDL_STD) $(GHDL_WORKDIR) multi_module_tb \
+			--assert-level=error --wave=$(WAVEFORMS_DIR)/multi_module_tb_wave.ghw --stop-time=10ms > $(OUTPUT_DIR)/ghdl_run.log 2>&1; then \
+			echo "VHDL simulation FAILED. Log output:" ; \
+			cat $(OUTPUT_DIR)/ghdl_run.log ; \
+			exit 1; \
+		else \
+			echo "VHDL simulation tests passed!"; \
+		fi \
 	else \
 		echo "Warning: ghdl not found, skipping VHDL tests"; \
 	fi
