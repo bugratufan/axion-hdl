@@ -34,6 +34,7 @@ from .vhdl_utils import VHDLUtils
 from .annotation_parser import AnnotationParser
 from .code_formatter import CodeFormatter
 from .parser import VHDLParser
+from .xml_input_parser import XMLInputParser
 from .generator import VHDLGenerator
 from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator
 from .axion import AxionHDL
@@ -53,6 +54,7 @@ __all__ = [
     'AnnotationParser',      # @axion annotation parser
     'CodeFormatter',         # Code formatting utilities
     'VHDLParser',            # VHDL file parser
+    'XMLInputParser',        # XML register definition parser
     'VHDLGenerator',         # VHDL code generator
     'DocGenerator',          # Documentation generator
     'CHeaderGenerator',      # C header file generator
