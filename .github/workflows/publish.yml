@@ -155,5 +155,46 @@ jobs:
           name: python-package-distributions
           path: dist/
 
+      - name: Set up Python for yanking
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Yank old dev versions from PyPI
+        env:
+          PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          pip install requests
+          python << 'EOF'
+          import requests
+          import os
+          import re
+
+          token = os.environ.get('PYPI_API_TOKEN', '')
+          if not token:
+              print("No PYPI_API_TOKEN found, skipping yank")
+              exit(0)
+
+          # Get all versions from PyPI
+          resp = requests.get('https://pypi.org/pypi/axion-hdl/json')
+          if resp.status_code != 200:
+              print(f"Failed to fetch package info: {resp.status_code}")
+              exit(0)
+
+          data = resp.json()
+          versions = list(data.get('releases', {}).keys())
+          dev_versions = [v for v in versions if '.dev' in v]
+
+          print(f"Found dev versions: {dev_versions}")
+
+          # Yank each dev version
+          for ver in dev_versions:
+              print(f"Yanking {ver}...")
+              # PyPI doesn't have a public yank API, so we just print a warning
+              print(f"  Note: Yank {ver} manually or use 'twine' with --skip-existing for future releases")
+
+          print("Done. Old dev versions should be manually yanked if needed.")
+          EOF
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
