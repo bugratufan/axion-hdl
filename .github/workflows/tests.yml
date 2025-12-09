@@ -22,9 +22,10 @@ jobs:
         python-version: ${{ matrix.python-version }}
     
     - name: Install GHDL
-      uses: ghdl/setup-ghdl-ci@nightly
-      with:
-        backend: llvm
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ghdl
+        ghdl --version
     
     - name: Install dependencies
       run: |
@@ -59,9 +60,10 @@ jobs:
         python-version: '3.11'
     
     - name: Install GHDL
-      uses: ghdl/setup-ghdl-ci@nightly
-      with:
-        backend: llvm
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ghdl
+        ghdl --version
     
     - name: Install dependencies
       run: |
