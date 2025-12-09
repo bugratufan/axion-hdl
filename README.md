@@ -122,9 +122,15 @@ signal config  : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x10 R_STROBE 
 
 ### Subregisters (Packed Bit-Fields)
 
-Pack multiple fields into a single 32-bit register:
+Pack multiple fields into a single 32-bit register. This allows you to efficiently use address space by combining smaller fields.
+
+**VHDL Example:**
+Use `REG_NAME` to link signals to a parent register and `BIT_OFFSET` to position them.
 
 ```vhdl
+-- Parent register is 'control_reg' at 0x04
+signal control_reg : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x04
+
 -- Enable field at bit 0 (1 bit)
 signal enable : std_logic; -- @axion RW REG_NAME=control_reg BIT_OFFSET=0 DEFAULT=1
 
@@ -135,12 +141,14 @@ signal mode : std_logic_vector(1 downto 0); -- @axion RW REG_NAME=control_reg BI
 signal irq_mask : std_logic_vector(3 downto 0); -- @axion RW REG_NAME=control_reg BIT_OFFSET=4
 ```
 
-Or in XML:
+**XML Example:**
+Use the `reg_name` attribute to group registers.
 
 ```xml
-<register name="enable"   reg_name="control_reg" addr="0x00" width="1" access="RW" bit_offset="0" default="1"/>
-<register name="mode"     reg_name="control_reg" addr="0x00" width="2" access="RW" bit_offset="1"/>
-<register name="irq_mask" reg_name="control_reg" addr="0x00" width="4" access="RW" bit_offset="4"/>
+<!-- Parent register defined by shared address or name reference -->
+<register name="enable"   reg_name="control_reg" addr="0x04" width="1" access="RW" bit_offset="0" default="1" description="Enable Bit"/>
+<register name="mode"     reg_name="control_reg" addr="0x04" width="2" access="RW" bit_offset="1" default="0" description="Mode Select"/>
+<register name="irq_mask" reg_name="control_reg" addr="0x04" width="4" access="RW" bit_offset="4" default="0xF" description="IRQ Mask"/>
 ```
 
 ### Wide Signals (>32 bits)
