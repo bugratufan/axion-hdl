@@ -91,6 +91,12 @@ end architecture;
 # Generate all outputs
 axion-hdl -s ./src -o ./output --all
 
+# Generate from XML input
+axion-hdl --xml-input ./registers.xml -o ./output --all
+
+# Mixed sources (VHDL + XML)
+axion-hdl -s ./src --xml-input ./extra_regs.xml -o ./output
+
 # Generate only VHDL and C headers
 axion-hdl -s ./rtl -o ./generated --vhdl --c-header
 
@@ -114,6 +120,9 @@ axion = AxionHDL(output_dir="./output")
 
 # Add source directories
 axion.add_src("./src")
+
+# Add XML files
+axion.add_xml("./registers.xml")
 
 # Exclude files or directories (optional)
 axion.exclude("testbenches")        # Exclude directory
@@ -359,6 +368,7 @@ Generation Options:
 
 Examples:
   axion-hdl -s ./src -o ./output
+  axion-hdl --xml-input ./regs.xml -o ./output --all
   axion-hdl -s ./rtl -s ./ip -o ./generated --all
   axion-hdl -s ./hdl -o ./out --vhdl --c-header
 ```

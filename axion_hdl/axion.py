@@ -22,6 +22,7 @@ Example:
 
 import os
 from .parser import VHDLParser
+from .xml_parser import XMLParser
 from .generator import VHDLGenerator
 from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator
 
@@ -51,6 +52,7 @@ class AxionHDL:
             output_dir: Output directory for generated files (default: ./axion_output)
         """
         self.src_dirs = []
+        self.xml_files = []
         self.output_dir = os.path.abspath(output_dir)
         self.analyzed_modules = []
         self.is_analyzed = False
@@ -157,8 +159,25 @@ class AxionHDL:
         else:
             print(f"Error: '{normalized_path}' is not a valid directory.")
 
+    def add_xml(self, filepath):
+        """
+        Add an XML file containing register definitions.
+
+        Args:
+            filepath: Path to the XML file
+        """
+        normalized_path = os.path.abspath(filepath)
+        if os.path.isfile(normalized_path):
+            if normalized_path not in self.xml_files:
+                self.xml_files.append(normalized_path)
+                print(f"XML file added: {normalized_path}")
+            else:
+                print(f"XML file already exists: {normalized_path}")
+        else:
+            print(f"Error: '{normalized_path}' is not a valid file.")
+
     def list_src(self):
-        """List all added source directories."""
+        """List all added source directories and XML files."""
         if self.src_dirs:
             print("Source directories:")
             for directory in self.src_dirs:
@@ -166,37 +185,60 @@ class AxionHDL:
         else:
             print("No source directories added yet.")
             
+        if self.xml_files:
+            print("XML files:")
+            for file in self.xml_files:
+                print(f"  - {file}")
+
     def analyze(self):
         """
         Analyze all VHDL files in source directories and parse @axion annotations.
+        Also parses any added XML files.
         This must be called before any generation functions.
         
         Files and directories matching exclusion patterns will be skipped.
         Use exclude() to add patterns before calling analyze().
         """
-        if not self.src_dirs:
-            print("Error: No source directories added. Use add_src() first.")
+        if not self.src_dirs and not self.xml_files:
+            print("Error: No source directories or XML files added. Use add_src() or add_xml() first.")
             return False
             
         print(f"\n{'='*60}")
-        print("Starting analysis of VHDL files...")
+        print("Starting analysis...")
         print(f"{'='*60}")
         
-        # Show exclusions if any
-        if self._exclude_patterns:
-            print(f"Excluding: {', '.join(sorted(self._exclude_patterns))}")
+        self.analyzed_modules = []
         
         # Parse VHDL files
-        parser = VHDLParser()
-        
-        # Apply exclusion patterns
-        for pattern in self._exclude_patterns:
-            parser.add_exclude(pattern)
+        if self.src_dirs:
+            print("Analyzing VHDL files...")
+
+            # Show exclusions if any
+            if self._exclude_patterns:
+                print(f"Excluding: {', '.join(sorted(self._exclude_patterns))}")
             
-        self.analyzed_modules = parser.parse_vhdl_files(self.src_dirs)
+            # Parse VHDL files
+            parser = VHDLParser()
+
+            # Apply exclusion patterns
+            for pattern in self._exclude_patterns:
+                parser.add_exclude(pattern)
+
+            self.analyzed_modules.extend(parser.parse_vhdl_files(self.src_dirs))
+
+        # Parse XML files
+        if self.xml_files:
+            print("Analyzing XML files...")
+            xml_parser = XMLParser()
+            for xml_file in self.xml_files:
+                module_data = xml_parser.parse_xml_file(xml_file)
+                if module_data:
+                    self.analyzed_modules.append(module_data)
+                    print(f"  Parsed: {os.path.basename(xml_file)}")
+
         self.is_analyzed = True
         
-        print(f"\nAnalysis complete. Found {len(self.analyzed_modules)} modules with @axion annotations.")
+        print(f"\nAnalysis complete. Found {len(self.analyzed_modules)} modules.")
         
         # Display register summary for each module
         if self.analyzed_modules:

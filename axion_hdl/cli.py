@@ -66,8 +66,18 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         action='append',
         dest='sources',
         metavar='DIR',
-        required=True,
+        default=[],
         help='Source directory containing VHDL files with @axion annotations. '
+             'Can be specified multiple times.'
+    )
+
+    parser.add_argument(
+        '--xml-input',
+        action='append',
+        dest='xml_inputs',
+        metavar='FILE',
+        default=[],
+        help='XML file containing register definitions (Custom or IP-XACT). '
              'Can be specified multiple times.'
     )
     
@@ -140,6 +150,17 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         if not os.path.isdir(src):
             print(f"Error: Source directory does not exist: {src}", file=sys.stderr)
             sys.exit(1)
+
+    # Validate XML files
+    for xml_file in args.xml_inputs:
+        if not os.path.isfile(xml_file):
+            print(f"Error: XML file does not exist: {xml_file}", file=sys.stderr)
+            sys.exit(1)
+
+    # Ensure at least one input source is provided
+    if not args.sources and not args.xml_inputs:
+        print("Error: No input specified. Use -s/--source for VHDL directories or --xml-input for XML files.", file=sys.stderr)
+        sys.exit(1)
     
     # If no specific generation option is provided, default to --all
     if not any([args.all, args.vhdl, args.doc, args.xml, args.c_header]):
@@ -151,6 +172,10 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     # Add source directories
     for src in args.sources:
         axion.add_src(src)
+
+    # Add XML files
+    for xml_file in args.xml_inputs:
+        axion.add_xml(xml_file)
     
     # Add exclusion patterns
     if args.excludes:
