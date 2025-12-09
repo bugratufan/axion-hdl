@@ -1,0 +1,40 @@
+name: Wiki Sync
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - "docs/wiki/**"
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Sync Wiki to GitHub
+        run: |
+          # Configure git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Clone the wiki repository
+          # We use the GITHUB_TOKEN for authentication
+          git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git" wiki_repo
+          
+          # Sync files
+          # We use rsync to copy docs/wiki/* to wiki_repo/
+          # --delete ensures deleted files are removed from Wiki
+          rsync -av --delete --exclude '.git' docs/wiki/ wiki_repo/
+          
+          # Commit and Push
+          cd wiki_repo
+          git add .
+          if git diff-index --quiet HEAD; then
+            echo "No changes to sync"
+          else
+            git commit -m "chore: Sync wiki from docs/wiki [skip ci]"
+            git push
+          fi
