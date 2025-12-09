@@ -7,6 +7,12 @@ on:
       - main
     paths:
       - "docs/wiki/**"
+  pull_request:
+    branches:
+      - develop
+      - main
+    paths:
+      - "docs/wiki/**"
 
 jobs:
   sync-wiki:
@@ -24,29 +30,42 @@ jobs:
           git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git" wiki_repo
           
           # Determine destination based on branch
-          BRANCH_NAME="${GITHUB_REF##*/}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # For PRs, use the target branch to determine where it WOULD go
+            TARGET_BRANCH="${{ github.base_ref }}"
+          else
+            # For Pushes, use the ref name
+            TARGET_BRANCH="${GITHUB_REF##*/}"
+          fi
           
-          if [ "$BRANCH_NAME" = "main" ]; then
-            echo "Syncing to Wiki Root (Production)"
+          echo "Event: ${{ github.event_name }}"
+          echo "Target Branch: $TARGET_BRANCH"
+
+          if [ "$TARGET_BRANCH" = "main" ]; then
             DEST_DIR="wiki_repo"
-            # Sync to root, protect 'develop' folder and .git
             RSYNC_OPTS="-av --delete --exclude develop --exclude .git"
             
-          elif [ "$BRANCH_NAME" = "develop" ]; then
-            echo "Syncing to Wiki/develop (Development)"
+          elif [ "$TARGET_BRANCH" = "develop" ]; then
             DEST_DIR="wiki_repo/develop"
             mkdir -p "$DEST_DIR"
-            # Sync to develop subdir
             RSYNC_OPTS="-av --delete --exclude .git"
             
           else
-            echo "Branch $BRANCH_NAME not configured for Wiki Sync. Exiting."
+            echo "Branch $TARGET_BRANCH not configured for Wiki Sync. Exiting."
             exit 0
           fi
           
-          # Run Rsync
-          echo "Source: docs/wiki/"
-          echo "Desc:   $DEST_DIR"
+          # Check for Dry Run (Pull Request)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+             echo "--- DRY RUN (Pull Request) ---"
+             echo "Would sync docs/wiki/ -> $DEST_DIR"
+             rsync $RSYNC_OPTS --dry-run docs/wiki/ "$DEST_DIR/"
+             exit 0
+          fi
+
+          # Real Run
+          echo "--- SYNCING (Push) ---"
+          echo "Syncing docs/wiki/ -> $DEST_DIR"
           rsync $RSYNC_OPTS docs/wiki/ "$DEST_DIR/"
           
           # Commit and Push
@@ -55,6 +74,6 @@ jobs:
           if git diff-index --quiet HEAD; then
             echo "No changes to sync"
           else
-            git commit -m "chore: Sync wiki from docs/wiki ($BRANCH_NAME) [skip ci]"
+            git commit -m "chore: Sync wiki from docs/wiki ($TARGET_BRANCH) [skip ci]"
             git push
           fi
