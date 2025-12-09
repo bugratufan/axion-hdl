@@ -460,6 +460,11 @@ def run_vhdl_tests() -> List[TestResult]:
         return results
     
     work_dir = PROJECT_ROOT / "work"
+    # Clean work directory to force reanalysis of all VHDL files
+    # This prevents "file has changed and must be reanalysed" errors
+    if work_dir.exists():
+        import shutil
+        shutil.rmtree(work_dir)
     work_dir.mkdir(exist_ok=True)
     
     ghdl_opts = ["--std=08", f"--workdir={work_dir}"]
