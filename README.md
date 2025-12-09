@@ -7,7 +7,7 @@
 
 **Stop wrestling with register maps defined in spreadsheets or clunky external tools.**
 
-**Axion-HDL** gives you the freedom to define your registers YOUR way: directly inside your VHDL code OR via standard XML files. Whichever path you choose, you get a fully compliant, rock-solid AXI4-Lite slave interface in seconds.
+**Axion-HDL** gives you the freedom to define your registers YOUR way: directly inside your VHDL code OR via XML, YAML, or JSON files. Whichever path you choose, you get a fully compliant, rock-solid AXI4-Lite slave interface in seconds.
 
 ## 🚀 Two Ways to Play
 
@@ -27,6 +27,25 @@ Need a standardized definition that exists outside the RTL? We speak fluent IP-X
 <register name="control_reg" addr="0x04" access="WO" width="32" w_strobe="true"/>
 ```
 
+### Option C: Human-Readable YAML
+Prefer a clean, version-control friendly format?
+
+```yaml
+registers:
+  - name: control_reg
+    addr: "0x04"
+    access: WO
+    width: 32
+    w_strobe: true
+```
+
+### Option D: JSON for Automation
+Integrating with web tools or APIs?
+
+```json
+{"name": "control_reg", "addr": "0x04", "access": "WO", "width": 32, "w_strobe": true}
+```
+
 **Axion-HDL bridges the gap.** You can even mix and match sources.
 
 ---
@@ -34,7 +53,7 @@ Need a standardized definition that exists outside the RTL? We speak fluent IP-X
 ## ✨ Why Axion-HDL?
 
 ### 1. Flexible Input, Perfect Output
-Whether you use `@axion` annotations or XML files, the output is always the same high-quality, readable VHDL code, C headers, and documentation.
+Whether you use `@axion` annotations, XML, YAML, or JSON files, the output is always the same high-quality, readable VHDL code, C headers, and documentation.
 
 ### 2. Battle-Tested Reliability
 We don't guess; we verify.

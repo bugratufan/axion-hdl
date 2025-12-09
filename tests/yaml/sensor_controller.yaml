@@ -1,0 +1,99 @@
+# Sample YAML register definition for sensor_controller module
+# This matches the XML sensor_controller.xml for equivalence testing
+
+module: sensor_controller
+base_addr: "0x0000"
+config:
+  cdc_en: true
+  cdc_stage: 3
+
+registers:
+  # Read-Only Registers
+  - name: status_reg
+    addr: "0x00"
+    access: RO
+    width: 32
+    description: System status flags
+
+  - name: temperature_reg
+    addr: "0x04"
+    access: RO
+    width: 32
+    r_strobe: true
+    description: Temperature sensor reading
+
+  - name: pressure_reg
+    addr: "0x08"
+    access: RO
+    width: 32
+    r_strobe: true
+    description: Pressure sensor value
+
+  - name: humidity_reg
+    addr: "0x0C"
+    access: RO
+    width: 32
+    description: Humidity sensor value
+
+  - name: error_count_reg
+    addr: "0x10"
+    access: RO
+    width: 32
+    description: Total error count
+
+  # Write-Only Registers
+  - name: control_reg
+    addr: "0x14"
+    access: WO
+    width: 32
+    w_strobe: true
+    description: Main control register
+
+  - name: threshold_high_reg
+    addr: "0x18"
+    access: WO
+    width: 32
+    description: High threshold value
+
+  - name: threshold_low_reg
+    addr: "0x20"
+    access: WO
+    width: 32
+    description: Low threshold value
+
+  # Read-Write Registers
+  - name: config_reg
+    addr: "0x24"
+    access: RW
+    width: 32
+
+  - name: calibration_reg
+    addr: "0x28"
+    access: RW
+    width: 32
+    r_strobe: true
+    w_strobe: true
+
+  - name: mode_reg
+    addr: "0x30"
+    access: RW
+    width: 32
+
+  # Manual address assignment test
+  - name: debug_reg
+    addr: "0x100"
+    access: RW
+    width: 32
+
+  - name: timestamp_reg
+    addr: "0x104"
+    access: RO
+    width: 32
+
+  # Combined features test
+  - name: interrupt_status_reg
+    addr: "0x200"
+    access: RW
+    width: 32
+    r_strobe: true
+    w_strobe: true

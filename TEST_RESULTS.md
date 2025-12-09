@@ -10,8 +10,8 @@
 | ✅ Passed | 201 |
 | ❌ Failed | 0 |
 | ⏭️ Skipped | 0 |
-| ⏱️ Total Time | 2.45s |
-| 🕐 Last Run | 2025-12-09 20:40:38 |
+| ⏱️ Total Time | 5.45s |
+| 🕐 Last Run | 2025-12-09 23:23:45 |
 
 ## 🐍 Python Tests
 
@@ -24,10 +24,10 @@
 | ✅ | `python.unit.init` | Initialize AxionHDL | 0.000s |
 | ✅ | `python.unit.add_src` | Add Source Directory | 0.000s |
 | ✅ | `python.unit.analyze` | Analyze VHDL Files | 0.004s |
-| ✅ | `python.unit.gen_vhdl` | Generate VHDL Modules | 0.005s |
-| ✅ | `python.unit.gen_c` | Generate C Headers | 0.003s |
+| ✅ | `python.unit.gen_vhdl` | Generate VHDL Modules | 0.006s |
+| ✅ | `python.unit.gen_c` | Generate C Headers | 0.004s |
 | ✅ | `python.unit.gen_xml` | Generate XML Register Map | 0.003s |
-| ✅ | `python.unit.gen_doc` | Generate Markdown Documentation | 0.003s |
+| ✅ | `python.unit.gen_doc` | Generate Markdown Documentation | 0.002s |
 
 ### Address Conflict Tests
 
@@ -37,7 +37,7 @@
 |:------:|:--------|:----------|:--------:|
 | ✅ | `python.conflict.basic` | Basic Address Conflict Detection | 0.001s |
 | ✅ | `python.conflict.no_false_positive` | No False Positive (Unique Addresses) | 0.000s |
-| ✅ | `python.conflict.wide_signal` | Wide Signal Address Overlap | 0.000s |
+| ✅ | `python.conflict.wide_signal` | Wide Signal Address Overlap | 0.001s |
 
 ## ⚙️ C Tests
 
@@ -47,9 +47,9 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `c.compile.gcc_check` | GCC Available | 0.001s |
-| ✅ | `c.compile.headers` | Compile C Header Test | 0.255s |
-| ✅ | `c.compile.run` | Run C Header Test Binary | 0.001s |
+| ✅ | `c.compile.gcc_check` | GCC Available | 0.024s |
+| ✅ | `c.compile.headers` | Compile C Header Test | 0.150s |
+| ✅ | `c.compile.run` | Run C Header Test Binary | 0.145s |
 
 ## 🔧 VHDL Tests
 
@@ -59,8 +59,8 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.ghdl.check` | GHDL Available | 0.005s |
-| ✅ | `vhdl.run.subregister_tb` | SUB-VHDL: Run subregister_test_tb Simulation | 0.105s |
+| ✅ | `vhdl.ghdl.check` | GHDL Available | 0.003s |
+| ✅ | `vhdl.run.subregister_tb` | SUB-VHDL: Run subregister_test_tb Simulation | 0.315s |
 
 ### VHDL Analysis
 
@@ -68,16 +68,16 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.analyze.sensor_controller` | Analyze sensor_controller.vhd | 0.012s |
-| ✅ | `vhdl.analyze.spi_controller` | Analyze spi_controller.vhd | 0.012s |
-| ✅ | `vhdl.analyze.mixed_width` | Analyze mixed_width_controller.vhd | 0.012s |
-| ✅ | `vhdl.analyze.subregister_test` | SUB-VHDL: Analyze subregister_test.vhd | 0.012s |
-| ✅ | `vhdl.analyze.subregister_axion` | SUB-VHDL: Analyze generated subregister_test_axion_reg.vhd | 0.013s |
-| ✅ | `vhdl.analyze.subregister_tb` | SUB-VHDL: Analyze subregister_test_tb.vhd | 0.014s |
-| ✅ | `vhdl.analyze.sensor_axion` | Analyze sensor_controller_axion_reg.vhd | 0.015s |
-| ✅ | `vhdl.analyze.spi_axion` | Analyze spi_controller_axion_reg.vhd | 0.013s |
-| ✅ | `vhdl.analyze.mixed_axion` | Analyze mixed_width_controller_axion_reg.vhd | 0.015s |
-| ✅ | `vhdl.analyze.testbench` | Analyze multi_module_tb.vhd | 0.025s |
+| ✅ | `vhdl.analyze.sensor_controller` | Analyze sensor_controller.vhd | 0.079s |
+| ✅ | `vhdl.analyze.spi_controller` | Analyze spi_controller.vhd | 0.045s |
+| ✅ | `vhdl.analyze.mixed_width` | Analyze mixed_width_controller.vhd | 0.055s |
+| ✅ | `vhdl.analyze.subregister_test` | SUB-VHDL: Analyze subregister_test.vhd | 0.043s |
+| ✅ | `vhdl.analyze.subregister_axion` | SUB-VHDL: Analyze generated subregister_test_axion_reg.vhd | 0.152s |
+| ✅ | `vhdl.analyze.subregister_tb` | SUB-VHDL: Analyze subregister_test_tb.vhd | 0.126s |
+| ✅ | `vhdl.analyze.sensor_axion` | Analyze sensor_controller_axion_reg.vhd | 0.344s |
+| ✅ | `vhdl.analyze.spi_axion` | Analyze spi_controller_axion_reg.vhd | 0.216s |
+| ✅ | `vhdl.analyze.mixed_axion` | Analyze mixed_width_controller_axion_reg.vhd | 0.437s |
+| ✅ | `vhdl.analyze.testbench` | Analyze multi_module_tb.vhd | 0.739s |
 
 ### Generate
 
@@ -85,7 +85,7 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.generate.subregister` | SUB-VHDL: Generate subregister_test_axion_reg.vhd | 0.005s |
+| ✅ | `vhdl.generate.subregister` | SUB-VHDL: Generate subregister_test_axion_reg.vhd | 0.004s |
 
 ### Elaboration
 
@@ -93,7 +93,7 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.elaboration.subregister_tb` | SUB-VHDL: Elaborate subregister_test_tb | 0.109s |
+| ✅ | `vhdl.elaboration.subregister_tb` | SUB-VHDL: Elaborate subregister_test_tb | 0.261s |
 
 ### Elaboration
 
@@ -101,7 +101,7 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.elaborate.testbench` | Elaborate multi_module_tb | 0.199s |
+| ✅ | `vhdl.elaborate.testbench` | Elaborate multi_module_tb | 0.073s |
 
 ### Xml
 
@@ -109,11 +109,11 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.xml.generate` | XML: Generate VHDL from tests/xml/subregister_test.xml | 0.003s |
-| ✅ | `vhdl.xml.analyze_gen` | XML: Analyze generated subregister_test_xml_axion_reg.vhd | 0.013s |
-| ✅ | `vhdl.xml.analyze_tb` | XML: Analyze subregister_xml_test_tb.vhd | 0.013s |
-| ✅ | `vhdl.xml.elaborate` | XML: Elaborate subregister_xml_test_tb | 0.103s |
-| ✅ | `vhdl.xml.run` | XML: Run subregister_xml_test_tb | 0.106s |
+| ✅ | `vhdl.xml.generate` | XML: Generate VHDL from tests/xml/subregister_test.xml | 0.008s |
+| ✅ | `vhdl.xml.analyze_gen` | XML: Analyze generated subregister_test_xml_axion_reg.vhd | 0.223s |
+| ✅ | `vhdl.xml.analyze_tb` | XML: Analyze subregister_xml_test_tb.vhd | 0.111s |
+| ✅ | `vhdl.xml.elaborate` | XML: Elaborate subregister_xml_test_tb | 0.063s |
+| ✅ | `vhdl.xml.run` | XML: Run subregister_xml_test_tb | 0.170s |
 
 ### Requirements Verification (AXION/AXI-LITE)
 
@@ -187,10 +187,10 @@
 | ✅ | `parser.test_parser_001_entity_with_whitespace` | PARSER-001-ENTITY-WITH-WHITESPACE: PARSER-001: Entity extraction with varying whitespace | 0.000s |
 | ✅ | `parser.test_parser_001_no_entity` | PARSER-001-NO-ENTITY: PARSER-001: File without entity declaration | 0.000s |
 | ✅ | `parser.test_parser_002_std_logic` | PARSER-002-STD-LOGIC: PARSER-002: Parse std_logic as 1-bit | 0.000s |
-| ✅ | `parser.test_parser_002_std_logic_vector_downto` | PARSER-002-STD-LOGIC-VECTOR-DOWNTO: PARSER-002: Parse std_logic_vector(N downto M) | 0.000s |
-| ✅ | `parser.test_parser_002_std_logic_vector_with_spaces` | PARSER-002-STD-LOGIC-VECTOR-WITH-SPACES: PARSER-002: Parse std_logic_vector with extra spaces | 0.000s |
-| ✅ | `parser.test_parser_003_access_modes` | PARSER-003-ACCESS-MODES: PARSER-003: Parse RO, RW, WO access modes | 0.000s |
-| ✅ | `parser.test_parser_003_multiple_attributes_same_line` | PARSER-003-MULTIPLE-ATTRIBUTES-SAME-LINE: PARSER-003: Multiple attributes on single line | 0.000s |
+| ✅ | `parser.test_parser_002_std_logic_vector_downto` | PARSER-002-STD-LOGIC-VECTOR-DOWNTO: PARSER-002: Parse std_logic_vector(N downto M) | 0.001s |
+| ✅ | `parser.test_parser_002_std_logic_vector_with_spaces` | PARSER-002-STD-LOGIC-VECTOR-WITH-SPACES: PARSER-002: Parse std_logic_vector with extra spaces | 0.001s |
+| ✅ | `parser.test_parser_003_access_modes` | PARSER-003-ACCESS-MODES: PARSER-003: Parse RO, RW, WO access modes | 0.001s |
+| ✅ | `parser.test_parser_003_multiple_attributes_same_line` | PARSER-003-MULTIPLE-ATTRIBUTES-SAME-LINE: PARSER-003: Multiple attributes on single line | 0.001s |
 | ✅ | `parser.test_parser_003_strobe_flags` | PARSER-003-STROBE-FLAGS: PARSER-003: Parse R_STROBE and W_STROBE flags | 0.000s |
 | ✅ | `parser.test_parser_004_base_addr_hex` | PARSER-004-BASE-ADDR-HEX: PARSER-004: Parse BASE_ADDR in hex format | 0.000s |
 | ✅ | `parser.test_parser_004_cdc_enable` | PARSER-004-CDC-ENABLE: PARSER-004: Parse CDC_EN flag | 0.000s |
@@ -201,7 +201,7 @@
 | ✅ | `parser.test_parser_005_upper_case_hex` | PARSER-005-UPPER-CASE-HEX: PARSER-005: Parse uppercase hex (0X10) | 0.000s |
 | ✅ | `parser.test_parser_006_desc_with_special_chars` | PARSER-006-DESC-WITH-SPECIAL-CHARS: PARSER-006: Parse description with special characters | 0.000s |
 | ✅ | `parser.test_parser_006_double_quoted_desc` | PARSER-006-DOUBLE-QUOTED-DESC: PARSER-006: Parse double-quoted description | 0.000s |
-| ✅ | `parser.test_parser_007_exclude_directory` | PARSER-007-EXCLUDE-DIRECTORY: PARSER-007: Exclude directory by name | 0.000s |
+| ✅ | `parser.test_parser_007_exclude_directory` | PARSER-007-EXCLUDE-DIRECTORY: PARSER-007: Exclude directory by name | 0.001s |
 | ✅ | `parser.test_parser_008_recursive_scan` | PARSER-008-RECURSIVE-SCAN: PARSER-008: Recursively scan subdirectories | 0.001s |
 
 ## 🏭 Code Generation Tests (GEN-xxx)
@@ -213,7 +213,7 @@
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
 | ✅ | `gen.test_gen_001_entity_name_pattern` | GEN-001-ENTITY-NAME-PATTERN: GEN-001: Entity name follows pattern <module>_axion_reg | 0.000s |
-| ✅ | `gen.test_gen_001_vhdl_compiles` | GEN-001-VHDL-COMPILES: GEN-001: Generated VHDL compiles without errors | 0.014s |
+| ✅ | `gen.test_gen_001_vhdl_compiles` | GEN-001-VHDL-COMPILES: GEN-001: Generated VHDL compiles without errors | 0.387s |
 | ✅ | `gen.test_gen_001_vhdl_file_exists` | GEN-001-VHDL-FILE-EXISTS: GEN-001: Generated VHDL file exists | 0.000s |
 | ✅ | `gen.test_gen_002_architecture_rtl` | GEN-002-ARCHITECTURE-RTL: GEN-002: Architecture is named 'rtl' | 0.000s |
 | ✅ | `gen.test_gen_002_signal_declarations` | GEN-002-SIGNAL-DECLARATIONS: GEN-002: Internal signals are properly declared | 0.000s |
@@ -230,7 +230,7 @@
 | ✅ | `gen.test_gen_007_state_machine_exists` | GEN-007-STATE-MACHINE-EXISTS: GEN-007: State machine logic present | 0.000s |
 | ✅ | `gen.test_gen_008_address_decoder` | GEN-008-ADDRESS-DECODER: GEN-008: Address decoder has case statement | 0.000s |
 | ✅ | `gen.test_gen_009_base_address_macro` | GEN-009-BASE-ADDRESS-MACRO: GEN-009: Base address macro defined | 0.000s |
-| ✅ | `gen.test_gen_009_c_header_compiles` | GEN-009-C-HEADER-COMPILES: GEN-009: C header compiles without warnings | 0.496s |
+| ✅ | `gen.test_gen_009_c_header_compiles` | GEN-009-C-HEADER-COMPILES: GEN-009: C header compiles without warnings | 0.260s |
 | ✅ | `gen.test_gen_009_c_header_exists` | GEN-009-C-HEADER-EXISTS: GEN-009: C header file generated | 0.000s |
 | ✅ | `gen.test_gen_009_include_guards` | GEN-009-INCLUDE-GUARDS: GEN-009: Header has include guards | 0.000s |
 | ✅ | `gen.test_gen_009_offset_macros` | GEN-009-OFFSET-MACROS: GEN-009: Register offset macros defined | 0.000s |
@@ -251,15 +251,15 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `err.test_err_001_address_conflict_exception` | ERR-001-ADDRESS-CONFLICT-EXCEPTION: ERR-001: Duplicate addresses raise AddressConflictError | 0.000s |
+| ✅ | `err.test_err_001_address_conflict_exception` | ERR-001-ADDRESS-CONFLICT-EXCEPTION: ERR-001: Duplicate addresses raise AddressConflictError | 0.001s |
 | ✅ | `err.test_err_001_exception_has_register_names` | ERR-001-EXCEPTION-HAS-REGISTER-NAMES: ERR-001: Exception includes register names | 0.000s |
-| ✅ | `err.test_err_002_binary_file_skipped` | ERR-002-BINARY-FILE-SKIPPED: ERR-002: Binary files are skipped | 0.000s |
+| ✅ | `err.test_err_002_binary_file_skipped` | ERR-002-BINARY-FILE-SKIPPED: ERR-002: Binary files are skipped | 0.001s |
 | ✅ | `err.test_err_002_nonexistent_file` | ERR-002-NONEXISTENT-FILE: ERR-002: Non-existent file handled gracefully | 0.000s |
 | ✅ | `err.test_err_003_no_annotation_skipped` | ERR-003-NO-ANNOTATION-SKIPPED: ERR-003: Files without @axion silently skipped | 0.000s |
 | ✅ | `err.test_err_003_only_axion_def_skipped` | ERR-003-ONLY-AXION-DEF-SKIPPED: ERR-003: Files with only @axion_def but no signals skipped | 0.000s |
 | ✅ | `err.test_err_004_invalid_hex_address` | ERR-004-INVALID-HEX-ADDRESS: ERR-004: Invalid hex address reports error | 0.000s |
 | ✅ | `err.test_err_005_no_entity_skipped` | ERR-005-NO-ENTITY-SKIPPED: ERR-005: Files without entity declaration skipped | 0.000s |
-| ✅ | `err.test_err_006_duplicate_signal_detection` | ERR-006-DUPLICATE-SIGNAL-DETECTION: ERR-006: Duplicate signal names detected | 0.000s |
+| ✅ | `err.test_err_006_duplicate_signal_detection` | ERR-006-DUPLICATE-SIGNAL-DETECTION: ERR-006: Duplicate signal names detected | 0.001s |
 
 ## 🖥️ CLI Tests (CLI-xxx)
 
@@ -269,20 +269,20 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `cli.test_cli_001_help_option` | CLI-001-HELP-OPTION: CLI-001: --help displays usage information | 0.052s |
-| ✅ | `cli.test_cli_001_help_short_option` | CLI-001-HELP-SHORT-OPTION: CLI-001: -h displays usage information | 0.055s |
-| ✅ | `cli.test_cli_002_version_option` | CLI-002-VERSION-OPTION: CLI-002: --version displays version | 0.050s |
-| ✅ | `cli.test_cli_003_source_file_vhdl` | CLI-003-SOURCE-FILE-VHDL: CLI-003: -s accepts single VHDL file | 0.050s |
-| ✅ | `cli.test_cli_003_source_file_xml` | CLI-003-SOURCE-FILE-XML: CLI-003: -s accepts single XML file | 0.051s |
-| ✅ | `cli.test_cli_003_source_option_long` | CLI-003-SOURCE-OPTION-LONG: CLI-003: --source option specifies source directory | 0.058s |
-| ✅ | `cli.test_cli_003_source_option_short` | CLI-003-SOURCE-OPTION-SHORT: CLI-003: -s option specifies source directory | 0.058s |
-| ✅ | `cli.test_cli_004_mixed_files_and_dirs` | CLI-004-MIXED-FILES-AND-DIRS: CLI-004: -s accepts mix of files and directories | 0.056s |
-| ✅ | `cli.test_cli_004_multiple_sources` | CLI-004-MULTIPLE-SOURCES: CLI-004: Multiple -s options accepted | 0.063s |
-| ✅ | `cli.test_cli_005_output_option_long` | CLI-005-OUTPUT-OPTION-LONG: CLI-005: --output option specifies output directory | 0.064s |
-| ✅ | `cli.test_cli_005_output_option_short` | CLI-005-OUTPUT-OPTION-SHORT: CLI-005: -o option specifies output directory | 0.072s |
-| ✅ | `cli.test_cli_006_exclude_option` | CLI-006-EXCLUDE-OPTION: CLI-006: -e option excludes files/directories | 0.074s |
-| ✅ | `cli.test_cli_009_invalid_source_error` | CLI-009-INVALID-SOURCE-ERROR: CLI-009: Non-existent source reports error | 0.054s |
-| ✅ | `cli.test_cli_010_output_dir_creation` | CLI-010-OUTPUT-DIR-CREATION: CLI-010: Non-existent output directory is created | 0.075s |
+| ✅ | `cli.test_cli_001_help_option` | CLI-001-HELP-OPTION: CLI-001: --help displays usage information | 0.050s |
+| ✅ | `cli.test_cli_001_help_short_option` | CLI-001-HELP-SHORT-OPTION: CLI-001: -h displays usage information | 0.047s |
+| ✅ | `cli.test_cli_002_version_option` | CLI-002-VERSION-OPTION: CLI-002: --version displays version | 0.043s |
+| ✅ | `cli.test_cli_003_source_file_vhdl` | CLI-003-SOURCE-FILE-VHDL: CLI-003: -s accepts single VHDL file | 0.044s |
+| ✅ | `cli.test_cli_003_source_file_xml` | CLI-003-SOURCE-FILE-XML: CLI-003: -s accepts single XML file | 0.052s |
+| ✅ | `cli.test_cli_003_source_option_long` | CLI-003-SOURCE-OPTION-LONG: CLI-003: --source option specifies source directory | 0.059s |
+| ✅ | `cli.test_cli_003_source_option_short` | CLI-003-SOURCE-OPTION-SHORT: CLI-003: -s option specifies source directory | 0.064s |
+| ✅ | `cli.test_cli_004_mixed_files_and_dirs` | CLI-004-MIXED-FILES-AND-DIRS: CLI-004: -s accepts mix of files and directories | 0.047s |
+| ✅ | `cli.test_cli_004_multiple_sources` | CLI-004-MULTIPLE-SOURCES: CLI-004: Multiple -s options accepted | 0.074s |
+| ✅ | `cli.test_cli_005_output_option_long` | CLI-005-OUTPUT-OPTION-LONG: CLI-005: --output option specifies output directory | 0.097s |
+| ✅ | `cli.test_cli_005_output_option_short` | CLI-005-OUTPUT-OPTION-SHORT: CLI-005: -o option specifies output directory | 0.092s |
+| ✅ | `cli.test_cli_006_exclude_option` | CLI-006-EXCLUDE-OPTION: CLI-006: -e option excludes files/directories | 0.128s |
+| ✅ | `cli.test_cli_009_invalid_source_error` | CLI-009-INVALID-SOURCE-ERROR: CLI-009: Non-existent source reports error | 0.041s |
+| ✅ | `cli.test_cli_010_output_dir_creation` | CLI-010-OUTPUT-DIR-CREATION: CLI-010: Non-existent output directory is created | 0.118s |
 
 ## 🔄 CDC Tests (CDC-xxx)
 
@@ -293,8 +293,8 @@
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
 | ✅ | `cdc.test_cdc_001_stage_count_2` | CDC-001-STAGE-COUNT-2: CDC-001: CDC_STAGE=2 generates 2-stage synchronizer | 0.001s |
-| ✅ | `cdc.test_cdc_001_stage_count_3` | CDC-001-STAGE-COUNT-3: CDC-001: CDC_STAGE=3 generates 3-stage synchronizer | 0.001s |
-| ✅ | `cdc.test_cdc_002_default_stage_count` | CDC-002-DEFAULT-STAGE-COUNT: CDC-002: CDC_EN without CDC_STAGE defaults to 2 stages | 0.001s |
+| ✅ | `cdc.test_cdc_001_stage_count_3` | CDC-001-STAGE-COUNT-3: CDC-001: CDC_STAGE=3 generates 3-stage synchronizer | 0.002s |
+| ✅ | `cdc.test_cdc_002_default_stage_count` | CDC-002-DEFAULT-STAGE-COUNT: CDC-002: CDC_EN without CDC_STAGE defaults to 2 stages | 0.003s |
 | ✅ | `cdc.test_cdc_003_sync_signal_declaration` | CDC-003-SYNC-SIGNAL-DECLARATION: CDC-003: CDC-enabled modules declare synchronizer signals | 0.001s |
 | ✅ | `cdc.test_cdc_004_module_clock_port` | CDC-004-MODULE-CLOCK-PORT: CDC-004: CDC-enabled modules have module_clk port | 0.001s |
 | ✅ | `cdc.test_cdc_005_cdc_disabled` | CDC-005-CDC-DISABLED: CDC-005: Without CDC_EN, no CDC signals generated | 0.001s |
@@ -316,7 +316,7 @@
 | ✅ | `addr.test_addr_004_alignment` | ADDR-004-ALIGNMENT: ADDR-004: Addresses are 4-byte aligned | 0.000s |
 | ✅ | `addr.test_addr_005_conflict_detection` | ADDR-005-CONFLICT-DETECTION: ADDR-005: Duplicate addresses raise AddressConflictError | 0.000s |
 | ✅ | `addr.test_addr_006_wide_signal_space` | ADDR-006-WIDE-SIGNAL-SPACE: ADDR-006: Wide signals reserve multiple address slots | 0.000s |
-| ✅ | `addr.test_addr_007_gaps_preserved` | ADDR-007-GAPS-PRESERVED: ADDR-007: Gaps between manual addresses preserved | 0.000s |
+| ✅ | `addr.test_addr_007_gaps_preserved` | ADDR-007-GAPS-PRESERVED: ADDR-007: Gaps between manual addresses preserved | 0.001s |
 | ✅ | `addr.test_addr_008_base_address_addition` | ADDR-008-BASE-ADDRESS-ADDITION: ADDR-008: BASE_ADDR added to relative addresses | 0.000s |
 
 ## 🔥 Stress Tests (STRESS-xxx)
@@ -327,12 +327,12 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `stress.test_stress_001_many_registers` | STRESS-001-MANY-REGISTERS: STRESS-001: Support 100+ registers per module | 0.002s |
-| ✅ | `stress.test_stress_002_very_wide_signal` | STRESS-002-VERY-WIDE-SIGNAL: STRESS-002: Support 256-bit signals | 0.000s |
+| ✅ | `stress.test_stress_001_many_registers` | STRESS-001-MANY-REGISTERS: STRESS-001: Support 100+ registers per module | 0.001s |
+| ✅ | `stress.test_stress_002_very_wide_signal` | STRESS-002-VERY-WIDE-SIGNAL: STRESS-002: Support 256-bit signals | 0.001s |
 | ✅ | `stress.test_stress_003_repeated_analysis` | STRESS-003-REPEATED-ANALYSIS: STRESS-003: Multiple analysis cycles without errors | 0.001s |
-| ✅ | `stress.test_stress_004_repeated_generation` | STRESS-004-REPEATED-GENERATION: STRESS-004: Repeated generation cycles without errors | 0.004s |
+| ✅ | `stress.test_stress_004_repeated_generation` | STRESS-004-REPEATED-GENERATION: STRESS-004: Repeated generation cycles without errors | 0.005s |
 | ✅ | `stress.test_stress_005_random_addresses` | STRESS-005-RANDOM-ADDRESSES: STRESS-005: Non-sequential address patterns work correctly | 0.000s |
 | ✅ | `stress.test_stress_006_boundary_values` | STRESS-006-BOUNDARY-VALUES: STRESS-006: Generation handles all register types | 0.001s |
 
 ---
-*Generated by `make test` at 2025-12-09 20:40:38*
+*Generated by `make test` at 2025-12-09 23:23:45*
