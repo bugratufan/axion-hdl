@@ -636,6 +636,9 @@ def run_vhdl_tests() -> List[TestResult]:
     # Test 9: Elaborate testbench
     test_id = "vhdl.elaborate.testbench"
     name = "Elaborate multi_module_tb"
+    # Ensure clean elaboration
+    if (PROJECT_ROOT / "multi_module_tb").exists():
+        (PROJECT_ROOT / "multi_module_tb").unlink()
     success, duration, output = run_command(["ghdl", "-e"] + ghdl_opts + ["multi_module_tb"])
     status = "passed" if success else "failed"
     results.append(TestResult(test_id, name, status, duration, output,
@@ -750,7 +753,9 @@ def run_vhdl_tests() -> List[TestResult]:
     else:
         # Fallback: just record overall simulation result
         status = "passed" if success else "failed"
-        results.append(TestResult(test_id, name, status, duration, output,
+        # Include full output if failed for debugging
+        msg = output if status == "failed" else f"Simulation passed but no requirements matched regex. Output len: {len(output)}"
+        results.append(TestResult(test_id, name, status, duration, msg,
                                   category="vhdl", subcategory="simulate"))
     
     return results
