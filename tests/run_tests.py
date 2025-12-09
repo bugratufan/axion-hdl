@@ -644,6 +644,16 @@ def run_vhdl_tests() -> List[TestResult]:
     # Ensure clean elaboration
     if (PROJECT_ROOT / "multi_module_tb").exists():
         (PROJECT_ROOT / "multi_module_tb").unlink()
+    
+    # Reanalyze all generated files to prevent "file has changed" errors
+    # This is needed because axion.generate_vhdl() may regenerate files mid-test
+    for gen_file in ["sensor_controller_axion_reg.vhd", "spi_controller_axion_reg.vhd", "mixed_width_controller_axion_reg.vhd"]:
+        gen_path = PROJECT_ROOT / "output" / gen_file
+        if gen_path.exists():
+            run_command(["ghdl", "-a"] + ghdl_opts + [str(gen_path)])
+    # Also reanalyze the testbench
+    run_command(["ghdl", "-a"] + ghdl_opts + [str(PROJECT_ROOT / "tests" / "vhdl" / "multi_module_tb.vhd")])
+    
     success, duration, output = run_command(["ghdl", "-e"] + ghdl_opts + ["multi_module_tb"])
     status = "passed" if success else "failed"
     results.append(TestResult(test_id, name, status, duration, output,
