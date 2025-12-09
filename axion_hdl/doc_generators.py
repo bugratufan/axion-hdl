@@ -336,8 +336,10 @@ class XMLGenerator:
         return output_path
     
     def _generate_xml_content(self, module: Dict) -> List[str]:
-        """Generate XML content."""
+        """Generate XML content with round-trip compatible attributes."""
         base_addr = module.get('base_address', 0x00)
+        cdc_en = module.get('cdc_enabled', False)
+        cdc_stage = module.get('cdc_stages', 2)
         
         lines = [
             '<?xml version="1.0" encoding="UTF-8"?>',
@@ -346,13 +348,24 @@ class XMLGenerator:
             f'    <spirit:library>user</spirit:library>',
             f'    <spirit:name>{module["name"]}</spirit:name>',
             f'    <spirit:version>1.0</spirit:version>',
+        ]
+        
+        # Add CDC configuration as vendor extension for round-trip
+        if cdc_en:
+            lines.extend([
+                '    <spirit:vendorExtensions>',
+                f'        <axion:config cdc_en="true" cdc_stage="{cdc_stage}" xmlns:axion="http://axion-hdl.org/extensions"/>',
+                '    </spirit:vendorExtensions>',
+            ])
+        
+        lines.extend([
             '    <spirit:memoryMaps>',
             '        <spirit:memoryMap>',
             '            <spirit:name>register_map</spirit:name>',
             '            <spirit:addressBlock>',
             '                <spirit:name>registers</spirit:name>',
             f'                <spirit:baseAddress>0x{base_addr:X}</spirit:baseAddress>',
-        ]
+        ])
         
         # Calculate range (using relative addresses)
         if module['registers']:
@@ -370,8 +383,18 @@ class XMLGenerator:
         for reg in module['registers']:
             offset = reg.get('relative_address', reg['address'])
             description = reg.get('description', '')
+            r_strobe = reg.get('read_strobe', reg.get('r_strobe', False))
+            w_strobe = reg.get('write_strobe', reg.get('w_strobe', False))
+            
+            # Build strobe attributes string for round-trip compatibility
+            strobe_attrs = ''
+            if r_strobe:
+                strobe_attrs += ' r_strobe="true"'
+            if w_strobe:
+                strobe_attrs += ' w_strobe="true"'
+            
             lines.extend([
-                '                <spirit:register>',
+                f'                <spirit:register{strobe_attrs}>',
                 f'                    <spirit:name>{reg["signal_name"]}</spirit:name>',
             ])
             if description:

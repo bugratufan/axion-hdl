@@ -22,6 +22,7 @@ Example:
 
 import os
 from .parser import VHDLParser
+from .xml_input_parser import XMLInputParser
 from .generator import VHDLGenerator
 from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator
 
@@ -51,6 +52,7 @@ class AxionHDL:
             output_dir: Output directory for generated files (default: ./axion_output)
         """
         self.src_dirs = []
+        self.xml_src_dirs = []  # XML source directories
         self.output_dir = os.path.abspath(output_dir)
         self.analyzed_modules = []
         self.is_analyzed = False
@@ -160,45 +162,82 @@ class AxionHDL:
     def list_src(self):
         """List all added source directories."""
         if self.src_dirs:
-            print("Source directories:")
+            print("VHDL Source directories:")
             for directory in self.src_dirs:
                 print(f"  - {directory}")
         else:
-            print("No source directories added yet.")
+            print("No VHDL source directories added yet.")
+        if self.xml_src_dirs:
+            print("XML Source directories:")
+            for directory in self.xml_src_dirs:
+                print(f"  - {directory}")
+    
+    def add_xml_src(self, dir_path):
+        """
+        Add an XML source directory containing register definition files.
+        
+        Args:
+            dir_path: Path to the source directory containing .xml files
+        """
+        normalized_path = os.path.abspath(dir_path)
+        if os.path.isdir(normalized_path):
+            if normalized_path not in self.xml_src_dirs:
+                self.xml_src_dirs.append(normalized_path)
+                print(f"XML source directory added: {normalized_path}")
+            else:
+                print(f"XML source directory already exists: {normalized_path}")
+        else:
+            print(f"Error: '{normalized_path}' is not a valid directory.")
             
     def analyze(self):
         """
-        Analyze all VHDL files in source directories and parse @axion annotations.
+        Analyze all VHDL and XML files in source directories.
         This must be called before any generation functions.
         
         Files and directories matching exclusion patterns will be skipped.
         Use exclude() to add patterns before calling analyze().
         """
-        if not self.src_dirs:
-            print("Error: No source directories added. Use add_src() first.")
+        if not self.src_dirs and not self.xml_src_dirs:
+            print("Error: No source directories added. Use add_src() or add_xml_src() first.")
             return False
+        
+        self.analyzed_modules = []
             
-        print(f"\n{'='*60}")
-        print("Starting analysis of VHDL files...")
-        print(f"{'='*60}")
-        
-        # Show exclusions if any
-        if self._exclude_patterns:
-            print(f"Excluding: {', '.join(sorted(self._exclude_patterns))}")
-        
-        # Parse VHDL files
-        parser = VHDLParser()
-        
-        # Apply exclusion patterns
-        for pattern in self._exclude_patterns:
-            parser.add_exclude(pattern)
+        # Parse VHDL files if any
+        if self.src_dirs:
+            print(f"\n{'='*60}")
+            print("Starting analysis of VHDL files...")
+            print(f"{'='*60}")
             
-        self.analyzed_modules = parser.parse_vhdl_files(self.src_dirs)
+            if self._exclude_patterns:
+                print(f"Excluding: {', '.join(sorted(self._exclude_patterns))}")
+            
+            parser = VHDLParser()
+            for pattern in self._exclude_patterns:
+                parser.add_exclude(pattern)
+                
+            vhdl_modules = parser.parse_vhdl_files(self.src_dirs)
+            self.analyzed_modules.extend(vhdl_modules)
+            print(f"Found {len(vhdl_modules)} modules from VHDL files.")
+        
+        # Parse XML files if any
+        if self.xml_src_dirs:
+            print(f"\n{'='*60}")
+            print("Starting analysis of XML files...")
+            print(f"{'='*60}")
+            
+            xml_parser = XMLInputParser()
+            for pattern in self._exclude_patterns:
+                xml_parser.add_exclude(pattern)
+                
+            xml_modules = xml_parser.parse_xml_files(self.xml_src_dirs)
+            self.analyzed_modules.extend(xml_modules)
+            print(f"Found {len(xml_modules)} modules from XML files.")
+        
         self.is_analyzed = True
         
-        print(f"\nAnalysis complete. Found {len(self.analyzed_modules)} modules with @axion annotations.")
+        print(f"\nAnalysis complete. Found {len(self.analyzed_modules)} total modules.")
         
-        # Display register summary for each module
         if self.analyzed_modules:
             self._print_analysis_summary()
         
