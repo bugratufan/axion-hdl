@@ -15,6 +15,7 @@ Covers requirements:
 - ERR-001 to ERR-006
 - CLI-001 to CLI-010
 - STRESS-001 to STRESS-006
+- XML-001 to XML-005
 """
 
 import subprocess
@@ -662,10 +663,13 @@ def generate_markdown_report(results: List[TestResult]):
         }),
         "stress": ("🔥 Stress Tests (STRESS-xxx)", {
             "requirements": "STRESS Requirements"
+        }),
+        "xml": ("📄 XML Input Tests (XML-xxx)", {
+            "requirements": "XML Requirements"
         })
     }
     
-    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress"]:
+    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "xml"]:
         if cat not in categories:
             continue
         
@@ -736,7 +740,8 @@ def print_results(results: List[TestResult]):
         "cli": "🖥️ CLI",
         "cdc": "🔄 CDC",
         "addr": "📍 ADDR",
-        "stress": "🔥 STRESS"
+        "stress": "🔥 STRESS",
+        "xml": "📄 XML"
     }
     
     total_passed = 0
@@ -749,7 +754,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress"]:
+    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "xml"]:
         if cat not in categories:
             continue
         
@@ -1193,9 +1198,71 @@ def run_stress_tests() -> List[TestResult]:
     return results
 
 
+def run_xml_tests() -> List[TestResult]:
+    """Run XML-xxx requirement tests"""
+    results = []
+
+    try:
+        from tests.python.test_xml_input import TestXMLInput
+        import io
+        import sys
+
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestXMLInput)
+
+        for test in suite:
+            test_name = str(test).split()[0]
+            # Heuristic map for test names to Requirement IDs if not strictly named
+            # Or assume test naming convention test_xml_xxx
+            if 'custom' in test_name:
+                req_id = 'XML-001'
+            elif 'ipxact' in test_name:
+                req_id = 'XML-002'
+            elif 'integration' in test_name:
+                req_id = 'XML-003'
+            elif 'stress' in test_name:
+                req_id = 'XML-004'
+            elif 'malformed' in test_name or 'invalid' in test_name or 'conflict' in test_name or 'unknown' in test_name:
+                req_id = 'XML-005'
+            else:
+                req_id = 'XML-000'
+
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+
+                results.append(TestResult(
+                    f"xml.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="xml",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"xml.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="xml",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("xml.import", "XML: Import test module", "failed", 0, str(e), category="xml", subcategory="setup"))
+
+    return results
+
+
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, XML\n")
     
     all_results = []
     
@@ -1235,12 +1302,16 @@ def main():
     print(f"  [9/11] Running stress tests...", flush=True)
     all_results.extend(run_stress_tests())
     
+    # Run XML tests (XML requirements)
+    print(f"  [10/12] Running XML tests...", flush=True)
+    all_results.extend(run_xml_tests())
+
     # Run C tests
-    print(f"  [10/11] Running C header tests...", flush=True)
+    print(f"  [11/12] Running C header tests...", flush=True)
     all_results.extend(run_c_tests())
     
     # Run VHDL tests (AXION, AXI-LITE requirements)
-    print(f"  [11/11] Running VHDL simulation tests...", flush=True)
+    print(f"  [12/12] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
     
     # Save and generate reports
@@ -1260,7 +1331,7 @@ def print_requirement_coverage(results: List[TestResult]):
     """Print requirement coverage summary"""
     
     # Extract requirement IDs from test results
-    req_pattern = re.compile(r'(AXION-\d+[a-z]?|AXI-LITE-\d+[a-z]?|PARSER-\d+|GEN-\d+|CDC-\d+|ADDR-\d+|ERR-\d+|CLI-\d+|STRESS-\d+)', re.IGNORECASE)
+    req_pattern = re.compile(r'(AXION-\d+[a-z]?|AXI-LITE-\d+[a-z]?|PARSER-\d+|GEN-\d+|CDC-\d+|ADDR-\d+|ERR-\d+|CLI-\d+|STRESS-\d+|XML-\d+)', re.IGNORECASE)
     
     covered = set()
     for r in results:
@@ -1288,6 +1359,8 @@ def print_requirement_coverage(results: List[TestResult]):
         expected.add(f"CLI-{i:03d}")
     for i in range(1, 7):
         expected.add(f"STRESS-{i:03d}")
+    for i in range(1, 6):
+        expected.add(f"XML-{i:03d}")
     
     print(f"\n{CYAN}{BOLD}{'═' * 80}{RESET}")
     print(f"{CYAN}{BOLD}  REQUIREMENT COVERAGE SUMMARY{RESET}")
@@ -1306,7 +1379,8 @@ def print_requirement_coverage(results: List[TestResult]):
         "ADDR": [r for r in covered if r.startswith("ADDR-")],
         "ERR": [r for r in covered if r.startswith("ERR-")],
         "CLI": [r for r in covered if r.startswith("CLI-")],
-        "STRESS": [r for r in covered if r.startswith("STRESS-")]
+        "STRESS": [r for r in covered if r.startswith("STRESS-")],
+        "XML": [r for r in covered if r.startswith("XML-")]
     }
     
     print(f"\n  By Category:")
