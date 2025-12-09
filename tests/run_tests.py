@@ -747,6 +747,15 @@ def run_vhdl_tests() -> List[TestResult]:
     waveform_dir.mkdir(exist_ok=True)
     wave_file = waveform_dir / "multi_module_tb_wave.ghw"
     
+    # CRITICAL: Reanalyze and re-elaborate before simulation
+    # The XML generation step above may have regenerated files, causing stale analysis
+    for gen_file in ["sensor_controller_axion_reg.vhd", "spi_controller_axion_reg.vhd", "mixed_width_controller_axion_reg.vhd"]:
+        gen_path = PROJECT_ROOT / "output" / gen_file
+        if gen_path.exists():
+            run_command(["ghdl", "-a"] + ghdl_opts + [str(gen_path)])
+    run_command(["ghdl", "-a"] + ghdl_opts + [str(PROJECT_ROOT / "tests" / "vhdl" / "multi_module_tb.vhd")])
+    run_command(["ghdl", "-e"] + ghdl_opts + ["multi_module_tb"])
+    
     success, duration, output = run_command([
         "ghdl", "-r"] + ghdl_opts + [
         "multi_module_tb",
