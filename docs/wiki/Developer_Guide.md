@@ -59,3 +59,11 @@ To add support for a new format (e.g., TOML):
 2.  Update `axion.py` to recognize the file extension.
 3.  Add entry to `doc_generators.py` if you want TOML output.
 4.  Add tests in `tests/toml/` and `tests/python/test_toml_input.py`.
+
+## 6. Updating Documentation
+
+The project Wiki is managed as code within the `docs/wiki/` directory.
+
+-   **Do not** edit the Wiki directly on GitHub (changes will be overwritten).
+-   Edit the Markdown files in `docs/wiki/`.
+-   When your changes are merged to `develop` or `main`, a GitHub Action automatically syncs them to the project Wiki.
