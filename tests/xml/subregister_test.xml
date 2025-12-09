@@ -1,0 +1,44 @@
+<register_map module="subregister_test_xml" base_addr="0x3000">
+    <!-- Configuration -->
+    <config cdc_en="false"/>
+
+    <!-- 
+        Standard Register: config_reg 
+        Address: 0x00
+        Default: 0xCAFEBABE
+    -->
+    <register name="config_reg" addr="0x00" access="RW" width="32" default="0xCAFEBABE" description="Configuration Register"/>
+
+    <!-- 
+        Packed Register: status_reg (RO)
+        Address: 0x04
+        
+        Fields:
+        - ready:    bit 0
+        - error:    bit 1
+        - busy:     bit 2
+        - state:    bits 7:4 (4 bits)
+        - count:    bits 15:8 (8 bits)
+    -->
+    <register name="ready" reg_name="status_reg" addr="0x04" width="1" access="RO" bit_offset="0" description="Ready Status"/>
+    <register name="err_flag" reg_name="status_reg" addr="0x04" width="1" access="RO" bit_offset="1" description="Error Flag"/>
+    <register name="busy"  reg_name="status_reg" addr="0x04" width="1" access="RO" bit_offset="2" description="Busy Flag"/>
+    <register name="state" reg_name="status_reg" addr="0x04" width="4" access="RO" bit_offset="4" description="State Machine State"/>
+    <register name="count" reg_name="status_reg" addr="0x04" width="8" access="RO" bit_offset="8" description="Event Counter"/>
+
+    <!-- 
+        Packed Register: control_reg (RW)
+        Address: 0x10
+        
+        Fields:
+        - enable:    bit 0, default=1
+        - mode:      bit 1, default=0
+        - irq_mask:  bits 7:4, default=0xF (15)
+        - timeout:   bits 15:8, default=100
+    -->
+    <register name="enable"   reg_name="control_reg" addr="0x10" width="1" access="RW" bit_offset="0" default="1" description="Enable Module"/>
+    <register name="mode"     reg_name="control_reg" addr="0x10" width="1" access="RW" bit_offset="1" default="0" description="Mode Select"/>
+    <register name="irq_mask" reg_name="control_reg" addr="0x10" width="4" access="RW" bit_offset="4" default="0xF" description="Interrupt Mask"/>
+    <register name="timeout"  reg_name="control_reg" addr="0x10" width="8" access="RW" bit_offset="8" default="100" description="Timeout Value"/>
+
+</register_map>

@@ -61,19 +61,77 @@ class DocGenerator:
             "",
             "### Register Map",
             "",
-            "| Address | Offset | Register Name | Type | Width | Access | R_STROBE | W_STROBE | Description |",
-            "|---------|--------|---------------|------|-------|--------|----------|----------|-------------|"
+            "| Address | Offset | Register Name | Type | Width | Access | Default | Description |",
+            "|---------|--------|---------------|------|-------|--------|---------|-------------|"
         ])
         
+        # Group registers: standalone vs packed
+        # For packed registers, we want to show the main 32-bit register first
+        # We need to detect which registers are packed (is_packed=True)
+        # But for the register map table, we should list the ADDR/OFFSET only once for the whole register.
+        
+        # Helper to group registers by address/name
+        grouped_regs = {}
+        processed_packed_names = set()
+        
         for reg in module['registers']:
-            r_strobe = "✓" if reg['read_strobe'] else "-"
-            w_strobe = "✓" if reg['write_strobe'] else "-"
-            offset = reg.get('relative_address', reg['address'])
-            description = reg.get('description', '-')
-            lines.append(
-                f"| {reg['address']} | {offset} | `{reg['signal_name']}` | {reg['signal_type']} | 32 | "
-                f"{reg['access_mode']} | {r_strobe} | {w_strobe} | {description} |"
-            )
+            if reg.get('is_packed'):
+                # Group by actual register name (reg_name)
+                packed_name = reg['reg_name']
+                if packed_name not in grouped_regs:
+                    grouped_regs[packed_name] = {
+                        'type': 'packed',
+                        'fields': [],
+                        'info': reg # Keep one reg as info source for address/access
+                    }
+                grouped_regs[packed_name]['fields'].append(reg)
+            else:
+                grouped_regs[reg['signal_name']] = {
+                    'type': 'standalone',
+                    'info': reg
+                }
+                
+        # To maintain order, iterate original list but skip already processed packed groups
+        shown_groups = set()
+        
+        for reg in module['registers']:
+            name_key = reg['reg_name'] if reg.get('is_packed') else reg['signal_name']
+            
+            if name_key in shown_groups:
+                continue
+            shown_groups.add(name_key)
+            
+            group = grouped_regs[name_key]
+            info = group['info']
+            
+            offset = info.get('relative_address', info['address'])
+            # Use grouped reg_name for packed, otherwise signal_name
+            display_name = name_key 
+            
+            # Access: mixed for packed? Usually RW or RO. Take from first field.
+            access = info['access_mode']
+            
+            # Default: For standalone, take 'default'. For packed, show 'Mixed' or combined hex if possible?
+            # Let's show the combined default if available processing, or just Listing
+            # Actually, generator logic combines defaults into the main register default.
+            # But here we might not have that easily. Let's just default to '-' for packed row, and details in description.
+            default_val = info.get('default_value', '-')
+            if default_val != '-':
+                 default_val = f"0x{int(default_val):X}"
+            
+            desc = info.get('description', '-')
+            
+            if group['type'] == 'packed':
+                # Show main register row
+                lines.append(
+                    f"| {info['address']} | {offset} | `{display_name}` | [31:0] | 32 | "
+                    f"{access} | {default_val} | **Packed Register** (see below) |"
+                )
+            else:
+                lines.append(
+                    f"| {info['address']} | {offset} | `{display_name}` | {info['signal_type']} | 32 | "
+                    f"{access} | {default_val} | {desc} |"
+                )
         
         lines.extend([
             "",
@@ -81,27 +139,65 @@ class DocGenerator:
             ""
         ])
         
+        # Reset shown groups for port section
+        shown_groups = set()
+        
         for reg in module['registers']:
-            lines.append(f"#### {reg['signal_name']}")
-            description = reg.get('description', '')
-            if description:
-                lines.append(f"*{description}*")
-                lines.append("")
-            lines.append(f"- **Address:** {reg['address']}")
-            offset = reg.get('relative_address', reg['address'])
-            lines.append(f"- **Offset:** {offset}")
-            lines.append(f"- **Access Mode:** {reg['access_mode']}")
-            lines.append(f"- **Type:** `std_logic_vector(31 downto 0)`")
-            lines.append("")
-            lines.append("**Ports:**")
-            lines.append(f"- `{reg['signal_name']}` (inout): Register data signal")
+            name_key = reg['reg_name'] if reg.get('is_packed') else reg['signal_name']
+            if name_key in shown_groups:
+                continue
+            shown_groups.add(name_key)
             
-            if reg['read_strobe']:
-                lines.append(f"- `{reg['signal_name']}_rd_strobe` (out): Read strobe pulse")
-            if reg['write_strobe']:
-                lines.append(f"- `{reg['signal_name']}_wr_strobe` (out): Write strobe pulse")
-            if reg['access_mode'] in ['RO', 'RW']:
-                lines.append(f"- `{reg['signal_name']}_wr_en` (in): Write enable from VHDL logic")
+            group = grouped_regs[name_key]
+            info = group['info']
+            
+            lines.append(f"#### {name_key}")
+            
+            if group['type'] == 'packed':
+                lines.append(f"**Packed Register** - Address: {info['address']} (Offset: {info.get('relative_address', info['address'])})")
+                lines.append("")
+                lines.append("| Field | Bits | Type | Access | Default | Description |")
+                lines.append("|-------|------|------|--------|---------|-------------|")
+                
+                # Sort fields by bit offset (high to low usually preferred in docs, or low to high)
+                # Let's do High to Low (MSB first)
+                sorted_fields = sorted(group['fields'], key=lambda r: int(r.get('bit_offset', 0)), reverse=True)
+                
+                for field in sorted_fields:
+                    fname = field['signal_name']
+                    offset = int(field.get('bit_offset', 0))
+                    width = int(field.get('width', 1))
+                    bit_range = f"[{offset}]" if width == 1 else f"[{offset+width-1}:{offset}]"
+                    fdefault = field.get('default_value', '-')
+                    if fdefault != '-': fdefault = f"0x{int(fdefault):X}"
+                    fdesc = field.get('description', '-')
+                    
+                    lines.append(f"| `{fname}` | {bit_range} | {field['signal_type']} | {field['access_mode']} | {fdefault} | {fdesc} |")
+                lines.append("")
+                
+            else:
+                # Standalone
+                description = info.get('description', '')
+                if description:
+                    lines.append(f"*{description}*")
+                    lines.append("")
+                lines.append(f"- **Address:** {info['address']}")
+                lines.append(f"- **Offset:** {info.get('relative_address', info['address'])}")
+                lines.append(f"- **Access Mode:** {info['access_mode']}")
+                defs = info.get('default_value', '-')
+                if defs != '-': defs = f"0x{int(defs):X}"
+                lines.append(f"- **Default:** {defs}")
+                lines.append(f"- **Type:** `std_logic_vector(31 downto 0)`")
+                lines.append("")
+                lines.append("**Ports:**")
+                lines.append(f"- `{info['signal_name']}` (inout): Register data signal")
+                
+                if info['read_strobe']:
+                    lines.append(f"- `{info['signal_name']}_rd_strobe` (out): Read strobe pulse")
+                if info['write_strobe']:
+                    lines.append(f"- `{info['signal_name']}_wr_strobe` (out): Write strobe pulse")
+                if info['access_mode'] in ['RO', 'RW']:
+                    lines.append(f"- `{info['signal_name']}_wr_en` (in): Write enable from VHDL logic")
             
             lines.append("")
         
@@ -238,6 +334,14 @@ class CHeaderGenerator:
         lines.extend([
             "",
             "/* Register Access Macros (using module base address) */",
+            "/* Helper macros for bit field access */",
+            "#ifndef GET_FIELD",
+            "#define GET_FIELD(val, mask, shift)    (((val) & (mask)) >> (shift))",
+            "#endif",
+            "",
+            "#ifndef SET_FIELD",
+            "#define SET_FIELD(val, mask, shift, new_val)    (((val) & ~(mask)) | (((new_val) << (shift)) & (mask)))",
+            "#endif",
         ])
         
         # Read macros - with module prefix
@@ -281,6 +385,86 @@ class CHeaderGenerator:
                             f"#define {module_prefix}WRITE_{reg_name_upper}_REG{i}(val)    "
                             f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_REG{i}_OFFSET)) = (val))"
                         )
+                        
+        lines.extend([
+            "",
+            "/* Bit Field Masks and Shifts (for packed registers) */",
+        ])
+        
+        for reg in module['registers']:
+            if reg.get('is_packed'):
+                # Generate MASK and SHIFT for fields in this packed register
+                reg_name_upper = reg['reg_name'].upper() # The container register
+                
+                for field in reg.get('fields', []):
+                    field_name_upper = field['name'].upper()
+                    bit_offset = int(field.get('bit_low', 0))
+                    width = int(field.get('width', 1))
+                    mask = ((1 << width) - 1) << bit_offset
+                    
+                    lines.append(f"#define {module_prefix}{reg_name_upper}_{field_name_upper}_MASK    0x{mask:X}")
+                    lines.append(f"#define {module_prefix}{reg_name_upper}_{field_name_upper}_SHIFT   {bit_offset}")
+
+        lines.extend([
+            "",
+            "/* Register Default Values */",
+        ])
+        
+        # We need to construct the full 32-bit default for packed registers
+        # For standalone, it's easy.
+        
+        # First, calculate defaults for packed registers
+        packed_defaults = {}
+        for reg in module['registers']:
+            if reg.get('is_packed'):
+                reg_name = reg['reg_name']
+                if reg_name not in packed_defaults:
+                    packed_defaults[reg_name] = 0
+                
+                default_val = reg.get('default_value', '0')
+                bit_offset = int(reg.get('bit_offset', 0))
+                
+                # Check if default is hex or dec
+                # Check if default is hex or dec
+                try:
+                    if isinstance(default_val, int):
+                        val = default_val
+                    else:
+                        val = int(default_val, 0) # Auto-detect base
+                except (ValueError, TypeError):
+                    val = 0
+                    
+                packed_defaults[reg_name] |= (val << bit_offset)
+
+        # Iterate again to generate macros (skipping duplicates for packed)
+        processed_packed_defaults = set()
+        
+        for reg in module['registers']:
+            if reg.get('is_packed'):
+                reg_name = reg['reg_name']
+                if reg_name in processed_packed_defaults:
+                    continue
+                processed_packed_defaults.add(reg_name)
+                
+                val = packed_defaults.get(reg_name, 0)
+                reg_name_upper = reg_name.upper()
+                lines.append(f"#define {module_prefix}{reg_name_upper}_DEFAULT    0x{val:08X}")
+                
+            else:
+                # Standalone
+                reg_name_upper = reg['signal_name'].upper()
+                default_val = reg.get('default_value', '0')
+                try:
+                    if isinstance(default_val, int):
+                        val = default_val
+                    else:
+                        val = int(default_val, 0)
+                except (ValueError, TypeError):
+                    val = 0
+                
+                # Handling wide signals? Default usually 0 for them in this simple generator for now
+                if self._get_signal_width(reg['signal_type']) <= 32:
+                     lines.append(f"#define {module_prefix}{reg_name_upper}_DEFAULT    0x{val:08X}")
         
         lines.extend([
             "",

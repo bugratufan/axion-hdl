@@ -133,12 +133,18 @@ class XMLInputParser:
         registers = []
         next_auto_addr = 0
         
+        # Import from axion_hdl
+        from axion_hdl.bit_field_manager import BitFieldManager, BitOverlapError
+
+        bit_field_manager = BitFieldManager()
+        
         for reg_elem in root.findall('register'):
             reg_name = reg_elem.get('name')
             if not reg_name:
                 continue
             
-            access = reg_elem.get('access', 'RW').upper()
+            # Use 'access' attribute first, fallback to 'mode' if needed
+            access = reg_elem.get('access', reg_elem.get('mode', 'RW')).upper()
             if access not in ('RO', 'RW', 'WO'):
                 print(f"  Warning: Invalid access mode '{access}' for {reg_name}, using RW")
                 access = 'RW'
@@ -149,6 +155,74 @@ class XMLInputParser:
             except ValueError:
                 width = 32
             
+            # Parse packed register attributes
+            packed_reg_name = reg_elem.get('reg_name')  # Grouping name
+            bit_offset_str = reg_elem.get('bit_offset')
+            bit_offset = None
+            if bit_offset_str is not None:
+                try:
+                    bit_offset = int(bit_offset_str)
+                except ValueError:
+                    bit_offset = None
+
+            # Parse default value
+            default_str = reg_elem.get('default')
+            default_val = 0
+            if default_str:
+                try:
+                    if default_str.lower().startswith('0x'):
+                        default_val = int(default_str, 16)
+                    else:
+                        default_val = int(default_str)
+                except ValueError:
+                    print(f"  Warning: Invalid default value '{default_str}' for {reg_name}, using 0")
+            
+            # If REG_NAME is present, logic for packed registers
+            if packed_reg_name:
+                # Get or calculate address for packed register
+                addr_str = reg_elem.get('addr')
+                if addr_str:
+                    addr = self._parse_address(addr_str)
+                else:
+                    # If this packed register already exists, use its address
+                    existing_reg = bit_field_manager.get_register(packed_reg_name)
+                    if existing_reg:
+                        addr = existing_reg.address
+                    else:
+                        # New packed register, assign new address
+                        # Align to 32-bit (4 byte) boundary
+                        addr = (next_auto_addr + 3) & ~3
+                
+                # Signal type creation (Internal format)
+                if width > 1:
+                    sig_type = f"[{width-1}:0]"
+                else:
+                    sig_type = "[0:0]"
+                
+                try:
+                    bit_field_manager.add_field(
+                        reg_name=packed_reg_name,
+                        address=addr,
+                        field_name=reg_name,
+                        width=width,
+                        access_mode=access,
+                        signal_type=sig_type,
+                        bit_offset=bit_offset,
+                        description=reg_elem.get('description', ''),
+                        source_file=filepath,
+                        default_value=default_val
+                    )
+                    
+                    # Update next address only if this is a new register at a higher address
+                    if addr >= next_auto_addr:
+                        next_auto_addr = addr + 4
+                        
+                except Exception as e:
+                     print(f"  Error processing packed register {reg_name}: {e}")
+                
+                continue  # Skip adding to standard registers list
+            
+            # Standard Register Logic
             addr_str = reg_elem.get('addr')
             if addr_str:
                 addr = self._parse_address(addr_str)
@@ -176,11 +250,65 @@ class XMLInputParser:
                 'signal_type': f"std_logic_vector({width-1} downto 0)" if width > 1 else "std_logic",
                 'r_strobe': r_strobe,
                 'w_strobe': w_strobe,
-                'read_strobe': r_strobe,   # Alias for VHDLParser compatibility
-                'write_strobe': w_strobe,  # Alias for VHDLParser compatibility
-                'description': description
+                'read_strobe': r_strobe,
+                'write_strobe': w_strobe,
+                'description': description,
+                'default_value': default_val,
+                'default_value_hex': f"0x{default_val:X}"
             }
             registers.append(register)
+
+        # Process packed registers from BitFieldManager and add them to the list
+        packed_regs_data = [] # To store in module data if needed
+        
+        for packed in bit_field_manager.get_all_registers():
+            # Calculate combined default value
+            combined_default = 0
+            for field in packed.fields:
+                mask = ((1 << field.width) - 1)
+                field_val = (field.default_value & mask) << field.bit_low
+                combined_default |= field_val
+
+            packed_reg_entry = {
+                'signal_name': packed.name,
+                'name': packed.name,
+                'access_mode': packed.access_mode,
+                'access': packed.access_mode,
+                'address': f"0x{packed.address:02X}",
+                'address_int': base_addr + packed.address,
+                'relative_address': f"0x{packed.address:02X}",
+                'reg_name': packed.name,
+                'signal_name': packed.name,     # For consistency
+                'name': packed.name,            # For consistency
+                'relative_address': f"0x{packed.address:02X}",
+                'relative_address_int': packed.address,
+                'width': 32, # Packed registers are always 32-bit
+                'signal_type': "std_logic_vector(31 downto 0)",
+                'r_strobe': False, # Strobe not supported on packed container yet
+                'w_strobe': False,
+                'read_strobe': False,
+                'write_strobe': False,
+                'description': f"Packed register: {packed.name}",
+                'default_value': combined_default,
+                'default_value_hex': f"0x{combined_default:X}",
+                'is_packed': True,
+                'fields': [
+                    {
+                        'name': f.name,
+                        'bit_low': f.bit_low,
+                        'bit_high': f.bit_high,
+                        'width': f.width,
+                        'access_mode': f.access_mode,
+                        'signal_type': f.signal_type,
+                        'default_value': f.default_value
+                    } for f in packed.fields
+                ]
+            }
+            registers.append(packed_reg_entry)
+            packed_regs_data.append(packed_reg_entry) # Track for potential verification
+
+        # Sort registers by address
+        registers.sort(key=lambda x: x['relative_address_int'])
         
         return {
             'entity_name': module_name,
@@ -193,6 +321,7 @@ class XMLInputParser:
             'cdc_stages': cdc_stage,
             'cdc_stage': cdc_stage,
             'registers': registers,
+            'packed_registers': packed_regs_data,
             'source_file': filepath
         }
     
