@@ -10,7 +10,9 @@ Testing and verification are automated via `make test`, which maps tests back to
 | **AXION** | Core Protocol | Core AXI4/AXI4-Lite register interaction and compliance. |
 | **AXI-LITE** | Bus Protocol | Specific AXI4-Lite handshake and signaling rules. |
 | **PARSER** | VHDL Parsing | Parsing of VHDL entities, signals, and `@axion` annotations. |
-| **GEN** | Code Generation | Generation of VHDL register wrappers and C headers. |
+| **YAML-INPUT** | YAML Parsing | Parsing of YAML register definition files. |
+| **JSON-INPUT** | JSON Parsing | Parsing of JSON register definition files. |
+| **GEN** | Code Generation | Generation of VHDL register wrappers, C headers, and data formats. |
 | **ERR** | Error Handling | Detection and reporting of invalid configurations or conflicts. |
 | **CLI** | Interface | Command-line interface arguments and behavior. |
 | **CDC** | Clock Crossing | Clock Domain Crossing synchronization logic. |
@@ -18,6 +20,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | **STRESS** | Performance | Handling of large modules, wide signals, and massive generation. |
 | **SUB** | Subregisters | Support for packed registers (multiple fields in one 32-bit word). |
 | **DEF** | Default Values | Support for reset values via `DEFAULT` attribute. |
+| **EQUIV** | Format Equivalence | Cross-format parsing and output equivalence. |
 
 ---
 
@@ -98,6 +101,8 @@ Testing and verification are automated via `make test`, which maps tests back to
 | GEN-010 | C Struct Definition | Generates typedef struct representing register map. | Python Unit Test (`gen.test_gen_010`) |
 | GEN-011 | XML Map Generation | Generates `.xml` file describing the register map. | Python Unit Test (`gen.test_gen_011`) |
 | GEN-012 | Markdown Documentation Generation | Generates `.md` file with register tables. | Python Unit Test (`gen.test_gen_012`) |
+| GEN-013 | YAML Map Generation | Generates `{module}_regs.yaml` with valid YAML syntax. | Python Unit Test (`gen.test_gen_013`) |
+| GEN-014 | JSON Map Generation | Generates `{module}_regs.json` with valid JSON syntax. | Python Unit Test (`gen.test_gen_014`) |
 
 ## 5. Error Handling (ERR)
 
@@ -116,12 +121,14 @@ Testing and verification are automated via `make test`, which maps tests back to
 |----|------------|---------------------|-------------|
 | CLI-001 | Help Options (-h, --help) | Prints usage information and exits with 0. | Python Unit Test (`cli.test_cli_001`) |
 | CLI-002 | Version Option (--version) | Prints tool version and exits with 0. | Python Unit Test (`cli.test_cli_002`) |
-| CLI-003 | Source Path Options (-s, --source) | Accepts source files (.vhd, .vhdl, .xml) or directories with auto-detection by extension. | Python Unit Test (`cli.test_cli_003`) |
+| CLI-003 | Source Path Options (-s, --source) | Accepts source files (.vhd, .vhdl, .xml, .yaml, .yml, .json) or directories with auto-detection by extension. | Python Unit Test (`cli.test_cli_003`) |
 | CLI-004 | Multiple Source Paths | Accepts multiple `-s` flags for any combination of files and directories. | Python Unit Test (`cli.test_cli_004`) |
 | CLI-005 | Output Directory Options (-o, --output) | Accepts output path argument. | Python Unit Test (`cli.test_cli_005`) |
 | CLI-006 | Exclude Options (-e) | Excludes matching patterns from processing. | Python Unit Test (`cli.test_cli_006`) |
 | CLI-009 | Invalid Source Handling | Returns error code if source path invalid. | Python Unit Test (`cli.test_cli_009`) |
 | CLI-010 | Output Directory Creation | Creates output directory if it doesn't exist. | Python Unit Test (`cli.test_cli_010`) |
+| CLI-011 | YAML Output Flag (--yaml) | `--yaml` generates YAML register map output. | Python Unit Test (`cli.test_cli_011`) |
+| CLI-012 | JSON Output Flag (--json) | `--json` generates JSON register map output. | Python Unit Test (`cli.test_cli_012`) |
 
 > [!NOTE]
 > The `-x/--xml-source` option is deprecated but still supported for backward compatibility. Use `-s/--source` for all source types instead.

@@ -37,7 +37,9 @@ classifiers = [
     "Natural Language :: English",
 ]
 requires-python = ">=3.7"
-dependencies = []
+dependencies = [
+    "PyYAML>=6.0",
+]
 
 [project.optional-dependencies]
 dev = [
