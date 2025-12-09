@@ -67,7 +67,7 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         dest='sources',
         metavar='PATH',
         default=[],
-        help='Source file (.vhd, .vhdl, .xml) or directory. '
+        help='Source file (.vhd, .vhdl, .xml, .yaml, .yml, .json) or directory. '
              'File type is auto-detected by extension. '
              'Can be specified multiple times.'
     )
@@ -108,7 +108,7 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     gen_group.add_argument(
         '--all',
         action='store_true',
-        help='Generate all outputs: VHDL, documentation, XML, and C headers'
+        help='Generate all outputs: VHDL, documentation, XML, YAML, JSON, and C headers'
     )
     
     gen_group.add_argument(
@@ -143,6 +143,18 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         help='Generate C header files with register definitions'
     )
     
+    gen_group.add_argument(
+        '--yaml',
+        action='store_true',
+        help='Generate YAML register map description'
+    )
+    
+    gen_group.add_argument(
+        '--json',
+        action='store_true',
+        help='Generate JSON register map description'
+    )
+    
     # Parse arguments
     args = parser.parse_args()
     
@@ -165,7 +177,7 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
             sys.exit(1)
     
     # If no specific generation option is provided, default to --all
-    if not any([args.all, args.vhdl, args.doc, args.xml, args.c_header]):
+    if not any([args.all, args.vhdl, args.doc, args.xml, args.yaml, args.json, args.c_header]):
         args.all = True
     
     # Initialize Axion-HDL
@@ -199,7 +211,7 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     success = True
     
     if args.all:
-        # Generate all output types: VHDL, docs, XML, and C headers
+        # Generate all output types: VHDL, docs, XML, YAML, JSON, and C headers
         success = axion.generate_all(doc_format=args.doc_format)
     else:
         # Generate only selected output types
@@ -209,6 +221,10 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
             success &= axion.generate_documentation(format=args.doc_format)
         if args.xml:
             success &= axion.generate_xml()
+        if args.yaml:
+            success &= axion.generate_yaml()
+        if args.json:
+            success &= axion.generate_json()
         if args.c_header:
             success &= axion.generate_c_header()
     
