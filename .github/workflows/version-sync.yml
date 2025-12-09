@@ -1,0 +1,88 @@
+# Version Sync Workflow
+# Automatically syncs version across project files when PR is opened/updated
+# Auto-bumps version if .version file was not manually changed
+
+name: Version Sync
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  version-sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check if .version was modified
+        id: version-check
+        run: |
+          # Get list of changed files in PR
+          git fetch origin main
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+          
+          if echo "$CHANGED_FILES" | grep -q "^\.version$"; then
+            echo "version_changed=true" >> $GITHUB_OUTPUT
+            echo "📝 .version file was modified in this PR"
+          else
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+            echo "🔄 .version file was NOT modified - will auto-bump"
+          fi
+
+      - name: Determine bump type from branch name
+        id: bump-type
+        if: steps.version-check.outputs.version_changed == 'false'
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          echo "Branch name: $BRANCH"
+          
+          if [[ "$BRANCH" == feature/* ]]; then
+            echo "bump_type=minor" >> $GITHUB_OUTPUT
+            echo "🔼 Feature branch detected - will bump MINOR version"
+          else
+            echo "bump_type=patch" >> $GITHUB_OUTPUT
+            echo "🔧 Non-feature branch - will bump PATCH version"
+          fi
+
+      - name: Auto-bump version
+        if: steps.version-check.outputs.version_changed == 'false'
+        run: |
+          python scripts/sync_version.py --bump ${{ steps.bump-type.outputs.bump_type }}
+          echo "New version: $(cat .version)"
+
+      - name: Sync version to all files
+        run: |
+          python scripts/sync_version.py
+          python scripts/sync_version.py --check
+
+      - name: Commit version changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Check if there are changes to commit
+          if git diff --quiet && git diff --staged --quiet; then
+            echo "No version changes to commit"
+          else
+            VERSION=$(cat .version)
+            git add .version pyproject.toml axion_hdl/__init__.py
+            git commit -m "chore: sync version to ${VERSION} [skip ci]"
+            git push
+            echo "✅ Version changes committed and pushed"
+          fi
