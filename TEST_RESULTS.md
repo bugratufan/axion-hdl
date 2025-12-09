@@ -10,8 +10,8 @@
 | ✅ Passed | 201 |
 | ❌ Failed | 0 |
 | ⏭️ Skipped | 0 |
-| ⏱️ Total Time | 2.55s |
-| 🕐 Last Run | 2025-12-09 20:11:32 |
+| ⏱️ Total Time | 2.45s |
+| 🕐 Last Run | 2025-12-09 20:40:38 |
 
 ## 🐍 Python Tests
 
@@ -23,9 +23,9 @@
 |:------:|:--------|:----------|:--------:|
 | ✅ | `python.unit.init` | Initialize AxionHDL | 0.000s |
 | ✅ | `python.unit.add_src` | Add Source Directory | 0.000s |
-| ✅ | `python.unit.analyze` | Analyze VHDL Files | 0.003s |
+| ✅ | `python.unit.analyze` | Analyze VHDL Files | 0.004s |
 | ✅ | `python.unit.gen_vhdl` | Generate VHDL Modules | 0.005s |
-| ✅ | `python.unit.gen_c` | Generate C Headers | 0.004s |
+| ✅ | `python.unit.gen_c` | Generate C Headers | 0.003s |
 | ✅ | `python.unit.gen_xml` | Generate XML Register Map | 0.003s |
 | ✅ | `python.unit.gen_doc` | Generate Markdown Documentation | 0.003s |
 
@@ -48,7 +48,7 @@
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
 | ✅ | `c.compile.gcc_check` | GCC Available | 0.001s |
-| ✅ | `c.compile.headers` | Compile C Header Test | 0.289s |
+| ✅ | `c.compile.headers` | Compile C Header Test | 0.255s |
 | ✅ | `c.compile.run` | Run C Header Test Binary | 0.001s |
 
 ## 🔧 VHDL Tests
@@ -59,8 +59,8 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.ghdl.check` | GHDL Available | 0.004s |
-| ✅ | `vhdl.run.subregister_tb` | SUB-VHDL: Run subregister_test_tb Simulation | 0.104s |
+| ✅ | `vhdl.ghdl.check` | GHDL Available | 0.005s |
+| ✅ | `vhdl.run.subregister_tb` | SUB-VHDL: Run subregister_test_tb Simulation | 0.105s |
 
 ### VHDL Analysis
 
@@ -68,16 +68,16 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.analyze.sensor_controller` | Analyze sensor_controller.vhd | 0.011s |
-| ✅ | `vhdl.analyze.spi_controller` | Analyze spi_controller.vhd | 0.011s |
-| ✅ | `vhdl.analyze.mixed_width` | Analyze mixed_width_controller.vhd | 0.011s |
-| ✅ | `vhdl.analyze.subregister_test` | SUB-VHDL: Analyze subregister_test.vhd | 0.010s |
-| ✅ | `vhdl.analyze.subregister_axion` | SUB-VHDL: Analyze generated subregister_test_axion_reg.vhd | 0.012s |
-| ✅ | `vhdl.analyze.subregister_tb` | SUB-VHDL: Analyze subregister_test_tb.vhd | 0.012s |
-| ✅ | `vhdl.analyze.sensor_axion` | Analyze sensor_controller_axion_reg.vhd | 0.014s |
-| ✅ | `vhdl.analyze.spi_axion` | Analyze spi_controller_axion_reg.vhd | 0.012s |
+| ✅ | `vhdl.analyze.sensor_controller` | Analyze sensor_controller.vhd | 0.012s |
+| ✅ | `vhdl.analyze.spi_controller` | Analyze spi_controller.vhd | 0.012s |
+| ✅ | `vhdl.analyze.mixed_width` | Analyze mixed_width_controller.vhd | 0.012s |
+| ✅ | `vhdl.analyze.subregister_test` | SUB-VHDL: Analyze subregister_test.vhd | 0.012s |
+| ✅ | `vhdl.analyze.subregister_axion` | SUB-VHDL: Analyze generated subregister_test_axion_reg.vhd | 0.013s |
+| ✅ | `vhdl.analyze.subregister_tb` | SUB-VHDL: Analyze subregister_test_tb.vhd | 0.014s |
+| ✅ | `vhdl.analyze.sensor_axion` | Analyze sensor_controller_axion_reg.vhd | 0.015s |
+| ✅ | `vhdl.analyze.spi_axion` | Analyze spi_controller_axion_reg.vhd | 0.013s |
 | ✅ | `vhdl.analyze.mixed_axion` | Analyze mixed_width_controller_axion_reg.vhd | 0.015s |
-| ✅ | `vhdl.analyze.testbench` | Analyze multi_module_tb.vhd | 0.024s |
+| ✅ | `vhdl.analyze.testbench` | Analyze multi_module_tb.vhd | 0.025s |
 
 ### Generate
 
@@ -93,7 +93,7 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.elaboration.subregister_tb` | SUB-VHDL: Elaborate subregister_test_tb | 0.102s |
+| ✅ | `vhdl.elaboration.subregister_tb` | SUB-VHDL: Elaborate subregister_test_tb | 0.109s |
 
 ### Elaboration
 
@@ -101,7 +101,7 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.elaborate.testbench` | Elaborate multi_module_tb | 0.192s |
+| ✅ | `vhdl.elaborate.testbench` | Elaborate multi_module_tb | 0.199s |
 
 ### Xml
 
@@ -112,8 +112,8 @@
 | ✅ | `vhdl.xml.generate` | XML: Generate VHDL from tests/xml/subregister_test.xml | 0.003s |
 | ✅ | `vhdl.xml.analyze_gen` | XML: Analyze generated subregister_test_xml_axion_reg.vhd | 0.013s |
 | ✅ | `vhdl.xml.analyze_tb` | XML: Analyze subregister_xml_test_tb.vhd | 0.013s |
-| ✅ | `vhdl.xml.elaborate` | XML: Elaborate subregister_xml_test_tb | 0.104s |
-| ✅ | `vhdl.xml.run` | XML: Run subregister_xml_test_tb | 0.105s |
+| ✅ | `vhdl.xml.elaborate` | XML: Elaborate subregister_xml_test_tb | 0.103s |
+| ✅ | `vhdl.xml.run` | XML: Run subregister_xml_test_tb | 0.106s |
 
 ### Requirements Verification (AXION/AXI-LITE)
 
@@ -230,7 +230,7 @@
 | ✅ | `gen.test_gen_007_state_machine_exists` | GEN-007-STATE-MACHINE-EXISTS: GEN-007: State machine logic present | 0.000s |
 | ✅ | `gen.test_gen_008_address_decoder` | GEN-008-ADDRESS-DECODER: GEN-008: Address decoder has case statement | 0.000s |
 | ✅ | `gen.test_gen_009_base_address_macro` | GEN-009-BASE-ADDRESS-MACRO: GEN-009: Base address macro defined | 0.000s |
-| ✅ | `gen.test_gen_009_c_header_compiles` | GEN-009-C-HEADER-COMPILES: GEN-009: C header compiles without warnings | 0.682s |
+| ✅ | `gen.test_gen_009_c_header_compiles` | GEN-009-C-HEADER-COMPILES: GEN-009: C header compiles without warnings | 0.496s |
 | ✅ | `gen.test_gen_009_c_header_exists` | GEN-009-C-HEADER-EXISTS: GEN-009: C header file generated | 0.000s |
 | ✅ | `gen.test_gen_009_include_guards` | GEN-009-INCLUDE-GUARDS: GEN-009: Header has include guards | 0.000s |
 | ✅ | `gen.test_gen_009_offset_macros` | GEN-009-OFFSET-MACROS: GEN-009: Register offset macros defined | 0.000s |
@@ -269,20 +269,20 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `cli.test_cli_001_help_option` | CLI-001-HELP-OPTION: CLI-001: --help displays usage information | 0.050s |
-| ✅ | `cli.test_cli_001_help_short_option` | CLI-001-HELP-SHORT-OPTION: CLI-001: -h displays usage information | 0.048s |
-| ✅ | `cli.test_cli_002_version_option` | CLI-002-VERSION-OPTION: CLI-002: --version displays version | 0.046s |
-| ✅ | `cli.test_cli_003_source_file_vhdl` | CLI-003-SOURCE-FILE-VHDL: CLI-003: -s accepts single VHDL file | 0.048s |
-| ✅ | `cli.test_cli_003_source_file_xml` | CLI-003-SOURCE-FILE-XML: CLI-003: -s accepts single XML file | 0.047s |
-| ✅ | `cli.test_cli_003_source_option_long` | CLI-003-SOURCE-OPTION-LONG: CLI-003: --source option specifies source directory | 0.050s |
-| ✅ | `cli.test_cli_003_source_option_short` | CLI-003-SOURCE-OPTION-SHORT: CLI-003: -s option specifies source directory | 0.052s |
-| ✅ | `cli.test_cli_004_mixed_files_and_dirs` | CLI-004-MIXED-FILES-AND-DIRS: CLI-004: -s accepts mix of files and directories | 0.049s |
-| ✅ | `cli.test_cli_004_multiple_sources` | CLI-004-MULTIPLE-SOURCES: CLI-004: Multiple -s options accepted | 0.056s |
-| ✅ | `cli.test_cli_005_output_option_long` | CLI-005-OUTPUT-OPTION-LONG: CLI-005: --output option specifies output directory | 0.057s |
-| ✅ | `cli.test_cli_005_output_option_short` | CLI-005-OUTPUT-OPTION-SHORT: CLI-005: -o option specifies output directory | 0.059s |
-| ✅ | `cli.test_cli_006_exclude_option` | CLI-006-EXCLUDE-OPTION: CLI-006: -e option excludes files/directories | 0.062s |
-| ✅ | `cli.test_cli_009_invalid_source_error` | CLI-009-INVALID-SOURCE-ERROR: CLI-009: Non-existent source reports error | 0.046s |
-| ✅ | `cli.test_cli_010_output_dir_creation` | CLI-010-OUTPUT-DIR-CREATION: CLI-010: Non-existent output directory is created | 0.064s |
+| ✅ | `cli.test_cli_001_help_option` | CLI-001-HELP-OPTION: CLI-001: --help displays usage information | 0.052s |
+| ✅ | `cli.test_cli_001_help_short_option` | CLI-001-HELP-SHORT-OPTION: CLI-001: -h displays usage information | 0.055s |
+| ✅ | `cli.test_cli_002_version_option` | CLI-002-VERSION-OPTION: CLI-002: --version displays version | 0.050s |
+| ✅ | `cli.test_cli_003_source_file_vhdl` | CLI-003-SOURCE-FILE-VHDL: CLI-003: -s accepts single VHDL file | 0.050s |
+| ✅ | `cli.test_cli_003_source_file_xml` | CLI-003-SOURCE-FILE-XML: CLI-003: -s accepts single XML file | 0.051s |
+| ✅ | `cli.test_cli_003_source_option_long` | CLI-003-SOURCE-OPTION-LONG: CLI-003: --source option specifies source directory | 0.058s |
+| ✅ | `cli.test_cli_003_source_option_short` | CLI-003-SOURCE-OPTION-SHORT: CLI-003: -s option specifies source directory | 0.058s |
+| ✅ | `cli.test_cli_004_mixed_files_and_dirs` | CLI-004-MIXED-FILES-AND-DIRS: CLI-004: -s accepts mix of files and directories | 0.056s |
+| ✅ | `cli.test_cli_004_multiple_sources` | CLI-004-MULTIPLE-SOURCES: CLI-004: Multiple -s options accepted | 0.063s |
+| ✅ | `cli.test_cli_005_output_option_long` | CLI-005-OUTPUT-OPTION-LONG: CLI-005: --output option specifies output directory | 0.064s |
+| ✅ | `cli.test_cli_005_output_option_short` | CLI-005-OUTPUT-OPTION-SHORT: CLI-005: -o option specifies output directory | 0.072s |
+| ✅ | `cli.test_cli_006_exclude_option` | CLI-006-EXCLUDE-OPTION: CLI-006: -e option excludes files/directories | 0.074s |
+| ✅ | `cli.test_cli_009_invalid_source_error` | CLI-009-INVALID-SOURCE-ERROR: CLI-009: Non-existent source reports error | 0.054s |
+| ✅ | `cli.test_cli_010_output_dir_creation` | CLI-010-OUTPUT-DIR-CREATION: CLI-010: Non-existent output directory is created | 0.075s |
 
 ## 🔄 CDC Tests (CDC-xxx)
 
@@ -335,4 +335,4 @@
 | ✅ | `stress.test_stress_006_boundary_values` | STRESS-006-BOUNDARY-VALUES: STRESS-006: Generation handles all register types | 0.001s |
 
 ---
-*Generated by `make test` at 2025-12-09 20:11:32*
+*Generated by `make test` at 2025-12-09 20:40:38*
