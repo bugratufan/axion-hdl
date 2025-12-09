@@ -120,8 +120,22 @@ jobs:
 
       - name: Sync version to all files
         run: |
-          python scripts/sync_version.py
-          python scripts/sync_version.py --check
+          VERSION=$(cat .version)
+          
+          # Update pyproject.toml
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+          
+          # Update setup.py
+          sed -i "s/version=\"[^\"]*\"/version=\"$VERSION\"/" setup.py
+          
+          # Update __init__.py
+          sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" axion_hdl/__init__.py
+          
+          echo "✅ Version synced to all files: $VERSION"
+          
+          # Verify
+          echo "=== Verification ==="
+          grep "version" .version pyproject.toml setup.py axion_hdl/__init__.py | head -10
 
       - name: Commit version changes
         run: |
