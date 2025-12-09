@@ -43,6 +43,13 @@ RESULTS_FILE = RESULTS_DIR / "results.json"
 MARKDOWN_FILE = PROJECT_ROOT / "TEST_RESULTS.md"
 REQUIREMENTS_FILE = PROJECT_ROOT / "instructions" / "requirements.md"
 
+# Add project root to python path to import axion_hdl
+sys.path.insert(0, str(PROJECT_ROOT))
+try:
+    from axion_hdl.axion import AxionHDL
+except ImportError:
+    print(f"{YELLOW}Warning: Could not import axion_hdl. Some tests may fail.{RESET}")
+
 
 class TestResult:
     def __init__(self, test_id: str, name: str, status: str, duration: float, 
@@ -484,7 +491,42 @@ def run_vhdl_tests() -> List[TestResult]:
     results.append(TestResult(test_id, name, status, duration, output,
                               category="vhdl", subcategory="analyze"))
     
-    # Test 5: Analyze subregister_test.vhd (SUB/DEF features)
+    # Test 5: Generate VHDL for subregister_test.vhd
+    test_id = "vhdl.generate.subregister"
+    name = "SUB-VHDL: Generate subregister_test_axion_reg.vhd"
+    start = time.time()
+    try:
+        # Generate VHDL dynamically
+        axion = AxionHDL(output_dir=str(PROJECT_ROOT / "output"))
+        axion.add_src(str(PROJECT_ROOT / "tests" / "vhdl"))
+        axion.exclude("address_conflict_test.vhd", "test_parser_*.vhd", "error_cases")
+        # Only analyze subregister_test.vhd for this test to be fast
+        axion.analyze() 
+        # But specifically we want to make sure subregister_test_axion_reg.vhd is generated
+        # axion.analyze() parses all files in the dir
+        
+        # Manually filter to only generate the one we want if needed, or just generate all
+        # To be safe and compliant with Axion flow, we'll just generate everything in that dir
+        axion.generate_vhdl()
+        
+        gen_file = PROJECT_ROOT / "output" / "subregister_test_axion_reg.vhd"
+        if gen_file.exists():
+            duration = time.time() - start
+            results.append(TestResult(test_id, name, "passed", duration, f"Generated {gen_file}",
+                                      category="vhdl", subcategory="generate"))
+            success_gen = True
+        else:
+            duration = time.time() - start
+            results.append(TestResult(test_id, name, "failed", duration, "File not generated",
+                                      category="vhdl", subcategory="generate"))
+            success_gen = False
+    except Exception as e:
+        duration = time.time() - start
+        results.append(TestResult(test_id, name, "failed", duration, str(e),
+                                  category="vhdl", subcategory="generate"))
+        success_gen = False
+
+    # Test 6: Analyze subregister_test.vhd (SUB/DEF features)
     test_id = "vhdl.analyze.subregister_test"
     name = "SUB-VHDL: Analyze subregister_test.vhd"
     vhdl_file = PROJECT_ROOT / "tests" / "vhdl" / "subregister_test.vhd"
@@ -493,7 +535,57 @@ def run_vhdl_tests() -> List[TestResult]:
     results.append(TestResult(test_id, name, status, duration, output,
                               category="vhdl", subcategory="analyze"))
     
-    # Test 6: Analyze generated sensor_controller_axion_reg.vhd
+    # Test 7: Analyze generated subregister_test_axion_reg.vhd
+    test_id = "vhdl.analyze.subregister_axion"
+    name = "SUB-VHDL: Analyze generated subregister_test_axion_reg.vhd"
+    vhdl_file = PROJECT_ROOT / "output" / "subregister_test_axion_reg.vhd"
+    if success_gen and vhdl_file.exists():
+        success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
+        status = "passed" if success else "failed"
+    else:
+        success, duration, output = False, 0, "Skipped because generation failed"
+        status = "failed"
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="analyze"))
+
+    # Test 8: Analyze subregister_test_tb.vhd
+    test_id = "vhdl.analyze.subregister_tb"
+    name = "SUB-VHDL: Analyze subregister_test_tb.vhd"
+    vhdl_file = PROJECT_ROOT / "tests" / "vhdl" / "subregister_test_tb.vhd"
+    success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
+    status = "passed" if success else "failed"
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="analyze"))
+
+    # Test 9: Elaborate subregister_test_tb
+    test_id = "vhdl.elaboration.subregister_tb"
+    name = "SUB-VHDL: Elaborate subregister_test_tb"
+    success, duration, output = run_command(["ghdl", "-e"] + ghdl_opts + ["subregister_test_tb"])
+    status = "passed" if success else "failed"
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="elaboration"))
+
+    # Test 10: Run subregister_test_tb
+    test_id = "vhdl.run.subregister_tb"
+    name = "SUB-VHDL: Run subregister_test_tb Simulation"
+    success, duration, output = run_command(["ghdl", "-r"] + ghdl_opts + ["subregister_test_tb", "--assert-level=error"])
+    
+    # Parse output for PASS/FAIL counts
+    if success:
+        if "FAIL" in output or "error" in output.lower():
+            status = "failed"
+            # Extract failure message if possible
+            fail_line = next((line for line in output.split('\n') if "FAIL" in line), "Unknown failure")
+            output = f"Simulation failed: {fail_line}\n{output}"
+        else:
+            status = "passed"
+    else:
+        status = "failed"
+        
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="simulation"))
+    
+    # Test 11: Analyze generated sensor_controller_axion_reg.vhd
     test_id = "vhdl.analyze.sensor_axion"
     name = "Analyze sensor_controller_axion_reg.vhd"
     vhdl_file = PROJECT_ROOT / "output" / "sensor_controller_axion_reg.vhd"
@@ -548,7 +640,88 @@ def run_vhdl_tests() -> List[TestResult]:
     status = "passed" if success else "failed"
     results.append(TestResult(test_id, name, status, duration, output,
                               category="vhdl", subcategory="elaborate"))
+
+    # ==========================================
+    # XML VHDL Verification Steps
+    # ==========================================
+
+    # Test XML-1: Generate VHDL from XML
+    test_id = "vhdl.xml.generate"
+    name = "XML: Generate VHDL from tests/xml/subregister_test.xml"
+    start = time.time()
+    try:
+        axion = AxionHDL(output_dir=str(PROJECT_ROOT / "output"))
+        axion.add_xml_src(str(PROJECT_ROOT / "tests" / "xml"))
+        axion.analyze()
+        axion.analyze()
+        axion.generate_vhdl()
+        axion.generate_c_header()
+        
+        gen_file = PROJECT_ROOT / "output" / "subregister_test_xml_axion_reg.vhd"
+        if gen_file.exists():
+            duration = time.time() - start
+            results.append(TestResult(test_id, name, "passed", duration, f"Generated {gen_file}",
+                                      category="vhdl", subcategory="xml"))
+            success_xml_gen = True
+        else:
+            duration = time.time() - start
+            results.append(TestResult(test_id, name, "failed", duration, "File not generated",
+                                      category="vhdl", subcategory="xml"))
+            success_xml_gen = False
+    except Exception as e:
+        duration = time.time() - start
+        results.append(TestResult(test_id, name, "failed", duration, str(e),
+                                  category="vhdl", subcategory="xml"))
+        success_xml_gen = False
+
+    # Test XML-2: Analyze Generated VHDL
+    test_id = "vhdl.xml.analyze_gen"
+    name = "XML: Analyze generated subregister_test_xml_axion_reg.vhd"
+    vhdl_file = PROJECT_ROOT / "output" / "subregister_test_xml_axion_reg.vhd"
+    if success_xml_gen and vhdl_file.exists():
+        success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
+        status = "passed" if success else "failed"
+    else:
+        success, duration, output = False, 0, "Skipped because generation failed"
+        status = "failed"
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="xml"))
+
+    # Test XML-3: Analyze XML Testbench
+    test_id = "vhdl.xml.analyze_tb"
+    name = "XML: Analyze subregister_xml_test_tb.vhd"
+    vhdl_file = PROJECT_ROOT / "tests" / "vhdl" / "subregister_xml_test_tb.vhd"
+    success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
+    status = "passed" if success else "failed"
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="xml"))
+
+    # Test XML-4: Elaborate XML Testbench
+    test_id = "vhdl.xml.elaborate"
+    name = "XML: Elaborate subregister_xml_test_tb"
+    success, duration, output = run_command(["ghdl", "-e"] + ghdl_opts + ["subregister_xml_test_tb"])
+    status = "passed" if success else "failed"
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="xml"))
+
+    # Test XML-5: Run XML Testbench
+    test_id = "vhdl.xml.run"
+    name = "XML: Run subregister_xml_test_tb"
+    success, duration, output = run_command(["ghdl", "-r"] + ghdl_opts + ["subregister_xml_test_tb"])
     
+    if success:
+        if "FAIL" in output or "error" in output.lower():
+            status = "failed"
+            fail_line = next((line for line in output.split('\n') if "FAIL" in line), "Unknown failure")
+            output = f"Simulation failed: {fail_line}\n{output}"
+        else:
+            status = "passed"
+    else:
+        status = "failed"
+        
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="xml"))
+
     # Test 10: Run simulation and parse individual test results
     test_id = "vhdl.simulate.testbench"
     name = "Run multi_module_tb Simulation"
@@ -1352,13 +1525,13 @@ def main():
     print(f"  [11/13] Running default attribute tests...", flush=True)
     all_results.extend(run_default_tests())
     
-    # Run C tests
-    print(f"  [12/13] Running C header tests...", flush=True)
-    all_results.extend(run_c_tests())
-    
     # Run VHDL tests (AXION, AXI-LITE requirements)
-    print(f"  [13/13] Running VHDL simulation tests...", flush=True)
+    print(f"  [12/13] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
+    
+    # Run C tests
+    print(f"  [13/13] Running C header tests...", flush=True)
+    all_results.extend(run_c_tests())
     
     # Save and generate reports
     save_results(all_results)

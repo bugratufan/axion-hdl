@@ -42,6 +42,7 @@ static int tests_failed = 0;
 #include "../../output/sensor_controller_regs.h"
 #include "../../output/spi_controller_regs.h"
 #include "../../output/mixed_width_controller_regs.h"
+#include "../../output/subregister_test_xml_regs.h"
 
 /*******************************************************************************
  * Test: Header Inclusion Without Conflicts
@@ -518,8 +519,64 @@ void test_mixed_width_controller_access_macros(void) {
 }
 
 /*******************************************************************************
- * Main Test Entry Point
+ * Test: Subregister Access Macros (MASK/SHIFT)
  ******************************************************************************/
+void test_subregister_macros(void) {
+    TEST_SECTION("Subregister Macros (MASK/SHIFT)");
+
+    /* Control Register Fields */
+    /* enable: bit 0 */
+    TEST_ASSERT(SUBREGISTER_TEST_XML_CONTROL_REG_ENABLE_MASK == 0x1, "CONTROL_REG_ENABLE_MASK == 0x1");
+    TEST_ASSERT(SUBREGISTER_TEST_XML_CONTROL_REG_ENABLE_SHIFT == 0, "CONTROL_REG_ENABLE_SHIFT == 0");
+
+    /* irq_mask: bits 7:4 (0xF0) */
+    TEST_ASSERT(SUBREGISTER_TEST_XML_CONTROL_REG_IRQ_MASK_MASK == 0xF0, "CONTROL_REG_IRQ_MASK_MASK == 0xF0");
+    TEST_ASSERT(SUBREGISTER_TEST_XML_CONTROL_REG_IRQ_MASK_SHIFT == 4, "CONTROL_REG_IRQ_MASK_SHIFT == 4");
+    
+    /* timeout: bits 15:8 (0xFF00) */
+    TEST_ASSERT(SUBREGISTER_TEST_XML_CONTROL_REG_TIMEOUT_MASK == 0xFF00, "CONTROL_REG_TIMEOUT_MASK == 0xFF00");
+    TEST_ASSERT(SUBREGISTER_TEST_XML_CONTROL_REG_TIMEOUT_SHIFT == 8, "CONTROL_REG_TIMEOUT_SHIFT == 8");
+}
+
+/*******************************************************************************
+ * Test: Default Value Macros
+ ******************************************************************************/
+void test_default_value_macros(void) {
+    TEST_SECTION("Default Value Macros");
+    
+    /* Standalone register: config_reg = 0xCAFEBABE */
+    TEST_ASSERT(SUBREGISTER_TEST_XML_CONFIG_REG_DEFAULT == 0xCAFEBABE, "CONFIG_REG_DEFAULT == 0xCAFEBABE");
+    
+    /* Packed register: control_reg
+     * enable (bit 0)   = 1    -> 0x0001
+     * mode (bit 1)     = 0    -> 0x0000
+     * irq_mask (7:4)   = 0xF  -> 0x00F0
+     * timeout (15:8)   = 100  -> 0x6400
+     * Total            =      -> 0x64F1
+     */
+    TEST_ASSERT(SUBREGISTER_TEST_XML_CONTROL_REG_DEFAULT == 0x64F1, "CONTROL_REG_DEFAULT == 0x64F1 (Combined subregisters)");
+}
+
+/*******************************************************************************
+ * Test: Helper Macros (GET_FIELD / SET_FIELD)
+ ******************************************************************************/
+void test_field_helper_macros(void) {
+    TEST_SECTION("Helper Macros (GET_FIELD / SET_FIELD)");
+    
+    uint32_t val = 0x12345678;
+    
+    /* GET_FIELD: Extract byte 1 (0x56) -> bits 15:8 -> mask 0xFF00, shift 8 */
+    uint32_t extracted = GET_FIELD(val, 0xFF00, 8);
+    TEST_ASSERT(extracted == 0x56, "GET_FIELD extracted 0x56 correctly");
+    
+    /* SET_FIELD: Change byte 1 to 0xAA */
+    uint32_t modified = SET_FIELD(val, 0xFF00, 8, 0xAA);
+    TEST_ASSERT(modified == 0x1234AA78, "SET_FIELD modified to 0x1234AA78 correctly");
+    
+    /* Verify original val is untouched */
+    TEST_ASSERT(val == 0x12345678, "Original value remains unchanged (macro is functional)");
+}
+
 int main(void) {
     printf("================================================================================\n");
     printf("                   AXION HDL - C Header Test Suite\n");
@@ -547,6 +604,11 @@ int main(void) {
     test_mixed_width_controller_wide_signals();
     test_mixed_width_controller_address_continuity();
     test_mixed_width_controller_access_macros();
+    
+    /* Subregister and Default Value tests (C Header Updates) */
+    test_subregister_macros();
+    test_default_value_macros();
+    test_field_helper_macros();
     
     /* Print summary */
     printf("\n================================================================================\n");
