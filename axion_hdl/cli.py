@@ -65,9 +65,10 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         '-s', '--source',
         action='append',
         dest='sources',
-        metavar='DIR',
+        metavar='PATH',
         default=[],
-        help='Source directory containing VHDL files with @axion annotations. '
+        help='Source file (.vhd, .vhdl, .xml) or directory. '
+             'File type is auto-detected by extension. '
              'Can be specified multiple times.'
     )
     
@@ -75,9 +76,9 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         '-x', '--xml-source',
         action='append',
         dest='xml_sources',
-        metavar='DIR',
+        metavar='PATH',
         default=[],
-        help='Source directory containing XML register definition files. '
+        help='(Deprecated: use -s instead) XML source file or directory. '
              'Can be specified multiple times.'
     )
     
@@ -145,22 +146,22 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     # Parse arguments
     args = parser.parse_args()
     
-    # Validate at least one source type is provided
+    # Validate at least one source is provided
     if not args.sources and not args.xml_sources:
-        print("Error: At least one source directory required. Use -s for VHDL or -x for XML.", 
+        print("Error: At least one source file or directory required. Use -s to specify.", 
               file=sys.stderr)
         sys.exit(1)
     
-    # Validate VHDL source directories
+    # Validate all sources exist (files or directories)
     for src in args.sources:
-        if not os.path.isdir(src):
-            print(f"Error: VHDL source directory does not exist: {src}", file=sys.stderr)
+        if not os.path.exists(src):
+            print(f"Error: Source path does not exist: {src}", file=sys.stderr)
             sys.exit(1)
     
-    # Validate XML source directories
+    # Validate XML sources exist (deprecated, but still supported)
     for src in args.xml_sources:
-        if not os.path.isdir(src):
-            print(f"Error: XML source directory does not exist: {src}", file=sys.stderr)
+        if not os.path.exists(src):
+            print(f"Error: XML source path does not exist: {src}", file=sys.stderr)
             sys.exit(1)
     
     # If no specific generation option is provided, default to --all
@@ -170,11 +171,11 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     # Initialize Axion-HDL
     axion = AxionHDL(output_dir=args.output_dir)
     
-    # Add VHDL source directories
+    # Add sources using unified add_source() method
     for src in args.sources:
-        axion.add_src(src)
+        axion.add_source(src)
     
-    # Add XML source directories
+    # Add XML sources (deprecated path, still supported)
     for src in args.xml_sources:
         axion.add_xml_src(src)
     

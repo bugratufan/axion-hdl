@@ -116,12 +116,15 @@ Testing and verification are automated via `make test`, which maps tests back to
 |----|------------|---------------------|-------------|
 | CLI-001 | Help Options (-h, --help) | Prints usage information and exits with 0. | Python Unit Test (`cli.test_cli_001`) |
 | CLI-002 | Version Option (--version) | Prints tool version and exits with 0. | Python Unit Test (`cli.test_cli_002`) |
-| CLI-003 | Source Directory Options (-s, --source) | Accepts source path argument. | Python Unit Test (`cli.test_cli_003`) |
-| CLI-004 | Multiple Source Directories | Accepts multiple `-s` flags for multiple paths. | Python Unit Test (`cli.test_cli_004`) |
+| CLI-003 | Source Path Options (-s, --source) | Accepts source files (.vhd, .vhdl, .xml) or directories with auto-detection by extension. | Python Unit Test (`cli.test_cli_003`) |
+| CLI-004 | Multiple Source Paths | Accepts multiple `-s` flags for any combination of files and directories. | Python Unit Test (`cli.test_cli_004`) |
 | CLI-005 | Output Directory Options (-o, --output) | Accepts output path argument. | Python Unit Test (`cli.test_cli_005`) |
 | CLI-006 | Exclude Options (-e) | Excludes matching patterns from processing. | Python Unit Test (`cli.test_cli_006`) |
 | CLI-009 | Invalid Source Handling | Returns error code if source path invalid. | Python Unit Test (`cli.test_cli_009`) |
 | CLI-010 | Output Directory Creation | Creates output directory if it doesn't exist. | Python Unit Test (`cli.test_cli_010`) |
+
+> [!NOTE]
+> The `-x/--xml-source` option is deprecated but still supported for backward compatibility. Use `-s/--source` for all source types instead.
 
 ## 7. Clock Domain Crossing (CDC)
 

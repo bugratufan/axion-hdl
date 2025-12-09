@@ -1,0 +1,104 @@
+# Publish Dev Version to PyPI Workflow
+# Automatically publishes a dev version to PyPI when code is pushed to develop
+# Uses pre-release versioning so it's not marked as "latest" on PyPI
+
+name: Publish Dev to PyPI
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  # Run tests first
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install GHDL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ghdl
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-cov
+      
+      - name: Run tests
+        run: make test
+
+  # Build and publish dev version
+  build-and-publish:
+    needs: test
+    runs-on: ubuntu-latest
+    
+    environment:
+      name: pypi
+      url: https://pypi.org/p/axion-hdl
+
+    permissions:
+      id-token: write  # Required for trusted publishing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Get base version and create dev version
+        id: version
+        run: |
+          BASE_VERSION=$(cat .version)
+          # Create dev version with timestamp: X.Y.Z.devYYYYMMDDHHMMSS
+          TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
+          DEV_VERSION="${BASE_VERSION}.dev${TIMESTAMP}"
+          echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
+          echo "dev_version=$DEV_VERSION" >> $GITHUB_OUTPUT
+          echo "Base Version: $BASE_VERSION"
+          echo "Dev Version: $DEV_VERSION"
+
+      - name: Update version files for dev release
+        run: |
+          DEV_VERSION="${{ steps.version.outputs.dev_version }}"
+          
+          # Update .version
+          echo "$DEV_VERSION" > .version
+          
+          # Update pyproject.toml
+          sed -i "s/^version = \".*\"/version = \"$DEV_VERSION\"/" pyproject.toml
+          
+          # Update setup.py
+          sed -i "s/version=\"[^\"]*\"/version=\"$DEV_VERSION\"/" setup.py
+          
+          # Update __init__.py
+          sed -i "s/__version__ = \".*\"/__version__ = \"$DEV_VERSION\"/" axion_hdl/__init__.py
+          
+          echo "Updated all version files to: $DEV_VERSION"
+          
+          # Verify updates
+          echo "=== Verification ==="
+          grep -h "version" .version pyproject.toml setup.py axion_hdl/__init__.py | head -10
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check package
+        run: twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
