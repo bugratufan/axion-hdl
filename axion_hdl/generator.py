@@ -256,7 +256,7 @@ class VHDLGenerator:
         ]
         
         # Determine if we need comma after rready
-        has_more = module_data['cdc_enabled'] or module_data['registers']
+        has_more = module_data['cdc_enabled'] or module_data['registers'] or module_data.get('packed_registers', [])
         if has_more:
             lines.append("        axi_rready  : in  std_logic;")
         else:
@@ -284,6 +284,10 @@ class VHDLGenerator:
             # Build list of all port lines first
             port_lines = []
             for i, reg in enumerate(module_data['registers']):
+                # Skip packed registers (handled separately)
+                if reg.get('is_packed'):
+                    continue
+                    
                 # Use actual signal type from parsed data
                 signal_type = self._signal_type_to_vhdl(reg['signal_type'])
                 
@@ -316,15 +320,54 @@ class VHDLGenerator:
                 if '  -- ' in line:
                     # Split into signal part and comment part
                     signal_part, comment_part = line.split('  -- ', 1)
-                    if i < len(port_lines) - 1:
+                    has_packed = len(module_data.get('packed_registers', [])) > 0
+                    if i < len(port_lines) - 1 or has_packed:
                         lines.append(f"{signal_part};  -- {comment_part}")
                     else:
                         lines.append(f"{signal_part}  -- {comment_part}")  # Last line, no semicolon
                 else:
-                    if i < len(port_lines) - 1:
+                    has_packed = len(module_data.get('packed_registers', [])) > 0
+                    if i < len(port_lines) - 1 or has_packed:
                         lines.append(line + ";")
                     else:
                         lines.append(line)  # Last line, no semicolon
+        
+        # Add packed register (subregister) field signals  
+        packed_registers = module_data.get('packed_registers', [])
+        if packed_registers:
+            lines.extend([
+                "        ",
+                "        -- Packed Register Fields (Subregisters)",
+            ])
+            
+            packed_port_lines = []
+            for packed_reg in packed_registers:
+                for field in packed_reg.get('fields', []):
+                    # Convert field signal type to VHDL
+                    signal_type = self._signal_type_to_vhdl(field['signal_type'])
+                    
+                    # Port direction based on access mode
+                    if field['access_mode'] == 'RO':
+                        port_dir = "in "
+                    else:
+                        port_dir = "out"
+                    
+                    desc = field.get('description', '')
+                    desc_comment = f"  -- {desc}" if desc else ""
+                    packed_port_lines.append(f"        {field['name']} : {port_dir} {signal_type}{desc_comment}")
+            
+            for i, line in enumerate(packed_port_lines):
+                if '  -- ' in line:
+                    signal_part, comment_part = line.split('  -- ', 1)
+                    if i < len(packed_port_lines) - 1:
+                        lines.append(f"{signal_part};  -- {comment_part}")
+                    else:
+                        lines.append(f"{signal_part}  -- {comment_part}")
+                else:
+                    if i < len(packed_port_lines) - 1:
+                        lines.append(line + ";")
+                    else:
+                        lines.append(line)
                     
         lines.extend([
             "    );",
@@ -367,6 +410,8 @@ class VHDLGenerator:
         
         # Add register storage signals (32-bit chunks for wide signals)
         for reg in module_data['registers']:
+            if reg.get('is_packed'):
+                continue
             num_regs = self._get_num_regs(reg['signal_type'])
             if num_regs == 1:
                 lines.append(f"    signal {reg['signal_name']}_reg : std_logic_vector(31 downto 0);")
@@ -374,10 +419,20 @@ class VHDLGenerator:
                 for i in range(num_regs):
                     lines.append(f"    signal {reg['signal_name']}_reg{i} : std_logic_vector(31 downto 0);")
         
+        # Add packed register (subregister) storage signals
+        packed_registers = module_data.get('packed_registers', [])
+        if packed_registers:
+            lines.append("    ")
+            lines.append("    -- Packed register storage (32-bit)")
+            for packed_reg in packed_registers:
+                lines.append(f"    signal {packed_reg['reg_name']}_reg : std_logic_vector(31 downto 0);")
+        
         if module_data['cdc_enabled']:
             lines.append("    ")
             lines.append(f"    -- CDC synchronizer ({module_data['cdc_stages']} stages)")
             for reg in module_data['registers']:
+                if reg.get('is_packed'):
+                    continue
                 num_regs = self._get_num_regs(reg['signal_type'])
                 if num_regs == 1:
                     for stage in range(module_data['cdc_stages']):
@@ -386,10 +441,58 @@ class VHDLGenerator:
                     for i in range(num_regs):
                         for stage in range(module_data['cdc_stages']):
                             lines.append(f"    signal {reg['signal_name']}{i}_sync{stage} : std_logic_vector(31 downto 0);")
-        
         lines.extend([
             "    ",
             "begin",
+            "    ",
+            "    ---------------------------------------------------------------------------",
+            "    -- Packed Register Mapping (Subregister connections)",
+            "    ---------------------------------------------------------------------------",
+        ])
+        
+        # Packed register mapping
+        packed_registers = module_data.get('packed_registers', [])
+        
+        # Output mapping (RW/WO) - Concurrent assignments
+        for packed_reg in packed_registers:
+            if packed_reg['access_mode'] in ['RW', 'WO']:
+                for field in packed_reg.get('fields', []):
+                    high = field['bit_high']
+                    low = field['bit_low']
+                    if high == low:
+                        lines.append(f"    {field['name']} <= {packed_reg['reg_name']}_reg({high});")
+                    else:
+                        lines.append(f"    {field['name']} <= {packed_reg['reg_name']}_reg({high} downto {low});")
+        
+        if packed_registers:
+             lines.append("")
+
+        # Input mapping (RO) - Process
+        has_ro_packed = any(pr['access_mode'] == 'RO' for pr in packed_registers)
+        if has_ro_packed:
+            # Build sensitivity list
+            sens_list = []
+            for pr in packed_registers:
+                if pr['access_mode'] == 'RO':
+                    for f in pr.get('fields', []):
+                        sens_list.append(f['name'])
+            
+            sens_str = ", ".join(sens_list)
+            lines.append(f"    process({sens_str})")
+            lines.append("    begin")
+            for pr in packed_registers:
+                if pr['access_mode'] == 'RO':
+                    lines.append(f"        {pr['reg_name']}_reg <= (others => '0');")
+                    for f in pr.get('fields', []):
+                        high = f['bit_high']
+                        low = f['bit_low']
+                        if high == low:
+                            lines.append(f"        {pr['reg_name']}_reg({high}) <= {f['name']};")
+                        else:
+                            lines.append(f"        {pr['reg_name']}_reg({high} downto {low}) <= {f['name']};")
+            lines.append("    end process;")
+            
+        lines.extend([
             "    ",
             "    ---------------------------------------------------------------------------",
             "    -- AXI4-Lite Interface State Machine",
@@ -556,6 +659,8 @@ class VHDLGenerator:
         
         addr_bits_str = self._get_addr_bits(module_data)
         for reg in module_data['registers']:
+            if reg.get('is_packed'):
+                continue
             if reg['access_mode'] in ['WO', 'RW']:
                 num_regs = self._get_num_regs(reg['signal_type'])
                 if num_regs == 1:
@@ -572,6 +677,14 @@ class VHDLGenerator:
                         lines.append(f"            wr_addr_valid_n <= '0';  -- Valid write address ({reg['signal_name']} reg{i})")
                         lines.append("        end if;")
         
+        # Add packed register write address validation
+        for packed_reg in module_data.get('packed_registers', []):
+            if packed_reg['access_mode'] in ['WO', 'RW']:
+                addr_hex = self._addr_to_vhdl_hex(packed_reg["address_int"], module_data)
+                lines.append(f"        if axi_awaddr({addr_bits_str}) = {addr_hex} then")
+                lines.append(f"            wr_addr_valid_n <= '0';  -- Valid write address ({packed_reg['reg_name']} packed)")
+                lines.append("        end if;")
+        
         lines.extend([
             "    end process;",
             "    ",
@@ -586,6 +699,8 @@ class VHDLGenerator:
         ])
         
         for reg in module_data['registers']:
+            if reg.get('is_packed'):
+                continue
             if reg['access_mode'] in ['RO', 'RW']:
                 num_regs = self._get_num_regs(reg['signal_type'])
                 if num_regs == 1:
@@ -602,6 +717,14 @@ class VHDLGenerator:
                         lines.append(f"            rd_addr_valid_n <= '0';  -- Valid read address ({reg['signal_name']} reg{i})")
                         lines.append("        end if;")
         
+        # Add packed register read address validation
+        for packed_reg in module_data.get('packed_registers', []):
+            if packed_reg['access_mode'] in ['RO', 'RW']:
+                addr_hex = self._addr_to_vhdl_hex(packed_reg["address_int"], module_data)
+                lines.append(f"        if axi_araddr({addr_bits_str}) = {addr_hex} then")
+                lines.append(f"            rd_addr_valid_n <= '0';  -- Valid read address ({packed_reg['reg_name']} packed)")
+                lines.append("        end if;")
+        
         lines.extend([
             "    end process;",
             "    ",
@@ -617,15 +740,38 @@ class VHDLGenerator:
             "            if axi_aresetn = '0' then",
         ])
         
-        # Reset logic for registers
+        # Reset logic for registers - use default_value if specified
         for reg in module_data['registers']:
+            if reg.get('is_packed'):
+                continue
             if reg['access_mode'] in ['WO', 'RW']:
                 num_regs = self._get_num_regs(reg['signal_type'])
+                default_val = reg.get('default_value', 0)
                 if num_regs == 1:
-                    lines.append(f"                {reg['signal_name']}_reg <= (others => '0');")
+                    if default_val != 0:
+                        lines.append(f"                {reg['signal_name']}_reg <= x\"{default_val:08X}\";")
+                    else:
+                        lines.append(f"                {reg['signal_name']}_reg <= (others => '0');")
                 else:
                     for i in range(num_regs):
-                        lines.append(f"                {reg['signal_name']}_reg{i} <= (others => '0');")
+                        # For wide signals, split default across chunks
+                        chunk_default = (default_val >> (i * 32)) & 0xFFFFFFFF
+                        if chunk_default != 0:
+                            lines.append(f"                {reg['signal_name']}_reg{i} <= x\"{chunk_default:08X}\";")
+                        else:
+                            lines.append(f"                {reg['signal_name']}_reg{i} <= (others => '0');")
+        
+        # Reset logic for packed registers (subregisters)
+        for packed_reg in module_data.get('packed_registers', []):
+            # Skip RO packed registers in reset logic (they are driven by inputs)
+            if packed_reg['access_mode'] == 'RO':
+                continue
+                
+            default_val = packed_reg.get('default_value', 0)
+            if default_val != 0:
+                lines.append(f"                {packed_reg['reg_name']}_reg <= x\"{default_val:08X}\";  -- Combined default from subregisters")
+            else:
+                lines.append(f"                {packed_reg['reg_name']}_reg <= (others => '0');")
         
         lines.extend([
             "            else",
@@ -634,6 +780,8 @@ class VHDLGenerator:
         
         # Write address decoder with byte-level strobe support
         for reg in module_data['registers']:
+            if reg.get('is_packed'):
+                continue
             if reg['access_mode'] in ['WO', 'RW']:
                 num_regs = self._get_num_regs(reg['signal_type'])
                 base_addr = reg["address_int"]
@@ -659,6 +807,27 @@ class VHDLGenerator:
                     lines.append("                        end if;")
                     lines.append("                    end if;")
         
+        # Packed register write logic (subregisters)
+        for packed_reg in module_data.get('packed_registers', []):
+            if packed_reg['access_mode'] in ['WO', 'RW']:
+                addr_hex = self._addr_to_vhdl_hex(packed_reg["address_int"], module_data)
+                
+                lines.append(f"                    if wr_addr_reg({addr_bits_str}) = {addr_hex} then")
+                lines.append("                        -- Byte-level write strobe")
+                lines.append("                        if wr_strb_reg(0) = '1' then")
+                lines.append(f"                            {packed_reg['reg_name']}_reg(7 downto 0) <= wr_data_reg(7 downto 0);")
+                lines.append("                        end if;")
+                lines.append("                        if wr_strb_reg(1) = '1' then")
+                lines.append(f"                            {packed_reg['reg_name']}_reg(15 downto 8) <= wr_data_reg(15 downto 8);")
+                lines.append("                        end if;")
+                lines.append("                        if wr_strb_reg(2) = '1' then")
+                lines.append(f"                            {packed_reg['reg_name']}_reg(23 downto 16) <= wr_data_reg(23 downto 16);")
+                lines.append("                        end if;")
+                lines.append("                        if wr_strb_reg(3) = '1' then")
+                lines.append(f"                            {packed_reg['reg_name']}_reg(31 downto 24) <= wr_data_reg(31 downto 24);")
+                lines.append("                        end if;")
+                lines.append("                    end if;")
+        
         lines.extend([
             "                end if;",
             "            end if;",
@@ -675,6 +844,8 @@ class VHDLGenerator:
         
         # Add read sensitivity list
         for reg in module_data['registers']:
+            if reg.get('is_packed'):
+                continue
             if reg['access_mode'] in ['RO', 'RW']:
                 num_regs = self._get_num_regs(reg['signal_type'])
                 if num_regs == 1:
@@ -682,6 +853,11 @@ class VHDLGenerator:
                 else:
                     for i in range(num_regs):
                         lines.append(f"        , {reg['signal_name']}_reg{i}")
+        
+        # Add packed register to sensitivity list
+        for packed_reg in module_data.get('packed_registers', []):
+            if packed_reg['access_mode'] in ['RO', 'RW']:
+                lines.append(f"        , {packed_reg['reg_name']}_reg")
         
         lines.extend([
             "    )",
@@ -692,6 +868,8 @@ class VHDLGenerator:
         
         # Read address decoder
         for reg in module_data['registers']:
+            if reg.get('is_packed'):
+                continue
             if reg['access_mode'] in ['RO', 'RW']:
                 num_regs = self._get_num_regs(reg['signal_type'])
                 base_addr = reg["address_int"]
@@ -704,6 +882,14 @@ class VHDLGenerator:
                     lines.append(f"            if rd_addr_reg({addr_bits_str}) = {addr_hex} then")
                     lines.append(f"                rd_data_reg <= {reg['signal_name']}{reg_suffix};")
                     lines.append("            end if;")
+        
+        # Packed register read address decoder
+        for packed_reg in module_data.get('packed_registers', []):
+            if packed_reg['access_mode'] in ['RO', 'RW']:
+                addr_hex = self._addr_to_vhdl_hex(packed_reg["address_int"], module_data)
+                lines.append(f"            if rd_addr_reg({addr_bits_str}) = {addr_hex} then")
+                lines.append(f"                rd_data_reg <= {packed_reg['reg_name']}_reg;")
+                lines.append("            end if;")
         
         lines.extend([
             "        end if;",
@@ -718,6 +904,8 @@ class VHDLGenerator:
         
         # Generate signal assignments based on port direction
         for reg in module_data['registers']:
+            if reg.get('is_packed'):
+                continue
             addr_hex = self._addr_to_vhdl_hex(reg["address_int"], module_data)
             signal_type = reg['signal_type']
             num_regs = self._get_num_regs(signal_type)
@@ -807,6 +995,46 @@ class VHDLGenerator:
                     lines.append(f"    {reg['signal_name']} <= {' & '.join(chunks)};")
             lines.append("    ")
         
+        # Packed register (subregister) output assignments
+        # Extract bit fields from the 32-bit packed register and assign to output ports
+        packed_registers = module_data.get('packed_registers', [])
+        if packed_registers:
+            lines.append("    -- Packed register (subregister) output assignments")
+            for packed_reg in packed_registers:
+                for field in packed_reg.get('fields', []):
+                    if field['access_mode'] in ['WO', 'RW']:
+                        # Extract bit slice from packed register
+                        if field['width'] == 1:
+                            lines.append(f"    {field['name']} <= {packed_reg['reg_name']}_reg({field['bit_low']});")
+                        else:
+                            lines.append(f"    {field['name']} <= {packed_reg['reg_name']}_reg({field['bit_high']} downto {field['bit_low']});")
+                    elif field['access_mode'] == 'RO':
+                        pass # handled in process below
+            
+            # Generate combinatorial process for RO packed registers
+            lines.append("    -- Packed register (subregister) input assignments (RO)")
+            lines.append("    process(all) -- VHDL-2008 sensitivity")
+            lines.append("    begin")
+            
+            for packed_reg in packed_registers:
+                has_ro_fields = False
+                for field in packed_reg.get('fields', []):
+                    if field['access_mode'] == 'RO':
+                        has_ro_fields = True
+                        break
+                
+                if has_ro_fields:
+                    lines.append(f"        {packed_reg['reg_name']}_reg <= (others => '0');")
+                    for field in packed_reg.get('fields', []):
+                        if field['access_mode'] == 'RO':
+                            if field['width'] == 1:
+                                lines.append(f"        {packed_reg['reg_name']}_reg({field['bit_low']}) <= {field['name']};")
+                            else:
+                                lines.append(f"        {packed_reg['reg_name']}_reg({field['bit_high']} downto {field['bit_low']}) <= {field['name']};")
+            
+            lines.append("    end process;")
+            lines.append("    ")
+        
         lines.extend([
             f"end architecture rtl;",
             ""
@@ -864,7 +1092,7 @@ class VHDLGenerator:
         
         # Process for RO registers (module_clk -> axi_aclk)
         # These are inputs from module that AXI needs to read
-        ro_regs = [reg for reg in module_data['registers'] if reg['access_mode'] == 'RO']
+        ro_regs = [reg for reg in module_data['registers'] if reg['access_mode'] == 'RO' and not reg.get('is_packed')]
         if ro_regs:
             lines.extend([
                 "    -- CDC: Module clock domain to AXI clock domain (for RO registers)",
@@ -920,7 +1148,7 @@ class VHDLGenerator:
         
         # Process for WO/RW registers (axi_aclk -> module_clk)
         # These are outputs from AXI that module needs to read
-        wo_rw_regs = [reg for reg in module_data['registers'] if reg['access_mode'] in ['WO', 'RW']]
+        wo_rw_regs = [reg for reg in module_data['registers'] if reg['access_mode'] in ['WO', 'RW'] and not reg.get('is_packed')]
         if wo_rw_regs:
             lines.extend([
                 "    -- CDC: AXI clock domain to Module clock domain (for WO/RW registers)",

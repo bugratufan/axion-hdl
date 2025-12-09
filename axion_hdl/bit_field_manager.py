@@ -66,6 +66,7 @@ class BitField:
     source_line: int = 0
     read_strobe: bool = False
     write_strobe: bool = False
+    default_value: int = 0
     
     @property
     def bit_range(self) -> Tuple[int, int]:
@@ -154,7 +155,8 @@ class BitFieldManager:
         source_file: str = "",
         source_line: int = 0,
         read_strobe: bool = False,
-        write_strobe: bool = False
+        write_strobe: bool = False,
+        default_value: int = 0
     ) -> BitField:
         """
         Add a bit field to a register.
@@ -224,7 +226,8 @@ class BitFieldManager:
             source_file=source_file,
             source_line=source_line,
             read_strobe=read_strobe,
-            write_strobe=write_strobe
+            write_strobe=write_strobe,
+            default_value=default_value
         )
         
         # Check for overlaps with existing fields
