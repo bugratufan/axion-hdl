@@ -1,9 +1,10 @@
 # Welcome to the Axion-HDL Wiki
 
-**Axion-HDL** is a powerful Python-based automation tool designed to streamline the creation of AXI4-Lite register interfaces for VHDL Modules. It eliminates the manual drudgery of writing register maps, address decoders, and C headers, letting you focus on the core logic of your FPGA designs.
-
 [![PyPI version](https://badge.fury.io/py/axion-hdl.svg)](https://badge.fury.io/py/axion-hdl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://github.com/bugratufan/axion-hdl/actions/workflows/python-app.yml/badge.svg)](https://github.com/bugratufan/axion-hdl/actions)
+
+**Axion-HDL** is a powerful Python-based automation tool designed to streamline the creation of AXI4-Lite register interfaces for VHDL Modules. It eliminates the manual drudgery of writing register maps, address decoders, and C headers, letting you focus on the core logic of your FPGA designs.
 
 ## 🚀 Key Features
 
@@ -15,22 +16,23 @@
     - Synthesizable **VHDL** AXI4-Lite slaves.
     - **C Header** files for firmware development.
     - **HTML/Markdown** documentation.
-    - **IP-XACT** compatible XML.
-- **Advanced Capabilities:**
-    - **Automatic CDC:** Built-in Clock Domain Crossing handling.
-    - **Sub-registers:** Bit-level field definitions and packed registers.
-    - **Auto-Addressing:** Conflict detection and automatic address assignment.
-    - **Wide Signals:** Support for signals larger than 32 bits (spanning multiple registers).
+- **Advanced Logic:**
+    - **CDC:** Automatic Clock Domain Crossing synchronizers.
+    - **Auto-Addressing:** Smart conflict detection and address assignment.
 
-## 📚 Documentation Index
+## 🔗 Quick Links
 
-- **[Getting Started](Getting_Started.md)**: Installation and your first project.
-- **[Data Formats](Data_Formats.md)**: Detailed guide to VHDL, YAML, JSON, and XML inputs.
-- **[CLI Reference](CLI_Reference.md)**: Command-line options and flags.
-- **[Outputs & Integration](Outputs.md)**: How to use the generated VHDL and C files.
-- **[Advanced Features](Advanced_Features.md)**: CDC, sub-registers, and address management.
-- **[Developer Guide](Developer_Guide.md)**: Contributing to Axion-HDL.
+- [**Getting Started**](Getting_Started): Install and run your first example in 5 minutes.
+- [**CLI Reference**](CLI_Reference): Master the command-line interface.
+- [**Data Formats**](Data_Formats): Detail guide on VHDL, YAML, JSON specs.
 
 ## 🤔 Why Axion-HDL?
 
-Writing AXI4-Lite slaves manually is error-prone. One typo in an address offset can lead to hours of debugging. Axion-HDL ensures your **VHDL logic**, **C firmware headers**, and **Documentation** are always synchronized. Change a register in your source, run `axion-hdl`, and everything updates instantly.
+| Feature | Axion-HDL | Traditional Hand-Coding |
+| :--- | :--- | :--- |
+| **Speed** | ⚡ Instant | 🐢 Slow & Error-prone |
+| **Sync** | ✅ Always in sync (Single Source) | ❌ Headers/HDL often diverge |
+| **Logic** | ✅ Auto CDC & Strobes | ❌ Manual boilerplate |
+| **Docs** | ✅ Auto-generated | ❌ Often missing/stale |
+
+Writing AXI4-Lite slaves manually is error-prone. One typo in an address offset can lead to hours of debugging. Axion-HDL ensures your **VHDL logic**, **C firmware headers**, and **Documentation** are always synchronized.
