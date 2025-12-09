@@ -108,8 +108,39 @@ end architecture;
         ])
         self.assertEqual(result.returncode, 0)
     
+    def test_cli_003_source_file_vhdl(self):
+        """CLI-003: -s accepts single VHDL file"""
+        output_dir = os.path.join(self.temp_dir, "output_file")
+        result = self._run_cli([
+            '-s', self.vhdl_file,
+            '-o', output_dir
+        ])
+        self.assertEqual(result.returncode, 0)
+        # Verify output was generated
+        self.assertTrue(os.path.exists(output_dir))
+    
+    def test_cli_003_source_file_xml(self):
+        """CLI-003: -s accepts single XML file"""
+        # Create test XML file with correct attribute names
+        xml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<register_map module="xml_cli_test" base_addr="0x0000">
+  <register name="status" addr="0x00" access="RO" width="32" />
+</register_map>
+'''
+        xml_file = os.path.join(self.temp_dir, "test_cli.xml")
+        with open(xml_file, 'w') as f:
+            f.write(xml_content)
+        
+        output_dir = os.path.join(self.temp_dir, "output_xml_file")
+        result = self._run_cli([
+            '-s', xml_file,
+            '-o', output_dir
+        ])
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(os.path.exists(output_dir))
+    
     # =========================================================================
-    # CLI-004: Multiple Source Directory Support
+    # CLI-004: Multiple Source Path Support
     # =========================================================================
     def test_cli_004_multiple_sources(self):
         """CLI-004: Multiple -s options accepted"""
@@ -131,6 +162,48 @@ begin end architecture;
         result = self._run_cli([
             '-s', self.temp_dir,
             '-s', temp_dir2,
+            '-o', output_dir
+        ])
+        
+        # Clean up
+        import shutil
+        shutil.rmtree(temp_dir2, ignore_errors=True)
+        
+        self.assertEqual(result.returncode, 0)
+    
+    def test_cli_004_mixed_files_and_dirs(self):
+        """CLI-004: -s accepts mix of files and directories"""
+        # Create a separate VHDL file
+        vhdl_file2 = os.path.join(self.temp_dir, "standalone.vhd")
+        with open(vhdl_file2, 'w') as f:
+            f.write('''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x2000
+entity standalone is port (clk : in std_logic); end entity;
+architecture rtl of standalone is
+    signal data : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x00
+begin end architecture;
+''')
+        
+        # Create a temp directory with another VHDL file
+        temp_dir2 = tempfile.mkdtemp()
+        vhdl3 = os.path.join(temp_dir2, "module3.vhd")
+        with open(vhdl3, 'w') as f:
+            f.write('''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x3000
+entity module3 is port (clk : in std_logic); end entity;
+architecture rtl of module3 is
+    signal ctrl : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x00
+begin end architecture;
+''')
+        
+        output_dir = os.path.join(self.temp_dir, "output_mixed")
+        result = self._run_cli([
+            '-s', vhdl_file2,  # Single file
+            '-s', temp_dir2,  # Directory
             '-o', output_dir
         ])
         
