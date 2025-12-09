@@ -10,8 +10,8 @@
 | ✅ Passed | 168 |
 | ❌ Failed | 0 |
 | ⏭️ Skipped | 0 |
-| ⏱️ Total Time | 0.85s |
-| 🕐 Last Run | 2025-12-09 11:00:04 |
+| ⏱️ Total Time | 0.80s |
+| 🕐 Last Run | 2025-12-09 11:15:56 |
 
 ## 🐍 Python Tests
 
@@ -21,13 +21,13 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `python.unit.init` | Initialize AxionHDL | 0.075s |
+| ✅ | `python.unit.init` | Initialize AxionHDL | 0.061s |
 | ✅ | `python.unit.add_src` | Add Source Directory | 0.000s |
-| ✅ | `python.unit.analyze` | Analyze VHDL Files | 0.004s |
-| ✅ | `python.unit.gen_vhdl` | Generate VHDL Modules | 0.005s |
+| ✅ | `python.unit.analyze` | Analyze VHDL Files | 0.003s |
+| ✅ | `python.unit.gen_vhdl` | Generate VHDL Modules | 0.004s |
 | ✅ | `python.unit.gen_c` | Generate C Headers | 0.003s |
 | ✅ | `python.unit.gen_xml` | Generate XML Register Map | 0.003s |
-| ✅ | `python.unit.gen_doc` | Generate Markdown Documentation | 0.003s |
+| ✅ | `python.unit.gen_doc` | Generate Markdown Documentation | 0.002s |
 
 ### Address Conflict Tests
 
@@ -48,7 +48,7 @@
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
 | ✅ | `c.compile.gcc_check` | GCC Available | 0.001s |
-| ✅ | `c.compile.headers` | Compile C Header Test | 0.076s |
+| ✅ | `c.compile.headers` | Compile C Header Test | 0.072s |
 | ✅ | `c.compile.run` | Run C Header Test Binary | 0.001s |
 
 ## 🔧 VHDL Tests
@@ -73,7 +73,7 @@
 | ✅ | `vhdl.analyze.sensor_axion` | Analyze sensor_controller_axion_reg.vhd | 0.007s |
 | ✅ | `vhdl.analyze.spi_axion` | Analyze spi_controller_axion_reg.vhd | 0.007s |
 | ✅ | `vhdl.analyze.mixed_axion` | Analyze mixed_width_controller_axion_reg.vhd | 0.008s |
-| ✅ | `vhdl.analyze.testbench` | Analyze multi_module_tb.vhd | 0.012s |
+| ✅ | `vhdl.analyze.testbench` | Analyze multi_module_tb.vhd | 0.013s |
 
 ### Elaboration
 
@@ -181,7 +181,7 @@
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
 | ✅ | `gen.test_gen_001_entity_name_pattern` | GEN-001-ENTITY-NAME-PATTERN: GEN-001: Entity name follows pattern <module>_axion_reg | 0.000s |
-| ✅ | `gen.test_gen_001_vhdl_compiles` | GEN-001-VHDL-COMPILES: GEN-001: Generated VHDL compiles without errors | 0.009s |
+| ✅ | `gen.test_gen_001_vhdl_compiles` | GEN-001-VHDL-COMPILES: GEN-001: Generated VHDL compiles without errors | 0.008s |
 | ✅ | `gen.test_gen_001_vhdl_file_exists` | GEN-001-VHDL-FILE-EXISTS: GEN-001: Generated VHDL file exists | 0.000s |
 | ✅ | `gen.test_gen_002_architecture_rtl` | GEN-002-ARCHITECTURE-RTL: GEN-002: Architecture is named 'rtl' | 0.000s |
 | ✅ | `gen.test_gen_002_signal_declarations` | GEN-002-SIGNAL-DECLARATIONS: GEN-002: Internal signals are properly declared | 0.000s |
@@ -198,7 +198,7 @@
 | ✅ | `gen.test_gen_007_state_machine_exists` | GEN-007-STATE-MACHINE-EXISTS: GEN-007: State machine logic present | 0.000s |
 | ✅ | `gen.test_gen_008_address_decoder` | GEN-008-ADDRESS-DECODER: GEN-008: Address decoder has case statement | 0.000s |
 | ✅ | `gen.test_gen_009_base_address_macro` | GEN-009-BASE-ADDRESS-MACRO: GEN-009: Base address macro defined | 0.000s |
-| ✅ | `gen.test_gen_009_c_header_compiles` | GEN-009-C-HEADER-COMPILES: GEN-009: C header compiles without warnings | 0.078s |
+| ✅ | `gen.test_gen_009_c_header_compiles` | GEN-009-C-HEADER-COMPILES: GEN-009: C header compiles without warnings | 0.072s |
 | ✅ | `gen.test_gen_009_c_header_exists` | GEN-009-C-HEADER-EXISTS: GEN-009: C header file generated | 0.000s |
 | ✅ | `gen.test_gen_009_include_guards` | GEN-009-INCLUDE-GUARDS: GEN-009: Header has include guards | 0.000s |
 | ✅ | `gen.test_gen_009_offset_macros` | GEN-009-OFFSET-MACROS: GEN-009: Register offset macros defined | 0.000s |
@@ -237,17 +237,17 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `cli.test_cli_001_help_option` | CLI-001-HELP-OPTION: CLI-001: --help displays usage information | 0.046s |
-| ✅ | `cli.test_cli_001_help_short_option` | CLI-001-HELP-SHORT-OPTION: CLI-001: -h displays usage information | 0.049s |
-| ✅ | `cli.test_cli_002_version_option` | CLI-002-VERSION-OPTION: CLI-002: --version displays version | 0.040s |
-| ✅ | `cli.test_cli_003_source_option_long` | CLI-003-SOURCE-OPTION-LONG: CLI-003: --source option specifies source directory | 0.042s |
-| ✅ | `cli.test_cli_003_source_option_short` | CLI-003-SOURCE-OPTION-SHORT: CLI-003: -s option specifies source directory | 0.042s |
-| ✅ | `cli.test_cli_004_multiple_sources` | CLI-004-MULTIPLE-SOURCES: CLI-004: Multiple -s options accepted | 0.043s |
-| ✅ | `cli.test_cli_005_output_option_long` | CLI-005-OUTPUT-OPTION-LONG: CLI-005: --output option specifies output directory | 0.043s |
-| ✅ | `cli.test_cli_005_output_option_short` | CLI-005-OUTPUT-OPTION-SHORT: CLI-005: -o option specifies output directory | 0.043s |
-| ✅ | `cli.test_cli_006_exclude_option` | CLI-006-EXCLUDE-OPTION: CLI-006: -e option excludes files/directories | 0.042s |
-| ✅ | `cli.test_cli_009_invalid_source_error` | CLI-009-INVALID-SOURCE-ERROR: CLI-009: Non-existent source reports error | 0.040s |
-| ✅ | `cli.test_cli_010_output_dir_creation` | CLI-010-OUTPUT-DIR-CREATION: CLI-010: Non-existent output directory is created | 0.042s |
+| ✅ | `cli.test_cli_001_help_option` | CLI-001-HELP-OPTION: CLI-001: --help displays usage information | 0.043s |
+| ✅ | `cli.test_cli_001_help_short_option` | CLI-001-HELP-SHORT-OPTION: CLI-001: -h displays usage information | 0.041s |
+| ✅ | `cli.test_cli_002_version_option` | CLI-002-VERSION-OPTION: CLI-002: --version displays version | 0.039s |
+| ✅ | `cli.test_cli_003_source_option_long` | CLI-003-SOURCE-OPTION-LONG: CLI-003: --source option specifies source directory | 0.040s |
+| ✅ | `cli.test_cli_003_source_option_short` | CLI-003-SOURCE-OPTION-SHORT: CLI-003: -s option specifies source directory | 0.040s |
+| ✅ | `cli.test_cli_004_multiple_sources` | CLI-004-MULTIPLE-SOURCES: CLI-004: Multiple -s options accepted | 0.040s |
+| ✅ | `cli.test_cli_005_output_option_long` | CLI-005-OUTPUT-OPTION-LONG: CLI-005: --output option specifies output directory | 0.040s |
+| ✅ | `cli.test_cli_005_output_option_short` | CLI-005-OUTPUT-OPTION-SHORT: CLI-005: -o option specifies output directory | 0.039s |
+| ✅ | `cli.test_cli_006_exclude_option` | CLI-006-EXCLUDE-OPTION: CLI-006: -e option excludes files/directories | 0.047s |
+| ✅ | `cli.test_cli_009_invalid_source_error` | CLI-009-INVALID-SOURCE-ERROR: CLI-009: Non-existent source reports error | 0.038s |
+| ✅ | `cli.test_cli_010_output_dir_creation` | CLI-010-OUTPUT-DIR-CREATION: CLI-010: Non-existent output directory is created | 0.040s |
 
 ## 🔄 CDC Tests (CDC-xxx)
 
@@ -300,4 +300,4 @@
 | ✅ | `stress.test_stress_006_boundary_values` | STRESS-006-BOUNDARY-VALUES: STRESS-006: Generation handles all register types | 0.001s |
 
 ---
-*Generated by `make test` at 2025-12-09 11:00:04*
+*Generated by `make test` at 2025-12-09 11:15:56*
