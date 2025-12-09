@@ -52,7 +52,9 @@ class AxionHDL:
             output_dir: Output directory for generated files (default: ./axion_output)
         """
         self.src_dirs = []
+        self.src_files = []  # Individual VHDL files
         self.xml_src_dirs = []  # XML source directories
+        self.xml_src_files = []  # Individual XML files
         self.output_dir = os.path.abspath(output_dir)
         self.analyzed_modules = []
         self.is_analyzed = False
@@ -142,69 +144,153 @@ class AxionHDL:
             result.append(m)
         return result
         
-    def add_src(self, dir_path):
+    def add_src(self, path):
         """
-        Add a source directory containing VHDL files.
+        Add a VHDL source file or directory.
         
         Args:
-            dir_path: Path to the source directory
+            path: Path to a VHDL file (.vhd/.vhdl) or directory containing VHDL files
         """
-        normalized_path = os.path.abspath(dir_path)
-        if os.path.isdir(normalized_path):
+        normalized_path = os.path.abspath(path)
+        
+        if os.path.isfile(normalized_path):
+            # Handle single file
+            ext = os.path.splitext(normalized_path)[1].lower()
+            if ext in ('.vhd', '.vhdl'):
+                if normalized_path not in self.src_files:
+                    self.src_files.append(normalized_path)
+                    print(f"VHDL source file added: {normalized_path}")
+                else:
+                    print(f"VHDL source file already exists: {normalized_path}")
+            else:
+                print(f"Error: '{normalized_path}' is not a VHDL file (.vhd/.vhdl)")
+        elif os.path.isdir(normalized_path):
+            # Handle directory
             if normalized_path not in self.src_dirs:
                 self.src_dirs.append(normalized_path)
-                print(f"Source directory added: {normalized_path}")
+                print(f"VHDL source directory added: {normalized_path}")
             else:
-                print(f"Source directory already exists: {normalized_path}")
+                print(f"VHDL source directory already exists: {normalized_path}")
         else:
-            print(f"Error: '{normalized_path}' is not a valid directory.")
+            print(f"Error: '{normalized_path}' does not exist.")
 
     def list_src(self):
-        """List all added source directories."""
+        """List all added source files and directories."""
+        if self.src_files:
+            print("VHDL Source files:")
+            for f in self.src_files:
+                print(f"  - {f}")
         if self.src_dirs:
             print("VHDL Source directories:")
             for directory in self.src_dirs:
                 print(f"  - {directory}")
-        else:
-            print("No VHDL source directories added yet.")
+        if not self.src_files and not self.src_dirs:
+            print("No VHDL sources added yet.")
+        if self.xml_src_files:
+            print("XML Source files:")
+            for f in self.xml_src_files:
+                print(f"  - {f}")
         if self.xml_src_dirs:
             print("XML Source directories:")
             for directory in self.xml_src_dirs:
                 print(f"  - {directory}")
     
-    def add_xml_src(self, dir_path):
+    def add_xml_src(self, path):
         """
-        Add an XML source directory containing register definition files.
+        Add an XML source file or directory.
         
         Args:
-            dir_path: Path to the source directory containing .xml files
+            path: Path to an XML file (.xml) or directory containing XML files
         """
-        normalized_path = os.path.abspath(dir_path)
-        if os.path.isdir(normalized_path):
+        normalized_path = os.path.abspath(path)
+        
+        if os.path.isfile(normalized_path):
+            # Handle single file
+            ext = os.path.splitext(normalized_path)[1].lower()
+            if ext == '.xml':
+                if normalized_path not in self.xml_src_files:
+                    self.xml_src_files.append(normalized_path)
+                    print(f"XML source file added: {normalized_path}")
+                else:
+                    print(f"XML source file already exists: {normalized_path}")
+            else:
+                print(f"Error: '{normalized_path}' is not an XML file (.xml)")
+        elif os.path.isdir(normalized_path):
+            # Handle directory
             if normalized_path not in self.xml_src_dirs:
                 self.xml_src_dirs.append(normalized_path)
                 print(f"XML source directory added: {normalized_path}")
             else:
                 print(f"XML source directory already exists: {normalized_path}")
         else:
-            print(f"Error: '{normalized_path}' is not a valid directory.")
+            print(f"Error: '{normalized_path}' does not exist.")
+    
+    def add_source(self, path):
+        """
+        Add a source file or directory with auto-detection based on file extension.
+        
+        This is the unified method that automatically determines file type:
+        - .vhd, .vhdl files → VHDL source
+        - .xml files → XML source
+        - Directories → scanned for supported file types
+        
+        Args:
+            path: Path to a source file or directory
+        """
+        normalized_path = os.path.abspath(path)
+        
+        if os.path.isfile(normalized_path):
+            ext = os.path.splitext(normalized_path)[1].lower()
+            if ext in ('.vhd', '.vhdl'):
+                self.add_src(normalized_path)
+            elif ext == '.xml':
+                self.add_xml_src(normalized_path)
+            else:
+                print(f"Error: '{normalized_path}' has unsupported extension. Use .vhd, .vhdl, or .xml")
+        elif os.path.isdir(normalized_path):
+            # For directories, scan and categorize files
+            has_vhdl = False
+            has_xml = False
+            for root, _, files in os.walk(normalized_path):
+                for f in files:
+                    ext = os.path.splitext(f)[1].lower()
+                    if ext in ('.vhd', '.vhdl'):
+                        has_vhdl = True
+                    elif ext == '.xml':
+                        has_xml = True
+                    if has_vhdl and has_xml:
+                        break
+                if has_vhdl and has_xml:
+                    break
+            
+            if has_vhdl:
+                self.add_src(normalized_path)
+            if has_xml:
+                self.add_xml_src(normalized_path)
+            if not has_vhdl and not has_xml:
+                print(f"Warning: No VHDL or XML files found in '{normalized_path}'")
+        else:
+            print(f"Error: '{normalized_path}' does not exist.")
             
     def analyze(self):
         """
-        Analyze all VHDL and XML files in source directories.
+        Analyze all VHDL and XML files in source directories and files.
         This must be called before any generation functions.
         
         Files and directories matching exclusion patterns will be skipped.
         Use exclude() to add patterns before calling analyze().
         """
-        if not self.src_dirs and not self.xml_src_dirs:
-            print("Error: No source directories added. Use add_src() or add_xml_src() first.")
+        has_vhdl_sources = bool(self.src_dirs or self.src_files)
+        has_xml_sources = bool(self.xml_src_dirs or self.xml_src_files)
+        
+        if not has_vhdl_sources and not has_xml_sources:
+            print("Error: No sources added. Use add_src(), add_xml_src(), or add_source() first.")
             return False
         
         self.analyzed_modules = []
             
         # Parse VHDL files if any
-        if self.src_dirs:
+        if has_vhdl_sources:
             print(f"\n{'='*60}")
             print("Starting analysis of VHDL files...")
             print(f"{'='*60}")
@@ -215,13 +301,26 @@ class AxionHDL:
             parser = VHDLParser()
             for pattern in self._exclude_patterns:
                 parser.add_exclude(pattern)
-                
-            vhdl_modules = parser.parse_vhdl_files(self.src_dirs)
-            self.analyzed_modules.extend(vhdl_modules)
-            print(f"Found {len(vhdl_modules)} modules from VHDL files.")
+            
+            # Parse files from directories
+            if self.src_dirs:
+                vhdl_modules = parser.parse_vhdl_files(self.src_dirs)
+                self.analyzed_modules.extend(vhdl_modules)
+            
+            # Parse individual files
+            for filepath in self.src_files:
+                try:
+                    module = parser._parse_vhdl_file(filepath)
+                    if module and module.get('registers'):
+                        self.analyzed_modules.append(module)
+                except Exception as e:
+                    print(f"Warning: Failed to parse {filepath}: {e}")
+            
+            vhdl_count = len([m for m in self.analyzed_modules])
+            print(f"Found {vhdl_count} modules from VHDL files.")
         
         # Parse XML files if any
-        if self.xml_src_dirs:
+        if has_xml_sources:
             print(f"\n{'='*60}")
             print("Starting analysis of XML files...")
             print(f"{'='*60}")
@@ -229,10 +328,25 @@ class AxionHDL:
             xml_parser = XMLInputParser()
             for pattern in self._exclude_patterns:
                 xml_parser.add_exclude(pattern)
-                
-            xml_modules = xml_parser.parse_xml_files(self.xml_src_dirs)
-            self.analyzed_modules.extend(xml_modules)
-            print(f"Found {len(xml_modules)} modules from XML files.")
+            
+            xml_modules_start = len(self.analyzed_modules)
+            
+            # Parse files from directories
+            if self.xml_src_dirs:
+                xml_modules = xml_parser.parse_xml_files(self.xml_src_dirs)
+                self.analyzed_modules.extend(xml_modules)
+            
+            # Parse individual files
+            for filepath in self.xml_src_files:
+                try:
+                    module = xml_parser.parse_file(filepath)
+                    if module:
+                        self.analyzed_modules.append(module)
+                except Exception as e:
+                    print(f"Warning: Failed to parse {filepath}: {e}")
+            
+            xml_count = len(self.analyzed_modules) - xml_modules_start
+            print(f"Found {xml_count} modules from XML files.")
         
         self.is_analyzed = True
         
