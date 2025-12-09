@@ -1,12 +1,12 @@
 # Version Sync Workflow
-# Automatically syncs version across project files when PR is opened/updated
-# Auto-bumps version if .version file was not manually changed
+# - On PRs to develop: auto-bump version and sync
+# - On PRs to main: strip -dev suffix from version and sync
 
 name: Version Sync
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -14,7 +14,9 @@ permissions:
   pull-requests: read
 
 jobs:
-  version-sync:
+  # Version sync for develop PRs (auto-bump with dev suffix)
+  version-sync-develop:
+    if: github.base_ref == 'develop'
     runs-on: ubuntu-latest
     
     steps:
@@ -33,9 +35,8 @@ jobs:
       - name: Check if .version was modified
         id: version-check
         run: |
-          # Get list of changed files in PR
-          git fetch origin main
-          CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+          git fetch origin develop
+          CHANGED_FILES=$(git diff --name-only origin/develop...HEAD)
           
           if echo "$CHANGED_FILES" | grep -q "^\.version$"; then
             echo "version_changed=true" >> $GITHUB_OUTPUT
@@ -76,13 +77,77 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
-          # Check if there are changes to commit
           if git diff --quiet && git diff --staged --quiet; then
             echo "No version changes to commit"
           else
             VERSION=$(cat .version)
-            git add .version pyproject.toml axion_hdl/__init__.py
+            git add .version pyproject.toml setup.py axion_hdl/__init__.py
             git commit -m "chore: sync version to ${VERSION} [skip ci]"
             git push
             echo "✅ Version changes committed and pushed"
+          fi
+
+  # Version sync for main PRs (strip -dev suffix)
+  version-sync-main:
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Strip -dev suffix from version
+        run: |
+          CURRENT_VERSION=$(cat .version)
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Remove .devXXX suffix if present
+          CLEAN_VERSION=$(echo "$CURRENT_VERSION" | sed 's/\.dev[0-9]*$//')
+          echo "Clean version: $CLEAN_VERSION"
+          
+          # Write clean version
+          echo "$CLEAN_VERSION" > .version
+          echo "✅ Version updated to: $CLEAN_VERSION"
+
+      - name: Sync version to all files
+        run: |
+          VERSION=$(cat .version)
+          
+          # Update pyproject.toml
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+          
+          # Update setup.py
+          sed -i "s/version=\"[^\"]*\"/version=\"$VERSION\"/" setup.py
+          
+          # Update __init__.py
+          sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" axion_hdl/__init__.py
+          
+          echo "✅ Version synced to all files: $VERSION"
+          
+          # Verify
+          echo "=== Verification ==="
+          grep "version" .version pyproject.toml setup.py axion_hdl/__init__.py | head -10
+
+      - name: Commit version changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          if git diff --quiet && git diff --staged --quiet; then
+            echo "No version changes to commit"
+          else
+            VERSION=$(cat .version)
+            git add .version pyproject.toml setup.py axion_hdl/__init__.py
+            git commit -m "chore: prepare release ${VERSION} - remove dev suffix [skip ci]"
+            git push
+            echo "✅ Release version committed and pushed"
           fi
