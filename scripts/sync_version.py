@@ -5,7 +5,7 @@ Version Sync Script for Axion-HDL
 This script manages version synchronization across the project:
 - Reads version from .version file (format: v<major>.<minor>.<patch>)
 - Can auto-bump version based on branch name
-- Updates pyproject.toml and axion_hdl/__init__.py
+- Updates pyproject.toml, setup.py, and axion_hdl/__init__.py
 
 Usage:
     python scripts/sync_version.py                    # Sync current version
@@ -23,6 +23,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 VERSION_FILE = PROJECT_ROOT / ".version"
 PYPROJECT_FILE = PROJECT_ROOT / "pyproject.toml"
+SETUP_FILE = PROJECT_ROOT / "setup.py"
 INIT_FILE = PROJECT_ROOT / "axion_hdl" / "__init__.py"
 
 
@@ -102,6 +103,25 @@ def update_pyproject(version: str):
     return False
 
 
+def update_setup(version: str):
+    """Update version in setup.py."""
+    # Remove 'v' prefix for setup.py
+    version_num = version[1:] if version.startswith('v') else version
+    
+    content = SETUP_FILE.read_text()
+    new_content = re.sub(
+        r"version\s*=\s*['\"][^'\"]*['\"]",
+        f"version='{version_num}'",
+        content,
+        count=1  # Only replace first occurrence
+    )
+    
+    if content != new_content:
+        SETUP_FILE.write_text(new_content)
+        return True
+    return False
+
+
 def update_init(version: str):
     """Update __version__ in __init__.py."""
     # Remove 'v' prefix for Python __version__
@@ -136,6 +156,11 @@ def get_current_versions() -> dict:
     match = re.search(r'^version\s*=\s*"([^"]*)"', content, re.MULTILINE)
     versions['pyproject.toml'] = match.group(1) if match else None
     
+    # setup.py
+    content = SETUP_FILE.read_text()
+    match = re.search(r"version\s*=\s*['\"]([^'\"]*)['\"]\s*,", content)
+    versions['setup.py'] = match.group(1) if match else None
+    
     # __init__.py
     content = INIT_FILE.read_text()
     match = re.search(r'^__version__\s*=\s*"([^"]*)"', content, re.MULTILINE)
@@ -153,7 +178,7 @@ def check_sync() -> bool:
     if version_file and version_file.startswith('v'):
         version_file = version_file[1:]
     
-    all_same = (version_file == versions['pyproject.toml'] == versions['__init__.py'])
+    all_same = (version_file == versions['pyproject.toml'] == versions['setup.py'] == versions['__init__.py'])
     
     print("Current versions:")
     for file, ver in versions.items():
@@ -174,6 +199,7 @@ def sync_all():
     print(f"Syncing version: {version}")
     
     pyproject_updated = update_pyproject(version)
+    setup_updated = update_setup(version)
     init_updated = update_init(version)
     
     if pyproject_updated:
@@ -181,12 +207,17 @@ def sync_all():
     else:
         print(f"  - pyproject.toml already up to date")
     
+    if setup_updated:
+        print(f"  ✓ Updated setup.py")
+    else:
+        print(f"  - setup.py already up to date")
+    
     if init_updated:
         print(f"  ✓ Updated __init__.py")
     else:
         print(f"  - __init__.py already up to date")
     
-    return pyproject_updated or init_updated
+    return pyproject_updated or setup_updated or init_updated
 
 
 def main():
