@@ -66,8 +66,18 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         action='append',
         dest='sources',
         metavar='DIR',
-        required=True,
+        default=[],
         help='Source directory containing VHDL files with @axion annotations. '
+             'Can be specified multiple times.'
+    )
+    
+    parser.add_argument(
+        '-x', '--xml-source',
+        action='append',
+        dest='xml_sources',
+        metavar='DIR',
+        default=[],
+        help='Source directory containing XML register definition files. '
              'Can be specified multiple times.'
     )
     
@@ -135,10 +145,22 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     # Parse arguments
     args = parser.parse_args()
     
-    # Validate source directories
+    # Validate at least one source type is provided
+    if not args.sources and not args.xml_sources:
+        print("Error: At least one source directory required. Use -s for VHDL or -x for XML.", 
+              file=sys.stderr)
+        sys.exit(1)
+    
+    # Validate VHDL source directories
     for src in args.sources:
         if not os.path.isdir(src):
-            print(f"Error: Source directory does not exist: {src}", file=sys.stderr)
+            print(f"Error: VHDL source directory does not exist: {src}", file=sys.stderr)
+            sys.exit(1)
+    
+    # Validate XML source directories
+    for src in args.xml_sources:
+        if not os.path.isdir(src):
+            print(f"Error: XML source directory does not exist: {src}", file=sys.stderr)
             sys.exit(1)
     
     # If no specific generation option is provided, default to --all
@@ -148,17 +170,21 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     # Initialize Axion-HDL
     axion = AxionHDL(output_dir=args.output_dir)
     
-    # Add source directories
+    # Add VHDL source directories
     for src in args.sources:
         axion.add_src(src)
+    
+    # Add XML source directories
+    for src in args.xml_sources:
+        axion.add_xml_src(src)
     
     # Add exclusion patterns
     if args.excludes:
         axion.exclude(*args.excludes)
     
-    # Analyze VHDL files
+    # Analyze files
     if not axion.analyze():
-        print("Error: Analysis failed. No modules with @axion annotations found.", 
+        print("Error: Analysis failed. No modules found.", 
               file=sys.stderr)
         sys.exit(1)
     
