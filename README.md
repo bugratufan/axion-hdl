@@ -5,175 +5,83 @@
 [![Python 3.8+](https://img.shields.io/pypi/pyversions/axion-hdl.svg)](https://pypi.org/project/axion-hdl/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Axion-HDL** is an automated AXI4-Lite register interface generator for VHDL modules. It parses VHDL source files with special `@axion` annotations and generates complete, protocol-compliant AXI4-Lite register interfaces, C headers, XML register maps, and documentation.
+**Axion-HDL** is an automated AXI4-Lite register interface generator for VHDL. Parse VHDL files with `@axion` annotations or XML register definitions to generate complete, protocol-compliant register interfaces, C headers, and documentation.
 
-## Naming Convention
+## ✨ Key Features
 
-| Context | Name | Example |
-|---------|------|---------|
-| PyPI Package | `axion-hdl` | `pip install axion-hdl` |
-| Python Import | `axion_hdl` | `from axion_hdl import AxionHDL` |
-| CLI Command | `axion-hdl` | `axion-hdl --help` |
+| Feature | Description |
+|---------|-------------|
+| **Dual Input Formats** | VHDL with `@axion` annotations or standalone XML register definitions |
+| **AXI4-Lite Compliant** | Fully protocol-compliant slave interfaces with proper handshaking |
+| **Subregisters** | Pack multiple bit-fields into single 32-bit registers |
+| **Default Values** | Define reset values with `DEFAULT` attribute |
+| **Wide Signals** | Automatic multi-register allocation for signals >32 bits |
+| **Multiple Outputs** | VHDL, C headers, XML (IP-XACT), Markdown documentation |
+| **CDC Support** | Built-in clock domain crossing synchronizers |
+| **Pure Python** | No external dependencies, Python 3.8+ |
 
-## Features
-
-- **AXI4-Lite Compliant**: Generates fully protocol-compliant AXI4-Lite slave interfaces
-- **Annotation-Based**: Simple `@axion` annotations in VHDL comments define register behavior
-- **Multiple Outputs**: Generates VHDL modules, C headers, XML (IP-XACT compatible), and Markdown documentation
-- **Flexible Access Modes**: Supports RW (read-write), RO (read-only), and WO (write-only) registers
-- **Strobe Support**: Optional read/write strobe signals for register access notification
-- **CDC Support**: Built-in clock domain crossing with configurable synchronization stages
-- **Module-Prefixed Headers**: C headers use module-prefixed macros for multi-module projects
-- **Pure Python**: No external dependencies required
-
-## Installation
-
-### From PyPI (Recommended)
+## 📦 Installation
 
 ```bash
 pip install axion-hdl
 ```
 
-### From Source
+## 🚀 Quick Start
 
-```bash
-git clone https://github.com/bugratufan/axion-hdl.git
-cd axion-hdl
-pip install -e .
-```
+### Option 1: VHDL Annotations
 
-### Development Installation
-
-```bash
-git clone https://github.com/bugratufan/axion-hdl.git
-cd axion-hdl
-pip install -e ".[dev]"
-```
-
-## Quick Start
-
-### 1. Add Annotations to Your VHDL
-
-Add `@axion` annotations to your VHDL signals:
+Add `@axion` annotations directly in your VHDL:
 
 ```vhdl
-library ieee;
-use ieee.std_logic_1164.all;
-
 -- @axion_def BASE_ADDR=0x0000 CDC_EN CDC_STAGE=2
 
 entity sensor_controller is
-    port (
-        clk   : in  std_logic;
-        rst_n : in  std_logic
-    );
+    port (clk : in std_logic; rst_n : in std_logic);
 end entity;
 
 architecture rtl of sensor_controller is
-    -- Read-only status register
-    signal status_reg : std_logic_vector(31 downto 0);  -- @axion RO ADDR=0x00
-    
-    -- Write-only control register with write strobe
+    signal status_reg  : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x00 DESC="Status"
     signal control_reg : std_logic_vector(31 downto 0); -- @axion WO ADDR=0x04 W_STROBE
-    
-    -- Read-write config register
-    signal config_reg : std_logic_vector(31 downto 0);  -- @axion RW ADDR=0x08
+    signal config_reg  : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x08 DEFAULT=0xCAFE
 begin
-    -- Your logic here
 end architecture;
 ```
 
-### 2. Generate Register Interface
+```bash
+axion-hdl -s sensor_controller.vhd -o ./output
+```
 
-#### Using CLI
+### Option 2: XML Register Definition
+
+Define registers in standalone XML files:
+
+```xml
+<register_map module="sensor_controller" base_addr="0x0000">
+    <config cdc_en="true" cdc_stage="2"/>
+    <register name="status_reg"  addr="0x00" access="RO" width="32" description="Status"/>
+    <register name="control_reg" addr="0x04" access="WO" width="32" w_strobe="true"/>
+    <register name="config_reg"  addr="0x08" access="RW" width="32" default="0xCAFE"/>
+</register_map>
+```
 
 ```bash
-# Generate all outputs
-axion-hdl -s ./src -o ./output --all
-
-# Generate only VHDL and C headers
-axion-hdl -s ./rtl -o ./generated --vhdl --c-header
-
-# Multiple source directories
-axion-hdl -s ./src -s ./ip -o ./output
-
-# Exclude specific files or directories
-axion-hdl -s ./src -o ./output -e "testbenches" -e "*_tb.vhd"
-
-# Show version
-axion-hdl --version
+axion-hdl -s registers.xml -o ./output
 ```
 
-#### Using Python API
+### Generated Outputs
 
-```python
-from axion_hdl import AxionHDL
+| Output | File | Description |
+|--------|------|-------------|
+| VHDL | `*_axion_reg.vhd` | AXI4-Lite slave register interface |
+| C Header | `*_regs.h` | Module-prefixed register definitions |
+| XML | `*_regs.xml` | IP-XACT compatible register map |
+| Docs | `register_map.md` | Markdown documentation |
 
-# Initialize generator
-axion = AxionHDL(output_dir="./output")
+---
 
-# Add source directories
-axion.add_src("./src")
+## 📖 Annotation Reference
 
-# Exclude files or directories (optional)
-axion.exclude("testbenches")        # Exclude directory
-axion.exclude("*_tb.vhd")           # Exclude testbench files
-axion.exclude("debug_module.vhd")   # Exclude specific file
-
-# Analyze VHDL files
-axion.analyze()
-
-# Generate all outputs
-axion.generate_all()
-
-# Or generate specific outputs
-axion.generate_vhdl()
-axion.generate_c_header()
-axion.generate_xml()
-axion.generate_documentation()
-```
-
-#### Exclusion Patterns
-
-The `exclude()` method supports various pattern types:
-
-| Pattern Type | Example | Description |
-|--------------|---------|-------------|
-| File name | `"test.vhd"` | Exclude specific file |
-| Directory | `"testbenches"` | Exclude entire directory |
-| Glob pattern | `"*_tb.vhd"` | Exclude files matching pattern |
-| Multiple | `"test_*.vhd"` | Wildcard patterns |
-
-```python
-# Multiple exclusions at once
-axion.exclude("error_cases", "*_tb.vhd", "deprecated")
-
-# Remove exclusion
-axion.include("deprecated")
-
-# List current exclusions
-axion.list_excludes()
-
-# Clear all exclusions
-axion.clear_excludes()
-```
-
-### 3. Generated Outputs
-
-Axion-HDL generates:
-
-| Output | File Pattern | Description |
-|--------|--------------|-------------|
-| VHDL Module | `*_axion_reg.vhd` | AXI4-Lite slave register interface |
-| C Header | `*_regs.h` | Register definitions with module-prefixed macros |
-| XML | `*_regs.xml` | IP-XACT compatible register description |
-| Documentation | `register_map.md` | Markdown register map documentation |
-
-## Annotation Syntax
-
-### Module-Level Definition (`@axion_def`)
-
-Place at the top of VHDL file, near entity declaration:
+### Module-Level (`@axion_def`)
 
 ```vhdl
 -- @axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3
@@ -183,207 +91,220 @@ Place at the top of VHDL file, near entity declaration:
 |-----------|-------------|---------|
 | `BASE_ADDR` | Module base address | `0x0000` |
 | `CDC_EN` | Enable clock domain crossing | Disabled |
-| `CDC_STAGE` | CDC synchronizer stages | `2` |
+| `CDC_STAGE` | Synchronizer stages (2-4) | `2` |
 
-### Signal Annotation (`@axion`)
-
-Place on the same line as signal declaration:
+### Signal-Level (`@axion`)
 
 ```vhdl
-signal my_reg : std_logic_vector(31 downto 0); -- @axion <MODE> [ADDR=<offset>] [R_STROBE] [W_STROBE] [DESC="description"]
+signal my_reg : std_logic_vector(31 downto 0); -- @axion <MODE> [options]
 ```
 
 | Parameter | Values | Description |
 |-----------|--------|-------------|
-| Mode | `RO`, `WO`, `RW` | Register access mode (required) |
-| `ADDR` | `0x00`-`0xFFFF` | Address offset (optional, auto-assigned if omitted) |
+| Mode | `RO`, `WO`, `RW` | Access mode (required) |
+| `ADDR` | `0x00`-`0xFFFF` | Address offset (auto-assigned if omitted) |
+| `DEFAULT` | `0x...` or decimal | Reset value (default: 0) |
 | `R_STROBE` | flag | Generate read strobe signal |
 | `W_STROBE` | flag | Generate write strobe signal |
-| `DESC` | `"text"` | Register description (appears in documentation) |
+| `DESC` | `"text"` | Register description |
 
-#### Examples with Description
+#### Examples
 
 ```vhdl
-signal status_reg : std_logic_vector(31 downto 0); -- @axion RO DESC="System status flags"
-signal control_reg : std_logic_vector(31 downto 0); -- @axion WO W_STROBE DESC="Main control register"
-signal config_reg : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x10 DESC="Configuration settings"
+signal status  : std_logic_vector(31 downto 0); -- @axion RO DESC="System status"
+signal control : std_logic_vector(31 downto 0); -- @axion WO W_STROBE DEFAULT=0x01
+signal config  : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x10 R_STROBE W_STROBE
 ```
 
-### Access Modes
+---
 
-| Mode | AXI Can | VHDL Logic Can | Port Direction |
-|------|---------|----------------|----------------|
-| `RO` | Read | Write | `in` |
-| `WO` | Write | Read | `out` |
-| `RW` | Read/Write | Read | `out` |
+## 🧩 Advanced Features
 
-## Generated C Header Format
+### Subregisters (Packed Bit-Fields)
 
-C headers use module-prefixed macro names for namespace isolation:
+Pack multiple fields into a single 32-bit register:
 
-```c
-// sensor_controller_regs.h
-#ifndef SENSOR_CONTROLLER_REGS_H
-#define SENSOR_CONTROLLER_REGS_H
+```vhdl
+-- Enable field at bit 0 (1 bit)
+signal enable : std_logic; -- @axion RW REG_NAME=control_reg BIT_OFFSET=0 DEFAULT=1
 
-#include <stdint.h>
+-- Mode field at bits 2:1 (2 bits)
+signal mode : std_logic_vector(1 downto 0); -- @axion RW REG_NAME=control_reg BIT_OFFSET=1
 
-/* Base Address */
-#define SENSOR_CONTROLLER_BASE_ADDR          0x00000000
-
-/* Register Offsets */
-#define SENSOR_CONTROLLER_STATUS_REG_OFFSET  0x00000000
-#define SENSOR_CONTROLLER_CONTROL_REG_OFFSET 0x00000004
-#define SENSOR_CONTROLLER_CONFIG_REG_OFFSET  0x00000008
-
-/* Absolute Addresses */
-#define SENSOR_CONTROLLER_STATUS_REG_ADDR    0x00000000
-#define SENSOR_CONTROLLER_CONTROL_REG_ADDR   0x00000004
-#define SENSOR_CONTROLLER_CONFIG_REG_ADDR    0x00000008
-
-/* Access Macros */
-#define SENSOR_CONTROLLER_READ_STATUS_REG() \
-    (*((volatile uint32_t*)(SENSOR_CONTROLLER_BASE_ADDR + SENSOR_CONTROLLER_STATUS_REG_OFFSET)))
-
-#define SENSOR_CONTROLLER_WRITE_CONTROL_REG(val) \
-    (*((volatile uint32_t*)(SENSOR_CONTROLLER_BASE_ADDR + SENSOR_CONTROLLER_CONTROL_REG_OFFSET)) = (val))
-
-/* Register Structure */
-typedef struct {
-    volatile uint32_t status_reg;   /* 0x00 - RO */
-    volatile uint32_t control_reg;  /* 0x04 - WO */
-    volatile uint32_t config_reg;   /* 0x08 - RW */
-} sensor_controller_regs_t;
-
-#define SENSOR_CONTROLLER_REGS \
-    ((volatile sensor_controller_regs_t*)(SENSOR_CONTROLLER_BASE_ADDR))
-
-#endif
+-- IRQ mask at bits 7:4 (4 bits)
+signal irq_mask : std_logic_vector(3 downto 0); -- @axion RW REG_NAME=control_reg BIT_OFFSET=4
 ```
 
-## AXI4-Lite Protocol Compliance
+Or in XML:
 
-Generated VHDL modules are fully compliant with the AXI4-Lite specification:
+```xml
+<register name="enable"   reg_name="control_reg" addr="0x00" width="1" access="RW" bit_offset="0" default="1"/>
+<register name="mode"     reg_name="control_reg" addr="0x00" width="2" access="RW" bit_offset="1"/>
+<register name="irq_mask" reg_name="control_reg" addr="0x00" width="4" access="RW" bit_offset="4"/>
+```
 
-- ✅ Independent address and data channels
-- ✅ Proper VALID/READY handshaking
-- ✅ BRESP/RRESP response signaling (OKAY/SLVERR)
-- ✅ Address alignment checking
-- ✅ Write strobe (WSTRB) support for byte-level writes
-- ✅ Single-cycle response capability
-- ✅ Proper reset behavior (all outputs deasserted)
+### Wide Signals (>32 bits)
 
-## Project Structure
+Signals wider than 32 bits automatically span multiple registers:
+
+```vhdl
+signal counter_64bit : std_logic_vector(63 downto 0); -- @axion RO ADDR=0x00
+-- Accessible at: 0x00 (bits 31:0), 0x04 (bits 63:32)
+
+signal data_256bit : std_logic_vector(255 downto 0); -- @axion RW ADDR=0x10
+-- Accessible at: 0x10, 0x14, 0x18, 0x1C, 0x20, 0x24, 0x28, 0x2C
+```
+
+### Clock Domain Crossing (CDC)
+
+Enable automatic synchronization between AXI and module clock domains:
+
+```vhdl
+-- @axion_def CDC_EN CDC_STAGE=3
+
+-- RO registers: synced from module_clk → axi_aclk
+signal sensor_data : std_logic_vector(31 downto 0); -- @axion RO
+
+-- RW/WO registers: synced from axi_aclk → module_clk
+signal control : std_logic_vector(31 downto 0); -- @axion RW
+```
+
+---
+
+## 💻 CLI Reference
+
+```bash
+# Basic usage
+axion-hdl -s ./src -o ./output
+
+# Single file (auto-detects VHDL or XML by extension)
+axion-hdl -s module.vhd -o ./output
+axion-hdl -s registers.xml -o ./output
+
+# Multiple sources (files and directories)
+axion-hdl -s ./rtl -s ./extra/module.vhd -s definitions.xml -o ./output
+
+# Selective outputs
+axion-hdl -s ./src -o ./output --vhdl --c-header
+
+# Exclude patterns
+axion-hdl -s ./src -o ./output -e "*_tb.vhd" -e "testbenches"
+
+# Documentation format
+axion-hdl -s ./src -o ./output --doc --doc-format html
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `-s, --source PATH` | Source file (.vhd, .vhdl, .xml) or directory |
+| `-o, --output DIR` | Output directory (default: ./axion_output) |
+| `-e, --exclude PATTERN` | Exclude pattern (can repeat) |
+| `--all` | Generate all outputs (default) |
+| `--vhdl` | Generate VHDL only |
+| `--c-header` | Generate C header only |
+| `--xml` | Generate XML only |
+| `--doc` | Generate documentation only |
+| `--doc-format FORMAT` | Doc format: md, html, pdf |
+
+---
+
+## 🐍 Python API
+
+```python
+from axion_hdl import AxionHDL
+
+axion = AxionHDL(output_dir="./output")
+
+# Add sources (auto-detects type by extension)
+axion.add_source("./rtl")           # Directory
+axion.add_source("module.vhd")      # VHDL file
+axion.add_source("registers.xml")   # XML file
+
+# Or use type-specific methods
+axion.add_src("./vhdl_files")       # VHDL sources
+axion.add_xml_src("./xml_files")    # XML sources
+
+# Exclude patterns
+axion.exclude("*_tb.vhd", "testbenches")
+
+# Analyze and generate
+axion.analyze()
+axion.generate_all()
+
+# Or generate specific outputs
+axion.generate_vhdl()
+axion.generate_c_header()
+axion.generate_xml()
+axion.generate_documentation()
+```
+
+---
+
+## 🧪 Testing
+
+The project includes 201 automated tests covering all requirements:
+
+```bash
+make test              # Run all tests
+make test-python       # Python tests only
+make test-vhdl         # VHDL simulation tests only
+```
+
+Test categories: AXION (37), AXI-LITE (16), PARSER (20), GEN (30), CLI (14), CDC (8), ADDR (9), ERR (9), STRESS (6), SUB (9), DEF (10)
+
+---
+
+## 📁 Project Structure
 
 ```
 axion-hdl/
-├── axion_hdl/                 # Main Python package
-│   ├── __init__.py
-│   ├── axion.py               # Main AxionHDL class
-│   ├── cli.py                 # Command-line interface
-│   ├── parser.py              # VHDL parser
-│   ├── generator.py           # VHDL code generator
-│   ├── doc_generators.py      # C header, XML, Markdown generators
-│   ├── address_manager.py     # Address allocation
-│   ├── annotation_parser.py   # @axion annotation parser
-│   ├── vhdl_utils.py          # VHDL utilities
-│   ├── code_formatter.py      # Code formatting utilities
-│   └── README.md              # Library documentation
-├── tests/                     # Test files
-│   ├── c/                     # C header tests
-│   │   └── test_c_headers.c
-│   ├── python/                # Python tests
-│   │   └── test_axion.py
-│   ├── vhdl/                  # VHDL examples and testbenches
-│   │   ├── sensor_controller.vhd
-│   │   ├── spi_controller.vhd
-│   │   └── multi_module_tb.vhd
-│   └── run_full_test.sh       # Full test script
-├── Makefile                   # Build and test automation
-├── pyproject.toml             # Python project configuration
-├── setup.py                   # Package setup
-├── README.md                  # This file
-└── LICENSE                    # MIT License
+├── axion_hdl/           # Main Python package
+│   ├── axion.py         # AxionHDL main class
+│   ├── cli.py           # Command-line interface
+│   ├── parser.py        # VHDL parser
+│   ├── xml_input_parser.py  # XML parser
+│   ├── generator.py     # VHDL generator
+│   └── doc_generators.py    # C/XML/MD generators
+├── tests/
+│   ├── vhdl/            # VHDL examples & testbenches
+│   ├── xml/             # XML examples
+│   └── python/          # Python unit tests
+├── requirements.md      # Full requirements specification
+└── CHANGELOG.md         # Version history
 ```
 
-## Makefile Commands
+---
 
-```bash
-make help           # Show all available commands
+## 📋 Naming Convention
 
-# Build & Install
-make build          # Build package (sdist + wheel)
-make install        # Install package locally
-make dev-install    # Install in development mode
+| Context | Name | Example |
+|---------|------|---------|
+| PyPI Package | `axion-hdl` | `pip install axion-hdl` |
+| Python Import | `axion_hdl` | `from axion_hdl import AxionHDL` |
+| CLI Command | `axion-hdl` | `axion-hdl --help` |
 
-# Testing
-make test           # Run all tests (Python + C + VHDL)
-make test-python    # Run Python tests only
-make test-c         # Run C header tests only
-make test-vhdl      # Run VHDL simulation tests only
+---
 
-# Code Generation
-make generate       # Generate all outputs from examples
-
-# Distribution
-make check          # Check package for PyPI
-make upload-test    # Upload to TestPyPI
-make upload         # Upload to PyPI
-
-# Cleanup
-make clean          # Clean generated files
-make clean-all      # Clean everything including dist
-```
-
-## CLI Reference
-
-```
-usage: axion-hdl [-h] [-v] -s DIR [-o DIR] [--all] [--vhdl] [--doc]
-                 [--doc-format FORMAT] [--xml] [--c-header]
-
-Axion-HDL: Automated AXI4-Lite Register Interface Generator for VHDL
-
-options:
-  -h, --help            show this help message and exit
-  -v, --version         show program's version number and exit
-  -s DIR, --source DIR  Source directory containing VHDL files (can be repeated)
-  -o DIR, --output DIR  Output directory (default: ./axion_output)
-
-Generation Options:
-  --all                 Generate all outputs
-  --vhdl                Generate VHDL register interface modules
-  --doc                 Generate register map documentation
-  --doc-format FORMAT   Documentation format: md, html, or pdf
-  --xml                 Generate XML register map description
-  --c-header            Generate C header files
-
-Examples:
-  axion-hdl -s ./src -o ./output
-  axion-hdl -s ./rtl -s ./ip -o ./generated --all
-  axion-hdl -s ./hdl -o ./out --vhdl --c-header
-```
-
-## Contributing
-
-Contributions are welcome! Please:
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch from `develop`
 3. Make your changes
 4. Run tests: `make test`
-5. Submit a pull request
+5. Submit a pull request to `develop`
 
-## License
+---
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 📄 License
 
-## Author
+MIT License - see [LICENSE](LICENSE)
 
-- **Bugra Tufan** - [bugratufan97@gmail.com](mailto:bugratufan97@gmail.com)
-- GitHub: [https://github.com/bugratufan/axion-hdl](https://github.com/bugratufan/axion-hdl)
+---
 
-## Contact
+## 👤 Author
 
-- **Author**: Bugra Tufan
-- **Email**: bugratufan97@gmail.com
-- **GitHub**: [https://github.com/bugratufan/axion-hdl](https://github.com/bugratufan/axion-hdl)
+**Bugra Tufan**  
+📧 [bugratufan97@gmail.com](mailto:bugratufan97@gmail.com)  
+🔗 [github.com/bugratufan/axion-hdl](https://github.com/bugratufan/axion-hdl)
