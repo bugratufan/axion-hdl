@@ -10,8 +10,8 @@
 | ✅ Passed | 168 |
 | ❌ Failed | 0 |
 | ⏭️ Skipped | 0 |
-| ⏱️ Total Time | 0.74s |
-| 🕐 Last Run | 2025-12-08 10:05:31 |
+| ⏱️ Total Time | 0.85s |
+| 🕐 Last Run | 2025-12-09 11:00:04 |
 
 ## 🐍 Python Tests
 
@@ -21,13 +21,13 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `python.unit.init` | Initialize AxionHDL | 0.018s |
+| ✅ | `python.unit.init` | Initialize AxionHDL | 0.075s |
 | ✅ | `python.unit.add_src` | Add Source Directory | 0.000s |
-| ✅ | `python.unit.analyze` | Analyze VHDL Files | 0.002s |
-| ✅ | `python.unit.gen_vhdl` | Generate VHDL Modules | 0.003s |
-| ✅ | `python.unit.gen_c` | Generate C Headers | 0.002s |
-| ✅ | `python.unit.gen_xml` | Generate XML Register Map | 0.002s |
-| ✅ | `python.unit.gen_doc` | Generate Markdown Documentation | 0.002s |
+| ✅ | `python.unit.analyze` | Analyze VHDL Files | 0.004s |
+| ✅ | `python.unit.gen_vhdl` | Generate VHDL Modules | 0.005s |
+| ✅ | `python.unit.gen_c` | Generate C Headers | 0.003s |
+| ✅ | `python.unit.gen_xml` | Generate XML Register Map | 0.003s |
+| ✅ | `python.unit.gen_doc` | Generate Markdown Documentation | 0.003s |
 
 ### Address Conflict Tests
 
@@ -48,7 +48,7 @@
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
 | ✅ | `c.compile.gcc_check` | GCC Available | 0.001s |
-| ✅ | `c.compile.headers` | Compile C Header Test | 0.090s |
+| ✅ | `c.compile.headers` | Compile C Header Test | 0.076s |
 | ✅ | `c.compile.run` | Run C Header Test Binary | 0.001s |
 
 ## 🔧 VHDL Tests
@@ -158,7 +158,7 @@
 | ✅ | `parser.test_parser_002_std_logic_vector_downto` | PARSER-002-STD-LOGIC-VECTOR-DOWNTO: PARSER-002: Parse std_logic_vector(N downto M) | 0.000s |
 | ✅ | `parser.test_parser_002_std_logic_vector_with_spaces` | PARSER-002-STD-LOGIC-VECTOR-WITH-SPACES: PARSER-002: Parse std_logic_vector with extra spaces | 0.000s |
 | ✅ | `parser.test_parser_003_access_modes` | PARSER-003-ACCESS-MODES: PARSER-003: Parse RO, RW, WO access modes | 0.000s |
-| ✅ | `parser.test_parser_003_multiple_attributes_same_line` | PARSER-003-MULTIPLE-ATTRIBUTES-SAME-LINE: PARSER-003: Multiple attributes on single line | 0.001s |
+| ✅ | `parser.test_parser_003_multiple_attributes_same_line` | PARSER-003-MULTIPLE-ATTRIBUTES-SAME-LINE: PARSER-003: Multiple attributes on single line | 0.000s |
 | ✅ | `parser.test_parser_003_strobe_flags` | PARSER-003-STROBE-FLAGS: PARSER-003: Parse R_STROBE and W_STROBE flags | 0.000s |
 | ✅ | `parser.test_parser_004_base_addr_hex` | PARSER-004-BASE-ADDR-HEX: PARSER-004: Parse BASE_ADDR in hex format | 0.000s |
 | ✅ | `parser.test_parser_004_cdc_enable` | PARSER-004-CDC-ENABLE: PARSER-004: Parse CDC_EN flag | 0.000s |
@@ -169,7 +169,7 @@
 | ✅ | `parser.test_parser_005_upper_case_hex` | PARSER-005-UPPER-CASE-HEX: PARSER-005: Parse uppercase hex (0X10) | 0.000s |
 | ✅ | `parser.test_parser_006_desc_with_special_chars` | PARSER-006-DESC-WITH-SPECIAL-CHARS: PARSER-006: Parse description with special characters | 0.000s |
 | ✅ | `parser.test_parser_006_double_quoted_desc` | PARSER-006-DOUBLE-QUOTED-DESC: PARSER-006: Parse double-quoted description | 0.000s |
-| ✅ | `parser.test_parser_007_exclude_directory` | PARSER-007-EXCLUDE-DIRECTORY: PARSER-007: Exclude directory by name | 0.000s |
+| ✅ | `parser.test_parser_007_exclude_directory` | PARSER-007-EXCLUDE-DIRECTORY: PARSER-007: Exclude directory by name | 0.001s |
 | ✅ | `parser.test_parser_008_recursive_scan` | PARSER-008-RECURSIVE-SCAN: PARSER-008: Recursively scan subdirectories | 0.001s |
 
 ## 🏭 Code Generation Tests (GEN-xxx)
@@ -198,7 +198,7 @@
 | ✅ | `gen.test_gen_007_state_machine_exists` | GEN-007-STATE-MACHINE-EXISTS: GEN-007: State machine logic present | 0.000s |
 | ✅ | `gen.test_gen_008_address_decoder` | GEN-008-ADDRESS-DECODER: GEN-008: Address decoder has case statement | 0.000s |
 | ✅ | `gen.test_gen_009_base_address_macro` | GEN-009-BASE-ADDRESS-MACRO: GEN-009: Base address macro defined | 0.000s |
-| ✅ | `gen.test_gen_009_c_header_compiles` | GEN-009-C-HEADER-COMPILES: GEN-009: C header compiles without warnings | 0.088s |
+| ✅ | `gen.test_gen_009_c_header_compiles` | GEN-009-C-HEADER-COMPILES: GEN-009: C header compiles without warnings | 0.078s |
 | ✅ | `gen.test_gen_009_c_header_exists` | GEN-009-C-HEADER-EXISTS: GEN-009: C header file generated | 0.000s |
 | ✅ | `gen.test_gen_009_include_guards` | GEN-009-INCLUDE-GUARDS: GEN-009: Header has include guards | 0.000s |
 | ✅ | `gen.test_gen_009_offset_macros` | GEN-009-OFFSET-MACROS: GEN-009: Register offset macros defined | 0.000s |
@@ -237,17 +237,17 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `cli.test_cli_001_help_option` | CLI-001-HELP-OPTION: CLI-001: --help displays usage information | 0.040s |
-| ✅ | `cli.test_cli_001_help_short_option` | CLI-001-HELP-SHORT-OPTION: CLI-001: -h displays usage information | 0.037s |
-| ✅ | `cli.test_cli_002_version_option` | CLI-002-VERSION-OPTION: CLI-002: --version displays version | 0.035s |
-| ✅ | `cli.test_cli_003_source_option_long` | CLI-003-SOURCE-OPTION-LONG: CLI-003: --source option specifies source directory | 0.036s |
-| ✅ | `cli.test_cli_003_source_option_short` | CLI-003-SOURCE-OPTION-SHORT: CLI-003: -s option specifies source directory | 0.036s |
-| ✅ | `cli.test_cli_004_multiple_sources` | CLI-004-MULTIPLE-SOURCES: CLI-004: Multiple -s options accepted | 0.037s |
-| ✅ | `cli.test_cli_005_output_option_long` | CLI-005-OUTPUT-OPTION-LONG: CLI-005: --output option specifies output directory | 0.036s |
-| ✅ | `cli.test_cli_005_output_option_short` | CLI-005-OUTPUT-OPTION-SHORT: CLI-005: -o option specifies output directory | 0.036s |
-| ✅ | `cli.test_cli_006_exclude_option` | CLI-006-EXCLUDE-OPTION: CLI-006: -e option excludes files/directories | 0.036s |
-| ✅ | `cli.test_cli_009_invalid_source_error` | CLI-009-INVALID-SOURCE-ERROR: CLI-009: Non-existent source reports error | 0.036s |
-| ✅ | `cli.test_cli_010_output_dir_creation` | CLI-010-OUTPUT-DIR-CREATION: CLI-010: Non-existent output directory is created | 0.039s |
+| ✅ | `cli.test_cli_001_help_option` | CLI-001-HELP-OPTION: CLI-001: --help displays usage information | 0.046s |
+| ✅ | `cli.test_cli_001_help_short_option` | CLI-001-HELP-SHORT-OPTION: CLI-001: -h displays usage information | 0.049s |
+| ✅ | `cli.test_cli_002_version_option` | CLI-002-VERSION-OPTION: CLI-002: --version displays version | 0.040s |
+| ✅ | `cli.test_cli_003_source_option_long` | CLI-003-SOURCE-OPTION-LONG: CLI-003: --source option specifies source directory | 0.042s |
+| ✅ | `cli.test_cli_003_source_option_short` | CLI-003-SOURCE-OPTION-SHORT: CLI-003: -s option specifies source directory | 0.042s |
+| ✅ | `cli.test_cli_004_multiple_sources` | CLI-004-MULTIPLE-SOURCES: CLI-004: Multiple -s options accepted | 0.043s |
+| ✅ | `cli.test_cli_005_output_option_long` | CLI-005-OUTPUT-OPTION-LONG: CLI-005: --output option specifies output directory | 0.043s |
+| ✅ | `cli.test_cli_005_output_option_short` | CLI-005-OUTPUT-OPTION-SHORT: CLI-005: -o option specifies output directory | 0.043s |
+| ✅ | `cli.test_cli_006_exclude_option` | CLI-006-EXCLUDE-OPTION: CLI-006: -e option excludes files/directories | 0.042s |
+| ✅ | `cli.test_cli_009_invalid_source_error` | CLI-009-INVALID-SOURCE-ERROR: CLI-009: Non-existent source reports error | 0.040s |
+| ✅ | `cli.test_cli_010_output_dir_creation` | CLI-010-OUTPUT-DIR-CREATION: CLI-010: Non-existent output directory is created | 0.042s |
 
 ## 🔄 CDC Tests (CDC-xxx)
 
@@ -300,4 +300,4 @@
 | ✅ | `stress.test_stress_006_boundary_values` | STRESS-006-BOUNDARY-VALUES: STRESS-006: Generation handles all register types | 0.001s |
 
 ---
-*Generated by `make test` at 2025-12-08 10:05:31*
+*Generated by `make test` at 2025-12-09 11:00:04*
