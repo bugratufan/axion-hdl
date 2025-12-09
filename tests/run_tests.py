@@ -484,7 +484,16 @@ def run_vhdl_tests() -> List[TestResult]:
     results.append(TestResult(test_id, name, status, duration, output,
                               category="vhdl", subcategory="analyze"))
     
-    # Test 5: Analyze generated sensor_controller_axion_reg.vhd
+    # Test 5: Analyze subregister_test.vhd (SUB/DEF features)
+    test_id = "vhdl.analyze.subregister_test"
+    name = "SUB-VHDL: Analyze subregister_test.vhd"
+    vhdl_file = PROJECT_ROOT / "tests" / "vhdl" / "subregister_test.vhd"
+    success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
+    status = "passed" if success else "failed"
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="analyze"))
+    
+    # Test 6: Analyze generated sensor_controller_axion_reg.vhd
     test_id = "vhdl.analyze.sensor_axion"
     name = "Analyze sensor_controller_axion_reg.vhd"
     vhdl_file = PROJECT_ROOT / "output" / "sensor_controller_axion_reg.vhd"
@@ -737,7 +746,8 @@ def print_results(results: List[TestResult]):
         "cdc": "🔄 CDC",
         "addr": "📍 ADDR",
         "stress": "🔥 STRESS",
-        "sub": "📦 SUB"
+        "sub": "📦 SUB",
+        "def": "🔧 DEF"
     }
     
     total_passed = 0
@@ -750,7 +760,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub"]:
+    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def"]:
         if cat not in categories:
             continue
         
@@ -1243,9 +1253,58 @@ def run_subregister_tests() -> List[TestResult]:
     return results
 
 
+def run_default_tests() -> List[TestResult]:
+    """Run DEF-xxx requirement tests for DEFAULT attribute support"""
+    results = []
+    
+    try:
+        from tests.python.test_default import TestDefaultRequirements
+        import io
+        import sys
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestDefaultRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_def_', 'DEF-').replace('test_single_', 'DEF-SINGLE-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"def.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="def",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"def.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="def",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("def.import", "DEF: Import test module", "failed", 0, str(e), category="def", subcategory="setup"))
+    
+    return results
+
+
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF\n")
     
     all_results = []
     
@@ -1258,43 +1317,47 @@ def main():
     all_results.extend(run_address_conflict_tests())
     
     # Run Parser tests (PARSER requirements)
-    print(f"  [3/11] Running parser tests...", flush=True)
+    print(f"  [3/13] Running parser tests...", flush=True)
     all_results.extend(run_parser_tests())
     
     # Run Generator tests (GEN requirements)
-    print(f"  [4/11] Running generator tests...", flush=True)
+    print(f"  [4/13] Running generator tests...", flush=True)
     all_results.extend(run_generator_tests())
     
     # Run Error handling tests (ERR requirements)
-    print(f"  [5/11] Running error handling tests...", flush=True)
+    print(f"  [5/13] Running error handling tests...", flush=True)
     all_results.extend(run_error_handling_tests())
     
     # Run CLI tests (CLI requirements)
-    print(f"  [6/11] Running CLI tests...", flush=True)
+    print(f"  [6/13] Running CLI tests...", flush=True)
     all_results.extend(run_cli_tests())
     
     # Run CDC tests (CDC requirements)
-    print(f"  [7/11] Running CDC tests...", flush=True)
+    print(f"  [7/13] Running CDC tests...", flush=True)
     all_results.extend(run_cdc_tests())
     
     # Run ADDR tests (ADDR requirements)
-    print(f"  [8/11] Running address management tests...", flush=True)
+    print(f"  [8/13] Running address management tests...", flush=True)
     all_results.extend(run_addr_tests())
     
     # Run STRESS tests (STRESS requirements)
-    print(f"  [9/12] Running stress tests...", flush=True)
+    print(f"  [9/13] Running stress tests...", flush=True)
     all_results.extend(run_stress_tests())
     
     # Run SUB tests (Subregister requirements)
-    print(f"  [10/12] Running subregister tests...", flush=True)
+    print(f"  [10/13] Running subregister tests...", flush=True)
     all_results.extend(run_subregister_tests())
     
+    # Run DEF tests (DEFAULT attribute requirements)
+    print(f"  [11/13] Running default attribute tests...", flush=True)
+    all_results.extend(run_default_tests())
+    
     # Run C tests
-    print(f"  [11/12] Running C header tests...", flush=True)
+    print(f"  [12/13] Running C header tests...", flush=True)
     all_results.extend(run_c_tests())
     
     # Run VHDL tests (AXION, AXI-LITE requirements)
-    print(f"  [12/12] Running VHDL simulation tests...", flush=True)
+    print(f"  [13/13] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
     
     # Save and generate reports
@@ -1314,7 +1377,7 @@ def print_requirement_coverage(results: List[TestResult]):
     """Print requirement coverage summary"""
     
     # Extract requirement IDs from test results
-    req_pattern = re.compile(r'(AXION-\d+[a-z]?|AXI-LITE-\d+[a-z]?|PARSER-\d+|GEN-\d+|CDC-\d+|ADDR-\d+|ERR-\d+|CLI-\d+|STRESS-\d+|SUB-\d+)', re.IGNORECASE)
+    req_pattern = re.compile(r'(AXION-\d+[a-z]?|AXI-LITE-\d+[a-z]?|PARSER-\d+|GEN-\d+|CDC-\d+|ADDR-\d+|ERR-\d+|CLI-\d+|STRESS-\d+|SUB-\d+|DEF-\d+)', re.IGNORECASE)
     
     covered = set()
     for r in results:
@@ -1344,6 +1407,8 @@ def print_requirement_coverage(results: List[TestResult]):
         expected.add(f"STRESS-{i:03d}")
     for i in range(1, 13):
         expected.add(f"SUB-{i:03d}")
+    for i in range(1, 11):
+        expected.add(f"DEF-{i:03d}")
     
     print(f"\n{CYAN}{BOLD}{'═' * 80}{RESET}")
     print(f"{CYAN}{BOLD}  REQUIREMENT COVERAGE SUMMARY{RESET}")
@@ -1363,7 +1428,8 @@ def print_requirement_coverage(results: List[TestResult]):
         "ERR": [r for r in covered if r.startswith("ERR-")],
         "CLI": [r for r in covered if r.startswith("CLI-")],
         "STRESS": [r for r in covered if r.startswith("STRESS-")],
-        "SUB": [r for r in covered if r.startswith("SUB-")]
+        "SUB": [r for r in covered if r.startswith("SUB-")],
+        "DEF": [r for r in covered if r.startswith("DEF-")]
     }
     
     print(f"\n  By Category:")

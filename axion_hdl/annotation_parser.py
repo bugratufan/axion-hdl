@@ -169,7 +169,8 @@ class AnnotationParser:
             'w_strobe': 'write_strobe',
             'desc': 'description',
             'reg_name': 'reg_name',
-            'bit_offset': 'bit_offset'
+            'bit_offset': 'bit_offset',
+            'default': 'default_value'
         }
         
         return replacements.get(key, key)

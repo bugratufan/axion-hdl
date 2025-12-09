@@ -341,7 +341,9 @@ class VHDLParser:
                     'access_mode': attrs.get('access_mode', 'RW'),
                     'read_strobe': attrs.get('read_strobe', False),
                     'write_strobe': attrs.get('write_strobe', False),
-                    'description': attrs.get('description', '')
+                    'description': attrs.get('description', ''),
+                    'default_value': attrs.get('default_value', 0),
+                    'signal_width': signal_width
                 }
                 
                 registers.append(reg_data)
@@ -367,6 +369,7 @@ class VHDLParser:
             
             for sig_info in signals:
                 bit_offset = sig_info['attrs'].get('bit_offset')
+                field_default = sig_info['attrs'].get('default_value', 0)
                 
                 try:
                     field = bit_field_mgr.add_field(
@@ -381,7 +384,8 @@ class VHDLParser:
                         source_file=filepath,
                         source_line=sig_info['line_num'],
                         read_strobe=sig_info['attrs'].get('read_strobe', False),
-                        write_strobe=sig_info['attrs'].get('write_strobe', False)
+                        write_strobe=sig_info['attrs'].get('write_strobe', False),
+                        default_value=field_default
                     )
                     
                     fields.append({
@@ -394,7 +398,8 @@ class VHDLParser:
                         'description': field.description,
                         'read_strobe': field.read_strobe,
                         'write_strobe': field.write_strobe,
-                        'mask': field.mask
+                        'mask': field.mask,
+                        'default_value': field.default_value
                     })
                     
                     # Use first field's access mode for register
@@ -408,6 +413,13 @@ class VHDLParser:
             # Sort fields by bit position
             fields.sort(key=lambda f: f['bit_low'])
             
+            # Calculate combined default value from all fields
+            combined_default = 0
+            for f in fields:
+                # Shift field's default value to its bit position
+                field_val = f['default_value'] & ((1 << f['width']) - 1)  # Mask to width
+                combined_default |= (field_val << f['bit_low'])
+            
             packed_reg = {
                 'reg_name': reg_name,
                 'signal_name': reg_name,  # For compatibility
@@ -418,7 +430,9 @@ class VHDLParser:
                 'relative_address_int': relative_addr,
                 'access_mode': access_mode or 'RW',
                 'fields': fields,
-                'is_packed': True
+                'is_packed': True,
+                'default_value': combined_default,
+                'signal_width': 32
             }
             
             packed_registers.append(packed_reg)
