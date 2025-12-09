@@ -38,6 +38,7 @@ from .xml_input_parser import XMLInputParser
 from .generator import VHDLGenerator
 from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator
 from .axion import AxionHDL
+from .bit_field_manager import BitFieldManager, BitOverlapError, BitField
 
 # Package metadata
 __version__ = "0.3.1"
@@ -48,17 +49,20 @@ __license__ = "MIT"
 # Public API - classes exposed when using 'from axion_hdl import *'
 __all__ = [
     'AxionHDL',              # Main interface class
-    'AddressManager',        # Address allocation and management
-    'AddressConflictError',  # Exception for address conflicts
-    'VHDLUtils',             # VHDL parsing utilities
-    'AnnotationParser',      # @axion annotation parser
-    'CodeFormatter',         # Code formatting utilities
     'VHDLParser',            # VHDL file parser
-    'XMLInputParser',        # XML register definition parser
+    'XMLInputParser',        # XML input parser
     'VHDLGenerator',         # VHDL code generator
-    'DocGenerator',          # Documentation generator
-    'CHeaderGenerator',      # C header file generator
-    'XMLGenerator',          # XML register map generator
+    'DocGenerator',          # Markdown documentation generator
+    'CHeaderGenerator',      # C header generator
+    'XMLGenerator',          # XML (IP-XACT) generator
+    'AddressManager',        # Address allocation utilities
+    'AddressConflictError',  # Address conflict exception
+    'VHDLUtils',             # VHDL parsing utilities
+    'AnnotationParser',      # Annotation parsing utilities
+    'CodeFormatter',         # VHDL code formatting
+    'BitFieldManager',       # Bit field allocation for subregisters
+    'BitOverlapError',       # Bit overlap exception
+    'BitField',              # Bit field data class
     '__version__',
     '__author__',
     '__email__',

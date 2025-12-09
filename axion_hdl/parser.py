@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Tuple, Set
 from axion_hdl.address_manager import AddressManager
 from axion_hdl.vhdl_utils import VHDLUtils
 from axion_hdl.annotation_parser import AnnotationParser
+from axion_hdl.bit_field_manager import BitFieldManager, BitOverlapError
 
 
 class VHDLParser:
@@ -214,9 +215,11 @@ class VHDLParser:
         cdc_enabled, cdc_stages, base_address = self._parse_axion_def(content)
         
         # Parse signal annotations with base_address offset
-        registers = self._parse_signal_annotations(content, base_address, entity_name)
+        registers, packed_registers = self._parse_signal_annotations(
+            content, base_address, entity_name, filepath
+        )
         
-        if not registers:
+        if not registers and not packed_registers:
             return None
             
         return {
@@ -225,7 +228,8 @@ class VHDLParser:
             'cdc_enabled': cdc_enabled,
             'cdc_stages': cdc_stages,
             'base_address': base_address,
-            'registers': registers
+            'registers': registers,
+            'packed_registers': packed_registers  # New: subregister groups
         }
     
     def _parse_axion_def(self, content: str) -> Tuple[bool, int, int]:
@@ -248,19 +252,41 @@ class VHDLParser:
             
         return cdc_enabled, cdc_stages, base_address
     
-    def _parse_signal_annotations(self, content: str, base_address: int = 0x00, module_name: str = "") -> List[Dict]:
+    def _parse_signal_annotations(
+        self, 
+        content: str, 
+        base_address: int = 0x00, 
+        module_name: str = "",
+        filepath: str = ""
+    ) -> Tuple[List[Dict], List[Dict]]:
         """
         Parse all @axion signal annotations.
+        
+        Supports both standalone registers and packed subregisters.
         
         Args:
             content: VHDL file content
             base_address: Base address offset to add to all register addresses
             module_name: Name of the module (for error messages)
+            filepath: Source file path (for error messages)
+            
+        Returns:
+            Tuple of (regular_registers, packed_registers)
         """
         registers = []
         addr_mgr = AddressManager(start_addr=0x00, alignment=4, module_name=module_name)
+        bit_field_mgr = BitFieldManager()
         
-        for match in self.axion_signal_pattern.finditer(content):
+        # Track signals with REG_NAME for grouping
+        grouped_signals = {}  # reg_name -> list of (signal_name, attrs, signal_type, width, line_num)
+        
+        # First pass: collect all signals and identify grouped ones
+        lines = content.split('\n')
+        for line_num, line in enumerate(lines, 1):
+            match = self.axion_signal_pattern.search(line)
+            if not match:
+                continue
+                
             signal_name = match.group(1)
             signal_type_str = match.group(2).strip()
             attrs_str = match.group(3).strip()
@@ -270,38 +296,132 @@ class VHDLParser:
             signal_type = self.vhdl_utils.format_signal_type(high_bit, low_bit)
             signal_width = high_bit - low_bit + 1
             
-            # Info for signals wider than 32 bits
-            if signal_width > 32:
-                num_regs = (signal_width + 31) // 32
-                print(f"INFO: Signal '{signal_name}' is {signal_width} bits wide -> {num_regs} AXI registers allocated.")
-            
             # Parse attributes using annotation parser
             attrs = self.annotation_parser.parse_attributes(attrs_str)
             
-            # Allocate relative address (with signal width for proper spacing)
-            manual_addr = attrs.get('address')
-            if manual_addr is not None:
-                relative_addr = addr_mgr.allocate_address(manual_addr, signal_width, signal_name)
-            else:
-                relative_addr = addr_mgr.allocate_address(signal_width=signal_width, signal_name=signal_name)
+            # Check for REG_NAME (subregister grouping)
+            reg_name = attrs.get('reg_name')
             
-            # Add base address offset to get absolute address
+            if reg_name:
+                # This signal belongs to a packed register
+                if reg_name not in grouped_signals:
+                    grouped_signals[reg_name] = []
+                grouped_signals[reg_name].append({
+                    'signal_name': signal_name,
+                    'attrs': attrs,
+                    'signal_type': signal_type,
+                    'signal_width': signal_width,
+                    'line_num': line_num
+                })
+            else:
+                # Regular standalone register (backward compatible)
+                # Info for signals wider than 32 bits
+                if signal_width > 32:
+                    num_regs = (signal_width + 31) // 32
+                    print(f"INFO: Signal '{signal_name}' is {signal_width} bits wide -> {num_regs} AXI registers allocated.")
+                
+                # Allocate relative address (with signal width for proper spacing)
+                manual_addr = attrs.get('address')
+                if manual_addr is not None:
+                    relative_addr = addr_mgr.allocate_address(manual_addr, signal_width, signal_name)
+                else:
+                    relative_addr = addr_mgr.allocate_address(signal_width=signal_width, signal_name=signal_name)
+                
+                # Add base address offset to get absolute address
+                absolute_addr = base_address + relative_addr
+                
+                # Build register data
+                reg_data = {
+                    'signal_name': signal_name,
+                    'signal_type': signal_type,
+                    'address': addr_mgr.format_address(absolute_addr),
+                    'address_int': absolute_addr,
+                    'relative_address': addr_mgr.format_address(relative_addr),
+                    'relative_address_int': relative_addr,
+                    'access_mode': attrs.get('access_mode', 'RW'),
+                    'read_strobe': attrs.get('read_strobe', False),
+                    'write_strobe': attrs.get('write_strobe', False),
+                    'description': attrs.get('description', '')
+                }
+                
+                registers.append(reg_data)
+        
+        # Second pass: process grouped signals (subregisters)
+        packed_registers = []
+        
+        for reg_name, signals in grouped_signals.items():
+            # Get address from first signal
+            first_signal = signals[0]
+            manual_addr = first_signal['attrs'].get('address')
+            
+            if manual_addr is not None:
+                relative_addr = addr_mgr.allocate_address(manual_addr, 32, reg_name)
+            else:
+                relative_addr = addr_mgr.allocate_address(signal_width=32, signal_name=reg_name)
+            
             absolute_addr = base_address + relative_addr
             
-            # Build register data
-            reg_data = {
-                'signal_name': signal_name,
-                'signal_type': signal_type,
+            # Add each signal as a bit field
+            fields = []
+            access_mode = None
+            
+            for sig_info in signals:
+                bit_offset = sig_info['attrs'].get('bit_offset')
+                
+                try:
+                    field = bit_field_mgr.add_field(
+                        reg_name=reg_name,
+                        address=absolute_addr,
+                        field_name=sig_info['signal_name'],
+                        width=sig_info['signal_width'],
+                        access_mode=sig_info['attrs'].get('access_mode', 'RW'),
+                        signal_type=sig_info['signal_type'],
+                        bit_offset=bit_offset,
+                        description=sig_info['attrs'].get('description', ''),
+                        source_file=filepath,
+                        source_line=sig_info['line_num'],
+                        read_strobe=sig_info['attrs'].get('read_strobe', False),
+                        write_strobe=sig_info['attrs'].get('write_strobe', False)
+                    )
+                    
+                    fields.append({
+                        'name': field.name,
+                        'bit_low': field.bit_low,
+                        'bit_high': field.bit_high,
+                        'width': field.width,
+                        'access_mode': field.access_mode,
+                        'signal_type': field.signal_type,
+                        'description': field.description,
+                        'read_strobe': field.read_strobe,
+                        'write_strobe': field.write_strobe,
+                        'mask': field.mask
+                    })
+                    
+                    # Use first field's access mode for register
+                    if access_mode is None:
+                        access_mode = field.access_mode
+                        
+                except BitOverlapError as e:
+                    # Re-raise with context
+                    raise e
+            
+            # Sort fields by bit position
+            fields.sort(key=lambda f: f['bit_low'])
+            
+            packed_reg = {
+                'reg_name': reg_name,
+                'signal_name': reg_name,  # For compatibility
+                'signal_type': '[31:0]',
                 'address': addr_mgr.format_address(absolute_addr),
                 'address_int': absolute_addr,
                 'relative_address': addr_mgr.format_address(relative_addr),
                 'relative_address_int': relative_addr,
-                'access_mode': attrs.get('access_mode', 'RW'),
-                'read_strobe': attrs.get('read_strobe', False),
-                'write_strobe': attrs.get('write_strobe', False),
-                'description': attrs.get('description', '')
+                'access_mode': access_mode or 'RW',
+                'fields': fields,
+                'is_packed': True
             }
             
-            registers.append(reg_data)
-                
-        return registers
+            packed_registers.append(packed_reg)
+        
+        return registers, packed_registers
+
