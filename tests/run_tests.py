@@ -736,7 +736,8 @@ def print_results(results: List[TestResult]):
         "cli": "🖥️ CLI",
         "cdc": "🔄 CDC",
         "addr": "📍 ADDR",
-        "stress": "🔥 STRESS"
+        "stress": "🔥 STRESS",
+        "sub": "📦 SUB"
     }
     
     total_passed = 0
@@ -749,7 +750,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress"]:
+    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub"]:
         if cat not in categories:
             continue
         
@@ -1193,9 +1194,58 @@ def run_stress_tests() -> List[TestResult]:
     return results
 
 
+def run_subregister_tests() -> List[TestResult]:
+    """Run SUB-xxx requirement tests for subregister support"""
+    results = []
+    
+    try:
+        from tests.python.test_subregister import TestSubregisterRequirements
+        import io
+        import sys
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestSubregisterRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_sub_', 'SUB-').replace('test_bit_', 'SUB-BIT-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"sub.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="sub",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"sub.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="sub",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("sub.import", "SUB: Import test module", "failed", 0, str(e), category="sub", subcategory="setup"))
+    
+    return results
+
+
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB\n")
     
     all_results = []
     
@@ -1232,15 +1282,19 @@ def main():
     all_results.extend(run_addr_tests())
     
     # Run STRESS tests (STRESS requirements)
-    print(f"  [9/11] Running stress tests...", flush=True)
+    print(f"  [9/12] Running stress tests...", flush=True)
     all_results.extend(run_stress_tests())
     
+    # Run SUB tests (Subregister requirements)
+    print(f"  [10/12] Running subregister tests...", flush=True)
+    all_results.extend(run_subregister_tests())
+    
     # Run C tests
-    print(f"  [10/11] Running C header tests...", flush=True)
+    print(f"  [11/12] Running C header tests...", flush=True)
     all_results.extend(run_c_tests())
     
     # Run VHDL tests (AXION, AXI-LITE requirements)
-    print(f"  [11/11] Running VHDL simulation tests...", flush=True)
+    print(f"  [12/12] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
     
     # Save and generate reports
@@ -1260,7 +1314,7 @@ def print_requirement_coverage(results: List[TestResult]):
     """Print requirement coverage summary"""
     
     # Extract requirement IDs from test results
-    req_pattern = re.compile(r'(AXION-\d+[a-z]?|AXI-LITE-\d+[a-z]?|PARSER-\d+|GEN-\d+|CDC-\d+|ADDR-\d+|ERR-\d+|CLI-\d+|STRESS-\d+)', re.IGNORECASE)
+    req_pattern = re.compile(r'(AXION-\d+[a-z]?|AXI-LITE-\d+[a-z]?|PARSER-\d+|GEN-\d+|CDC-\d+|ADDR-\d+|ERR-\d+|CLI-\d+|STRESS-\d+|SUB-\d+)', re.IGNORECASE)
     
     covered = set()
     for r in results:
@@ -1288,6 +1342,8 @@ def print_requirement_coverage(results: List[TestResult]):
         expected.add(f"CLI-{i:03d}")
     for i in range(1, 7):
         expected.add(f"STRESS-{i:03d}")
+    for i in range(1, 13):
+        expected.add(f"SUB-{i:03d}")
     
     print(f"\n{CYAN}{BOLD}{'═' * 80}{RESET}")
     print(f"{CYAN}{BOLD}  REQUIREMENT COVERAGE SUMMARY{RESET}")
@@ -1306,7 +1362,8 @@ def print_requirement_coverage(results: List[TestResult]):
         "ADDR": [r for r in covered if r.startswith("ADDR-")],
         "ERR": [r for r in covered if r.startswith("ERR-")],
         "CLI": [r for r in covered if r.startswith("CLI-")],
-        "STRESS": [r for r in covered if r.startswith("STRESS-")]
+        "STRESS": [r for r in covered if r.startswith("STRESS-")],
+        "SUB": [r for r in covered if r.startswith("SUB-")]
     }
     
     print(f"\n  By Category:")
