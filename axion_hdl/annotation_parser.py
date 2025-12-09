@@ -167,7 +167,9 @@ class AnnotationParser:
             'cdc_stage': 'cdc_stages',
             'r_strobe': 'read_strobe',
             'w_strobe': 'write_strobe',
-            'desc': 'description'
+            'desc': 'description',
+            'reg_name': 'reg_name',
+            'bit_offset': 'bit_offset'
         }
         
         return replacements.get(key, key)
