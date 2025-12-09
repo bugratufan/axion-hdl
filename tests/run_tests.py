@@ -754,6 +754,10 @@ def run_vhdl_tests() -> List[TestResult]:
         # Fallback: just record overall simulation result
         status = "passed" if success else "failed"
         # Include full output if failed for debugging
+        if status == "failed":
+            print(f"\n{'='*80}\nDEBUG: multi_module_tb FAILED - Full output:\n{'='*80}")
+            print(output[:5000] if output else "No output captured")
+            print(f"{'='*80}\n")
         msg = output if status == "failed" else f"Simulation passed but no requirements matched regex. Output len: {len(output)}"
         results.append(TestResult(test_id, name, status, duration, msg,
                                   category="vhdl", subcategory="simulate"))
