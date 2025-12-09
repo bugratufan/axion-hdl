@@ -8,7 +8,8 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from axion_hdl import AxionHDL
-from axion_hdl.xml_parser import XMLParser
+from axion_hdl.xml_parser import XMLParser, XMLParseError, XMLValidationError
+from axion_hdl.address_manager import AddressConflictError
 
 class TestXMLInput(unittest.TestCase):
 
@@ -131,6 +132,122 @@ class TestXMLInput(unittest.TestCase):
         # Check generated files
         self.assertTrue(os.path.exists(os.path.join(self.output_dir, "integration_test_axion_reg.vhd")))
         self.assertTrue(os.path.exists(os.path.join(self.output_dir, "integration_test_regs.h")))
+
+    def test_stress_xml_input(self):
+        """Test with a large number of registers defined in XML."""
+        header = """<?xml version="1.0" encoding="UTF-8"?>
+<axion_registers module="stress_test" base_address="0x0000">
+    <registers>
+"""
+        footer = """    </registers>
+</axion_registers>
+"""
+        body = ""
+        for i in range(200):
+            body += f'        <register name="reg_{i}" width="32" access="RW" description="Register {i}"/>\n'
+
+        xml_content = header + body + footer
+        xml_file = os.path.join(self.temp_dir, "stress.xml")
+        with open(xml_file, 'w') as f:
+            f.write(xml_content)
+
+        parser = XMLParser()
+        result = parser.parse_xml_file(xml_file)
+
+        self.assertEqual(len(result['registers']), 200)
+        self.assertEqual(result['registers'][199]['signal_name'], 'reg_199')
+
+    def test_malformed_xml(self):
+        """Test with invalid XML syntax."""
+        xml_content = "<axion_registers><unclosed_tag></axion_registers>"
+        xml_file = os.path.join(self.temp_dir, "malformed.xml")
+        with open(xml_file, 'w') as f:
+            f.write(xml_content)
+
+        parser = XMLParser()
+        with self.assertRaises(XMLParseError):
+            parser.parse_xml_file(xml_file)
+
+    def test_invalid_schema_missing_name(self):
+        """Test with missing required attribute 'name'."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+<axion_registers module="bad_schema">
+    <registers>
+        <register access="RW" width="32"/>
+    </registers>
+</axion_registers>
+"""
+        xml_file = os.path.join(self.temp_dir, "missing_name.xml")
+        with open(xml_file, 'w') as f:
+            f.write(xml_content)
+
+        parser = XMLParser()
+        with self.assertRaises(XMLValidationError):
+            parser.parse_xml_file(xml_file)
+
+    def test_invalid_access_mode(self):
+        """Test with invalid access mode."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+<axion_registers module="bad_access">
+    <registers>
+        <register name="bad_reg" access="XYZ" width="32"/>
+    </registers>
+</axion_registers>
+"""
+        xml_file = os.path.join(self.temp_dir, "bad_access.xml")
+        with open(xml_file, 'w') as f:
+            f.write(xml_content)
+
+        parser = XMLParser()
+        with self.assertRaises(XMLValidationError):
+            parser.parse_xml_file(xml_file)
+
+    def test_invalid_integer_value(self):
+        """Test with invalid integer for width/address."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+<axion_registers module="bad_int">
+    <registers>
+        <register name="bad_width" access="RW" width="not_an_int"/>
+    </registers>
+</axion_registers>
+"""
+        xml_file = os.path.join(self.temp_dir, "bad_int.xml")
+        with open(xml_file, 'w') as f:
+            f.write(xml_content)
+
+        parser = XMLParser()
+        with self.assertRaises(XMLValidationError):
+            parser.parse_xml_file(xml_file)
+
+    def test_address_conflict_in_xml(self):
+        """Test that address conflict detection works for XML input."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+<axion_registers module="conflict_test">
+    <registers>
+        <register name="reg_a" address="0x00" access="RW"/>
+        <register name="reg_b" address="0x00" access="RW"/>
+    </registers>
+</axion_registers>
+"""
+        xml_file = os.path.join(self.temp_dir, "conflict.xml")
+        with open(xml_file, 'w') as f:
+            f.write(xml_content)
+
+        parser = XMLParser()
+        # AddressManager raises AddressConflictError
+        with self.assertRaises(AddressConflictError):
+            parser.parse_xml_file(xml_file)
+
+    def test_unknown_xml_format(self):
+        """Test with unknown XML root tag."""
+        xml_content = "<unknown_root></unknown_root>"
+        xml_file = os.path.join(self.temp_dir, "unknown.xml")
+        with open(xml_file, 'w') as f:
+            f.write(xml_content)
+
+        parser = XMLParser()
+        with self.assertRaises(XMLValidationError):
+            parser.parse_xml_file(xml_file)
 
 if __name__ == "__main__":
     unittest.main()

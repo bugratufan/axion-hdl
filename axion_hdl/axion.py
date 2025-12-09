@@ -22,7 +22,7 @@ Example:
 
 import os
 from .parser import VHDLParser
-from .xml_parser import XMLParser
+from .xml_parser import XMLParser, XMLParseError, XMLValidationError
 from .generator import VHDLGenerator
 from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator
 
@@ -216,7 +216,7 @@ class AxionHDL:
             # Show exclusions if any
             if self._exclude_patterns:
                 print(f"Excluding: {', '.join(sorted(self._exclude_patterns))}")
-            
+
             # Parse VHDL files
             parser = VHDLParser()
 
@@ -231,10 +231,16 @@ class AxionHDL:
             print("Analyzing XML files...")
             xml_parser = XMLParser()
             for xml_file in self.xml_files:
-                module_data = xml_parser.parse_xml_file(xml_file)
-                if module_data:
-                    self.analyzed_modules.append(module_data)
-                    print(f"  Parsed: {os.path.basename(xml_file)}")
+                try:
+                    module_data = xml_parser.parse_xml_file(xml_file)
+                    if module_data:
+                        self.analyzed_modules.append(module_data)
+                        print(f"  Parsed: {os.path.basename(xml_file)}")
+                except (XMLParseError, XMLValidationError, FileNotFoundError) as e:
+                    print(f"  Error processing {os.path.basename(xml_file)}: {e}")
+                    # Decide if we want to stop or continue. For now, continue but maybe mark failure?
+                    # The CLI might want to know about this failure.
+                    # For now, printing to stderr/stdout is what was done before.
 
         self.is_analyzed = True
         

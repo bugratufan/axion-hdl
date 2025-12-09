@@ -12,6 +12,15 @@ from axion_hdl.address_manager import AddressManager
 from axion_hdl.vhdl_utils import VHDLUtils
 
 
+class XMLParseError(Exception):
+    """Exception raised for XML parsing errors."""
+    pass
+
+class XMLValidationError(Exception):
+    """Exception raised for invalid XML content."""
+    pass
+
+
 class XMLParser:
     """Parser for extracting register definitions from XML files."""
 
@@ -28,16 +37,21 @@ class XMLParser:
 
         Returns:
             Dictionary with parsed data or None if no valid data found.
+
+        Raises:
+            XMLParseError: If XML file cannot be parsed
+            XMLValidationError: If XML content is invalid
         """
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"XML file not found: {filepath}")
+
         try:
             tree = ET.parse(filepath)
             root = tree.getroot()
         except ET.ParseError as e:
-            print(f"Error parsing XML file {filepath}: {e}")
-            return None
+            raise XMLParseError(f"Error parsing XML file {filepath}: {e}")
         except Exception as e:
-            print(f"Error reading {filepath}: {e}")
-            return None
+            raise XMLParseError(f"Error reading {filepath}: {e}")
 
         # Detect format based on root tag
         if 'axion_registers' in root.tag:
@@ -45,8 +59,7 @@ class XMLParser:
         elif 'component' in root.tag:
             return self._parse_ipxact_xml(root, filepath)
         else:
-            print(f"Unknown XML format in {filepath}. Root tag: {root.tag}")
-            return None
+            raise XMLValidationError(f"Unknown XML format in {filepath}. Root tag: {root.tag}")
 
     def _parse_custom_xml(self, root: ET.Element, filepath: str) -> Optional[Dict]:
         """Parse Axion custom XML format."""
@@ -71,6 +84,9 @@ class XMLParser:
         if registers_node is not None:
             registers = self._parse_custom_registers(registers_node, base_address, module_name)
 
+        if not registers:
+            print(f"Warning: No registers found in {filepath}")
+
         return {
             'name': module_name,
             'file': filepath,
@@ -88,10 +104,16 @@ class XMLParser:
         for reg_node in registers_node.findall('register'):
             name = reg_node.get('name')
             if not name:
-                continue
+                raise XMLValidationError(f"Register missing 'name' attribute in {module_name}")
 
-            width = int(reg_node.get('width', '32'))
+            try:
+                width = int(reg_node.get('width', '32'))
+            except ValueError:
+                raise XMLValidationError(f"Invalid width for register '{name}'")
+
             access = reg_node.get('access', 'RW')
+            if access not in ['RO', 'WO', 'RW']:
+                 raise XMLValidationError(f"Invalid access mode '{access}' for register '{name}'")
             desc = reg_node.get('description', '')
 
             # Strobes
@@ -103,7 +125,10 @@ class XMLParser:
 
             # Allocate address
             if addr_str:
-                addr_val = self._parse_int(addr_str)
+                try:
+                    addr_val = self._parse_int(addr_str)
+                except ValueError:
+                     raise XMLValidationError(f"Invalid address '{addr_str}' for register '{name}'")
                 relative_addr = addr_mgr.allocate_address(addr_val, width, name)
             else:
                 relative_addr = addr_mgr.allocate_address(signal_width=width, signal_name=name)
