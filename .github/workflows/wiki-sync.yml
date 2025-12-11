@@ -42,31 +42,75 @@ jobs:
           echo "Target Branch: $TARGET_BRANCH"
 
           if [ "$TARGET_BRANCH" = "main" ]; then
+            # Main branch: sync directly to wiki root
             DEST_DIR="wiki_repo"
-            RSYNC_OPTS="-av --delete --exclude develop --exclude .git"
+            
+            # Check for Dry Run (Pull Request)
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+               echo "--- DRY RUN (Pull Request - main) ---"
+               echo "Would sync docs/wiki/ -> $DEST_DIR (excluding Develop-* files)"
+               rsync -av --dry-run --exclude '.git' --exclude 'Develop-*' docs/wiki/ "$DEST_DIR/"
+               exit 0
+            fi
+            
+            # Real Run for main
+            echo "--- SYNCING (Push - main) ---"
+            rsync -av --exclude '.git' --exclude 'Develop-*' docs/wiki/ "$DEST_DIR/"
             
           elif [ "$TARGET_BRANCH" = "develop" ]; then
-            DEST_DIR="wiki_repo/develop"
-            mkdir -p "$DEST_DIR"
-            RSYNC_OPTS="-av --delete --exclude .git"
+            # Develop branch: add 'Develop-' prefix to all files
+            DEST_DIR="wiki_repo"
+            
+            # Check for Dry Run (Pull Request)
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+               echo "--- DRY RUN (Pull Request - develop) ---"
+               echo "Would sync docs/wiki/ -> $DEST_DIR with 'Develop-' prefix"
+               for file in docs/wiki/*.md; do
+                 filename=$(basename "$file")
+                 if [ "$filename" = "_Sidebar.md" ]; then
+                   continue  # Skip sidebar, we'll handle it separately
+                 fi
+                 echo "  $filename -> Develop-$filename"
+               done
+               exit 0
+            fi
+            
+            # Real Run for develop
+            echo "--- SYNCING (Push - develop) ---"
+            
+            # Remove old Develop-* files (except sidebar link we'll add)
+            rm -f "$DEST_DIR"/Develop-*.md
+            
+            # Copy files with Develop- prefix
+            for file in docs/wiki/*.md; do
+              filename=$(basename "$file")
+              if [ "$filename" = "_Sidebar.md" ]; then
+                continue  # Skip sidebar
+              fi
+              echo "Copying $filename -> Develop-$filename"
+              cp "$file" "$DEST_DIR/Develop-$filename"
+            done
+            
+            # Update internal links in Develop-* files to point to Develop- versions
+            for file in "$DEST_DIR"/Develop-*.md; do
+              # Replace wiki links like [text](PageName) with [text](Develop-PageName)
+              sed -i 's/\](\([A-Za-z_]*\))/](Develop-\1)/g' "$file"
+              # Fix any double-prefixed links
+              sed -i 's/Develop-Develop-/Develop-/g' "$file"
+            done
+            
+            # Add Develop Version section to sidebar if not present
+            if ! grep -q "Develop Version" "$DEST_DIR/_Sidebar.md"; then
+              echo "" >> "$DEST_DIR/_Sidebar.md"
+              echo "---" >> "$DEST_DIR/_Sidebar.md"
+              echo "- **🔧 Develop Version**" >> "$DEST_DIR/_Sidebar.md"
+              echo "    - [Develop Wiki Home](Develop-Home)" >> "$DEST_DIR/_Sidebar.md"
+            fi
             
           else
             echo "Branch $TARGET_BRANCH not configured for Wiki Sync. Exiting."
             exit 0
           fi
-          
-          # Check for Dry Run (Pull Request)
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-             echo "--- DRY RUN (Pull Request) ---"
-             echo "Would sync docs/wiki/ -> $DEST_DIR"
-             rsync $RSYNC_OPTS --dry-run docs/wiki/ "$DEST_DIR/"
-             exit 0
-          fi
-
-          # Real Run
-          echo "--- SYNCING (Push) ---"
-          echo "Syncing docs/wiki/ -> $DEST_DIR"
-          rsync $RSYNC_OPTS docs/wiki/ "$DEST_DIR/"
           
           # Commit and Push
           cd wiki_repo
@@ -77,3 +121,4 @@ jobs:
             git commit -m "chore: Sync wiki from docs/wiki ($TARGET_BRANCH) [skip ci]"
             git push
           fi
+
