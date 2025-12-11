@@ -29,17 +29,29 @@ If you omit `ADDR`, Axion assigns the next available sequential address.
 signal ctrl_reg : std_logic_vector(31 downto 0); -- @axion RW DESC="Control Register"
 ```
 
-**Clock Domain Crossing:**
-Add the `CDC` tag to automatically insert synchronizers.
+**Clock Domain Crossing (Module Level):**
+Add `CDC_EN` to your `@axion_def` to enable synchronizers for all registers:
 ```vhdl
-signal async_input : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x10 CDC DESC="Asynchronous Input"
+-- @axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3
+signal async_input : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x10 DESC="Asynchronous Input"
 ```
 
+> **Note:** CDC is enabled at the module level, not per-register. All registers will share the same CDC configuration.
+
 **Strobe Signals:**
-For `RW` registers, adding `STROBE` creates a pulse signal when the register is written to.
+Axion supports separate read and write strobe signals that pulse for one clock cycle when a register is accessed:
+
+- `R_STROBE`: Generates a read strobe pulse when the register is read
+- `W_STROBE`: Generates a write strobe pulse when the register is written
+
 ```vhdl
-signal trigger_reg : std_logic_vector(0 downto 0); -- @axion RW ADDR=0x14 STROBE
+signal status_reg : std_logic_vector(31 downto 0);  -- @axion RO ADDR=0x00 R_STROBE
+signal control_reg : std_logic_vector(31 downto 0); -- @axion WO ADDR=0x04 W_STROBE
+signal config_reg : std_logic_vector(31 downto 0);  -- @axion RW ADDR=0x08 R_STROBE W_STROBE
 ```
+
+> **Note:** You can use both `R_STROBE` and `W_STROBE` on the same register to get notifications for both read and write accesses.
+
 
 ## 2. YAML (`.yaml`)
 YAML provides a clean, structured way to define registers, especially useful for complex maps with bit fields.
@@ -88,9 +100,10 @@ registers:
   - name: data_out
     access: RO
     width: 32
-    cdc: true
     description: "Sensor data (CDC synchronized)"
 ```
+
+> **Note:** To enable CDC in YAML, add `cdc_en: true` and optionally `cdc_stage: N` at the module level (same level as `module:` and `base_addr:`), not per-register.
 
 ## 3. JSON (`.json`)
 JSON is ideal for programmatically generating register maps from other tools. The schema matches the YAML structure exactly.

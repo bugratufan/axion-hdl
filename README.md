@@ -87,6 +87,10 @@ begin
     ...
 ```
 
+> **💡 Tip:** `CDC_EN` enables Clock Domain Crossing synchronizers for **all** registers in the module. Use `CDC_STAGE=N` to configure the synchronizer depth (default: **2 stages**). Example: `@axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3`
+
+
+
 **XML Style:**
 ```xml
 <register_map module="my_ip" base_addr="0x1000">

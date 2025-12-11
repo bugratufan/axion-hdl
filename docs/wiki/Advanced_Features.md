@@ -4,26 +4,46 @@ Axion-HDL automates several complex design tasks commonly found in register map 
 
 ## 1. Clock Domain Crossing (CDC)
 
-If your register interface runs on an AXI clock (`aclk`) but your user logic runs on a different clock, you need synchronizers. Axion-HDL can insert these automatically.
+If your register interface runs on an AXI clock (`aclk`) but your user logic runs on a different clock, you need synchronizers. Axion-HDL can insert these automatically at the **module level**.
+
+> **Important:** CDC is enabled for the entire module, not per-register. This is the recommended best practice for consistent timing behavior across all registers.
 
 ### How to Enable
-Add the `CDC` attribute to any register definition.
+
+Use the `CDC_EN` flag in your module-level `@axion_def` annotation:
 
 **VHDL:**
 ```vhdl
-signal data_sync : std_logic_vector(31 downto 0); -- @axion RO CDC
+-- @axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3
+signal status_reg : std_logic_vector(31 downto 0); -- @axion RO DESC="Status"
+signal config_reg : std_logic_vector(31 downto 0); -- @axion RW DESC="Config"
 ```
 
 **YAML:**
 ```yaml
-- name: data_sync
-  cdc: true
+module: my_module
+base_addr: 0x1000
+cdc_en: true
+cdc_stage: 3
+registers:
+  - name: status_reg
+    access: RO
+  - name: config_reg
+    access: RW
 ```
 
+### CDC Parameters
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `CDC_EN` | Enable CDC synchronizers for all registers | `false` |
+| `CDC_STAGE` | Number of flip-flop stages in synchronizer | `2` |
+
 ### Implementation Details
-- **RO Registers (Status):** A 2-stage flip-flop synchronizer is inserted on the input from user logic to the AXI clock domain.
-- **RW/WO Registers (Control):** A 2-stage synchronizer is inserted on the output from the AXI clock domain to the user logic.
+- **RO Registers (Status):** A multi-stage flip-flop synchronizer is inserted on the input from user logic to the AXI clock domain.
+- **RW/WO Registers (Control):** A multi-stage synchronizer is inserted on the output from the AXI clock domain to the user logic.
 - **Handshaking:** For simple scalar registers, Axion uses multi-flop synchronization. For bus synchronization or data coherency, manual handling might still be required for valid/ready signals, though Axion handles the data path synchronization safely for quasi-static configuration signals.
+
 
 ## 2. Auto-Addressing
 
