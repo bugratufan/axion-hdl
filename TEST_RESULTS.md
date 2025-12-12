@@ -6,8 +6,8 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Tests** | 201 |
-| ✅ Passed | 201 |
+| **Total Tests** | 237 |
+| ✅ Passed | 237 |
 | ❌ Failed | 0 |
 | ⏭️ Skipped | 0 |
 | ⏱️ Total Time | 3.55s |
@@ -27,7 +27,7 @@
 | ✅ | `python.unit.gen_vhdl` | Generate VHDL Modules | 0.005s |
 | ✅ | `python.unit.gen_c` | Generate C Headers | 0.004s |
 | ✅ | `python.unit.gen_xml` | Generate XML Register Map | 0.003s |
-| ✅ | `python.unit.gen_doc` | Generate Markdown Documentation | 0.003s |
+| ✅ | `python.unit.gen_doc` | Generate Markdown Documentation | 0.002s |
 
 ### Address Conflict Tests
 
@@ -35,8 +35,8 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `python.conflict.basic` | Basic Address Conflict Detection | 0.001s |
-| ✅ | `python.conflict.no_false_positive` | No False Positive (Unique Addresses) | 0.000s |
+| ✅ | `python.conflict.basic` | Basic Address Conflict Detection | 0.002s |
+| ✅ | `python.conflict.no_false_positive` | No False Positive (Unique Addresses) | 0.001s |
 | ✅ | `python.conflict.wide_signal` | Wide Signal Address Overlap | 0.000s |
 
 ## ⚙️ C Tests
@@ -85,7 +85,7 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.generate.subregister` | SUB-VHDL: Generate subregister_test_axion_reg.vhd | 0.005s |
+| ✅ | `vhdl.generate.subregister` | SUB-VHDL: Generate subregister_test_axion_reg.vhd | 0.004s |
 
 ### Elaboration
 
@@ -190,11 +190,11 @@
 | ✅ | `parser.test_parser_002_std_logic_vector_downto` | PARSER-002-STD-LOGIC-VECTOR-DOWNTO: PARSER-002: Parse std_logic_vector(N downto M) | 0.000s |
 | ✅ | `parser.test_parser_002_std_logic_vector_with_spaces` | PARSER-002-STD-LOGIC-VECTOR-WITH-SPACES: PARSER-002: Parse std_logic_vector with extra spaces | 0.000s |
 | ✅ | `parser.test_parser_003_access_modes` | PARSER-003-ACCESS-MODES: PARSER-003: Parse RO, RW, WO access modes | 0.000s |
-| ✅ | `parser.test_parser_003_multiple_attributes_same_line` | PARSER-003-MULTIPLE-ATTRIBUTES-SAME-LINE: PARSER-003: Multiple attributes on single line | 0.000s |
+| ✅ | `parser.test_parser_003_multiple_attributes_same_line` | PARSER-003-MULTIPLE-ATTRIBUTES-SAME-LINE: PARSER-003: Multiple attributes on single line | 0.001s |
 | ✅ | `parser.test_parser_003_strobe_flags` | PARSER-003-STROBE-FLAGS: PARSER-003: Parse R_STROBE and W_STROBE flags | 0.000s |
 | ✅ | `parser.test_parser_004_base_addr_hex` | PARSER-004-BASE-ADDR-HEX: PARSER-004: Parse BASE_ADDR in hex format | 0.000s |
-| ✅ | `parser.test_parser_004_cdc_enable` | PARSER-004-CDC-ENABLE: PARSER-004: Parse CDC_EN flag | 0.000s |
-| ✅ | `parser.test_parser_004_cdc_stage` | PARSER-004-CDC-STAGE: PARSER-004: Parse CDC_STAGE attribute | 0.000s |
+| ✅ | `parser.test_parser_004_cdc_enable` | PARSER-004-CDC-ENABLE: PARSER-004: Parse CDC_EN flag | 0.001s |
+| ✅ | `parser.test_parser_004_cdc_stage` | PARSER-004-CDC-STAGE: PARSER-004: Parse CDC_STAGE attribute | 0.001s |
 | ✅ | `parser.test_parser_004_missing_axion_def_defaults` | PARSER-004-MISSING-AXION-DEF-DEFAULTS: PARSER-004: Default values when @axion_def missing | 0.000s |
 | ✅ | `parser.test_parser_005_decimal_address` | PARSER-005-DECIMAL-ADDRESS: PARSER-005: Parse decimal address (16) | 0.000s |
 | ✅ | `parser.test_parser_005_hex_address` | PARSER-005-HEX-ADDRESS: PARSER-005: Parse hex address (0x10) | 0.000s |
@@ -212,8 +212,8 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `gen.test_gen_001_entity_name_pattern` | GEN-001-ENTITY-NAME-PATTERN: GEN-001: Entity name follows pattern <module>_axion_reg | 0.000s |
-| ✅ | `gen.test_gen_001_vhdl_compiles` | GEN-001-VHDL-COMPILES: GEN-001: Generated VHDL compiles without errors | 0.014s |
+| ✅ | `gen.test_gen_001_entity_name_pattern` | GEN-001-ENTITY-NAME-PATTERN: GEN-001: Entity name follows pattern <module>_axion_reg | 0.001s |
+| ✅ | `gen.test_gen_001_vhdl_compiles` | GEN-001-VHDL-COMPILES: GEN-001: Generated VHDL compiles without errors | 0.391s |
 | ✅ | `gen.test_gen_001_vhdl_file_exists` | GEN-001-VHDL-FILE-EXISTS: GEN-001: Generated VHDL file exists | 0.000s |
 | ✅ | `gen.test_gen_002_architecture_rtl` | GEN-002-ARCHITECTURE-RTL: GEN-002: Architecture is named 'rtl' | 0.000s |
 | ✅ | `gen.test_gen_002_signal_declarations` | GEN-002-SIGNAL-DECLARATIONS: GEN-002: Internal signals are properly declared | 0.000s |
@@ -236,7 +236,7 @@
 | ✅ | `gen.test_gen_009_offset_macros` | GEN-009-OFFSET-MACROS: GEN-009: Register offset macros defined | 0.000s |
 | ✅ | `gen.test_gen_010_struct_definition` | GEN-010-STRUCT-DEFINITION: GEN-010: Struct definition present | 0.000s |
 | ✅ | `gen.test_gen_011_xml_exists` | GEN-011-XML-EXISTS: GEN-011: XML file generated | 0.000s |
-| ✅ | `gen.test_gen_011_xml_has_registers` | GEN-011-XML-HAS-REGISTERS: GEN-011: XML contains register elements | 0.000s |
+| ✅ | `gen.test_gen_011_xml_has_registers` | GEN-011-XML-HAS-REGISTERS: GEN-011: XML contains register elements | 0.001s |
 | ✅ | `gen.test_gen_011_xml_well_formed` | GEN-011-XML-WELL-FORMED: GEN-011: XML is well-formed | 0.000s |
 | ✅ | `gen.test_gen_012_has_module_header` | GEN-012-HAS-MODULE-HEADER: GEN-012: Document has module header | 0.000s |
 | ✅ | `gen.test_gen_012_has_register_table` | GEN-012-HAS-REGISTER-TABLE: GEN-012: Document has register table | 0.000s |
@@ -251,10 +251,10 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `err.test_err_001_address_conflict_exception` | ERR-001-ADDRESS-CONFLICT-EXCEPTION: ERR-001: Duplicate addresses raise AddressConflictError | 0.000s |
-| ✅ | `err.test_err_001_exception_has_register_names` | ERR-001-EXCEPTION-HAS-REGISTER-NAMES: ERR-001: Exception includes register names | 0.000s |
-| ✅ | `err.test_err_002_binary_file_skipped` | ERR-002-BINARY-FILE-SKIPPED: ERR-002: Binary files are skipped | 0.000s |
-| ✅ | `err.test_err_002_nonexistent_file` | ERR-002-NONEXISTENT-FILE: ERR-002: Non-existent file handled gracefully | 0.000s |
+| ✅ | `err.test_err_001_address_conflict_exception` | ERR-001-ADDRESS-CONFLICT-EXCEPTION: ERR-001: Duplicate addresses raise AddressConflictError | 0.001s |
+| ✅ | `err.test_err_001_exception_has_register_names` | ERR-001-EXCEPTION-HAS-REGISTER-NAMES: ERR-001: Exception includes register names | 0.001s |
+| ✅ | `err.test_err_002_binary_file_skipped` | ERR-002-BINARY-FILE-SKIPPED: ERR-002: Binary files are skipped | 0.002s |
+| ✅ | `err.test_err_002_nonexistent_file` | ERR-002-NONEXISTENT-FILE: ERR-002: Non-existent file handled gracefully | 0.001s |
 | ✅ | `err.test_err_003_no_annotation_skipped` | ERR-003-NO-ANNOTATION-SKIPPED: ERR-003: Files without @axion silently skipped | 0.000s |
 | ✅ | `err.test_err_003_only_axion_def_skipped` | ERR-003-ONLY-AXION-DEF-SKIPPED: ERR-003: Files with only @axion_def but no signals skipped | 0.000s |
 | ✅ | `err.test_err_004_invalid_hex_address` | ERR-004-INVALID-HEX-ADDRESS: ERR-004: Invalid hex address reports error | 0.000s |
@@ -327,8 +327,8 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `stress.test_stress_001_many_registers` | STRESS-001-MANY-REGISTERS: STRESS-001: Support 100+ registers per module | 0.002s |
-| ✅ | `stress.test_stress_002_very_wide_signal` | STRESS-002-VERY-WIDE-SIGNAL: STRESS-002: Support 256-bit signals | 0.000s |
+| ✅ | `stress.test_stress_001_many_registers` | STRESS-001-MANY-REGISTERS: STRESS-001: Support 100+ registers per module | 0.001s |
+| ✅ | `stress.test_stress_002_very_wide_signal` | STRESS-002-VERY-WIDE-SIGNAL: STRESS-002: Support 256-bit signals | 0.001s |
 | ✅ | `stress.test_stress_003_repeated_analysis` | STRESS-003-REPEATED-ANALYSIS: STRESS-003: Multiple analysis cycles without errors | 0.001s |
 | ✅ | `stress.test_stress_004_repeated_generation` | STRESS-004-REPEATED-GENERATION: STRESS-004: Repeated generation cycles without errors | 0.004s |
 | ✅ | `stress.test_stress_005_random_addresses` | STRESS-005-RANDOM-ADDRESSES: STRESS-005: Non-sequential address patterns work correctly | 0.000s |

@@ -953,7 +953,10 @@ def print_results(results: List[TestResult]):
         "addr": "📍 ADDR",
         "stress": "🔥 STRESS",
         "sub": "📦 SUB",
-        "def": "🔧 DEF"
+        "def": "🔧 DEF",
+        "yaml_input": "📄 YAML-INPUT",
+        "json_input": "📄 JSON-INPUT",
+        "equiv": "🔀 EQUIV"
     }
     
     total_passed = 0
@@ -966,7 +969,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def"]:
+    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "yaml_input", "json_input", "equiv"]:
         if cat not in categories:
             continue
         
@@ -1508,62 +1511,227 @@ def run_default_tests() -> List[TestResult]:
     return results
 
 
+def run_yaml_input_tests() -> List[TestResult]:
+    """Run YAML-INPUT-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_yaml_input import TestYAMLInputRequirements
+        import io
+        import sys
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestYAMLInputRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_yaml_input_', 'YAML-INPUT-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"yaml_input.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="yaml_input",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"yaml_input.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="yaml_input",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("yaml_input.import", "YAML-INPUT: Import test module", "failed", 0, str(e), category="yaml_input", subcategory="setup"))
+    
+    return results
+
+
+def run_json_input_tests() -> List[TestResult]:
+    """Run JSON-INPUT-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_json_input import TestJSONInputRequirements
+        import io
+        import sys
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestJSONInputRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_json_input_', 'JSON-INPUT-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"json_input.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="json_input",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"json_input.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="json_input",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("json_input.import", "JSON-INPUT: Import test module", "failed", 0, str(e), category="json_input", subcategory="setup"))
+    
+    return results
+
+
+def run_equivalence_tests() -> List[TestResult]:
+    """Run EQUIV-xxx format equivalence tests"""
+    results = []
+    
+    try:
+        from tests.python.test_format_equivalence import TestFormatEquivalence
+        import io
+        import sys
+        
+        # Run setUpClass
+        TestFormatEquivalence.setUpClass()
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestFormatEquivalence)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_equiv_', 'EQUIV-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"equiv.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="equiv",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"equiv.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="equiv",
+                    subcategory="requirements"
+                ))
+        
+        # Run tearDownClass
+        TestFormatEquivalence.tearDownClass()
+    except ImportError as e:
+        results.append(TestResult("equiv.import", "EQUIV: Import test module", "failed", 0, str(e), category="equiv", subcategory="setup"))
+    
+    return results
+
+
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, YAML-INPUT, JSON-INPUT, EQUIV\n")
     
     all_results = []
     
     # Run Python unit tests (core functionality)
-    print(f"  [1/11] Running Python unit tests...", flush=True)
+    print(f"  [1/16] Running Python unit tests...", flush=True)
     all_results.extend(run_python_unit_tests())
     
     # Run address conflict tests (ADDR requirements)
-    print(f"  [2/11] Running address conflict tests...", flush=True)
+    print(f"  [2/16] Running address conflict tests...", flush=True)
     all_results.extend(run_address_conflict_tests())
     
     # Run Parser tests (PARSER requirements)
-    print(f"  [3/13] Running parser tests...", flush=True)
+    print(f"  [3/16] Running parser tests...", flush=True)
     all_results.extend(run_parser_tests())
     
     # Run Generator tests (GEN requirements)
-    print(f"  [4/13] Running generator tests...", flush=True)
+    print(f"  [4/16] Running generator tests...", flush=True)
     all_results.extend(run_generator_tests())
     
     # Run Error handling tests (ERR requirements)
-    print(f"  [5/13] Running error handling tests...", flush=True)
+    print(f"  [5/16] Running error handling tests...", flush=True)
     all_results.extend(run_error_handling_tests())
     
     # Run CLI tests (CLI requirements)
-    print(f"  [6/13] Running CLI tests...", flush=True)
+    print(f"  [6/16] Running CLI tests...", flush=True)
     all_results.extend(run_cli_tests())
     
     # Run CDC tests (CDC requirements)
-    print(f"  [7/13] Running CDC tests...", flush=True)
+    print(f"  [7/16] Running CDC tests...", flush=True)
     all_results.extend(run_cdc_tests())
     
     # Run ADDR tests (ADDR requirements)
-    print(f"  [8/13] Running address management tests...", flush=True)
+    print(f"  [8/16] Running address management tests...", flush=True)
     all_results.extend(run_addr_tests())
     
     # Run STRESS tests (STRESS requirements)
-    print(f"  [9/13] Running stress tests...", flush=True)
+    print(f"  [9/16] Running stress tests...", flush=True)
     all_results.extend(run_stress_tests())
     
     # Run SUB tests (Subregister requirements)
-    print(f"  [10/13] Running subregister tests...", flush=True)
+    print(f"  [10/16] Running subregister tests...", flush=True)
     all_results.extend(run_subregister_tests())
     
     # Run DEF tests (DEFAULT attribute requirements)
-    print(f"  [11/13] Running default attribute tests...", flush=True)
+    print(f"  [11/16] Running default attribute tests...", flush=True)
     all_results.extend(run_default_tests())
     
+    # Run YAML-INPUT tests
+    print(f"  [12/16] Running YAML input parser tests...", flush=True)
+    all_results.extend(run_yaml_input_tests())
+    
+    # Run JSON-INPUT tests
+    print(f"  [13/16] Running JSON input parser tests...", flush=True)
+    all_results.extend(run_json_input_tests())
+    
+    # Run EQUIV tests (format equivalence)
+    print(f"  [14/16] Running format equivalence tests...", flush=True)
+    all_results.extend(run_equivalence_tests())
+    
     # Run VHDL tests (AXION, AXI-LITE requirements)
-    print(f"  [12/13] Running VHDL simulation tests...", flush=True)
+    print(f"  [15/16] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
     
     # Run C tests
-    print(f"  [13/13] Running C header tests...", flush=True)
+    print(f"  [16/16] Running C header tests...", flush=True)
     all_results.extend(run_c_tests())
     
     # Save and generate reports
@@ -1583,7 +1751,7 @@ def print_requirement_coverage(results: List[TestResult]):
     """Print requirement coverage summary"""
     
     # Extract requirement IDs from test results
-    req_pattern = re.compile(r'(AXION-\d+[a-z]?|AXI-LITE-\d+[a-z]?|PARSER-\d+|GEN-\d+|CDC-\d+|ADDR-\d+|ERR-\d+|CLI-\d+|STRESS-\d+|SUB-\d+|DEF-\d+)', re.IGNORECASE)
+    req_pattern = re.compile(r'(AXION-\d+[a-z]?|AXI-LITE-\d+[a-z]?|PARSER-\d+|GEN-\d+|CDC-\d+|ADDR-\d+|ERR-\d+|CLI-\d+|STRESS-\d+|SUB-\d+|DEF-\d+|YAML-INPUT-\d+|JSON-INPUT-\d+|EQUIV-\d+)', re.IGNORECASE)
     
     covered = set()
     for r in results:
@@ -1599,7 +1767,7 @@ def print_requirement_coverage(results: List[TestResult]):
         expected.add(f"AXI-LITE-{i:03d}")
     for i in range(1, 9):
         expected.add(f"PARSER-{i:03d}")
-    for i in range(1, 13):
+    for i in range(1, 15):
         expected.add(f"GEN-{i:03d}")
     for i in range(1, 8):
         expected.add(f"CDC-{i:03d}")
@@ -1607,7 +1775,7 @@ def print_requirement_coverage(results: List[TestResult]):
         expected.add(f"ADDR-{i:03d}")
     for i in range(1, 7):
         expected.add(f"ERR-{i:03d}")
-    for i in range(1, 11):
+    for i in range(1, 13):
         expected.add(f"CLI-{i:03d}")
     for i in range(1, 7):
         expected.add(f"STRESS-{i:03d}")
@@ -1615,12 +1783,18 @@ def print_requirement_coverage(results: List[TestResult]):
         expected.add(f"SUB-{i:03d}")
     for i in range(1, 11):
         expected.add(f"DEF-{i:03d}")
+    for i in range(1, 16):
+        expected.add(f"YAML-INPUT-{i:03d}")
+    for i in range(1, 16):
+        expected.add(f"JSON-INPUT-{i:03d}")
+    for i in range(1, 7):
+        expected.add(f"EQUIV-{i:03d}")
     
     print(f"\n{CYAN}{BOLD}{'═' * 80}{RESET}")
     print(f"{CYAN}{BOLD}  REQUIREMENT COVERAGE SUMMARY{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     print(f"  Unique Requirement IDs Tested: {len(covered)}")
-    print(f"  Base Requirements (from spec):  98")
+    print(f"  Base Requirements (from spec):  134")
     print(f"  Total Test Cases:               {len(results)}")
     
     # Categories
@@ -1635,7 +1809,10 @@ def print_requirement_coverage(results: List[TestResult]):
         "CLI": [r for r in covered if r.startswith("CLI-")],
         "STRESS": [r for r in covered if r.startswith("STRESS-")],
         "SUB": [r for r in covered if r.startswith("SUB-")],
-        "DEF": [r for r in covered if r.startswith("DEF-")]
+        "DEF": [r for r in covered if r.startswith("DEF-")],
+        "YAML-INPUT": [r for r in covered if r.startswith("YAML-INPUT-")],
+        "JSON-INPUT": [r for r in covered if r.startswith("JSON-INPUT-")],
+        "EQUIV": [r for r in covered if r.startswith("EQUIV-")]
     }
     
     print(f"\n  By Category:")

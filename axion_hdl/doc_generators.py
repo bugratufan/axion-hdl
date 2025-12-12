@@ -613,3 +613,163 @@ class XMLGenerator:
             'RW': 'read-write'
         }
         return mapping.get(access_mode, 'read-write')
+
+
+class YAMLGenerator:
+    """Generator for creating YAML register maps."""
+    
+    def __init__(self, output_dir: str):
+        self.output_dir = output_dir
+        
+    def generate_yaml(self, module: Dict) -> str:
+        """Generate YAML register map."""
+        try:
+            import yaml
+        except ImportError:
+            print("  Error: PyYAML required for YAML generation. Install with: pip install PyYAML")
+            return ""
+            
+        module_name = module['name']
+        output_filename = f"{module_name}_regs.yaml"
+        output_path = os.path.join(self.output_dir, output_filename)
+        
+        data = self._generate_yaml_data(module)
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            yaml.dump(data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+            
+        return output_path
+    
+    def _generate_yaml_data(self, module: Dict) -> Dict:
+        """Generate YAML data structure for round-trip compatibility."""
+        base_addr = module.get('base_address', 0x00)
+        cdc_en = module.get('cdc_enabled', False)
+        cdc_stage = module.get('cdc_stages', 2)
+        
+        data = {
+            'module': module['name'],
+            'base_addr': f"0x{base_addr:04X}",
+            'config': {
+                'cdc_en': cdc_en,
+                'cdc_stage': cdc_stage
+            },
+            'registers': []
+        }
+        
+        for reg in module['registers']:
+            offset = reg.get('relative_address_int', reg['address_int'])
+            r_strobe = reg.get('read_strobe', reg.get('r_strobe', False))
+            w_strobe = reg.get('write_strobe', reg.get('w_strobe', False))
+            default_val = reg.get('default_value', 0)
+            
+            reg_entry = {
+                'name': reg['signal_name'],
+                'addr': f"0x{offset:02X}",
+                'access': reg['access_mode'],
+                'width': reg.get('width', 32)
+            }
+            
+            if r_strobe:
+                reg_entry['r_strobe'] = True
+            if w_strobe:
+                reg_entry['w_strobe'] = True
+            if reg.get('description'):
+                reg_entry['description'] = reg['description']
+            if default_val != 0:
+                reg_entry['default'] = f"0x{default_val:X}"
+            
+            # Handle packed registers
+            if reg.get('is_packed'):
+                reg_entry['fields'] = []
+                for field in reg.get('fields', []):
+                    field_entry = {
+                        'name': field['name'],
+                        'bit_offset': field['bit_low'],
+                        'width': field['width'],
+                        'access': field['access_mode']
+                    }
+                    if field.get('default_value', 0) != 0:
+                        field_entry['default'] = f"0x{field['default_value']:X}"
+                    reg_entry['fields'].append(field_entry)
+            
+            data['registers'].append(reg_entry)
+        
+        return data
+
+
+class JSONGenerator:
+    """Generator for creating JSON register maps."""
+    
+    def __init__(self, output_dir: str):
+        self.output_dir = output_dir
+        
+    def generate_json(self, module: Dict) -> str:
+        """Generate JSON register map."""
+        import json
+        
+        module_name = module['name']
+        output_filename = f"{module_name}_regs.json"
+        output_path = os.path.join(self.output_dir, output_filename)
+        
+        data = self._generate_json_data(module)
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            
+        return output_path
+    
+    def _generate_json_data(self, module: Dict) -> Dict:
+        """Generate JSON data structure for round-trip compatibility."""
+        base_addr = module.get('base_address', 0x00)
+        cdc_en = module.get('cdc_enabled', False)
+        cdc_stage = module.get('cdc_stages', 2)
+        
+        data = {
+            'module': module['name'],
+            'base_addr': f"0x{base_addr:04X}",
+            'config': {
+                'cdc_en': cdc_en,
+                'cdc_stage': cdc_stage
+            },
+            'registers': []
+        }
+        
+        for reg in module['registers']:
+            offset = reg.get('relative_address_int', reg['address_int'])
+            r_strobe = reg.get('read_strobe', reg.get('r_strobe', False))
+            w_strobe = reg.get('write_strobe', reg.get('w_strobe', False))
+            default_val = reg.get('default_value', 0)
+            
+            reg_entry = {
+                'name': reg['signal_name'],
+                'addr': f"0x{offset:02X}",
+                'access': reg['access_mode'],
+                'width': reg.get('width', 32)
+            }
+            
+            if r_strobe:
+                reg_entry['r_strobe'] = True
+            if w_strobe:
+                reg_entry['w_strobe'] = True
+            if reg.get('description'):
+                reg_entry['description'] = reg['description']
+            if default_val != 0:
+                reg_entry['default'] = f"0x{default_val:X}"
+            
+            # Handle packed registers
+            if reg.get('is_packed'):
+                reg_entry['fields'] = []
+                for field in reg.get('fields', []):
+                    field_entry = {
+                        'name': field['name'],
+                        'bit_offset': field['bit_low'],
+                        'width': field['width'],
+                        'access': field['access_mode']
+                    }
+                    if field.get('default_value', 0) != 0:
+                        field_entry['default'] = f"0x{field['default_value']:X}"
+                    reg_entry['fields'].append(field_entry)
+            
+            data['registers'].append(reg_entry)
+        
+        return data
