@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PWM Controller Example - Intermediate Level
+  
+  This example demonstrates:
+  - Clock Domain Crossing (CDC) with 3 stages
+  - Read and write strobes
+  - Multiple PWM channels
+-->
+<register_map module="pwm_controller" base_addr="0x0000">
+    <!-- Enable CDC for safe cross-clock-domain access -->
+    <config cdc_en="true" cdc_stage="3"/>
+    
+    <!-- Global control register -->
+    <register name="global_enable" addr="0x00" access="RW" width="32" 
+              w_strobe="true" description="Global PWM enable"/>
+    
+    <!-- Channel 0 -->
+    <register name="ch0_duty" addr="0x04" access="RW" width="32" 
+              default="128" description="Channel 0 duty cycle (0-255)"/>
+    <register name="ch0_period" addr="0x08" access="RW" width="32" 
+              default="255" description="Channel 0 period"/>
+    
+    <!-- Channel 1 -->
+    <register name="ch1_duty" addr="0x0C" access="RW" width="32" 
+              default="128" description="Channel 1 duty cycle"/>
+    <register name="ch1_period" addr="0x10" access="RW" width="32" 
+              default="255" description="Channel 1 period"/>
+    
+    <!-- Status register with read strobe -->
+    <register name="status" addr="0x20" access="RO" width="32" 
+              r_strobe="true" description="PWM status (clears on read)"/>
+    
+    <!-- Interrupt control -->
+    <register name="irq_enable" addr="0x24" access="RW" width="32" 
+              description="Interrupt enable mask"/>
+    <register name="irq_status" addr="0x28" access="RW" width="32" 
+              r_strobe="true" w_strobe="true" 
+              description="Interrupt status (write 1 to clear)"/>
+</register_map>

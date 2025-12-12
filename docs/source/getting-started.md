@@ -19,53 +19,73 @@ pip install axion-hdl
 
 ### Step 1: Define Registers
 
-Create a YAML file `blinky.yaml`:
+Create a YAML file `led_blinker.yaml`:
 
 ```yaml
-module: blinky_ctrl
-base_addr: 0x00001000
+module: led_blinker
+base_addr: "0x0000"
 registers:
   - name: control
-    addr: 0x00
-    description: "Main control register"
-    fields:
-      - name: enable
-        bit_offset: 0
-        width: 1
-        access: RW
-        description: "Enable LED blinking"
-
-  - name: speed
-    addr: 0x04
+    addr: "0x00"
     access: RW
     width: 32
-    default: 1000
-    description: "Blink speed in ms"
+    description: "LED control register"
 
-  - name: status
-    addr: 0x08
+  - name: led_state
+    addr: "0x04"
     access: RO
     width: 32
-    description: "Current LED status"
+    description: "Current LED state"
+
+  - name: period_ms
+    addr: "0x08"
+    access: RW
+    width: 32
+    default: 500
+    description: "Blink period in milliseconds"
 ```
 
 ### Step 2: Generate Output
 
 ```bash
-axion-hdl -s blinky.yaml -o output --all
+axion-hdl -s led_blinker.yaml -o output --all
 ```
 
 ### Step 3: Check Generated Files
 
 The `output/` directory will contain:
 
-- `blinky_ctrl_axion_reg.vhd` - AXI4-Lite slave module
-- `blinky_ctrl_regs.h` - C header with macros
-- `register_map.md` - Documentation
-- `blinky_ctrl_regs.xml` - IP-XACT description
+| File | Description |
+|------|-------------|
+| `led_blinker_axion_reg.vhd` | AXI4-Lite slave module |
+| `led_blinker_regs.h` | C header with macros |
+| `register_map.md` | Documentation |
+| `led_blinker_regs.xml` | IP-XACT description |
+| `led_blinker_regs.yaml` | YAML register map |
+| `led_blinker_regs.json` | JSON register map |
+
+### Step 4: Integrate
+
+Instantiate the generated module in your top-level VHDL:
+
+```vhdl
+led_blinker_regs : entity work.led_blinker_axion_reg
+    port map (
+        axi_aclk    => clk,
+        axi_aresetn => rst_n,
+        -- AXI4-Lite bus connections
+        axi_awaddr  => s_axi_awaddr,
+        axi_awvalid => s_axi_awvalid,
+        -- ... other AXI signals ...
+        -- Register signals
+        control     => control_reg,
+        led_state   => led_state_sig,
+        period_ms   => period_reg
+    );
+```
 
 ## Next Steps
 
 - [Data Formats](data-formats) - Learn about all input formats
 - [CLI Reference](cli-reference) - Master the command-line
-- [Advanced Features](advanced-features) - CDC, subregisters, etc.
+- [Advanced Features](advanced-features) - CDC, subregisters, strobes

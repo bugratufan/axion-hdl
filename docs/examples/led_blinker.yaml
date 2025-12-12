@@ -1,0 +1,39 @@
+# LED Blinker Example - Beginner Level
+# 
+# This example demonstrates a simple LED controller with basic registers.
+# Perfect for understanding the fundamentals of Axion-HDL.
+
+module: led_blinker
+base_addr: "0x0000"
+
+registers:
+  # Enable/disable LED blinking and set speed
+  - name: control
+    addr: "0x00"
+    access: RW
+    width: 32
+    default: 0
+    description: "LED control register"
+
+  # Current LED state (read-only from software)
+  - name: led_state
+    addr: "0x04"
+    access: RO
+    width: 32
+    description: "Current LED output state"
+
+  # Blink period in milliseconds
+  - name: period_ms
+    addr: "0x08"
+    access: RW
+    width: 32
+    default: 500
+    description: "Blink period in milliseconds"
+
+  # LED pattern for multi-LED designs
+  - name: pattern
+    addr: "0x0C"
+    access: RW
+    width: 32
+    default: "0x55"
+    description: "LED pattern (8-bit pattern for 8 LEDs)"
