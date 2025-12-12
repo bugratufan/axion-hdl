@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "axion-hdl"
-version = "0.4.3"
+version = "v0.6.1"
 description = "Automated AXI4-Lite Register Interface Generator for VHDL modules"
 readme = "README.md"
 license = {text = "MIT"}
@@ -37,7 +37,9 @@ classifiers = [
     "Natural Language :: English",
 ]
 requires-python = ">=3.7"
-dependencies = []
+dependencies = [
+    "PyYAML>=6.0",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -48,6 +50,12 @@ dev = [
     "build>=0.7",
     "twine>=3.4",
 ]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "myst-parser>=2.0",
+]
+
 
 [project.urls]
 Homepage = "https://github.com/bugratufan/axion-hdl"
