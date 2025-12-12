@@ -10,28 +10,78 @@ axion-hdl -s <source> -o <output> [options]
 
 | Option | Description |
 |--------|-------------|
-| `-s, --source` | Source file or directory (VHDL, XML, YAML, JSON) |
-| `-o, --output` | Output directory |
-| `-e, --exclude` | Patterns to exclude |
-| `--vhdl` | Generate VHDL output |
+| `-s, --source PATH` | Source file or directory (auto-detects type) |
+| `-x, --xml-source PATH` | XML source (deprecated, use -s) |
+| `-o, --output DIR` | Output directory (default: ./axion_output) |
+| `-e, --exclude PATTERN` | Exclude files matching pattern |
+| `--all` | Generate all output types |
+| `--vhdl` | Generate VHDL module |
 | `--c-header` | Generate C header |
 | `--xml` | Generate XML output |
 | `--yaml` | Generate YAML output |
 | `--json` | Generate JSON output |
 | `--doc` | Generate documentation |
-| `--all` | Generate all outputs |
+| `--doc-format FORMAT` | Doc format: md, html, pdf |
+| `-v, --version` | Show version |
 | `-h, --help` | Show help |
-| `--version` | Show version |
 
 ## Examples
 
+### Basic Generation
+
 ```bash
-# Generate all outputs from VHDL
-axion-hdl -s ./src -o ./output --all
+# Generate all outputs from a YAML file
+axion-hdl -s registers.yaml -o ./output --all
 
-# Generate only VHDL and C header
-axion-hdl -s ./regs.yaml -o ./output --vhdl --c-header
+# Generate from VHDL with annotations
+axion-hdl -s ./src/my_module.vhd -o ./generated --all
 
-# Exclude test files
-axion-hdl -s ./src -o ./output -e "*_tb.vhd" --all
+# Generate from XML
+axion-hdl -s controller.xml -o ./output --vhdl --c-header
 ```
+
+### Multiple Sources
+
+```bash
+# Combine multiple source files
+axion-hdl -s cpu_regs.yaml -s dma_regs.xml -o ./output --all
+
+# Process entire directory
+axion-hdl -s ./rtl -o ./generated --all
+```
+
+### Filtering
+
+```bash
+# Exclude testbenches
+axion-hdl -s ./src -e "*_tb.vhd" -o ./output --all
+
+# Exclude multiple patterns
+axion-hdl -s ./src -e "*_tb.vhd" -e "test_*" -e "deprecated" --all
+```
+
+### Selective Output
+
+```bash
+# Only VHDL and C header
+axion-hdl -s regs.yaml -o ./output --vhdl --c-header
+
+# Only documentation in HTML
+axion-hdl -s regs.yaml -o ./docs --doc --doc-format html
+```
+
+## Supported File Types
+
+| Extension | Format | Description |
+|-----------|--------|-------------|
+| `.vhd`, `.vhdl` | VHDL | Source with @axion annotations |
+| `.xml` | XML | IP-XACT style register definitions |
+| `.yaml`, `.yml` | YAML | Human-readable register definitions |
+| `.json` | JSON | Machine-readable register definitions |
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Error (invalid input, failed generation) |
