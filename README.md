@@ -1,170 +1,105 @@
-# Axion-HDL: The AXI4-Lite Register Generator that works *with* you
+# Axion-HDL
 
-[![PyPI version](https://img.shields.io/pypi/v/axion-hdl.svg)](https://pypi.org/project/axion-hdl/)
+**Generate production-ready AXI4-Lite register interfaces from VHDL, YAML, XML, or JSON.**
+
+[![PyPI](https://img.shields.io/pypi/v/axion-hdl.svg)](https://pypi.org/project/axion-hdl/)
 [![Tests](https://github.com/bugratufan/axion-hdl/actions/workflows/tests.yml/badge.svg)](https://github.com/bugratufan/axion-hdl/actions/workflows/tests.yml)
-[![Python 3.8+](https://img.shields.io/pypi/pyversions/axion-hdl.svg)](https://pypi.org/project/axion-hdl/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docs](https://readthedocs.org/projects/axion-hdl/badge/?version=stable)](https://axion-hdl.readthedocs.io/en/stable/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Stop wrestling with register maps defined in spreadsheets or clunky external tools.**
-
-**Axion-HDL** gives you the freedom to define your registers YOUR way: directly inside your VHDL code OR via XML, YAML, or JSON files. Whichever path you choose, you get a fully compliant, rock-solid AXI4-Lite slave interface in seconds.
-
-## 🚀 Two Ways to Play
-
-Axion-HDL is designed to fit *your* workflow, not the other way around.
-
-### Option A: The Developer's Value - Embed in VHDL
-Keep your register definitions where they belong: right next to the logic using them. No context switching, no out-of-sync docs.
-
-```vhdl
-signal control_reg : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x04 W_STROBE
-```
-
-### Option B: The System Integrator's Choice - Standalone XML
-Need a standardized definition that exists outside the RTL? We speak fluent IP-XACT / XML.
-
-```xml
-<register name="control_reg" addr="0x04" access="WO" width="32" w_strobe="true"/>
-```
-
-### Option C: Human-Readable YAML
-Prefer a clean, version-control friendly format?
-
-```yaml
-registers:
-  - name: control_reg
-    addr: "0x04"
-    access: WO
-    width: 32
-    w_strobe: true
-```
-
-### Option D: JSON for Automation
-Integrating with web tools or APIs?
-
-```json
-{"name": "control_reg", "addr": "0x04", "access": "WO", "width": 32, "w_strobe": true}
-```
-
-**Axion-HDL bridges the gap.** You can even mix and match sources.
+Axion-HDL eliminates the tedious work of hand-crafting AXI register logic. Define your registers once—embedded in VHDL or in standalone config files—and generate synthesizable VHDL, C headers, and documentation automatically.
 
 ---
 
-## ✨ Why Axion-HDL?
-
-### 1. Flexible Input, Perfect Output
-Whether you use `@axion` annotations, XML, YAML, or JSON files, the output is always the same high-quality, readable VHDL code, C headers, and documentation.
-
-### 2. Battle-Tested Reliability
-We don't guess; we verify.
-*   **200+ Automated Tests**: Every commit runs through a massive test suite.
-*   **Covering the Hard Stuff**: We rigorously test Complex Clock Domain Crossing (CDC) scenarios, corner-case addressing, and parser robustness.
-*   **Safety First**: Built-in overlap detection and validation ensure you never ship a broken address map.
-
-### 3. Professional Standards
-*   **Spec-Driven**: Developed against [strict requirement specifications](requirements.md).
-*   **Pure Python**: No heavy JVM or compiled dependencies.
-*   **Standard Compliant**: Generates IP-XACT compatible XML and true AXI4-Lite interfaces.
-
----
-
-## 📦 Installation
+## Installation
 
 ```bash
 pip install axion-hdl
 ```
 
-## ⚡ Quick Start
+## Quick Start
 
-### 1. Define It
+**1. Define your registers:**
 
-**VHDL Style:**
 ```vhdl
-architecture rtl of my_ip is
-    -- @axion_def BASE_ADDR=0x1000 CDC_EN
-    signal status : std_logic_vector(31 downto 0); -- @axion RO DESC="Status"
-begin
-    ...
+-- Embed directly in your VHDL
+-- @axion_def BASE_ADDR=0x1000
+signal status  : std_logic_vector(31 downto 0); -- @axion RO DESC="Status register"
+signal control : std_logic_vector(31 downto 0); -- @axion RW W_STROBE
 ```
 
-> **💡 Tip:** `CDC_EN` enables Clock Domain Crossing synchronizers for **all** registers in the module. Use `CDC_STAGE=N` to configure the synchronizer depth (default: **2 stages**). Example: `@axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3`
+Or use standalone YAML:
 
-
-
-**XML Style:**
-```xml
-<register_map module="my_ip" base_addr="0x1000">
-    <config cdc_en="true"/>
-    <register name="status" access="RO" width="32" description="Status"/>
-</register_map>
+```yaml
+module: my_module
+base_addr: "0x1000"
+registers:
+  - name: status
+    access: RO
+    description: "Status register"
+  - name: control
+    access: RW
+    w_strobe: true
 ```
 
-### 2. Generate It
+**2. Generate:**
 
 ```bash
-axion-hdl -s my_ip.vhd -o ./output
-# OR
-axion-hdl -s regulations.xml -o ./output
+axion-hdl -s my_module.vhd -o output/
 ```
 
-### 3. Use It
-
-You get:
-*   `my_ip_axion_reg.vhd`: The AXI slave logic.
-*   `my_ip_regs.h`: C header for your firmware.
-*   `register_map.md`: Beautiful documentation for your users.
+**3. Get:**
+- `my_module_axion_reg.vhd` — Synthesizable AXI4-Lite slave
+- `my_module_regs.h` — C header with register macros
+- `register_map.md` — Auto-generated documentation
 
 ---
 
-## 🧩 Feature Highlights
+## Key Features
 
-| Feature | Description |
-|---------|-------------|
-| **Subregisters** | Pack multiple fields (start bit, enable bit, etc.) into one 32-bit register automatically. |
-| **CDC Support** | Built-in, parameterizable Clock Domain Crossing synchronizers. safely move data across clocks. |
-| **Wide Signals** | Got a 64-bit counter? We automatically map it to multiple 32-bit addresses. |
-| **Documentation** | Auto-generated Markdown or HTML documentation keeps your team in sync. |
+**Multi-Format Input**  
+VHDL annotations, YAML, XML, or JSON. Pick what fits your workflow. Mix sources freely.
 
----
+**Clock Domain Crossing**  
+Built-in CDC synchronizers with configurable pipeline depth. No external CDC libraries needed.
 
-## 💻 CLI Reference
+**Subregisters**  
+Pack bit fields into a single address. Define enable bits, mode selectors, and counters in one register.
 
-```bash
-# Basic usage
-axion-hdl -s ./src -o ./output
+**Wide Signal Support**  
+Signals wider than 32 bits are automatically split across consecutive addresses.
 
-# Filter inputs
-axion-hdl -s ./src -e "*_tb.vhd"
+**Read/Write Strobes**  
+Generate pulse signals on register access—useful for interrupt clearing or triggering state machines.
 
-# Specific outputs only
-axion-hdl -s ./src --vhdl --c-header
-```
-
-## 🧪 Robust Testing & Requirements
-
-We believe in software that works. 
-*   **200+ Unit & Integration Tests**: Running on every push.
-*   **GHDL Verification**: Generated VHDL is verified against GHDL simulations to ensure correct bus behavior.
-*   **Transparent Requirements**: [requirements.md](requirements.md) tracks every feature we implement.
-
-## 🤝 Contributing
-
-We welcome pull requests! Please base your formatting on the `develop` branch.
-
-1. Fork the repo.
-2. `git checkout develop`
-3. Create your feature branch.
-4. `make test` (Ensure you pass the 200+ test suite!)
-5. PR to `develop`.
+**Robust Validation**  
+Address overlap detection, access mode checking, and bit field collision warnings before you synthesize.
 
 ---
 
-## 📄 License
+## Tested and Verified
 
-MIT License - see [LICENSE](LICENSE)
+- 230+ automated tests covering parsing, generation, and edge cases
+- GHDL simulation verification for generated interfaces
+- CI on every commit
 
-## 👤 Author
+---
 
-**Bugra Tufan**  
-📧 [bugratufan97@gmail.com](mailto:bugratufan97@gmail.com)  
-🔗 [github.com/bugratufan/axion-hdl](https://github.com/bugratufan/axion-hdl)
+## Documentation
+
+Full documentation with examples: **[axion-hdl.readthedocs.io](https://axion-hdl.readthedocs.io/en/stable/)**
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch from `develop`
+3. Run `make test` to verify
+4. Submit a PR to `develop`
+
+---
+
+## License
+
+MIT License — [Bugra Tufan](mailto:bugratufan97@gmail.com)
