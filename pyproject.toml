@@ -50,6 +50,12 @@ dev = [
     "build>=0.7",
     "twine>=3.4",
 ]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "myst-parser>=2.0",
+]
+
 
 [project.urls]
 Homepage = "https://github.com/bugratufan/axion-hdl"
