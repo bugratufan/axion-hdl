@@ -273,30 +273,51 @@ class DocGenerator:
 </div>
 
 <h2>📦 Modules</h2>
-<div class="module-grid">
+<div class="module-list">
 '''
         for module in modules:
             base_addr = module.get('base_address', 0)
-            reg_count = len(module.get('registers', []))
+            registers = module.get('registers', [])
+            reg_count = len(registers)
             cdc_badge = '<span class="badge badge-cdc">CDC</span>' if module.get('cdc_enabled') else ''
             
+            # Generate register preview (first 5 registers)
+            reg_preview = ''
+            for i, reg in enumerate(registers[:5]):
+                reg_name = reg.get('signal_name', 'unknown')
+                reg_addr = reg.get('relative_address', '0x00')
+                reg_access = reg.get('access_mode', 'RW')
+                reg_preview += f'<div class="reg-item"><code>{reg_name}</code><span class="reg-meta">{reg_addr} • {reg_access}</span></div>'
+            
+            if reg_count > 5:
+                reg_preview += f'<div class="reg-more">+{reg_count - 5} more registers...</div>'
+            
             content += f'''
-    <a href="{module['name']}.html" class="module-card">
-        <div class="module-header">
-            <h3>{module['name']}</h3>
-            {cdc_badge}
-        </div>
-        <div class="module-info">
-            <div class="info-item">
-                <span class="info-label">Base Address</span>
-                <span class="info-value">0x{base_addr:04X}</span>
+    <a href="{module['name']}.html" class="module-card-large">
+        <div class="module-main">
+            <div class="module-header">
+                <h3>{module['name']}</h3>
+                {cdc_badge}
             </div>
-            <div class="info-item">
-                <span class="info-label">Registers</span>
-                <span class="info-value">{reg_count}</span>
+            <div class="module-info">
+                <div class="info-item">
+                    <span class="info-label">Base Address</span>
+                    <span class="info-value">0x{base_addr:04X}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Registers</span>
+                    <span class="info-value">{reg_count}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Source</span>
+                    <span class="info-value">{os.path.basename(module['file'])}</span>
+                </div>
             </div>
         </div>
-        <div class="module-source">{os.path.basename(module['file'])}</div>
+        <div class="register-preview">
+            <div class="preview-title">Registers</div>
+            {reg_preview}
+        </div>
     </a>
 '''
         
@@ -366,95 +387,103 @@ class DocGenerator:
         return self._wrap_html_with_style(html_content, title="AXI Register Map")
     
     def _generate_about_page(self) -> str:
-        """Generate About Axion-HDL page with project info and links."""
-        content = '''
+        """Generate About Axion-HDL page with README.md content."""
+        # Try to find and read README.md
+        readme_content = self._read_readme()
+        
+        if readme_content:
+            # Convert README markdown to HTML
+            readme_html = self._markdown_to_html(readme_content)
+        else:
+            readme_html = "<p>README.md not found</p>"
+        
+        content = f'''
 <nav class="breadcrumb">
     <a href="index.html">🏠 All Modules</a>
     <span class="separator">›</span>
-    <span class="current">About</span>
+    <span class="current">About Axion-HDL</span>
 </nav>
 
-<div class="about-hero">
-    <h1>⚡ Axion-HDL</h1>
-    <p class="tagline">Automated AXI Register Space Generation Tool</p>
+<div class="readme-container">
+    {readme_html}
 </div>
 
-<div class="about-content">
-    <section class="about-section">
-        <h2>🎯 What is Axion-HDL?</h2>
-        <p>
-            Axion-HDL is a powerful tool that automatically generates AXI4-Lite register interfaces 
-            from annotated VHDL source files or IP-XACT XML definitions. It eliminates the tedious 
-            and error-prone process of manually creating register maps, saving FPGA developers 
-            countless hours of work.
-        </p>
-    </section>
-    
-    <section class="about-section">
-        <h2>✨ Key Features</h2>
-        <div class="feature-grid">
-            <div class="feature-card">
-                <div class="feature-icon">📝</div>
-                <h3>Simple Annotations</h3>
-                <p>Use intuitive <code>@axion</code> comments in your VHDL code</p>
+<div class="about-links">
+    <h2>🔗 Quick Links</h2>
+    <div class="link-grid">
+        <a href="https://github.com/bugratufan/axion-hdl" class="link-card" target="_blank">
+            <div class="link-icon">📦</div>
+            <div class="link-info">
+                <h3>GitHub</h3>
+                <p>Source code & issues</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">🔄</div>
-                <h3>Multi-Format Output</h3>
-                <p>Generate VHDL, C headers, XML, JSON, YAML, and documentation</p>
+        </a>
+        <a href="https://pypi.org/project/axion-hdl/" class="link-card" target="_blank">
+            <div class="link-icon">🐍</div>
+            <div class="link-info">
+                <h3>PyPI</h3>
+                <p>pip install axion-hdl</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">🛡️</div>
-                <h3>CDC Support</h3>
-                <p>Built-in Clock Domain Crossing synchronization</p>
+        </a>
+        <a href="https://axion-hdl.readthedocs.io/" class="link-card" target="_blank">
+            <div class="link-icon">📚</div>
+            <div class="link-info">
+                <h3>Documentation</h3>
+                <p>Full user guide</p>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">📊</div>
-                <h3>Wide Signals</h3>
-                <p>Automatic handling of signals wider than 32 bits</p>
-            </div>
-        </div>
-    </section>
-    
-    <section class="about-section">
-        <h2>🔗 Links</h2>
-        <div class="link-grid">
-            <a href="https://github.com/bugratufan/axion-hdl" class="link-card" target="_blank">
-                <div class="link-icon">📦</div>
-                <div class="link-info">
-                    <h3>GitHub</h3>
-                    <p>Source code & issues</p>
-                </div>
-            </a>
-            <a href="https://pypi.org/project/axion-hdl/" class="link-card" target="_blank">
-                <div class="link-icon">🐍</div>
-                <div class="link-info">
-                    <h3>PyPI</h3>
-                    <p>pip install axion-hdl</p>
-                </div>
-            </a>
-            <a href="https://axion-hdl.readthedocs.io/" class="link-card" target="_blank">
-                <div class="link-icon">📚</div>
-                <div class="link-info">
-                    <h3>Documentation</h3>
-                    <p>Full user guide</p>
-                </div>
-            </a>
-        </div>
-    </section>
-    
-    <section class="about-section">
-        <h2>🚀 Quick Start</h2>
-        <div class="code-block">
-            <code>pip install axion-hdl</code>
-        </div>
-        <div class="code-block">
-            <code>axion-hdl -s your_vhdl_dir/ -o output/ --vhdl --header --doc</code>
-        </div>
-    </section>
+        </a>
+    </div>
 </div>
 '''
         return self._wrap_html_with_style(content, title="About Axion-HDL")
+    
+    def _read_readme(self) -> str:
+        """Try to read README.md from various locations."""
+        import importlib.resources
+        
+        # Try multiple possible README locations
+        possible_paths = [
+            # Installed package - try to find relative to module
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), 'README.md'),
+            # Development environment
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'README.md'),
+            # Current working directory
+            os.path.join(os.getcwd(), 'README.md'),
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        return f.read()
+                except Exception:
+                    continue
+        
+        # Fallback: embedded minimal content
+        return """
+# ⚡ Axion-HDL
+
+**Automated AXI Register Space Generation Tool**
+
+Axion-HDL automatically generates AXI4-Lite register interfaces from annotated VHDL source files or IP-XACT XML definitions.
+
+## 🚀 Quick Start
+
+```bash
+pip install axion-hdl
+axion-hdl -s your_vhdl_dir/ -o output/ --vhdl --header --doc
+```
+
+## ✨ Features
+
+- **VHDL Annotations**: Simple `@axion` comments
+- **Multi-Format Output**: VHDL, C headers, XML, JSON, YAML, HTML, PDF
+- **CDC Support**: Built-in Clock Domain Crossing
+- **Wide Signals**: Automatic handling of >32-bit signals
+
+For full documentation, visit [axion-hdl.readthedocs.io](https://axion-hdl.readthedocs.io/)
+"""
+
 
     
     def _markdown_to_html(self, md_content: str) -> str:
@@ -730,6 +759,90 @@ class DocGenerator:
             border-top: 1px solid var(--border-color);
         }}
         
+        /* Module List (Vertical Layout) */
+        .module-list {{
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }}
+        
+        .module-card-large {{
+            display: flex;
+            background: white;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }}
+        
+        .module-card-large:hover {{
+            transform: translateX(8px);
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15);
+        }}
+        
+        .module-card-large:hover .register-preview {{
+            opacity: 1;
+            max-width: 300px;
+            padding: 1rem;
+        }}
+        
+        .module-main {{
+            flex: 1;
+            padding: 1.5rem;
+        }}
+        
+        .register-preview {{
+            background: #f1f5f9;
+            border-left: 1px solid var(--border-color);
+            opacity: 0;
+            max-width: 0;
+            padding: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }}
+        
+        .preview-title {{
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.75rem;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }}
+        
+        .reg-item {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.4rem 0;
+            border-bottom: 1px solid var(--border-color);
+            gap: 1rem;
+        }}
+        
+        .reg-item:last-child {{
+            border-bottom: none;
+        }}
+        
+        .reg-item code {{
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }}
+        
+        .reg-meta {{
+            font-size: 0.7rem;
+            color: #64748b;
+            white-space: nowrap;
+        }}
+        
+        .reg-more {{
+            font-size: 0.75rem;
+            color: var(--primary-color);
+            font-style: italic;
+            margin-top: 0.5rem;
+        }}
+        
         /* Navigation */
         .breadcrumb {{
             display: flex;
@@ -999,6 +1112,29 @@ class DocGenerator:
             padding: 0;
             color: #67e8f9;
             font-size: 0.95rem;
+        }}
+        
+        /* README Container */
+        .readme-container {{
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 2rem;
+        }}
+        
+        .readme-container h1 {{
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+        }}
+        
+        .readme-container img {{
+            max-width: 100%;
+            height: auto;
+        }}
+        
+        .about-links {{
+            margin-top: 2rem;
         }}
         
         @media print {{
