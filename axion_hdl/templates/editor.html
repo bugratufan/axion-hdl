@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div>
+        <a href="/" class="btn" style="background: #e2e8f0; color: #475569; margin-bottom: 0.5rem;">← Back to
+            Dashboard</a>
+        <h1>Editing Module: {{ module.name }}</h1>
+    </div>
+    <div>
+        <button onclick="saveChanges()" class="btn btn-primary">Review Changes & Save</button>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Module Properties</h3>
+    <form id="moduleForm">
+        <label>Base Address (Hex):</label>
+        <input type="text" name="base_address"
+            value="0x{{ '%04X' % module.base_address if module.base_address else '0000' }}" pattern="0x[0-9A-Fa-f]+"
+            style="padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+    </form>
+</div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3>Registers</h3>
+        <button onclick="addRegister()" class="btn" style="background: #10b981; color: white;">+ Add Register</button>
+    </div>
+
+    <table id="regsTable">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Offset</th>
+                <th>Type</th>
+                <th>Access</th>
+                <th>Description</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="regsBody">
+            {% for reg in module.registers %}
+            <tr class="reg-row">
+                <td><input type="text" value="{{ reg.reg_name or reg.signal_name }}" class="reg-name-input"></td>
+                <td>{{ reg.relative_address or reg.address }}</td>
+                <td>
+                    <select class="reg-type-input">
+                        <option value="std_logic_vector" {% if 'vector' in reg.signal_type %}selected{% endif %}>Vector
+                        </option>
+                        <option value="std_logic" {% if 'vector' not in reg.signal_type %}selected{% endif %}>Logic
+                        </option>
+                    </select>
+                </td>
+                <td>
+                    <select class="reg-access-input">
+                        <option value="RW" {% if reg.access_mode=='RW' %}selected{% endif %}>RW</option>
+                        <option value="RO" {% if reg.access_mode=='RO' %}selected{% endif %}>RO</option>
+                        <option value="WO" {% if reg.access_mode=='WO' %}selected{% endif %}>WO</option>
+                    </select>
+                </td>
+                <td><input type="text" value="{{ reg.description }}" class="reg-desc-input" style="width: 100%;"></td>
+                <td>
+                    <button onclick="deleteRow(this)"
+                        style="color: red; border: none; background: none; cursor: pointer;">Delete</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    function addRegister() {
+        const tbody = document.getElementById('regsBody');
+        const row = document.createElement('tr');
+        row.className = 'reg-row';
+        row.innerHTML = `
+        <td><input type="text" placeholder="new_reg" class="reg-name-input"></td>
+        <td>Auto</td>
+        <td>
+            <select class="reg-type-input">
+                <option value="std_logic_vector">Vector</option>
+                <option value="std_logic">Logic</option>
+            </select>
+        </td>
+        <td>
+            <select class="reg-access-input">
+                <option value="RW">RW</option>
+                <option value="RO">RO</option>
+                <option value="WO">WO</option>
+            </select>
+        </td>
+        <td><input type="text" placeholder="Description" class="reg-desc-input" style="width: 100%;"></td>
+        <td><button onclick="deleteRow(this)" style="color: red; border: none; background: none; cursor: pointer;">Delete</button></td>
+    `;
+        tbody.appendChild(row);
+    }
+
+    function deleteRow(btn) {
+        if (confirm('Delete this register?')) {
+            btn.closest('tr').remove();
+        }
+    }
+
+    function saveChanges() {
+        // Gather data
+        const regs = [];
+        document.querySelectorAll('.reg-row').forEach(row => {
+            regs.push({
+                name: row.querySelector('.reg-name-input').value,
+                type: row.querySelector('.reg-type-input').value,
+                access: row.querySelector('.reg-access-input').value,
+                description: row.querySelector('.reg-desc-input').value
+            });
+        });
+
+        // Send to backend
+        fetch('/api/save_diff', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                module_name: '{{ module.name }}',
+                registers: regs
+            })
+        }).then(res => res.json()).then(data => {
+            if (data.redirect) window.location.href = data.redirect;
+        });
+    }
+</script>
+{% endblock %}

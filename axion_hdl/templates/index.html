@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Dashboard</h1>
+<p class="description">Found {{ modules|length }} modules in the current workspace.</p>
+
+<div class="card">
+    <h2>Loaded Modules</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Module Name</th>
+                <th>Source File</th>
+                <th>Base Address</th>
+                <th>Registers</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for module in modules %}
+            <tr>
+                <td><strong>{{ module.name }}</strong></td>
+                <td>{{ module.file }}</td>
+                <td>0x{{ '%04X' % module.base_address if module.base_address else '0000' }}</td>
+                <td>{{ module.registers|length }}</td>
+                <td>
+                    <a href="/module/{{ module.name }}" class="btn btn-primary">Edit / View</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="text-align: center; color: #64748b;">
+                    No modules found. Please specify source files with <code>-s</code>.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h3>Instructions</h3>
+    <ul style="color: #475569;">
+        <li>Select a module to view its register map.</li>
+        <li>You can modify register attributes or add new registers.</li>
+        <li>Changes are applied locally to your source files upon confirmation.</li>
+    </ul>
+</div>
+{% endblock %}

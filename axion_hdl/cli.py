@@ -154,6 +154,12 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         action='store_true',
         help='Generate JSON register map description'
     )
+
+    gen_group.add_argument(
+        '--gui',
+        action='store_true',
+        help='Launch interactive GUI editor for visualizing and modifying registers (requires Flask)'
+    )
     
     # Parse arguments
     args = parser.parse_args()
@@ -176,8 +182,8 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
             print(f"Error: XML source path does not exist: {src}", file=sys.stderr)
             sys.exit(1)
     
-    # If no specific generation option is provided, default to --all
-    if not any([args.all, args.vhdl, args.doc, args.xml, args.yaml, args.json, args.c_header]):
+    # If no specific generation option is provided, default to --all (unless --gui is present)
+    if not any([args.all, args.vhdl, args.doc, args.xml, args.yaml, args.json, args.c_header, args.gui]):
         args.all = True
     
     # Initialize Axion-HDL
@@ -207,6 +213,16 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
               file=sys.stderr)
         sys.exit(0)
     
+    # Launch GUI if requested
+    if args.gui:
+        try:
+            from axion_hdl import gui
+            gui.start_gui(axion)
+            sys.exit(0)
+        except ImportError as e:
+            print(f"Error launching GUI: {e}", file=sys.stderr)
+            sys.exit(1)
+            
     # Generate outputs based on user selection
     success = True
     

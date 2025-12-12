@@ -195,3 +195,17 @@ Testing and verification are automated via `make test`, which maps tests back to
 | DEF-004 | Default to 0 if unspecified | Signals default to 0x0 if no attribute. | Python Unit Test (`def.test_def_004`) |
 | DEF-009 | Combine Subregister Defaults | Packed register default is OR-combination of field defaults. | Python Unit Test (`def.test_def_009`) |
 | DEF-010 | Backward Compatibility | Existing modules unaffected. | Python Unit Test (`def.test_def_010`) |
+
+## 12. Interactive GUI (GUI)
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| GUI-001 | Launch Web Server | `axion-hdl --gui` launches local web server. | Manual / Integration Test |
+| GUI-002 | Dashboard View | Web Interface lists all parsed modules. | Manual / Integration Test |
+| GUI-003 | Register Editor | Allows adding/editing registers via form. | Manual / Integration Test |
+| GUI-004 | Source Modification | Can write changes back to source files (JSON/YAML/VHDL*). | Manual / Integration Test |
+| GUI-005 | Diff & Review | Shows visual diff of VHDL/Config changes before saving. | Manual / Integration Test |
+| GUI-006 | Auto-Reload | Application state updates after saving. | Manual / Integration Test |
+
+> [!NOTE]
+> GUI-004 VHDL modification is currently experimental and supports mainly appending new signals to identified declaration blocks.
