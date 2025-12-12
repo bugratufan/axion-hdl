@@ -281,6 +281,11 @@ class DocGenerator:
             reg_count = len(registers)
             cdc_badge = '<span class="badge badge-cdc">CDC</span>' if module.get('cdc_enabled') else ''
             
+            # Calculate address range
+            range_start = module.get('address_range_start', base_addr)
+            range_end = module.get('address_range_end', base_addr)
+            range_str = f"0x{range_start:04X} - 0x{range_end:04X}"
+            
             # Generate register preview (first 5 registers)
             reg_preview = ''
             for i, reg in enumerate(registers[:5]):
@@ -301,8 +306,8 @@ class DocGenerator:
             </div>
             <div class="module-info">
                 <div class="info-item">
-                    <span class="info-label">Base Address</span>
-                    <span class="info-value">0x{base_addr:04X}</span>
+                    <span class="info-label">Address Range</span>
+                    <span class="info-value">{range_str}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">Registers</span>
