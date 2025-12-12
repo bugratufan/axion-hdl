@@ -1,0 +1,45 @@
+{
+    "module": "gpio_controller",
+    "base_addr": "0x0000",
+    "registers": [
+        {
+            "name": "direction",
+            "addr": "0x00",
+            "access": "RW",
+            "width": 32,
+            "default": 0,
+            "description": "GPIO direction (0=input, 1=output)"
+        },
+        {
+            "name": "output_data",
+            "addr": "0x04",
+            "access": "RW",
+            "width": 32,
+            "default": 0,
+            "description": "GPIO output values"
+        },
+        {
+            "name": "input_data",
+            "addr": "0x08",
+            "access": "RO",
+            "width": 32,
+            "description": "GPIO input values (directly from pins)"
+        },
+        {
+            "name": "irq_enable",
+            "addr": "0x0C",
+            "access": "RW",
+            "width": 32,
+            "default": 0,
+            "description": "Interrupt enable per pin"
+        },
+        {
+            "name": "irq_status",
+            "addr": "0x10",
+            "access": "RW",
+            "width": 32,
+            "w_strobe": true,
+            "description": "Interrupt status (write 1 to clear)"
+        }
+    ]
+}
