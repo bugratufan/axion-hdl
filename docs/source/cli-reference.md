@@ -20,8 +20,7 @@ axion-hdl -s <source> -o <output> [options]
 | `--xml` | Generate XML output |
 | `--yaml` | Generate YAML output |
 | `--json` | Generate JSON output |
-| `--doc` | Generate documentation |
-| `--doc-format FORMAT` | Doc format: md, html, pdf |
+| `--doc` | Generate documentation (Markdown) |
 | `-v, --version` | Show version |
 | `-h, --help` | Show help |
 
