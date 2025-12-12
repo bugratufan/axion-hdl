@@ -38,6 +38,11 @@ work/
 e~*.o
 *.log
 
+# GHDL compiled testbench binaries
+multi_module_tb
+subregister_test_tb
+subregister_xml_test_tb
+
 
 # Generated output (keep tracked examples if needed)
 output/*
