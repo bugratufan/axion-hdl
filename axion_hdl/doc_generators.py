@@ -566,17 +566,16 @@ For full documentation, visit [axion-hdl.readthedocs.io](https://axion-hdl.readt
                 if in_list:
                     html_lines.append('</ul>')
                     in_list = False
-                # Add table of contents anchor
-                heading_text = line[3:]
-                if heading_text == "Register Map":
-                    html_lines.append(f'<h2 id="register-table">{heading_text}</h2>')
-                else:
-                    html_lines.append(f'<h2>{heading_text}</h2>')
+                html_lines.append(f'<h2>{line[3:]}</h2>')
             elif line.startswith('### '):
                 if in_list:
                     html_lines.append('</ul>')
                     in_list = False
-                html_lines.append(f'<h3>{line[4:]}</h3>')
+                heading_text = line[4:]
+                if heading_text == "Register Map":
+                    html_lines.append(f'<h3 id="register-table">{heading_text}</h3>')
+                else:
+                    html_lines.append(f'<h3>{heading_text}</h3>')
             elif line.startswith('#### '):
                 if in_list:
                     html_lines.append('</ul>')
