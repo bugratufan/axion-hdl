@@ -1,0 +1,11 @@
+# Git attributes for axion-hdl
+
+# Auto-generated files - always use theirs (incoming) version on merge
+TEST_RESULTS.md merge=theirs
+
+# Ensure consistent line endings
+*.py text eol=lf
+*.vhd text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
