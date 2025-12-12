@@ -10,28 +10,52 @@ class SourceModifier:
     def _generate_vhdl_signal(self, reg: Dict) -> str:
         """Generate VHDL signal declaration for a new register."""
         name = reg['name']
-        sig_type = reg['type']  # 'std_logic' or 'std_logic_vector'
+        try:
+            width = int(reg.get('width', 32))
+        except (ValueError, TypeError):
+            width = 32
+            
+        access = reg.get('access', 'RW')
+        default_val_raw = reg.get('default_value', '')
         
-        # Add attributes if description exists? 
-        # -- @axion: reg_name=...
-        
+        # Determine type
+        if width == 1:
+            sig_type = "std_logic"
+            width_suffix = ""
+            default_str = ":= '0'"
+        else:
+            sig_type = "std_logic_vector"
+            width_suffix = f"({width-1} downto 0)"
+            default_str = ":= (others => '0')"
+
+        # Handle explicit default value
+        if default_val_raw and default_val_raw != '0x0':
+            try:
+                if isinstance(default_val_raw, str) and default_val_raw.startswith('0x'):
+                    val_int = int(default_val_raw, 16)
+                else:
+                    val_int = int(default_val_raw)
+                
+                # Format for VHDL
+                if width == 1:
+                    bit = '1' if val_int else '0'
+                    default_str = f":= '{bit}'"
+                else:
+                    # Use hex literal X"..."
+                    # Ensure alignment to 4 bits
+                    nibbles = (width + 3) // 4
+                    hex_str = f"{val_int:0{nibbles}X}"
+                    default_str = f':= X"{hex_str}"'
+            except (ValueError, TypeError):
+                # Apply fallback or keep raw if user typed something custom?
+                # Let's keep raw if it looks valid? No, safest is fallback.
+                pass
+
         lines = []
         if reg.get('description'):
             lines.append(f"    -- {reg['description']}")
             
-        width_suffix = "(31 downto 0)" if 'vector' in sig_type.lower() else ""
-        default_val = " := (others => '0')" if 'vector' in sig_type.lower() else " := '0'"
-        
-        # Axion attributes
-        # attribute axion_reg : string;
-        # attribute axion_reg of name : signal is "access=RW";
-        
-        # For simplicity, we just add the signal declaration currently.
-        # Users might need to add attributes manually or we inject comments that Axion parses?
-        # Axion parses comments! -- @axion: access=RW
-        
-        access = reg.get('access', 'RW')
-        lines.append(f"    signal {name} : {sig_type}{width_suffix}{default_val}; -- @axion: access={access}")
+        lines.append(f"    signal {name} : {sig_type}{width_suffix}{default_str}; -- @axion: access={access}")
         
         return "\n".join(lines)
 

@@ -33,8 +33,9 @@
             <tr>
                 <th>Name</th>
                 <th>Offset</th>
-                <th>Type</th>
+                <th>Width (bits)</th>
                 <th>Access</th>
+                <th>Default Value</th>
                 <th>Description</th>
                 <th>Actions</th>
             </tr>
@@ -45,12 +46,16 @@
                 <td><input type="text" value="{{ reg.reg_name or reg.signal_name }}" class="reg-name-input"></td>
                 <td>{{ reg.relative_address or reg.address }}</td>
                 <td>
-                    <select class="reg-type-input">
-                        <option value="std_logic_vector" {% if 'vector' in reg.signal_type %}selected{% endif %}>Vector
-                        </option>
-                        <option value="std_logic" {% if 'vector' not in reg.signal_type %}selected{% endif %}>Logic
-                        </option>
-                    </select>
+                    <!-- Calculate width from type or default to 32 -->
+                    {% set width = 32 %}
+                    {% if 'vector' in reg.signal_type %}
+                    {% set width = reg.signal_type.split('(')[1].split(' downto')[0] | int + 1 if '(' in reg.signal_type
+                    else 32 %}
+                    {% elif reg.signal_type == 'std_logic' %}
+                    {% set width = 1 %}
+                    {% endif %}
+                    <input type="number" value="{{ width }}" class="reg-width-input" min="1" max="1024"
+                        style="width: 60px;">
                 </td>
                 <td>
                     <select class="reg-access-input">
@@ -59,6 +64,8 @@
                         <option value="WO" {% if reg.access_mode=='WO' %}selected{% endif %}>WO</option>
                     </select>
                 </td>
+                <td><input type="text" value="{{ reg.default_value or '0x0' }}" class="reg-default-input"
+                        style="width: 80px;"></td>
                 <td><input type="text" value="{{ reg.description }}" class="reg-desc-input" style="width: 100%;"></td>
                 <td>
                     <button onclick="deleteRow(this)"
@@ -78,12 +85,7 @@
         row.innerHTML = `
         <td><input type="text" placeholder="new_reg" class="reg-name-input"></td>
         <td>Auto</td>
-        <td>
-            <select class="reg-type-input">
-                <option value="std_logic_vector">Vector</option>
-                <option value="std_logic">Logic</option>
-            </select>
-        </td>
+        <td><input type="number" value="32" class="reg-width-input" min="1" max="1024" style="width: 60px;"></td>
         <td>
             <select class="reg-access-input">
                 <option value="RW">RW</option>
@@ -91,6 +93,7 @@
                 <option value="WO">WO</option>
             </select>
         </td>
+        <td><input type="text" value="0x0" class="reg-default-input" style="width: 80px;"></td>
         <td><input type="text" placeholder="Description" class="reg-desc-input" style="width: 100%;"></td>
         <td><button onclick="deleteRow(this)" style="color: red; border: none; background: none; cursor: pointer;">Delete</button></td>
     `;
@@ -109,8 +112,9 @@
         document.querySelectorAll('.reg-row').forEach(row => {
             regs.push({
                 name: row.querySelector('.reg-name-input').value,
-                type: row.querySelector('.reg-type-input').value,
+                width: row.querySelector('.reg-width-input').value,
                 access: row.querySelector('.reg-access-input').value,
+                default_value: row.querySelector('.reg-default-input').value,
                 description: row.querySelector('.reg-desc-input').value
             });
         });
