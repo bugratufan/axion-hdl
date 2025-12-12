@@ -103,6 +103,8 @@ Testing and verification are automated via `make test`, which maps tests back to
 | GEN-012 | Markdown Documentation Generation | Generates `.md` file with register tables. | Python Unit Test (`gen.test_gen_012`) |
 | GEN-013 | YAML Map Generation | Generates `{module}_regs.yaml` with valid YAML syntax. | Python Unit Test (`gen.test_gen_013`) |
 | GEN-014 | JSON Map Generation | Generates `{module}_regs.json` with valid JSON syntax. | Python Unit Test (`gen.test_gen_014`) |
+| GEN-015 | HTML Documentation Generation | Generates styled `register_map.html` with embedded CSS. | Python Unit Test (`gen.test_gen_015`) |
+| GEN-016 | PDF Documentation Generation | Generates `register_map.pdf` file (optional, requires weasyprint). | Python Unit Test (`gen.test_gen_016`) |
 
 ## 5. Error Handling (ERR)
 

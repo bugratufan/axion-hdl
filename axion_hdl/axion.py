@@ -600,6 +600,15 @@ class AxionHDL:
         if format == "md":
             output_path = doc_gen.generate_markdown(self.analyzed_modules)
             print(f"  Generated: {os.path.basename(output_path)}")
+        elif format == "html":
+            output_path = doc_gen.generate_html(self.analyzed_modules)
+            print(f"  Generated: {os.path.basename(output_path)}")
+        elif format == "pdf":
+            output_path = doc_gen.generate_pdf(self.analyzed_modules)
+            if output_path:
+                print(f"  Generated: {os.path.basename(output_path)}")
+            else:
+                print("  Skipped: PDF generation requires 'weasyprint' package")
         
         print(f"\nDocumentation generated in: {self.output_dir}")
         return True
