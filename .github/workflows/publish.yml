@@ -1,23 +1,17 @@
 # Publish to PyPI Workflow
-# Automatically publishes to PyPI ONLY when a PR from develop is merged to main
+# Automatically publishes to PyPI when code is pushed to main branch
 # Also creates a GitHub release with the version tag
 
 name: Publish to PyPI
 
 on:
-  pull_request:
-    types: [closed]
+  push:
     branches: [main]
   workflow_dispatch:  # Manual trigger
 
 jobs:
   # First, run tests to ensure everything passes
   test:
-    # Only run if PR was merged (not just closed) AND came from develop branch
-    # OR if manually triggered
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'develop')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,6 +20,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       
       - name: Install GHDL
         run: |
