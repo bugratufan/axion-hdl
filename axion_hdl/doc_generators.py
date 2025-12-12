@@ -392,8 +392,8 @@ class DocGenerator:
         readme_content = self._read_readme()
         
         if readme_content:
-            # Convert README markdown to HTML
-            readme_html = self._markdown_to_html(readme_content)
+            # Convert README markdown to HTML using enhanced converter
+            readme_html = self._convert_readme_to_html(readme_content)
         else:
             readme_html = "<p>README.md not found</p>"
         
@@ -601,6 +601,118 @@ For full documentation, visit [axion-hdl.readthedocs.io](https://axion-hdl.readt
         # Bold
         text = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', text)
         # Italic
+        text = re.sub(r'\*([^*]+)\*', r'<em>\1</em>', text)
+        
+        return text
+    
+    def _convert_readme_to_html(self, md_content: str) -> str:
+        """Convert README markdown to HTML using markdown library or enhanced fallback."""
+        # Try to use the markdown library for better rendering
+        try:
+            import markdown
+            html = markdown.markdown(
+                md_content,
+                extensions=['tables', 'fenced_code', 'codehilite', 'toc']
+            )
+            return html
+        except ImportError:
+            pass
+        
+        # Enhanced fallback converter for README
+        import re
+        
+        lines = md_content.split('\n')
+        html_lines = []
+        in_code_block = False
+        code_lang = ''
+        code_content = []
+        in_list = False
+        
+        for line in lines:
+            # Code blocks (```)
+            if line.strip().startswith('```'):
+                if in_code_block:
+                    # End code block
+                    html_lines.append(f'<pre><code class="{code_lang}">{chr(10).join(code_content)}</code></pre>')
+                    code_content = []
+                    in_code_block = False
+                else:
+                    # Start code block
+                    code_lang = line.strip()[3:] or 'text'
+                    in_code_block = True
+                continue
+            
+            if in_code_block:
+                # Escape HTML in code
+                escaped = line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                code_content.append(escaped)
+                continue
+            
+            # Headers
+            if line.startswith('# '):
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                html_lines.append(f'<h1>{self._process_readme_inline(line[2:])}</h1>')
+            elif line.startswith('## '):
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                html_lines.append(f'<h2>{self._process_readme_inline(line[3:])}</h2>')
+            elif line.startswith('### '):
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                html_lines.append(f'<h3>{self._process_readme_inline(line[4:])}</h3>')
+            # List items
+            elif line.strip().startswith('- ') or line.strip().startswith('* '):
+                if not in_list:
+                    html_lines.append('<ul>')
+                    in_list = True
+                text = line.strip()[2:]
+                html_lines.append(f'<li>{self._process_readme_inline(text)}</li>')
+            # Horizontal rule
+            elif line.strip() == '---' or line.strip() == '***':
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                html_lines.append('<hr>')
+            # Paragraph
+            elif line.strip():
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                html_lines.append(f'<p>{self._process_readme_inline(line)}</p>')
+        
+        if in_list:
+            html_lines.append('</ul>')
+        
+        return '\n'.join(html_lines)
+    
+    def _process_readme_inline(self, text: str) -> str:
+        """Process inline markdown with links, images, badges, etc."""
+        import re
+        
+        # Images with links: [![alt](img)](link)
+        text = re.sub(
+            r'\[\!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)',
+            r'<a href="\3"><img src="\2" alt="\1"></a>',
+            text
+        )
+        
+        # Images: ![alt](url)
+        text = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', r'<img src="\2" alt="\1">', text)
+        
+        # Links: [text](url)
+        text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', text)
+        
+        # Inline code: `code`
+        text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
+        
+        # Bold: **text**
+        text = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', text)
+        
+        # Italic: *text*
         text = re.sub(r'\*([^*]+)\*', r'<em>\1</em>', text)
         
         return text
