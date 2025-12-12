@@ -253,6 +253,30 @@ class DocGenerator:
         """Generate the main index.html page with module list."""
         total_regs = sum(len(m.get('registers', [])) for m in modules)
         
+        # Check for overlapping address ranges
+        module_ranges = []
+        for module in modules:
+            if 'address_range_start' in module and 'address_range_end' in module:
+                module_ranges.append({
+                    'name': module['name'],
+                    'start': module['address_range_start'],
+                    'end': module['address_range_end']
+                })
+        
+        overlaps = []
+        for i, m1 in enumerate(module_ranges):
+            for m2 in module_ranges[i+1:]:
+                if m1['start'] <= m2['end'] and m2['start'] <= m1['end']:
+                    overlap_start = max(m1['start'], m2['start'])
+                    overlap_end = min(m1['end'], m2['end'])
+                    overlaps.append({
+                        'm1': m1['name'],
+                        'm2': m2['name'],
+                        'm1_range': f"0x{m1['start']:04X} - 0x{m1['end']:04X}",
+                        'm2_range': f"0x{m2['start']:04X} - 0x{m2['end']:04X}",
+                        'overlap_range': f"0x{overlap_start:04X} - 0x{overlap_end:04X}"
+                    })
+        
         content = f'''
 <div class="top-nav">
     <a href="about.html" class="about-link">ℹ️ About Axion-HDL</a>
@@ -271,7 +295,37 @@ class DocGenerator:
         </div>
     </div>
 </div>
-
+'''
+        
+        # Add overlap warning if any
+        if overlaps:
+            content += '''
+<div class="overlap-warning">
+    <div class="warning-header">
+        <span class="warning-icon">⚠️</span>
+        <span class="warning-title">Address Overlap Detected</span>
+    </div>
+    <div class="warning-content">
+'''
+            for overlap in overlaps:
+                content += f'''
+        <div class="overlap-item">
+            <div class="overlap-modules">
+                <span class="module-name">{overlap['m1']}</span>
+                <span class="range">{overlap['m1_range']}</span>
+                <span class="overlap-symbol">⟷</span>
+                <span class="module-name">{overlap['m2']}</span>
+                <span class="range">{overlap['m2_range']}</span>
+            </div>
+            <div class="overlap-region">Overlap: {overlap['overlap_range']}</div>
+        </div>
+'''
+            content += '''
+    </div>
+</div>
+'''
+        
+        content += '''
 <h2>📦 Modules</h2>
 <div class="module-list">
 '''
@@ -874,6 +928,76 @@ For full documentation, visit [axion-hdl.readthedocs.io](https://axion-hdl.readt
             color: #64748b;
             padding-top: 0.75rem;
             border-top: 1px solid var(--border-color);
+        }}
+        
+        /* Overlap Warning */
+        .overlap-warning {{
+            background: #fef2f2;
+            border: 2px solid #ef4444;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }}
+        
+        .warning-header {{
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }}
+        
+        .warning-icon {{
+            font-size: 1.5rem;
+        }}
+        
+        .warning-title {{
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #dc2626;
+        }}
+        
+        .warning-content {{
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }}
+        
+        .overlap-item {{
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #fca5a5;
+        }}
+        
+        .overlap-modules {{
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.5rem;
+        }}
+        
+        .overlap-modules .module-name {{
+            font-weight: 600;
+            color: #dc2626;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }}
+        
+        .overlap-modules .range {{
+            font-size: 0.85rem;
+            color: #64748b;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }}
+        
+        .overlap-symbol {{
+            color: #dc2626;
+            font-weight: bold;
+        }}
+        
+        .overlap-region {{
+            font-size: 0.9rem;
+            color: #991b1b;
+            font-weight: 500;
         }}
         
         /* Module List (Vertical Layout) */
