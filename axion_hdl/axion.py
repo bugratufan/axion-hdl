@@ -494,7 +494,59 @@ class AxionHDL:
     def _print_analysis_summary(self):
         """
         Print a formatted table summary of all detected registers for each module.
+        Also calculates address ranges and checks for overlaps.
         """
+        # First, calculate address ranges for all modules
+        module_ranges = []
+        for module in self.analyzed_modules:
+            base_addr = module.get('base_address', 0x00)
+            registers = module.get('registers', [])
+            
+            if registers:
+                # Find the highest address used by this module
+                max_addr = base_addr
+                for reg in registers:
+                    reg_addr = reg.get('address_int', 0)
+                    # Account for register size (4 bytes for 32-bit)
+                    width = reg.get('width', 32)
+                    num_regs = (width + 31) // 32
+                    reg_end = reg_addr + (num_regs * 4)
+                    max_addr = max(max_addr, reg_end)
+                
+                # Store range info
+                module['address_range_start'] = base_addr
+                module['address_range_end'] = max_addr - 1  # Inclusive end
+                module_ranges.append({
+                    'name': module['name'],
+                    'start': base_addr,
+                    'end': max_addr - 1,
+                    'module': module
+                })
+        
+        # Check for overlapping address ranges
+        overlaps = []
+        for i, m1 in enumerate(module_ranges):
+            for m2 in module_ranges[i+1:]:
+                # Check if ranges overlap
+                if m1['start'] <= m2['end'] and m2['start'] <= m1['end']:
+                    overlaps.append((m1, m2))
+        
+        # Print warnings for overlaps
+        if overlaps:
+            print(f"\n{'!'*80}")
+            print("⚠️  ADDRESS OVERLAP WARNING")
+            print(f"{'!'*80}")
+            for m1, m2 in overlaps:
+                print(f"\n  {m1['name']}: 0x{m1['start']:04X} - 0x{m1['end']:04X}")
+                print(f"  {m2['name']}: 0x{m2['start']:04X} - 0x{m2['end']:04X}")
+                
+                # Calculate overlap region
+                overlap_start = max(m1['start'], m2['start'])
+                overlap_end = min(m1['end'], m2['end'])
+                print(f"  Overlap region: 0x{overlap_start:04X} - 0x{overlap_end:04X}")
+            print(f"\n{'!'*80}\n")
+        
+        # Print module summaries
         for module in self.analyzed_modules:
             base_addr = module.get('base_address', 0x00)
             base_addr_str = f"0x{base_addr:04X}"
@@ -507,7 +559,16 @@ class AxionHDL:
                 cdc_info = "CDC: Disabled"
             print(f"File: {module['file']}")
             print(f"{cdc_info}")
-            print(f"Base Address: {base_addr_str}")
+            
+            # Print address range
+            if 'address_range_start' in module:
+                range_start = module['address_range_start']
+                range_end = module['address_range_end']
+                range_size = range_end - range_start + 1
+                print(f"Address Range: 0x{range_start:04X} - 0x{range_end:04X} ({range_size} bytes)")
+            else:
+                print(f"Base Address: {base_addr_str}")
+            
             print(f"{'='*110}")
             
             if not module.get('registers'):
@@ -546,11 +607,13 @@ class AxionHDL:
                 print(f"{signal_name:<25} {signal_type:<8} {address:<10} {offset:<10} {access_mode:<8} {strobe_str:<15} {ports_str}")
             
             print(f"\nTotal Registers: {len(module['registers'])}")
-            
+        
         print(f"\n{'='*110}")
         print(f"Summary: {len(self.analyzed_modules)} module(s) analyzed")
         total_regs = sum(len(m.get('registers', [])) for m in self.analyzed_modules)
         print(f"Total Registers: {total_regs}")
+        if overlaps:
+            print(f"⚠️  Warning: {len(overlaps)} address overlap(s) detected!")
         print(f"{'='*110}\n")
         
     def generate_vhdl(self):
@@ -600,6 +663,15 @@ class AxionHDL:
         if format == "md":
             output_path = doc_gen.generate_markdown(self.analyzed_modules)
             print(f"  Generated: {os.path.basename(output_path)}")
+        elif format == "html":
+            output_path = doc_gen.generate_html(self.analyzed_modules)
+            print(f"  Generated: {os.path.basename(output_path)}")
+        elif format == "pdf":
+            output_path = doc_gen.generate_pdf(self.analyzed_modules)
+            if output_path:
+                print(f"  Generated: {os.path.basename(output_path)}")
+            else:
+                print("  Skipped: PDF generation requires 'weasyprint' package")
         
         print(f"\nDocumentation generated in: {self.output_dir}")
         return True

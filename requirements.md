@@ -103,6 +103,9 @@ Testing and verification are automated via `make test`, which maps tests back to
 | GEN-012 | Markdown Documentation Generation | Generates `.md` file with register tables. | Python Unit Test (`gen.test_gen_012`) |
 | GEN-013 | YAML Map Generation | Generates `{module}_regs.yaml` with valid YAML syntax. | Python Unit Test (`gen.test_gen_013`) |
 | GEN-014 | JSON Map Generation | Generates `{module}_regs.json` with valid JSON syntax. | Python Unit Test (`gen.test_gen_014`) |
+| GEN-015 | HTML Documentation Generation | Generates styled `register_map.html` with embedded CSS. | Python Unit Test (`gen.test_gen_015`) |
+| GEN-016 | PDF Documentation Generation | Generates `register_map.pdf` file (optional, requires weasyprint). | Python Unit Test (`gen.test_gen_016`) |
+| GEN-017 | Address Range Calculation | Calculates and displays address range (start-end) for each module. | Python Unit Test (`gen.test_gen_017`) |
 
 ## 5. Error Handling (ERR)
 
@@ -114,6 +117,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | ERR-004 | Invalid Hex Address Reporting | Reports error for malformed hex strings. | Python Unit Test (`err.test_err_004`) |
 | ERR-005 | No Entity Declaration Handling | Handles files missing entity declarations. | Python Unit Test (`err.test_err_005`) |
 | ERR-006 | Duplicate Signal Detection | Detects and reports duplicate signal names within a module. | Python Unit Test (`err.test_err_006`) |
+| ERR-007 | Address Overlap Detection | Warns when multiple modules have overlapping address ranges. | Python Unit Test (`err.test_err_007`) |
 
 ## 6. Command Line Interface (CLI)
 
