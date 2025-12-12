@@ -614,15 +614,33 @@ For full documentation, visit [axion-hdl.readthedocs.io](https://axion-hdl.readt
                         html_lines.append(f'<th>{cell}</th>')
                     html_lines.append('</tr></thead><tbody>')
                 else:
-                    html_lines.append('<tr>')
+                    # Logic to find register name cell (usually index 2) to set Row ID
+                    row_attr = ''
+                    reg_col_idx = 2  # Based on generator format: Addr | Offset | Name | ...
+                    
+                    if len(cells) > reg_col_idx and '`' in cells[reg_col_idx]:
+                        import re
+                        reg_match = re.search(r'`([^`]+)`', cells[reg_col_idx])
+                        if reg_match:
+                            r_name = reg_match.group(1)
+                            r_id = r_name.replace('_', '-').lower()
+                            row_attr = f' id="row-reg-{r_id}"'
+                            
+                    html_lines.append(f'<tr{row_attr}>')
                     for i, cell in enumerate(cells):
                         cell = self._process_inline_markdown(cell)
-                        # First column is register name - make it a link to the detail section
-                        if i == 0 and cell.startswith('<code>') and cell.endswith('</code>'):
+                        # Make register name column clickable
+                        if i == reg_col_idx and '<code>' in cell:
                             # Extract register name from <code>name</code>
-                            reg_name = cell[6:-7]  # Remove <code> and </code>
-                            anchor_id = reg_name.replace('_', '-').lower()
-                            cell = f'<a href="#reg-{anchor_id}"><code>{reg_name}</code></a>'
+                            # cell is like "<code>reg_name</code>"
+                            # We want <a href="#reg-id"><code>reg_name</code></a>
+                            import re
+                            # Use regex to be safe against extra spaces or tags
+                            m = re.search(r'<code>(.*?)</code>', cell)
+                            if m:
+                                r_name = m.group(1)
+                                r_id = r_name.replace('_', '-').lower()
+                                cell = f'<a href="#reg-{r_id}">{cell}</a>'
                         html_lines.append(f'<td>{cell}</td>')
                     html_lines.append('</tr>')
             # List item
@@ -1490,6 +1508,30 @@ window.addEventListener('scroll', function() {{
     }} else {{
         btn.classList.remove('visible');
     }}
+}});
+
+// Smart Navigation: Remember which register row was clicked
+document.addEventListener('DOMContentLoaded', function() {{
+    const links = document.querySelectorAll('td a');
+    const backBtn = document.getElementById('backToTable');
+    
+    links.forEach(link => {{
+        link.addEventListener('click', function(e) {{
+            const href = this.getAttribute('href');
+            if (href && href.startsWith('#reg-')) {{
+                // Construct the row ID: #reg-name -> #row-reg-name
+                const regId = href.substring(5);
+                const rowId = 'row-reg-' + regId;
+                
+                // Update back button to point to the specific row
+                if (backBtn) {{
+                    backBtn.setAttribute('href', '#' + rowId);
+                    // Update text slightly to indicate context
+                    // backBtn.textContent = '↑ Back to Register'; 
+                }}
+            }}
+        }});
+    }});
 }});
 </script>
 ''') + '''
