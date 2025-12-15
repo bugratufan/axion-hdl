@@ -13,6 +13,7 @@ Axion-HDL is a powerful Python-based automation tool that generates AXI4-Lite re
 getting-started
 data-formats
 cli-reference
+gui
 outputs
 ```
 
@@ -35,6 +36,7 @@ api-reference
 
 - **Multi-Format Input**: Define registers in VHDL comments, YAML, JSON, or XML
 - **Automated Generation**: One command generates VHDL, C headers, and docs
+- **Interactive GUI**: Web-based interface for visual register management
 - **Clock Domain Crossing**: Automatic CDC synchronizers
 - **Auto-Addressing**: Smart conflict detection and address assignment
 

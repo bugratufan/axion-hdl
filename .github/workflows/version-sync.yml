@@ -55,14 +55,19 @@ jobs:
           
           if [[ "$BRANCH" == feature/* ]]; then
             echo "bump_type=minor" >> $GITHUB_OUTPUT
-            echo "🔼 Feature branch detected - will bump MINOR version"
-          else
+            echo "should_bump=true" >> $GITHUB_OUTPUT
+            echo "Feature branch detected - will bump MINOR version"
+          elif [[ "$BRANCH" == fix/* ]] || [[ "$BRANCH" == bugfix/* ]]; then
             echo "bump_type=patch" >> $GITHUB_OUTPUT
-            echo "🔧 Non-feature branch - will bump PATCH version"
+            echo "should_bump=true" >> $GITHUB_OUTPUT
+            echo "Fix/bugfix branch detected - will bump PATCH version"
+          else
+            echo "should_bump=false" >> $GITHUB_OUTPUT
+            echo "Non-feature/fix branch - skipping version bump"
           fi
 
       - name: Auto-bump version
-        if: steps.version-check.outputs.version_changed == 'false'
+        if: steps.version-check.outputs.version_changed == 'false' && steps.bump-type.outputs.should_bump == 'true'
         run: |
           python scripts/sync_version.py --bump ${{ steps.bump-type.outputs.bump_type }}
           echo "New version: $(cat .version)"

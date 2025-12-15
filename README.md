@@ -12,7 +12,7 @@
 ## Install
 
 ```bash
-pip install axion-hdl
+axion-hdl -s my_module.vhd -o output/
 ```
 
 ## Use
