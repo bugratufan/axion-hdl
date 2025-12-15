@@ -103,6 +103,9 @@ Testing and verification are automated via `make test`, which maps tests back to
 | GEN-012 | Markdown Documentation Generation | Generates `.md` file with register tables. | Python Unit Test (`gen.test_gen_012`) |
 | GEN-013 | YAML Map Generation | Generates `{module}_regs.yaml` with valid YAML syntax. | Python Unit Test (`gen.test_gen_013`) |
 | GEN-014 | JSON Map Generation | Generates `{module}_regs.json` with valid JSON syntax. | Python Unit Test (`gen.test_gen_014`) |
+| GEN-015 | HTML Documentation Generation | Generates styled `register_map.html` with embedded CSS. | Python Unit Test (`gen.test_gen_015`) |
+| GEN-016 | PDF Documentation Generation | Generates `register_map.pdf` file (optional, requires weasyprint). | Python Unit Test (`gen.test_gen_016`) |
+| GEN-017 | Address Range Calculation | Calculates and displays address range (start-end) for each module. | Python Unit Test (`gen.test_gen_017`) |
 
 ## 5. Error Handling (ERR)
 
@@ -114,6 +117,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | ERR-004 | Invalid Hex Address Reporting | Reports error for malformed hex strings. | Python Unit Test (`err.test_err_004`) |
 | ERR-005 | No Entity Declaration Handling | Handles files missing entity declarations. | Python Unit Test (`err.test_err_005`) |
 | ERR-006 | Duplicate Signal Detection | Detects and reports duplicate signal names within a module. | Python Unit Test (`err.test_err_006`) |
+| ERR-007 | Address Overlap Detection | Warns when multiple modules have overlapping address ranges. | Python Unit Test (`err.test_err_007`) |
 
 ## 6. Command Line Interface (CLI)
 
@@ -129,6 +133,9 @@ Testing and verification are automated via `make test`, which maps tests back to
 | CLI-010 | Output Directory Creation | Creates output directory if it doesn't exist. | Python Unit Test (`cli.test_cli_010`) |
 | CLI-011 | YAML Output Flag (--yaml) | `--yaml` generates YAML register map output. | Python Unit Test (`cli.test_cli_011`) |
 | CLI-012 | JSON Output Flag (--json) | `--json` generates JSON register map output. | Python Unit Test (`cli.test_cli_012`) |
+| CLI-013 | Configuration File Support (-c, --config) | `--config <file>` loads settings (sources, excludes) from JSON file. | Python Unit Test (`cli.test_cli_013`) |
+| CLI-014 | Save Configuration to Persistent File | The tool must provide a mechanism to save the current configuration to a persistent file (e.g., `.axion_conf`). | GUI Integration Test |
+| CLI-015 | Auto-load Configuration | The tool must automatically load configuration from `.axion_conf` in the current working directory if it exists and no specific config file is provided via `--config`. | Python Unit Test (`cli.test_cli_015`) |
 
 > [!NOTE]
 > The `-x/--xml-source` option is deprecated but still supported for backward compatibility. Use `-s/--source` for all source types instead.
@@ -191,3 +198,26 @@ Testing and verification are automated via `make test`, which maps tests back to
 | DEF-004 | Default to 0 if unspecified | Signals default to 0x0 if no attribute. | Python Unit Test (`def.test_def_004`) |
 | DEF-009 | Combine Subregister Defaults | Packed register default is OR-combination of field defaults. | Python Unit Test (`def.test_def_009`) |
 | DEF-010 | Backward Compatibility | Existing modules unaffected. | Python Unit Test (`def.test_def_010`) |
+
+## 12. Interactive GUI (GUI)
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| GUI-001 | Launch Web Server | `axion-hdl --gui` launches local web server. | Manual / Integration Test |
+| GUI-002 | Dashboard View | Web Interface lists all parsed modules. | Manual / Integration Test |
+| GUI-003 | Register Editor | Allows adding/editing registers via form. | Manual / Integration Test |
+| GUI-004 | Source Modification | Can write changes back to source files (JSON/YAML/VHDL*). | Manual / Integration Test |
+| GUI-005 | Diff & Review | Shows visual diff of VHDL/Config changes before saving. | Manual / Integration Test |
+| GUI-006 | Auto-Reload | Application state updates after saving. | Manual / Integration Test |
+
+> GUI-004 VHDL modification is currently experimental and supports mainly appending new signals to identified declaration blocks.
+
+## 13. Validation & Diagnostics (VAL)
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| VAL-001 | Required Field Validation | Missing 'module' or other required fields in source files (YAML/JSON/XML) must be reported as Errors. | Python Unit Test (`val.test_val_001`) |
+| VAL-002 | Format Error Visibility | Parsing errors (malformed syntax) must be visible in Rule Check results. | Python Unit Test (`val.test_val_002`) |
+| VAL-003 | Logical Integrity Check | Validates integrity of loaded modules (e.g. non-empty register lists). | Python Unit Test (`val.test_val_003`) |
+| VAL-004 | Description Presence | Warns if registers are missing descriptions/documentation. | Python Unit Test (`val.test_val_004`) |
+

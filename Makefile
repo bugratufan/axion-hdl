@@ -123,6 +123,16 @@ test-full:
 	@echo "Running full test script..."
 	@bash $(TESTS_DIR)/run_full_test.sh
 
+## Run GUI tests (requires playwright)
+test-gui:
+	@echo "Running GUI tests..."
+	@if $(PYTHON) -c "import playwright" 2>/dev/null; then \
+		$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py -v --tb=short; \
+	else \
+		echo "Warning: playwright not installed, skipping GUI tests"; \
+		echo "Install with: pip install pytest-playwright playwright && playwright install chromium"; \
+	fi
+
 #------------------------------------------------------------------------------
 # Code Generation
 #------------------------------------------------------------------------------
@@ -278,6 +288,7 @@ help:
 	@echo "  test-python   Run Python tests only"
 	@echo "  test-c        Run C header tests only"
 	@echo "  test-vhdl     Run VHDL simulation tests only"
+	@echo "  test-gui      Run GUI tests (requires playwright)"
 	@echo "  test-full     Run full test script (legacy)"
 	@echo ""
 	@echo "Code Generation:"

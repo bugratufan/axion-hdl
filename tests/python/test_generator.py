@@ -2,8 +2,8 @@
 """
 test_generator.py - Code Generation Requirements Tests
 
-Tests for GEN-001 through GEN-012 requirements
-Verifies VHDL, C header, XML, and Markdown generation functionality.
+Tests for GEN-001 through GEN-016 requirements
+Verifies VHDL, C header, XML, Markdown, HTML, and PDF generation functionality.
 """
 
 import os
@@ -65,12 +65,16 @@ end architecture rtl;
         cls.axion.generate_c_header()
         cls.axion.generate_xml()
         cls.axion.generate_documentation(format="md")
+        cls.axion.generate_documentation(format="html")
+        cls.axion.generate_documentation(format="pdf")
         
         # Get generated file paths
         cls.gen_vhdl = os.path.join(cls.output_dir, "generator_test_axion_reg.vhd")
         cls.gen_header = os.path.join(cls.output_dir, "generator_test_regs.h")
         cls.gen_xml = os.path.join(cls.output_dir, "generator_test_regs.xml")
         cls.gen_md = os.path.join(cls.output_dir, "register_map.md")
+        cls.gen_html = os.path.join(cls.output_dir, "register_map.html")
+        cls.gen_pdf = os.path.join(cls.output_dir, "register_map.pdf")
     
     @classmethod
     def tearDownClass(cls):
@@ -341,6 +345,63 @@ end architecture rtl;
         with open(self.gen_md, 'r') as f:
             content = f.read()
         self.assertIn('0x', content.lower())
+    
+    # =========================================================================
+    # GEN-015: HTML Documentation Generation
+    # =========================================================================
+    def test_gen_015_html_exists(self):
+        """GEN-015: HTML file generated"""
+        self.assertTrue(os.path.exists(self.gen_html))
+    
+    def test_gen_015_html_has_doctype(self):
+        """GEN-015: HTML has proper DOCTYPE"""
+        with open(self.gen_html, 'r') as f:
+            content = f.read()
+        self.assertIn('<!DOCTYPE html>', content)
+    
+    def test_gen_015_html_has_style(self):
+        """GEN-015: HTML has embedded CSS"""
+        with open(self.gen_html, 'r') as f:
+            content = f.read()
+        self.assertIn('<style>', content)
+        self.assertIn('</style>', content)
+    
+    def test_gen_015_html_has_table(self):
+        """GEN-015: HTML has register table"""
+        with open(self.gen_html, 'r') as f:
+            content = f.read()
+        self.assertIn('<table>', content)
+        self.assertIn('<th>', content)
+    
+    def test_gen_015_html_has_module_name(self):
+        """GEN-015: HTML has module name"""
+        with open(self.gen_html, 'r') as f:
+            content = f.read().lower()
+        self.assertIn('generator_test', content)
+    
+    # =========================================================================
+    # GEN-016: PDF Documentation Generation  
+    # =========================================================================
+    def test_gen_016_pdf_exists_or_skipped(self):
+        """GEN-016: PDF file generated or skipped if weasyprint unavailable"""
+        # PDF generation is optional, depends on weasyprint
+        try:
+            import weasyprint
+            # weasyprint is available, PDF should exist
+            self.assertTrue(os.path.exists(self.gen_pdf), 
+                "PDF should be generated when weasyprint is available")
+        except ImportError:
+            # weasyprint not available, PDF generation skipped is acceptable
+            pass  # Test passes regardless of PDF existence
+    
+    def test_gen_016_pdf_valid_if_exists(self):
+        """GEN-016: PDF has valid header if generated"""
+        if os.path.exists(self.gen_pdf):
+            with open(self.gen_pdf, 'rb') as f:
+                header = f.read(8)
+            # PDF files start with %PDF-
+            self.assertTrue(header.startswith(b'%PDF-'), 
+                "Generated PDF should have valid PDF header")
 
 
 def run_generator_tests():

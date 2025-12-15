@@ -1044,6 +1044,9 @@ class VHDLGenerator:
     
     def _get_addr_bits(self, module_data: Dict) -> str:
         """Determine address bit range needed."""
+        if not module_data.get('registers'):
+            return "7 downto 0"  # Default to 8 bits if no registers
+
         max_addr = max(reg['address_int'] for reg in module_data['registers'])
         if max_addr < 256:
             return "7 downto 0"   # 8 bits, 2 hex digits
@@ -1055,7 +1058,7 @@ class VHDLGenerator:
     def _addr_to_vhdl_hex(self, addr_int: int, module_data: Dict = None) -> str:
         """Convert address integer to VHDL hex string literal with proper width."""
         # Determine required bit width based on max address in module
-        if module_data:
+        if module_data and module_data.get('registers'):
             max_addr = max(reg['address_int'] for reg in module_data['registers'])
             if max_addr < 256:
                 hex_digits = 2  # 8 bits

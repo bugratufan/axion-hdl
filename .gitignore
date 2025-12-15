@@ -58,4 +58,4 @@ instructions/*
 # Build artifacts / backup files
 *.backup
 *_backup.py
-*_fixed.py
+*_fixed.py.axion_conf
