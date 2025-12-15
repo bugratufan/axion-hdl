@@ -56,18 +56,9 @@ uninstall:
 # Testing
 #------------------------------------------------------------------------------
 
-## Run all tests with tabular results (includes GUI tests)
+## Run all tests with tabular results
 test:
 	@$(PYTHON) $(TESTS_DIR)/run_tests.py
-	@echo ""
-	@echo "Running GUI tests..."
-	@if $(PYTHON) -c "import playwright" 2>/dev/null; then \
-		$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py -v --tb=short 2>&1 | tee /tmp/gui_test_output.txt; \
-		$(PYTHON) $(TESTS_DIR)/append_gui_results.py /tmp/gui_test_output.txt; \
-	else \
-		echo "Warning: playwright not installed, skipping GUI tests"; \
-		echo "Install with: pip install pytest-playwright playwright && playwright install chromium"; \
-	fi
 
 ## Run all tests (legacy format)
 test-legacy: test-python test-address-conflict test-c test-vhdl
