@@ -45,6 +45,7 @@ class JSONInputParser:
     def __init__(self):
         self.address_manager = AddressManager()
         self._exclude_patterns: Set[str] = set()
+        self.errors = []
     
     def add_exclude(self, pattern: str):
         """Add an exclusion pattern for files/directories."""
@@ -85,8 +86,11 @@ class JSONInputParser:
         Returns:
             Dictionary with module data or None if parsing fails
         """
+        print(f"Parsing JSON file: {filepath}")
         if not os.path.exists(filepath):
-            print(f"  Warning: JSON file not found: {filepath}")
+            msg = f"JSON file not found: {filepath}"
+            print(f"  Warning: {msg}")
+            self.errors.append({'file': filepath, 'msg': msg})
             return None
         
         try:
@@ -100,17 +104,23 @@ class JSONInputParser:
             return self._parse_json_data(data, filepath)
             
         except json.JSONDecodeError as e:
-            print(f"  Error parsing JSON file {filepath}: {e}")
+            msg = f"Error parsing JSON file {filepath}: {e}"
+            print(f"  {msg}")
+            self.errors.append({'file': filepath, 'msg': msg})
             return None
         except Exception as e:
-            print(f"  Error processing JSON file {filepath}: {e}")
+            msg = f"Error processing JSON file {filepath}: {e}"
+            print(f"  {msg}")
+            self.errors.append({'file': filepath, 'msg': msg})
             return None
     
     def _parse_json_data(self, data: Dict, filepath: str) -> Optional[Dict]:
         """Parse JSON data structure."""
         module_name = data.get('module')
         if not module_name:
-            print(f"  Error: Missing 'module' field in {filepath}")
+            msg = f"Missing 'module' field in {filepath}"
+            print(f"Error: {msg}")
+            self.errors.append({'file': filepath, 'msg': msg})
             return None
         
         base_addr_val = data.get('base_addr', '0x0000')
@@ -351,7 +361,6 @@ class JSONInputParser:
                     print(f"  Skipping excluded: {json_file}")
                     continue
                 
-                print(f"  Parsing: {json_file}")
                 module = self.parse_file(json_file)
                 if module:
                     modules.append(module)

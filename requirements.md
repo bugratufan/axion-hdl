@@ -133,6 +133,9 @@ Testing and verification are automated via `make test`, which maps tests back to
 | CLI-010 | Output Directory Creation | Creates output directory if it doesn't exist. | Python Unit Test (`cli.test_cli_010`) |
 | CLI-011 | YAML Output Flag (--yaml) | `--yaml` generates YAML register map output. | Python Unit Test (`cli.test_cli_011`) |
 | CLI-012 | JSON Output Flag (--json) | `--json` generates JSON register map output. | Python Unit Test (`cli.test_cli_012`) |
+| CLI-013 | Configuration File Support (-c, --config) | `--config <file>` loads settings (sources, excludes) from JSON file. | Python Unit Test (`cli.test_cli_013`) |
+| CLI-014 | Save Configuration to Persistent File | The tool must provide a mechanism to save the current configuration to a persistent file (e.g., `.axion_conf`). | GUI Integration Test |
+| CLI-015 | Auto-load Configuration | The tool must automatically load configuration from `.axion_conf` in the current working directory if it exists and no specific config file is provided via `--config`. | Python Unit Test (`cli.test_cli_015`) |
 
 > [!NOTE]
 > The `-x/--xml-source` option is deprecated but still supported for backward compatibility. Use `-s/--source` for all source types instead.
@@ -207,5 +210,14 @@ Testing and verification are automated via `make test`, which maps tests back to
 | GUI-005 | Diff & Review | Shows visual diff of VHDL/Config changes before saving. | Manual / Integration Test |
 | GUI-006 | Auto-Reload | Application state updates after saving. | Manual / Integration Test |
 
-> [!NOTE]
 > GUI-004 VHDL modification is currently experimental and supports mainly appending new signals to identified declaration blocks.
+
+## 13. Validation & Diagnostics (VAL)
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| VAL-001 | Required Field Validation | Missing 'module' or other required fields in source files (YAML/JSON/XML) must be reported as Errors. | Python Unit Test (`val.test_val_001`) |
+| VAL-002 | Format Error Visibility | Parsing errors (malformed syntax) must be visible in Rule Check results. | Python Unit Test (`val.test_val_002`) |
+| VAL-003 | Logical Integrity Check | Validates integrity of loaded modules (e.g. non-empty register lists). | Python Unit Test (`val.test_val_003`) |
+| VAL-004 | Description Presence | Warns if registers are missing descriptions/documentation. | Python Unit Test (`val.test_val_004`) |
+

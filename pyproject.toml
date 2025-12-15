@@ -42,9 +42,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+gui = [
+    "flask>=2.0",
+]
 dev = [
     "pytest>=6.0",
     "pytest-cov>=2.0",
+    "pytest-playwright>=0.4.0",
+    "playwright>=1.40.0",
     "black>=21.0",
     "flake8>=3.9",
     "build>=0.7",
