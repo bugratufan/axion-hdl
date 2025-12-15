@@ -14,6 +14,8 @@ axion-hdl -s <source> -o <output> [options]
 | `-x, --xml-source PATH` | XML source (deprecated, use -s) |
 | `-o, --output DIR` | Output directory (default: ./axion_output) |
 | `-e, --exclude PATTERN` | Exclude files matching pattern |
+| `--gui` | Start interactive web GUI |
+| `--port PORT` | GUI port (default: 5000) |
 | `--all` | Generate all output types |
 | `--vhdl` | Generate VHDL module |
 | `--c-header` | Generate C header |
@@ -21,6 +23,7 @@ axion-hdl -s <source> -o <output> [options]
 | `--yaml` | Generate YAML output |
 | `--json` | Generate JSON output |
 | `--doc` | Generate documentation (Markdown) |
+| `--doc-format FORMAT` | Documentation format (md, html, pdf) |
 | `-v, --version` | Show version |
 | `-h, --help` | Show help |
 

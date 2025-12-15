@@ -28,6 +28,7 @@ class VHDLParser:
         )
         # Exclusion patterns (files, directories, or glob patterns)
         self.exclude_patterns: Set[str] = set()
+        self.errors = []  # Track parsing errors
     
     def parse_file(self, filepath: str) -> Optional[Dict]:
         """
@@ -199,11 +200,14 @@ class VHDLParser:
     
     def _parse_vhdl_file(self, filepath: str) -> Optional[Dict]:
         """Parse a single VHDL file."""
+        print(f"Parsing VHDL file: {filepath}")
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 content = f.read()
         except Exception as e:
-            print(f"Warning: Could not read {filepath}: {e}")
+            msg = f"Could not read {filepath}: {e}"
+            print(f"Warning: {msg}")
+            self.errors.append({'file': filepath, 'msg': msg})
             return None
         
         # Extract entity name using common utilities

@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Review Changes</h1>
+
+<div class="card">
+    <p>Please review the changes that will be applied to your source file.</p>
+    {% if diff %}
+    <div style="background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 4px; overflow-x: auto;">
+        <pre><code>{{ diff }}</code></pre>
+    </div>
+    {% else %}
+    <p style="color: #64748b;">No changes detected in source file.</p>
+    {% endif %}
+
+    <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+        <form action="/api/confirm_save" method="post">
+            <button type="submit" class="btn btn-primary" style="background-color: #10b981;">Confirm & Save</button>
+        </form>
+        <a href="/module/{{ module_name }}" class="btn" style="background: #e2e8f0; color: #475569;">Cancel / Keep
+            Editing</a>
+    </div>
+</div>
+
+<script>
+    // Potentially add syntax highlighting here (e.g. Prism.js or highlight.js) later
+</script>
+{% endblock %}

@@ -27,6 +27,7 @@ from .yaml_input_parser import YAMLInputParser
 from .json_input_parser import JSONInputParser
 from .generator import VHDLGenerator
 from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator, YAMLGenerator, JSONGenerator
+from .rule_checker import RuleChecker
 
 
 class AxionHDL:
@@ -65,6 +66,7 @@ class AxionHDL:
         self.analyzed_modules = []
         self.is_analyzed = False
         self._exclude_patterns = set()
+        self.parse_errors = []  # Track global parsing errors
         
     def set_output_dir(self, dir_path):
         """
@@ -364,6 +366,7 @@ class AxionHDL:
             return False
         
         self.analyzed_modules = []
+        self.parse_errors = []  # Clear previous errors
             
         # Parse VHDL files if any
         if has_vhdl_sources:
@@ -390,7 +393,12 @@ class AxionHDL:
                     if module and module.get('registers'):
                         self.analyzed_modules.append(module)
                 except Exception as e:
-                    print(f"Warning: Failed to parse {filepath}: {e}")
+                    msg = f"Failed to parse {filepath}: {e}"
+                    print(f"Warning: {msg}")
+                    self.parse_errors.append({'file': filepath, 'msg': msg})
+            
+            # Collect parser errors (including manual files)
+            self.parse_errors.extend(parser.errors)
             
             vhdl_count = len([m for m in self.analyzed_modules])
             print(f"Found {vhdl_count} modules from VHDL files.")
@@ -421,6 +429,8 @@ class AxionHDL:
                 except Exception as e:
                     print(f"Warning: Failed to parse {filepath}: {e}")
             
+            self.parse_errors.extend(xml_parser.errors)
+            
             xml_count = len(self.analyzed_modules) - xml_modules_start
             print(f"Found {xml_count} modules from XML files.")
         
@@ -440,7 +450,7 @@ class AxionHDL:
             if self.yaml_src_dirs:
                 yaml_modules = yaml_parser.parse_yaml_files(self.yaml_src_dirs)
                 self.analyzed_modules.extend(yaml_modules)
-            
+                
             # Parse individual files
             for filepath in self.yaml_src_files:
                 try:
@@ -449,6 +459,8 @@ class AxionHDL:
                         self.analyzed_modules.append(module)
                 except Exception as e:
                     print(f"Warning: Failed to parse {filepath}: {e}")
+            
+            self.parse_errors.extend(yaml_parser.errors)
             
             yaml_count = len(self.analyzed_modules) - yaml_modules_start
             print(f"Found {yaml_count} modules from YAML files.")
@@ -479,6 +491,8 @@ class AxionHDL:
                 except Exception as e:
                     print(f"Warning: Failed to parse {filepath}: {e}")
             
+            self.parse_errors.extend(json_parser.errors)
+            
             json_count = len(self.analyzed_modules) - json_modules_start
             print(f"Found {json_count} modules from JSON files.")
         
@@ -496,54 +510,17 @@ class AxionHDL:
         Print a formatted table summary of all detected registers for each module.
         Also calculates address ranges and checks for overlaps.
         """
-        # First, calculate address ranges for all modules
-        module_ranges = []
-        for module in self.analyzed_modules:
-            base_addr = module.get('base_address', 0x00)
-            registers = module.get('registers', [])
-            
-            if registers:
-                # Find the highest address used by this module
-                max_addr = base_addr
-                for reg in registers:
-                    reg_addr = reg.get('address_int', 0)
-                    # Account for register size (4 bytes for 32-bit)
-                    width = reg.get('width', 32)
-                    num_regs = (width + 31) // 32
-                    reg_end = reg_addr + (num_regs * 4)
-                    max_addr = max(max_addr, reg_end)
-                
-                # Store range info
-                module['address_range_start'] = base_addr
-                module['address_range_end'] = max_addr - 1  # Inclusive end
-                module_ranges.append({
-                    'name': module['name'],
-                    'start': base_addr,
-                    'end': max_addr - 1,
-                    'module': module
-                })
         
-        # Check for overlapping address ranges
-        overlaps = []
-        for i, m1 in enumerate(module_ranges):
-            for m2 in module_ranges[i+1:]:
-                # Check if ranges overlap
-                if m1['start'] <= m2['end'] and m2['start'] <= m1['end']:
-                    overlaps.append((m1, m2))
+        # Check for overlapping address ranges using RuleChecker
+        checker = RuleChecker()
+        checker.check_address_overlaps(self.analyzed_modules)
         
-        # Print warnings for overlaps
-        if overlaps:
+        if checker.errors:
             print(f"\n{'!'*80}")
             print("⚠️  ADDRESS OVERLAP WARNING")
             print(f"{'!'*80}")
-            for m1, m2 in overlaps:
-                print(f"\n  {m1['name']}: 0x{m1['start']:04X} - 0x{m1['end']:04X}")
-                print(f"  {m2['name']}: 0x{m2['start']:04X} - 0x{m2['end']:04X}")
-                
-                # Calculate overlap region
-                overlap_start = max(m1['start'], m2['start'])
-                overlap_end = min(m1['end'], m2['end'])
-                print(f"  Overlap region: 0x{overlap_start:04X} - 0x{overlap_end:04X}")
+            for err in checker.errors:
+                print(f"  {err['msg']}")
             print(f"\n{'!'*80}\n")
         
         # Print module summaries
@@ -612,9 +589,39 @@ class AxionHDL:
         print(f"Summary: {len(self.analyzed_modules)} module(s) analyzed")
         total_regs = sum(len(m.get('registers', [])) for m in self.analyzed_modules)
         print(f"Total Registers: {total_regs}")
-        if overlaps:
-            print(f"⚠️  Warning: {len(overlaps)} address overlap(s) detected!")
+        if checker.errors:
+            print(f"⚠️  Warning: Address overlap(s) detected! Run --rule-check for details.")
         print(f"{'='*110}\n")
+
+    def run_rules(self, report_file: str = None) -> bool:
+        """Run validation rules and print report."""
+        if not self.is_analyzed:
+             print("Error: Analysis not performed. Call analyze() first.")
+             return False
+             
+        checker = RuleChecker()
+        checker.run_all_checks(self.analyzed_modules)
+        text_report = checker.generate_report()
+        
+        # Always print text summary to stdout
+        print(text_report)
+        
+        # Save to file if requested
+        if report_file:
+            try:
+                # Determine format based on extension
+                if report_file.endswith('.json'):
+                    file_content = checker.generate_json()
+                else:
+                    file_content = text_report
+                    
+                with open(report_file, 'w') as f:
+                    f.write(file_content)
+                print(f"\nSaved report to: {os.path.abspath(report_file)}")
+            except IOError as e:
+                print(f"Error writing report file: {e}")
+        
+        return len(checker.errors) == 0
         
     def generate_vhdl(self):
         """

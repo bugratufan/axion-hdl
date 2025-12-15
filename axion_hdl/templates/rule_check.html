@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block title %}Rule Check - Axion HDL{% endblock %}
+
+{% block head %}
+<style>
+    .status-card {
+        border-radius: 12px;
+        padding: 20px 24px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .status-icon {
+        font-size: 2.5rem;
+    }
+
+    .status-info h3 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+
+    .status-info p {
+        margin: 4px 0 0 0;
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+
+    .module-section {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        margin-bottom: 16px;
+        overflow: hidden;
+    }
+
+    .module-header {
+        background: #f8fafc;
+        padding: 12px 16px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .module-header h5 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #1e293b;
+    }
+
+    .module-count {
+        background: #fee2e2;
+        color: #dc2626;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 3px 10px;
+        border-radius: 12px;
+    }
+
+    .issues-table {
+        width: 100%;
+        font-size: 0.85rem;
+    }
+
+    .issues-table th {
+        background: #f1f5f9;
+        font-weight: 600;
+        color: #64748b;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 8px 12px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .issues-table td {
+        padding: 8px 12px;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: top;
+    }
+
+    .issues-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .issues-table tr:hover td {
+        background: #fafafa;
+    }
+
+    .issue-type-cell {
+        width: 140px;
+        white-space: nowrap;
+    }
+
+    .issue-type-badge {
+        background: #fee2e2;
+        color: #dc2626;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 4px;
+    }
+
+    .issue-msg code {
+        background: #e2e8f0;
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 0.8rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px;
+        background: white;
+        border-radius: 12px;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        color: #10b981;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-shield-check me-2 text-primary"></i>Design Rule Check</h2>
+    <div>
+        <button class="btn btn-primary" onclick="runCheck()">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#checkDetails"
+            aria-expanded="false">
+            <i class="bi bi-info-circle"></i> Info
+        </button>
+    </div>
+</div>
+
+<!-- Collapsible Info -->
+<div class="collapse mb-4" id="checkDetails">
+    <div class="card card-body bg-light border-0">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="card-title fw-bold mb-0"><i class="bi bi-list-check"></i> Run Details</h6>
+            <div><strong>Checked Modules:</strong> <span id="checkedModules">-</span></div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="card shadow-sm border-0 bg-dark text-white">
+            <div
+                class="card-header border-secondary border-opacity-25 pt-2 pb-1 px-3 d-flex justify-content-between align-items-center">
+                <small class="fw-bold mb-0 text-white"><i class="bi bi-terminal me-2"></i>Activity Log</small>
+                <small class="text-muted">stdout</small>
+            </div>
+            <div class="card-body p-0">
+                <div id="activity-log" class="p-3 font-monospace small"
+                    style="height: 200px; overflow-y: auto; color: #a0a0a0; background-color: #1e1e1e;">
+                    <div class="text-secondary opacity-50 fst-italic">Ready to check...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="text-center py-5">
+    <div class="spinner-border text-primary" style="width: 2.5rem; height: 2.5rem;"></div>
+    <p class="mt-3 text-secondary">Analyzing...</p>
+</div>
+
+<!-- Results -->
+<div id="results" style="display: none;">
+    <!-- Status Card -->
+    <div id="status-card" class="status-card mb-4"></div>
+
+
+    <!-- Tabs -->
+    <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="pills-all-tab" data-bs-toggle="pill" data-bs-target="#pills-all"
+                type="button" role="tab">All Issues</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="pills-errors-tab" data-bs-toggle="pill" data-bs-target="#pills-errors"
+                type="button" role="tab">Errors <span class="badge bg-danger rounded-pill"
+                    id="badge-errors">0</span></button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="pills-warnings-tab" data-bs-toggle="pill" data-bs-target="#pills-warnings"
+                type="button" role="tab">Warnings <span class="badge bg-warning text-dark rounded-pill"
+                    id="badge-warnings">0</span></button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="pills-tabContent">
+        <div class="tab-pane fade show active" id="pills-all" role="tabpanel"></div>
+        <div class="tab-pane fade" id="pills-errors" role="tabpanel"></div>
+        <div class="tab-pane fade" id="pills-warnings" role="tabpanel"></div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', runCheck);
+
+    function runCheck() {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('results').style.display = 'none';
+
+        // Reset log
+        const log = document.getElementById('activity-log');
+        log.innerHTML = '<div class="text-info">Starting design rule check...</div>';
+
+        fetch('/api/run_check')
+            .then(r => r.json())
+            .then(renderResults)
+            .catch(err => {
+                document.getElementById('loading').innerHTML =
+                    '<div class="alert alert-danger">Failed to run check</div>';
+                document.getElementById('activity-log').innerHTML +=
+                    '<div class="text-danger mt-2">Error: Failed to communicate with server.</div>';
+            });
+    }
+
+    function renderResults(data) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('results').style.display = 'block';
+
+        if (document.getElementById('checkedModules')) {
+            document.getElementById('checkedModules').textContent = data.checked_modules || '-';
+        }
+
+        const log = document.getElementById('activity-log');
+        if (data.logs && data.logs.length > 0) {
+            log.innerHTML = data.logs.map(line => `<div>${line}</div>`).join('');
+        } else {
+            log.innerHTML += '<div class="text-warning">No logs captured.</div>';
+        }
+
+        const totalErrors = data.summary.total_errors;
+        const totalWarnings = data.summary.total_warnings;
+        const total = totalErrors + totalWarnings;
+        const passed = data.summary.passed;
+
+        // Update badges
+        document.getElementById('badge-errors').textContent = totalErrors;
+        document.getElementById('badge-warnings').textContent = totalWarnings;
+
+        // Status card
+        const statusCard = document.getElementById('status-card');
+        if (passed && total === 0) {
+            statusCard.style.background = 'linear-gradient(135deg, #dcfce7, #bbf7d0)';
+            statusCard.innerHTML = `
+            <div class="status-icon text-success"><i class="bi bi-check-circle-fill"></i></div>
+            <div class="status-info">
+                <h3 class="text-success">All Clear</h3>
+                <p class="text-success">No design rule violations found</p>
+            </div>`;
+        } else {
+            statusCard.style.background = totalErrors > 0 ?
+                'linear-gradient(135deg, #fee2e2, #fecaca)' :
+                'linear-gradient(135deg, #fef3c7, #fde68a)';
+
+            statusCard.innerHTML = `
+            <div class="status-icon ${totalErrors > 0 ? 'text-danger' : 'text-warning'}">
+                <i class="bi bi-${totalErrors > 0 ? 'x-octagon-fill' : 'exclamation-triangle-fill'}"></i>
+            </div>
+            <div class="status-info">
+                <h3 class="${totalErrors > 0 ? 'text-danger' : 'text-warning'}">
+                    ${total} Issue${total > 1 ? 's' : ''} Found
+                </h3>
+                <p class="${totalErrors > 0 ? 'text-danger' : 'text-dark'} opacity-75">
+                    ${totalErrors} errors, ${totalWarnings} warnings
+                </p>
+            </div>`;
+        }
+
+        // Render Tabs
+        // Prepare combined lists with severity tag
+        const allIssues = [
+            ...data.errors.map(i => ({ ...i, severity: 'error' })),
+            ...data.warnings.map(i => ({ ...i, severity: 'warning' }))
+        ];
+
+        const errorIssues = data.errors.map(i => ({ ...i, severity: 'error' }));
+        const warningIssues = data.warnings.map(i => ({ ...i, severity: 'warning' }));
+
+        renderTab('pills-all', allIssues);
+        renderTab('pills-errors', errorIssues);
+        renderTab('pills-warnings', warningIssues);
+    }
+
+    function renderTab(containerId, issues) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+
+        if (issues.length === 0) {
+            container.innerHTML = `
+            <div class="empty-state py-5">
+                <i class="bi bi-check2-circle text-success mb-3" style="font-size: 3rem;"></i>
+                <h5 class="text-muted">No items in this category</h5>
+            </div>`;
+            return;
+        }
+
+        // Group by module
+        const moduleMap = {};
+        issues.forEach(item => {
+            const mod = item.module || 'Global';
+            if (!moduleMap[mod]) moduleMap[mod] = [];
+            moduleMap[mod].push(item);
+        });
+
+        // Sort modules by issue count descending
+        const modules = Object.entries(moduleMap).sort((a, b) => b[1].length - a[1].length);
+
+        modules.forEach(([name, moduleIssues]) => {
+            const rows = moduleIssues.map(i => {
+                const badgeClass = i.severity === 'error' ? 'bg-danger' : 'bg-warning text-dark';
+                // Highlight addresses/numbers
+                const msg = i.msg.replace(/(0x[0-9A-Fa-f]+)/g, '<code>$1</code>');
+
+                return `<tr>
+                <td class="issue-type-cell">
+                    <span class="badge ${badgeClass}">${i.type}</span>
+                </td>
+                <td class="issue-msg">${msg}</td>
+            </tr>`;
+            }).join('');
+
+            container.innerHTML += `
+            <div class="module-section">
+                <div class="module-header">
+                    <h5><i class="bi bi-box-seam me-2"></i>${name}</h5>
+                    <span class="module-count" 
+                          style="background:${moduleIssues[0].severity === 'error' ? '#fee2e2; color:#dc2626' : '#fef3c7; color:#d97706'}">
+                        ${moduleIssues.length}
+                    </span>
+                </div>
+                <table class="issues-table">
+                    <thead><tr><th>Type</th><th>Message</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>`;
+        });
+    }
+</script>
+{% endblock %}
