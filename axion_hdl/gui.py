@@ -776,7 +776,7 @@ class AxionGUI:
         lines.append('</register_map>')
         return '\n'.join(lines)
 
-    def run(self, port=5050):
+    def run(self, port=5000):
         self.setup_app()
         self.port = port
         url = f"http://127.0.0.1:{port}"
@@ -785,8 +785,18 @@ class AxionGUI:
         # Open browser automatically
         webbrowser.open(url)
         
-        # Run Flask app
-        self.app.run(port=port, debug=True, use_reloader=False)
+        # Try to use Waitress (production-ready server) if available
+        try:
+            from waitress import serve
+            print("Using Waitress production server")
+            serve(self.app, host='127.0.0.1', port=port)
+        except ImportError:
+            # Fallback to Flask development server
+            import logging
+            log = logging.getLogger('werkzeug')
+            log.setLevel(logging.WARNING)  # Suppress verbose request logs
+            print("Using Flask development server (install 'waitress' for production)")
+            self.app.run(host='127.0.0.1', port=port, debug=False, use_reloader=False)
 
 def start_gui(axion_instance):
     """Entry point for CLI to start GUI."""

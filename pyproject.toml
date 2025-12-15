@@ -44,6 +44,7 @@ dependencies = [
 [project.optional-dependencies]
 gui = [
     "flask>=2.0",
+    "waitress>=2.0",
 ]
 dev = [
     "pytest>=6.0",

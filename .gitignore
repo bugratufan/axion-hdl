@@ -59,3 +59,6 @@ instructions/*
 *.backup
 *_backup.py
 *_fixed.py.axion_conf
+
+# Configuration files
+.axion_conf
