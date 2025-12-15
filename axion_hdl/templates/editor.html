@@ -1,135 +1,592 @@
 {% extends 'base.html' %}
 
+{% block title %}Edit Module - {{ module.name }}{% endblock %}
+
+{% block head %}
+<style>
+    /* Enhanced Editor Styles */
+    .reg-row:hover {
+        background-color: rgba(37, 99, 235, 0.03) !important;
+    }
+
+    .reg-row input:focus,
+    .reg-row select:focus {
+        background-color: #fff !important;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+        outline: none;
+    }
+
+    .input-invalid {
+        border: 1px solid #ef4444 !important;
+        background-color: #fef2f2 !important;
+    }
+
+    .strobe-toggle {
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        transition: all 0.15s;
+        user-select: none;
+    }
+
+    .strobe-toggle.active {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .strobe-toggle.inactive {
+        background-color: #f1f5f9;
+        color: #94a3b8;
+    }
+
+    .strobe-toggle:hover {
+        transform: scale(1.05);
+    }
+
+    .action-btn {
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: all 0.15s;
+    }
+
+    .action-btn:hover {
+        transform: scale(1.1);
+    }
+
+    .addr-badge {
+        font-family: 'Monaco', 'Menlo', monospace;
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        background-color: #f1f5f9;
+        border-radius: 4px;
+        color: #475569;
+    }
+
+    .strobe-group {
+        display: flex;
+        gap: 4px;
+    }
+
+    [data-tooltip] {
+        position: relative;
+    }
+
+    [data-tooltip]:hover::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #1e293b;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        white-space: nowrap;
+        z-index: 100;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+<!-- Top Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
     <div>
-        <a href="/" class="btn" style="background: #e2e8f0; color: #475569; margin-bottom: 0.5rem;">← Back to
-            Dashboard</a>
-        <h1>Editing Module: {{ module.name }}</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Dashboard</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{% if module.is_new %}New Module{% else %}{{
+                    module.name }}{% endif %}</li>
+            </ol>
+        </nav>
+        {% if module.is_new %}
+        <div class="d-flex align-items-center gap-2">
+            <input type="text" id="moduleName" class="form-control form-control-lg fw-bold border-0 p-0"
+                value="new_module" placeholder="module_name" style="font-size: 1.5rem; max-width: 300px;">
+            <span class="badge bg-primary">New</span>
+        </div>
+        {% else %}
+        <h2 class="mb-0 fw-bold text-dark">{{ module.name }}</h2>
+        <small class="text-muted">{{ module.file }}</small>
+        {% endif %}
     </div>
     <div>
-        <button onclick="saveChanges()" class="btn btn-primary">Review Changes & Save</button>
+        <button onclick="saveChanges()" class="btn btn-primary px-4 shadow-sm fw-medium">
+            <i class="bi bi-save2-fill me-2"></i>{% if module.is_new %}Save As...{% else %}Review & Save{% endif %}
+        </button>
     </div>
 </div>
 
-<div class="card">
-    <h3>Module Properties</h3>
-    <form id="moduleForm">
-        <label>Base Address (Hex):</label>
-        <input type="text" name="base_address"
-            value="0x{{ '%04X' % module.base_address if module.base_address else '0000' }}" pattern="0x[0-9A-Fa-f]+"
-            style="padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
-    </form>
-</div>
+<div class="row g-4">
+    <!-- Module Configuration (Left Column) -->
+    <div class="col-lg-3">
+        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+            <div class="card-body p-4">
+                <h5 class="card-title fw-bold mb-4 text-dark"><i
+                        class="bi bi-sliders me-2 text-primary"></i>Configuration</h5>
 
-<div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h3>Registers</h3>
-        <button onclick="addRegister()" class="btn" style="background: #10b981; color: white;">+ Add Register</button>
+                <form id="moduleForm">
+                    <!-- Base Address -->
+                    <div class="mb-4">
+                        <label class="form-label text-secondary fw-bold small text-uppercase mb-2">Base Address</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-muted font-monospace">0x</span>
+                            <input type="text" name="base_address"
+                                class="form-control border-start-0 ps-0 font-monospace fw-bold"
+                                value="{{ '%04X' % module.base_address if module.base_address else '0000' }}"
+                                pattern="[0-9A-Fa-f]+" placeholder="0000" oninput="recalculateAddresses()">
+                        </div>
+                        <small class="text-muted mt-1 d-block">Module base offset in memory map</small>
+                    </div>
+
+                    <hr class="border-secondary opacity-10 my-4">
+
+                    <!-- CDC Settings -->
+                    <div class="mb-2">
+                        <label class="form-label text-secondary fw-bold small text-uppercase mb-3">CDC Settings</label>
+
+                        <div class="form-check form-switch mb-3 p-0 d-flex justify-content-between align-items-center">
+                            <label class="form-check-label text-dark fw-medium" for="cdcEnable">Enable
+                                Synchronization</label>
+                            <input class="form-check-input ms-0" type="checkbox" role="switch" id="cdcEnable" {% if
+                                module.cdc_enabled %}checked{% endif %} onchange="toggleCDC()"
+                                style="width: 3em; height: 1.5em; margin-left: auto !important;">
+                        </div>
+
+                        <div id="cdcSettings" class="mt-3 p-3 bg-light rounded-3 animate__animated animate__fadeIn"
+                            style="{% if not module.cdc_enabled %}display: none;{% endif %}">
+                            <label class="form-label small text-muted mb-1">Sync Stages (Flip-Flops)</label>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-layers text-secondary me-2"></i>
+                                <input type="number" id="cdcStages"
+                                    class="form-control form-control-sm border-0 bg-white shadow-none fw-bold"
+                                    value="{{ module.cdc_stages or 2 }}" min="2" max="5">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
-    <table id="regsTable">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Offset</th>
-                <th>Width (bits)</th>
-                <th>Access</th>
-                <th>Default Value</th>
-                <th>Description</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody id="regsBody">
-            {% for reg in module.registers %}
-            <tr class="reg-row">
-                <td><input type="text" value="{{ reg.reg_name or reg.signal_name }}" class="reg-name-input"></td>
-                <td>{{ reg.relative_address or reg.address }}</td>
-                <td>
-                    <!-- Calculate width from type or default to 32 -->
-                    {% set width = 32 %}
-                    {% if 'vector' in reg.signal_type %}
-                    {% set width = reg.signal_type.split('(')[1].split(' downto')[0] | int + 1 if '(' in reg.signal_type
-                    else 32 %}
-                    {% elif reg.signal_type == 'std_logic' %}
-                    {% set width = 1 %}
-                    {% endif %}
-                    <input type="number" value="{{ width }}" class="reg-width-input" min="1" max="1024"
-                        style="width: 60px;">
-                </td>
-                <td>
-                    <select class="reg-access-input">
-                        <option value="RW" {% if reg.access_mode=='RW' %}selected{% endif %}>RW</option>
-                        <option value="RO" {% if reg.access_mode=='RO' %}selected{% endif %}>RO</option>
-                        <option value="WO" {% if reg.access_mode=='WO' %}selected{% endif %}>WO</option>
-                    </select>
-                </td>
-                <td><input type="text" value="{{ reg.default_value or '0x0' }}" class="reg-default-input"
-                        style="width: 80px;"></td>
-                <td><input type="text" value="{{ reg.description }}" class="reg-desc-input" style="width: 100%;"></td>
-                <td>
-                    <button onclick="deleteRow(this)"
-                        style="color: red; border: none; background: none; cursor: pointer;">Delete</button>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <!-- Register Map (Right Column) -->
+    <div class="col-lg-9">
+        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+            <div class="card-header bg-white border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
+                <h5 class="card-title fw-bold mb-0"><i class="bi bi-table me-2 text-primary"></i>Register Map</h5>
+                <button onclick="addRegister()" class="btn btn-sm btn-light text-primary fw-bold hover-lift"
+                    id="addRegBtn">
+                    <i class="bi bi-plus-circle-fill me-1"></i> New Register
+                </button>
+            </div>
+
+            <div class="card-body p-0 mt-3">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="regsTable">
+                        <thead class="bg-light text-secondary small text-uppercase text-muted border-top border-bottom">
+                            <tr>
+                                <th class="ps-4 py-3" style="width: 8%" data-tooltip="Calculated memory offset">Addr
+                                </th>
+                                <th class="py-3" style="width: 18%">Name</th>
+                                <th class="py-3" style="width: 8%">Width</th>
+                                <th class="py-3" style="width: 7%">Access</th>
+                                <th class="py-3" style="width: 10%">Default</th>
+                                <th class="py-3" style="width: 10%" data-tooltip="Read/Write Strobe signals">Strobes
+                                </th>
+                                <th class="py-3" style="width: 24%">Description</th>
+                                <th class="pe-4 py-3 text-end" style="width: 15%">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="regsBody" class="border-top-0">
+                            {% set addr_offset = namespace(value=0) %}
+                            {% for reg in module.registers %}
+                            {% set width = 32 %}
+                            {% if reg.width %}
+                            {% set width = reg.width %}
+                            {% elif 'vector' in reg.signal_type %}
+                            {% set width = reg.signal_type.split('(')[1].split(' downto')[0] | int + 1 if '(' in
+                            reg.signal_type else 32 %}
+                            {% elif reg.signal_type == 'std_logic' %}
+                            {% set width = 1 %}
+                            {% endif %}
+                            <tr class="reg-row border-bottom-0" data-index="{{ loop.index0 }}">
+                                <td class="ps-4">
+                                    <span class="addr-badge reg-addr">0x{{ '%02X' % (addr_offset.value | int) }}</span>
+                                </td>
+                                <td>
+                                    <input type="text" value="{{ reg.reg_name or reg.signal_name }}"
+                                        class="form-control font-monospace reg-name-input fw-bold bg-light-subtle border-0"
+                                        placeholder="reg_name" oninput="validateName(this)">
+                                </td>
+                                <td>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" value="{{ width }}"
+                                            class="form-control reg-width-input border-0 bg-light-subtle" min="1"
+                                            max="1024" style="width: 50px;" onchange="recalculateAddresses()">
+                                        <span class="input-group-text border-0 bg-transparent text-muted small">b</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <select
+                                        class="form-select form-select-sm reg-access-input fw-bold border-0 bg-light-subtle
+                                        {% if reg.access_mode=='RW' %}text-primary{% elif reg.access_mode=='RO' %}text-success{% else %}text-danger{% endif %}"
+                                        onchange="updateAccessColor(this)">
+                                        <option value="RW" class="text-primary" {% if reg.access_mode=='RW' %}selected{%
+                                            endif %}>RW</option>
+                                        <option value="RO" class="text-success" {% if reg.access_mode=='RO' %}selected{%
+                                            endif %}>RO</option>
+                                        <option value="WO" class="text-danger" {% if reg.access_mode=='WO' %}selected{%
+                                            endif %}>WO</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" value="{{ reg.default_value or '0x0' }}"
+                                        class="form-control form-control-sm font-monospace reg-default-input border-0 bg-light-subtle text-secondary"
+                                        style="width: 70px;" oninput="validateHex(this)">
+                                </td>
+                                <td>
+                                    <div class="strobe-group">
+                                        <span class="strobe-toggle {{ 'active' if reg.r_strobe else 'inactive' }}"
+                                            onclick="toggleStrobe(this, 'r')" data-tooltip="Read Strobe">
+                                            R
+                                        </span>
+                                        <span class="strobe-toggle {{ 'active' if reg.w_strobe else 'inactive' }}"
+                                            onclick="toggleStrobe(this, 'w')" data-tooltip="Write Strobe">
+                                            W
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <input type="text" value="{{ reg.description }}"
+                                        class="form-control form-control-sm reg-desc-input border-0 bg-transparent"
+                                        placeholder="Add description...">
+                                </td>
+                                <td class="pe-4 text-end">
+                                    <button onclick="duplicateRow(this)"
+                                        class="action-btn btn btn-outline-primary btn-sm border-0 bg-primary-subtle text-primary me-1"
+                                        title="Duplicate Register" data-tooltip="Duplicate">
+                                        <i class="bi bi-copy"></i>
+                                    </button>
+                                    <button onclick="deleteRow(this)"
+                                        class="action-btn btn btn-outline-danger btn-sm border-0 bg-danger-subtle text-danger"
+                                        title="Delete Register" data-tooltip="Delete">
+                                        <i class="bi bi-trash-fill"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% set addr_offset.value = addr_offset.value + ((width + 31) // 32) * 4 %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if not module.registers %}
+                <div class="text-center py-5 text-muted" id="emptyState">
+                    <div class="mb-3 p-3 bg-light rounded-circle d-inline-block">
+                        <i class="bi bi-layers fs-1 text-secondary"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark">Empty Register Map</h5>
+                    <p class="small">Start building your register interface via the button above.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
+    // Global state
+    let nextAddr = 0;
+
+    // Initialize addresses on load
+    document.addEventListener('DOMContentLoaded', function () {
+        recalculateAddresses();
+        // Add Enter key to add new register
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                addRegister();
+            }
+        });
+    });
+
+    function toggleCDC() {
+        const enabled = document.getElementById('cdcEnable').checked;
+        const settings = document.getElementById('cdcSettings');
+        settings.style.display = enabled ? 'block' : 'none';
+    }
+
+    function updateAccessColor(select) {
+        select.className = 'form-select form-select-sm reg-access-input fw-bold border-0 bg-light-subtle';
+        if (select.value === 'RW') select.classList.add('text-primary');
+        else if (select.value === 'RO') select.classList.add('text-success');
+        else select.classList.add('text-danger');
+    }
+
+    function toggleStrobe(elem, type) {
+        const isActive = elem.classList.contains('active');
+        elem.classList.remove('active', 'inactive');
+        elem.classList.add(isActive ? 'inactive' : 'active');
+    }
+
+    function validateName(input) {
+        const val = input.value;
+        const valid = /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(val) || val === '';
+        input.classList.toggle('input-invalid', !valid && val !== '');
+    }
+
+    function validateHex(input) {
+        const val = input.value;
+        const valid = /^(0x)?[0-9A-Fa-f]+$/.test(val) || val === '';
+        input.classList.toggle('input-invalid', !valid && val !== '');
+    }
+
+    function recalculateAddresses() {
+        const baseAddrInput = document.querySelector('input[name="base_address"]');
+        const baseAddr = parseInt(baseAddrInput.value, 16) || 0;
+        let offset = 0;
+
+        document.querySelectorAll('.reg-row').forEach(row => {
+            const widthInput = row.querySelector('.reg-width-input');
+            const addrBadge = row.querySelector('.reg-addr');
+            const width = parseInt(widthInput.value) || 32;
+
+            // Calculate number of 32-bit words needed
+            const numWords = Math.ceil(width / 32);
+
+            // Update displayed address (relative offset, not including base)
+            addrBadge.textContent = '0x' + offset.toString(16).toUpperCase().padStart(2, '0');
+
+            // Move to next available address
+            offset += numWords * 4;
+        });
+
+        nextAddr = offset;
+    }
+
     function addRegister() {
+        // Remove empty state if present
+        const emptyState = document.getElementById('emptyState');
+        if (emptyState) emptyState.remove();
+
         const tbody = document.getElementById('regsBody');
         const row = document.createElement('tr');
-        row.className = 'reg-row';
+        row.className = 'reg-row border-bottom-0 animate__animated animate__fadeIn';
         row.innerHTML = `
-        <td><input type="text" placeholder="new_reg" class="reg-name-input"></td>
-        <td>Auto</td>
-        <td><input type="number" value="32" class="reg-width-input" min="1" max="1024" style="width: 60px;"></td>
+        <td class="ps-4">
+            <span class="addr-badge reg-addr">0x${nextAddr.toString(16).toUpperCase().padStart(2, '0')}</span>
+        </td>
         <td>
-            <select class="reg-access-input">
-                <option value="RW">RW</option>
-                <option value="RO">RO</option>
-                <option value="WO">WO</option>
+            <input type="text" placeholder="new_reg" class="form-control font-monospace reg-name-input fw-bold bg-light-subtle border-0" oninput="validateName(this)">
+        </td>
+        <td>
+            <div class="input-group input-group-sm">
+                <input type="number" value="32" class="form-control reg-width-input border-0 bg-light-subtle" min="1" max="1024" style="width: 50px;" onchange="recalculateAddresses()">
+                <span class="input-group-text border-0 bg-transparent text-muted small">b</span>
+            </div>
+        </td>
+        <td>
+            <select class="form-select form-select-sm reg-access-input fw-bold border-0 bg-light-subtle text-primary" onchange="updateAccessColor(this)">
+                <option value="RW" class="text-primary">RW</option>
+                <option value="RO" class="text-success">RO</option>
+                <option value="WO" class="text-danger">WO</option>
             </select>
         </td>
-        <td><input type="text" value="0x0" class="reg-default-input" style="width: 80px;"></td>
-        <td><input type="text" placeholder="Description" class="reg-desc-input" style="width: 100%;"></td>
-        <td><button onclick="deleteRow(this)" style="color: red; border: none; background: none; cursor: pointer;">Delete</button></td>
+        <td>
+            <input type="text" value="0x0" class="form-control form-control-sm font-monospace reg-default-input border-0 bg-light-subtle text-secondary" style="width: 70px;" oninput="validateHex(this)">
+        </td>
+        <td>
+            <div class="strobe-group">
+                <span class="strobe-toggle inactive" onclick="toggleStrobe(this, 'r')" data-tooltip="Read Strobe">R</span>
+                <span class="strobe-toggle inactive" onclick="toggleStrobe(this, 'w')" data-tooltip="Write Strobe">W</span>
+            </div>
+        </td>
+        <td>
+            <input type="text" placeholder="Description" class="form-control form-control-sm reg-desc-input border-0 bg-transparent">
+        </td>
+        <td class="pe-4 text-end">
+            <button onclick="duplicateRow(this)" class="action-btn btn btn-outline-primary btn-sm border-0 bg-primary-subtle text-primary me-1" title="Duplicate" data-tooltip="Duplicate">
+                <i class="bi bi-copy"></i>
+            </button>
+            <button onclick="deleteRow(this)" class="action-btn btn btn-outline-danger btn-sm border-0 bg-danger-subtle text-danger" title="Delete" data-tooltip="Delete">
+                <i class="bi bi-trash-fill"></i>
+            </button>
+        </td>
     `;
         tbody.appendChild(row);
+        recalculateAddresses();
+
+        // Focus the name input
+        row.querySelector('.reg-name-input').focus();
+    }
+
+    function duplicateRow(btn) {
+        const row = btn.closest('tr');
+        const newRow = row.cloneNode(true);
+        newRow.classList.add('animate__animated', 'animate__fadeIn');
+
+        // Update the name to indicate it's a copy
+        const nameInput = newRow.querySelector('.reg-name-input');
+        nameInput.value = nameInput.value + '_copy';
+
+        row.parentNode.insertBefore(newRow, row.nextSibling);
+        recalculateAddresses();
     }
 
     function deleteRow(btn) {
-        if (confirm('Delete this register?')) {
-            btn.closest('tr').remove();
+        if (confirm('Are you sure you want to delete this register?')) {
+            const row = btn.closest('tr');
+            row.classList.add('animate__animated', 'animate__fadeOutRight');
+            setTimeout(() => {
+                row.remove();
+                recalculateAddresses();
+            }, 300);
         }
     }
 
     function saveChanges() {
-        // Gather data
-        const regs = [];
-        document.querySelectorAll('.reg-row').forEach(row => {
-            regs.push({
-                name: row.querySelector('.reg-name-input').value,
-                width: row.querySelector('.reg-width-input').value,
-                access: row.querySelector('.reg-access-input').value,
-                default_value: row.querySelector('.reg-default-input').value,
-                description: row.querySelector('.reg-desc-input').value
-            });
-        });
+        const isNew = {{ 'true' if module.is_new else 'false' }};
 
-        // Send to backend
+    // Gather Module Props
+    const cdcEnabled = document.getElementById('cdcEnable').checked;
+    const cdcStages = document.getElementById('cdcStages').value;
+    const baseAddress = document.querySelector('input[name="base_address"]').value;
+    const moduleName = isNew ? document.getElementById('moduleName').value : '{{ module.name }}';
+
+    // Gather Registers
+    const regs = [];
+    document.querySelectorAll('.reg-row').forEach(row => {
+        const strobes = row.querySelectorAll('.strobe-toggle');
+        regs.push({
+            name: row.querySelector('.reg-name-input').value,
+            width: row.querySelector('.reg-width-input').value,
+            access: row.querySelector('.reg-access-input').value,
+            default_value: row.querySelector('.reg-default-input').value,
+            description: row.querySelector('.reg-desc-input').value,
+            r_strobe: strobes[0].classList.contains('active'),
+            w_strobe: strobes[1].classList.contains('active')
+        });
+    });
+
+    if (isNew) {
+        // For new modules, show file path modal
+        const modal = new bootstrap.Modal(document.getElementById('saveFileModal'));
+        document.getElementById('saveFilePath').value = moduleName + '.json';
+        document.getElementById('saveFormat').value = 'json';
+        modal.show();
+
+        // Store data for when user confirms
+        window._pendingSave = {
+            moduleName: moduleName,
+            regs: regs,
+            properties: {
+                cdc_enabled: cdcEnabled,
+                cdc_stages: parseInt(cdcStages),
+                base_address: baseAddress
+            }
+        };
+    } else {
+        // For existing modules, use diff view
         fetch('/api/save_diff', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                module_name: '{{ module.name }}',
+                module_name: moduleName,
+                properties: {
+                    cdc_enabled: cdcEnabled,
+                    cdc_stages: parseInt(cdcStages),
+                    base_address: baseAddress
+                },
                 registers: regs
             })
         }).then(res => res.json()).then(data => {
             if (data.redirect) window.location.href = data.redirect;
-        });
+        }).catch(err => alert('Error saving changes: ' + err));
+    }
+    }
+
+    function confirmSaveFile() {
+        const filePath = document.getElementById('saveFilePath').value;
+        const format = document.getElementById('saveFormat').value;
+        if (!filePath) {
+            alert('Please enter a file path');
+            return;
+        }
+        const data = window._pendingSave;
+        if (data) {
+            saveToFile(filePath, data.moduleName, data.regs, data.properties, format);
+            bootstrap.Modal.getInstance(document.getElementById('saveFileModal')).hide();
+        }
+    }
+
+    function updateFileExtension() {
+        const format = document.getElementById('saveFormat').value;
+        const pathInput = document.getElementById('saveFilePath');
+        let path = pathInput.value;
+        // Replace extension
+        path = path.replace(/\.(json|yaml|yml|xml)$/i, '.' + (format === 'yaml' ? 'yaml' : format));
+        pathInput.value = path;
+    }
+
+    function saveToFile(filePath, moduleName, registers, properties, format) {
+        fetch('/api/save_new_module', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                file_path: filePath,
+                module_name: moduleName,
+                registers: registers,
+                properties: properties,
+                format: format
+            })
+        }).then(res => res.json()).then(data => {
+            if (data.success) {
+                alert('Module saved successfully to: ' + filePath);
+                window.location.href = '/';
+            } else {
+                alert('Error saving module: ' + (data.error || 'Unknown error'));
+            }
+        }).catch(err => alert('Error saving: ' + err));
     }
 </script>
+
+<!-- Save File Modal -->
+<div class="modal fade" id="saveFileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-file-earmark-code me-2"></i>Save Module</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Format</label>
+                    <select id="saveFormat" class="form-select" onchange="updateFileExtension()">
+                        <option value="json" selected>JSON</option>
+                        <option value="yaml">YAML</option>
+                        <option value="xml">XML</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">File Path</label>
+                    <input type="text" id="saveFilePath" class="form-control font-monospace"
+                        placeholder="/path/to/module.json">
+                    <small class="text-muted">Enter the full path where you want to save the file</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="confirmSaveFile()">
+                    <i class="bi bi-save me-1"></i>Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
