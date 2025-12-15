@@ -6,12 +6,12 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Tests** | 244 |
-| ✅ Passed | 244 |
+| **Total Tests** | 246 |
+| ✅ Passed | 246 |
 | ❌ Failed | 0 |
 | ⏭️ Skipped | 0 |
-| ⏱️ Total Time | 5.74s |
-| 🕐 Last Run | 2025-12-15 00:02:03 |
+| ⏱️ Total Time | 6.74s |
+| 🕐 Last Run | 2025-12-15 21:08:13 |
 
 ## 🐍 Python Tests
 
@@ -23,11 +23,11 @@
 |:------:|:--------|:----------|:--------:|
 | ✅ | `python.unit.init` | Initialize AxionHDL | 0.000s |
 | ✅ | `python.unit.add_src` | Add Source Directory | 0.000s |
-| ✅ | `python.unit.analyze` | Analyze VHDL Files | 0.004s |
+| ✅ | `python.unit.analyze` | Analyze VHDL Files | 0.002s |
 | ✅ | `python.unit.gen_vhdl` | Generate VHDL Modules | 0.005s |
 | ✅ | `python.unit.gen_c` | Generate C Headers | 0.003s |
-| ✅ | `python.unit.gen_xml` | Generate XML Register Map | 0.002s |
-| ✅ | `python.unit.gen_doc` | Generate Markdown Documentation | 0.003s |
+| ✅ | `python.unit.gen_xml` | Generate XML Register Map | 0.003s |
+| ✅ | `python.unit.gen_doc` | Generate Markdown Documentation | 0.002s |
 
 ### Address Conflict Tests
 
@@ -47,9 +47,9 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `c.compile.gcc_check` | GCC Available | 0.024s |
-| ✅ | `c.compile.headers` | Compile C Header Test | 0.130s |
-| ✅ | `c.compile.run` | Run C Header Test Binary | 0.241s |
+| ✅ | `c.compile.gcc_check` | GCC Available | 0.033s |
+| ✅ | `c.compile.headers` | Compile C Header Test | 0.197s |
+| ✅ | `c.compile.run` | Run C Header Test Binary | 0.131s |
 
 ## 🔧 VHDL Tests
 
@@ -60,7 +60,7 @@
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
 | ✅ | `vhdl.ghdl.check` | GHDL Available | 0.003s |
-| ✅ | `vhdl.run.subregister_tb` | SUB-VHDL: Run subregister_test_tb Simulation | 0.408s |
+| ✅ | `vhdl.run.subregister_tb` | SUB-VHDL: Run subregister_test_tb Simulation | 0.614s |
 
 ### VHDL Analysis
 
@@ -68,16 +68,16 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.analyze.sensor_controller` | Analyze sensor_controller.vhd | 0.081s |
-| ✅ | `vhdl.analyze.spi_controller` | Analyze spi_controller.vhd | 0.044s |
-| ✅ | `vhdl.analyze.mixed_width` | Analyze mixed_width_controller.vhd | 0.056s |
-| ✅ | `vhdl.analyze.subregister_test` | SUB-VHDL: Analyze subregister_test.vhd | 0.041s |
-| ✅ | `vhdl.analyze.subregister_axion` | SUB-VHDL: Analyze generated subregister_test_axion_reg.vhd | 0.161s |
+| ✅ | `vhdl.analyze.sensor_controller` | Analyze sensor_controller.vhd | 0.089s |
+| ✅ | `vhdl.analyze.spi_controller` | Analyze spi_controller.vhd | 0.047s |
+| ✅ | `vhdl.analyze.mixed_width` | Analyze mixed_width_controller.vhd | 0.061s |
+| ✅ | `vhdl.analyze.subregister_test` | SUB-VHDL: Analyze subregister_test.vhd | 0.045s |
+| ✅ | `vhdl.analyze.subregister_axion` | SUB-VHDL: Analyze generated subregister_test_axion_reg.vhd | 0.175s |
 | ✅ | `vhdl.analyze.subregister_tb` | SUB-VHDL: Analyze subregister_test_tb.vhd | 0.122s |
-| ✅ | `vhdl.analyze.sensor_axion` | Analyze sensor_controller_axion_reg.vhd | 0.357s |
-| ✅ | `vhdl.analyze.spi_axion` | Analyze spi_controller_axion_reg.vhd | 0.211s |
-| ✅ | `vhdl.analyze.mixed_axion` | Analyze mixed_width_controller_axion_reg.vhd | 0.432s |
-| ✅ | `vhdl.analyze.testbench` | Analyze multi_module_tb.vhd | 0.727s |
+| ✅ | `vhdl.analyze.sensor_axion` | Analyze sensor_controller_axion_reg.vhd | 0.347s |
+| ✅ | `vhdl.analyze.spi_axion` | Analyze spi_controller_axion_reg.vhd | 0.255s |
+| ✅ | `vhdl.analyze.mixed_axion` | Analyze mixed_width_controller_axion_reg.vhd | 0.495s |
+| ✅ | `vhdl.analyze.testbench` | Analyze multi_module_tb.vhd | 0.835s |
 
 ### Generate
 
@@ -85,7 +85,7 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.generate.subregister` | SUB-VHDL: Generate subregister_test_axion_reg.vhd | 0.004s |
+| ✅ | `vhdl.generate.subregister` | SUB-VHDL: Generate subregister_test_axion_reg.vhd | 0.005s |
 
 ### Elaboration
 
@@ -93,7 +93,7 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.elaboration.subregister_tb` | SUB-VHDL: Elaborate subregister_test_tb | 0.196s |
+| ✅ | `vhdl.elaboration.subregister_tb` | SUB-VHDL: Elaborate subregister_test_tb | 0.219s |
 
 ### Elaboration
 
@@ -101,7 +101,7 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.elaborate.testbench` | Elaborate multi_module_tb | 0.075s |
+| ✅ | `vhdl.elaborate.testbench` | Elaborate multi_module_tb | 0.141s |
 
 ### Xml
 
@@ -109,11 +109,11 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.xml.generate` | XML: Generate VHDL from tests/xml/subregister_test.xml | 0.006s |
-| ✅ | `vhdl.xml.analyze_gen` | XML: Analyze generated subregister_test_xml_axion_reg.vhd | 0.127s |
-| ✅ | `vhdl.xml.analyze_tb` | XML: Analyze subregister_xml_test_tb.vhd | 0.107s |
-| ✅ | `vhdl.xml.elaborate` | XML: Elaborate subregister_xml_test_tb | 0.064s |
-| ✅ | `vhdl.xml.run` | XML: Run subregister_xml_test_tb | 0.295s |
+| ✅ | `vhdl.xml.generate` | XML: Generate VHDL from tests/xml/subregister_test.xml | 0.004s |
+| ✅ | `vhdl.xml.analyze_gen` | XML: Analyze generated subregister_test_xml_axion_reg.vhd | 0.144s |
+| ✅ | `vhdl.xml.analyze_tb` | XML: Analyze subregister_xml_test_tb.vhd | 0.119s |
+| ✅ | `vhdl.xml.elaborate` | XML: Elaborate subregister_xml_test_tb | 0.068s |
+| ✅ | `vhdl.xml.run` | XML: Run subregister_xml_test_tb | 0.655s |
 
 ### Requirements Verification (AXION/AXI-LITE)
 
@@ -183,19 +183,19 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `parser.test_parser_001_basic_entity_extraction` | PARSER-001-BASIC-ENTITY-EXTRACTION: PARSER-001: Basic entity name extraction | 0.001s |
-| ✅ | `parser.test_parser_001_entity_with_whitespace` | PARSER-001-ENTITY-WITH-WHITESPACE: PARSER-001: Entity extraction with varying whitespace | 0.001s |
-| ✅ | `parser.test_parser_001_no_entity` | PARSER-001-NO-ENTITY: PARSER-001: File without entity declaration | 0.001s |
-| ✅ | `parser.test_parser_002_std_logic` | PARSER-002-STD-LOGIC: PARSER-002: Parse std_logic as 1-bit | 0.000s |
+| ✅ | `parser.test_parser_001_basic_entity_extraction` | PARSER-001-BASIC-ENTITY-EXTRACTION: PARSER-001: Basic entity name extraction | 0.000s |
+| ✅ | `parser.test_parser_001_entity_with_whitespace` | PARSER-001-ENTITY-WITH-WHITESPACE: PARSER-001: Entity extraction with varying whitespace | 0.000s |
+| ✅ | `parser.test_parser_001_no_entity` | PARSER-001-NO-ENTITY: PARSER-001: File without entity declaration | 0.000s |
+| ✅ | `parser.test_parser_002_std_logic` | PARSER-002-STD-LOGIC: PARSER-002: Parse std_logic as 1-bit | 0.001s |
 | ✅ | `parser.test_parser_002_std_logic_vector_downto` | PARSER-002-STD-LOGIC-VECTOR-DOWNTO: PARSER-002: Parse std_logic_vector(N downto M) | 0.001s |
 | ✅ | `parser.test_parser_002_std_logic_vector_with_spaces` | PARSER-002-STD-LOGIC-VECTOR-WITH-SPACES: PARSER-002: Parse std_logic_vector with extra spaces | 0.000s |
 | ✅ | `parser.test_parser_003_access_modes` | PARSER-003-ACCESS-MODES: PARSER-003: Parse RO, RW, WO access modes | 0.000s |
 | ✅ | `parser.test_parser_003_multiple_attributes_same_line` | PARSER-003-MULTIPLE-ATTRIBUTES-SAME-LINE: PARSER-003: Multiple attributes on single line | 0.000s |
 | ✅ | `parser.test_parser_003_strobe_flags` | PARSER-003-STROBE-FLAGS: PARSER-003: Parse R_STROBE and W_STROBE flags | 0.001s |
-| ✅ | `parser.test_parser_004_base_addr_hex` | PARSER-004-BASE-ADDR-HEX: PARSER-004: Parse BASE_ADDR in hex format | 0.001s |
-| ✅ | `parser.test_parser_004_cdc_enable` | PARSER-004-CDC-ENABLE: PARSER-004: Parse CDC_EN flag | 0.001s |
-| ✅ | `parser.test_parser_004_cdc_stage` | PARSER-004-CDC-STAGE: PARSER-004: Parse CDC_STAGE attribute | 0.000s |
-| ✅ | `parser.test_parser_004_missing_axion_def_defaults` | PARSER-004-MISSING-AXION-DEF-DEFAULTS: PARSER-004: Default values when @axion_def missing | 0.001s |
+| ✅ | `parser.test_parser_004_base_addr_hex` | PARSER-004-BASE-ADDR-HEX: PARSER-004: Parse BASE_ADDR in hex format | 0.000s |
+| ✅ | `parser.test_parser_004_cdc_enable` | PARSER-004-CDC-ENABLE: PARSER-004: Parse CDC_EN flag | 0.000s |
+| ✅ | `parser.test_parser_004_cdc_stage` | PARSER-004-CDC-STAGE: PARSER-004: Parse CDC_STAGE attribute | 0.001s |
+| ✅ | `parser.test_parser_004_missing_axion_def_defaults` | PARSER-004-MISSING-AXION-DEF-DEFAULTS: PARSER-004: Default values when @axion_def missing | 0.000s |
 | ✅ | `parser.test_parser_005_decimal_address` | PARSER-005-DECIMAL-ADDRESS: PARSER-005: Parse decimal address (16) | 0.000s |
 | ✅ | `parser.test_parser_005_hex_address` | PARSER-005-HEX-ADDRESS: PARSER-005: Parse hex address (0x10) | 0.000s |
 | ✅ | `parser.test_parser_005_upper_case_hex` | PARSER-005-UPPER-CASE-HEX: PARSER-005: Parse uppercase hex (0X10) | 0.000s |
@@ -213,7 +213,7 @@
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
 | ✅ | `gen.test_gen_001_entity_name_pattern` | GEN-001-ENTITY-NAME-PATTERN: GEN-001: Entity name follows pattern <module>_axion_reg | 0.000s |
-| ✅ | `gen.test_gen_001_vhdl_compiles` | GEN-001-VHDL-COMPILES: GEN-001: Generated VHDL compiles without errors | 0.419s |
+| ✅ | `gen.test_gen_001_vhdl_compiles` | GEN-001-VHDL-COMPILES: GEN-001: Generated VHDL compiles without errors | 0.377s |
 | ✅ | `gen.test_gen_001_vhdl_file_exists` | GEN-001-VHDL-FILE-EXISTS: GEN-001: Generated VHDL file exists | 0.000s |
 | ✅ | `gen.test_gen_002_architecture_rtl` | GEN-002-ARCHITECTURE-RTL: GEN-002: Architecture is named 'rtl' | 0.000s |
 | ✅ | `gen.test_gen_002_signal_declarations` | GEN-002-SIGNAL-DECLARATIONS: GEN-002: Internal signals are properly declared | 0.000s |
@@ -230,7 +230,7 @@
 | ✅ | `gen.test_gen_007_state_machine_exists` | GEN-007-STATE-MACHINE-EXISTS: GEN-007: State machine logic present | 0.000s |
 | ✅ | `gen.test_gen_008_address_decoder` | GEN-008-ADDRESS-DECODER: GEN-008: Address decoder has case statement | 0.000s |
 | ✅ | `gen.test_gen_009_base_address_macro` | GEN-009-BASE-ADDRESS-MACRO: GEN-009: Base address macro defined | 0.000s |
-| ✅ | `gen.test_gen_009_c_header_compiles` | GEN-009-C-HEADER-COMPILES: GEN-009: C header compiles without warnings | 0.229s |
+| ✅ | `gen.test_gen_009_c_header_compiles` | GEN-009-C-HEADER-COMPILES: GEN-009: C header compiles without warnings | 0.237s |
 | ✅ | `gen.test_gen_009_c_header_exists` | GEN-009-C-HEADER-EXISTS: GEN-009: C header file generated | 0.000s |
 | ✅ | `gen.test_gen_009_include_guards` | GEN-009-INCLUDE-GUARDS: GEN-009: Header has include guards | 0.000s |
 | ✅ | `gen.test_gen_009_offset_macros` | GEN-009-OFFSET-MACROS: GEN-009: Register offset macros defined | 0.000s |
@@ -260,36 +260,38 @@
 |:------:|:--------|:----------|:--------:|
 | ✅ | `err.test_err_001_address_conflict_exception` | ERR-001-ADDRESS-CONFLICT-EXCEPTION: ERR-001: Duplicate addresses raise AddressConflictError | 0.001s |
 | ✅ | `err.test_err_001_exception_has_register_names` | ERR-001-EXCEPTION-HAS-REGISTER-NAMES: ERR-001: Exception includes register names | 0.000s |
-| ✅ | `err.test_err_002_binary_file_skipped` | ERR-002-BINARY-FILE-SKIPPED: ERR-002: Binary files are skipped | 0.002s |
-| ✅ | `err.test_err_002_nonexistent_file` | ERR-002-NONEXISTENT-FILE: ERR-002: Non-existent file handled gracefully | 0.002s |
-| ✅ | `err.test_err_003_no_annotation_skipped` | ERR-003-NO-ANNOTATION-SKIPPED: ERR-003: Files without @axion silently skipped | 0.004s |
-| ✅ | `err.test_err_003_only_axion_def_skipped` | ERR-003-ONLY-AXION-DEF-SKIPPED: ERR-003: Files with only @axion_def but no signals skipped | 0.009s |
-| ✅ | `err.test_err_004_invalid_hex_address` | ERR-004-INVALID-HEX-ADDRESS: ERR-004: Invalid hex address reports error | 0.006s |
-| ✅ | `err.test_err_005_no_entity_skipped` | ERR-005-NO-ENTITY-SKIPPED: ERR-005: Files without entity declaration skipped | 0.004s |
-| ✅ | `err.test_err_006_duplicate_signal_detection` | ERR-006-DUPLICATE-SIGNAL-DETECTION: ERR-006: Duplicate signal names detected | 0.006s |
+| ✅ | `err.test_err_002_binary_file_skipped` | ERR-002-BINARY-FILE-SKIPPED: ERR-002: Binary files are skipped | 0.001s |
+| ✅ | `err.test_err_002_nonexistent_file` | ERR-002-NONEXISTENT-FILE: ERR-002: Non-existent file handled gracefully | 0.000s |
+| ✅ | `err.test_err_003_no_annotation_skipped` | ERR-003-NO-ANNOTATION-SKIPPED: ERR-003: Files without @axion silently skipped | 0.000s |
+| ✅ | `err.test_err_003_only_axion_def_skipped` | ERR-003-ONLY-AXION-DEF-SKIPPED: ERR-003: Files with only @axion_def but no signals skipped | 0.000s |
+| ✅ | `err.test_err_004_invalid_hex_address` | ERR-004-INVALID-HEX-ADDRESS: ERR-004: Invalid hex address reports error | 0.000s |
+| ✅ | `err.test_err_005_no_entity_skipped` | ERR-005-NO-ENTITY-SKIPPED: ERR-005: Files without entity declaration skipped | 0.001s |
+| ✅ | `err.test_err_006_duplicate_signal_detection` | ERR-006-DUPLICATE-SIGNAL-DETECTION: ERR-006: Duplicate signal names detected | 0.001s |
 
 ## 🖥️ CLI Tests (CLI-xxx)
 
 ### CLI Requirements
 
-**14/14 passed**
+**16/16 passed**
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `cli.test_cli_001_help_option` | CLI-001-HELP-OPTION: CLI-001: --help displays usage information | 0.110s |
-| ✅ | `cli.test_cli_001_help_short_option` | CLI-001-HELP-SHORT-OPTION: CLI-001: -h displays usage information | 0.050s |
-| ✅ | `cli.test_cli_002_version_option` | CLI-002-VERSION-OPTION: CLI-002: --version displays version | 0.048s |
-| ✅ | `cli.test_cli_003_source_file_vhdl` | CLI-003-SOURCE-FILE-VHDL: CLI-003: -s accepts single VHDL file | 0.046s |
-| ✅ | `cli.test_cli_003_source_file_xml` | CLI-003-SOURCE-FILE-XML: CLI-003: -s accepts single XML file | 0.049s |
-| ✅ | `cli.test_cli_003_source_option_long` | CLI-003-SOURCE-OPTION-LONG: CLI-003: --source option specifies source directory | 0.069s |
-| ✅ | `cli.test_cli_003_source_option_short` | CLI-003-SOURCE-OPTION-SHORT: CLI-003: -s option specifies source directory | 0.066s |
-| ✅ | `cli.test_cli_004_mixed_files_and_dirs` | CLI-004-MIXED-FILES-AND-DIRS: CLI-004: -s accepts mix of files and directories | 0.050s |
-| ✅ | `cli.test_cli_004_multiple_sources` | CLI-004-MULTIPLE-SOURCES: CLI-004: Multiple -s options accepted | 0.084s |
-| ✅ | `cli.test_cli_005_output_option_long` | CLI-005-OUTPUT-OPTION-LONG: CLI-005: --output option specifies output directory | 0.108s |
-| ✅ | `cli.test_cli_005_output_option_short` | CLI-005-OUTPUT-OPTION-SHORT: CLI-005: -o option specifies output directory | 0.094s |
-| ✅ | `cli.test_cli_006_exclude_option` | CLI-006-EXCLUDE-OPTION: CLI-006: -e option excludes files/directories | 0.106s |
-| ✅ | `cli.test_cli_009_invalid_source_error` | CLI-009-INVALID-SOURCE-ERROR: CLI-009: Non-existent source reports error | 0.043s |
-| ✅ | `cli.test_cli_010_output_dir_creation` | CLI-010-OUTPUT-DIR-CREATION: CLI-010: Non-existent output directory is created | 0.130s |
+| ✅ | `cli.test_cli_001_help_option` | CLI-001-HELP-OPTION: CLI-001: --help displays usage information | 0.056s |
+| ✅ | `cli.test_cli_001_help_short_option` | CLI-001-HELP-SHORT-OPTION: CLI-001: -h displays usage information | 0.046s |
+| ✅ | `cli.test_cli_002_version_option` | CLI-002-VERSION-OPTION: CLI-002: --version displays version | 0.043s |
+| ✅ | `cli.test_cli_003_source_file_vhdl` | CLI-003-SOURCE-FILE-VHDL: CLI-003: -s accepts single VHDL file | 0.047s |
+| ✅ | `cli.test_cli_003_source_file_xml` | CLI-003-SOURCE-FILE-XML: CLI-003: -s accepts single XML file | 0.054s |
+| ✅ | `cli.test_cli_003_source_option_long` | CLI-003-SOURCE-OPTION-LONG: CLI-003: --source option specifies source directory | 0.057s |
+| ✅ | `cli.test_cli_003_source_option_short` | CLI-003-SOURCE-OPTION-SHORT: CLI-003: -s option specifies source directory | 0.068s |
+| ✅ | `cli.test_cli_004_mixed_files_and_dirs` | CLI-004-MIXED-FILES-AND-DIRS: CLI-004: -s accepts mix of files and directories | 0.047s |
+| ✅ | `cli.test_cli_004_multiple_sources` | CLI-004-MULTIPLE-SOURCES: CLI-004: Multiple -s options accepted | 0.099s |
+| ✅ | `cli.test_cli_005_output_option_long` | CLI-005-OUTPUT-OPTION-LONG: CLI-005: --output option specifies output directory | 0.099s |
+| ✅ | `cli.test_cli_005_output_option_short` | CLI-005-OUTPUT-OPTION-SHORT: CLI-005: -o option specifies output directory | 0.101s |
+| ✅ | `cli.test_cli_006_exclude_option` | CLI-006-EXCLUDE-OPTION: CLI-006: -e option excludes files/directories | 0.140s |
+| ✅ | `cli.test_cli_009_invalid_source_error` | CLI-009-INVALID-SOURCE-ERROR: CLI-009: Non-existent source reports error | 0.046s |
+| ✅ | `cli.test_cli_010_output_dir_creation` | CLI-010-OUTPUT-DIR-CREATION: CLI-010: Non-existent output directory is created | 0.127s |
+| ✅ | `cli.test_cli_013_config_file_support` | CLI-013-CONFIG-FILE-SUPPORT: CLI-013: --config loads settings from JSON file | 0.141s |
+| ✅ | `cli.test_cli_015_auto_load_config` | CLI-015-AUTO-LOAD-CONFIG: CLI-015: Auto-load .axion_conf if no --config specified | 0.046s |
 
 ## 🔄 CDC Tests (CDC-xxx)
 
@@ -300,7 +302,7 @@
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
 | ✅ | `cdc.test_cdc_001_stage_count_2` | CDC-001-STAGE-COUNT-2: CDC-001: CDC_STAGE=2 generates 2-stage synchronizer | 0.001s |
-| ✅ | `cdc.test_cdc_001_stage_count_3` | CDC-001-STAGE-COUNT-3: CDC-001: CDC_STAGE=3 generates 3-stage synchronizer | 0.003s |
+| ✅ | `cdc.test_cdc_001_stage_count_3` | CDC-001-STAGE-COUNT-3: CDC-001: CDC_STAGE=3 generates 3-stage synchronizer | 0.001s |
 | ✅ | `cdc.test_cdc_002_default_stage_count` | CDC-002-DEFAULT-STAGE-COUNT: CDC-002: CDC_EN without CDC_STAGE defaults to 2 stages | 0.001s |
 | ✅ | `cdc.test_cdc_003_sync_signal_declaration` | CDC-003-SYNC-SIGNAL-DECLARATION: CDC-003: CDC-enabled modules declare synchronizer signals | 0.001s |
 | ✅ | `cdc.test_cdc_004_module_clock_port` | CDC-004-MODULE-CLOCK-PORT: CDC-004: CDC-enabled modules have module_clk port | 0.001s |
@@ -342,4 +344,17 @@
 | ✅ | `stress.test_stress_006_boundary_values` | STRESS-006-BOUNDARY-VALUES: STRESS-006: Generation handles all register types | 0.001s |
 
 ---
-*Generated by `make test` at 2025-12-15 00:02:03*
+*Generated by `make test` at 2025-12-15 21:08:13*
+
+## GUI Test Results
+
+**Total: 4 tests (4 passed, 0 failed)**
+
+### GUI-DASHBOARD (4/4 passed)
+
+| Requirement | Test | Status |
+|-------------|------|--------|
+| GUI-DASH-001 | test_dash_001_module_list | ✓ PASSED |
+| GUI-DASH-002 | test_dash_002_module_count | ✓ PASSED |
+| GUI-DASH-003 | test_dash_003_register_count | ✓ PASSED |
+| GUI-DASH-004 | test_dash_004_module_card_info | ✓ PASSED |
