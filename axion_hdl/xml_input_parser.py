@@ -40,6 +40,7 @@ class XMLInputParser:
     def __init__(self):
         self.address_manager = AddressManager()
         self._exclude_patterns: Set[str] = set()
+        self.errors = []
     
     def add_exclude(self, pattern: str):
         """Add an exclusion pattern for files/directories."""
@@ -81,8 +82,11 @@ class XMLInputParser:
         Returns:
             Dictionary with module data or None if parsing fails
         """
+        print(f"Parsing XML file: {filepath}")
         if not os.path.exists(filepath):
-            print(f"  Warning: XML file not found: {filepath}")
+            msg = f"XML file not found: {filepath}"
+            print(f"  Warning: {msg}")
+            self.errors.append({'file': filepath, 'msg': msg})
             return None
         
         try:
@@ -101,17 +105,23 @@ class XMLInputParser:
                 return None
                 
         except ET.ParseError as e:
-            print(f"  Error parsing XML file {filepath}: {e}")
+            msg = f"Error parsing XML file {filepath}: {e}"
+            print(f"  {msg}")
+            self.errors.append({'file': filepath, 'msg': msg})
             return None
         except Exception as e:
-            print(f"  Error processing XML file {filepath}: {e}")
+            msg = f"Error processing XML file {filepath}: {e}"
+            print(f"  {msg}")
+            self.errors.append({'file': filepath, 'msg': msg})
             return None
     
     def _parse_simple_format(self, root: ET.Element, filepath: str) -> Optional[Dict]:
         """Parse simple custom XML format."""
         module_name = root.get('module')
         if not module_name:
-            print(f"  Error: Missing 'module' attribute in {filepath}")
+            msg = f"Missing 'module' attribute in {filepath}"
+            print(f"  Error: {msg}")
+            self.errors.append({'file': filepath, 'msg': msg})
             return None
         
         base_addr_str = root.get('base_addr', '0x0000')
@@ -484,7 +494,6 @@ class XMLInputParser:
                     print(f"  Skipping excluded: {xml_file}")
                     continue
                 
-                print(f"  Parsing: {xml_file}")
                 module = self.parse_file(xml_file)
                 if module:
                     modules.append(module)

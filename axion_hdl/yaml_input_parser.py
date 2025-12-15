@@ -43,10 +43,11 @@ class YAMLInputParser:
     def __init__(self):
         self.address_manager = AddressManager()
         self._exclude_patterns: Set[str] = set()
+        self.errors = []  # Track parsing errors
         
         if yaml is None:
             raise ImportError("PyYAML is required for YAML input support. Install with: pip install PyYAML")
-    
+
     def add_exclude(self, pattern: str):
         """Add an exclusion pattern for files/directories."""
         self._exclude_patterns.add(pattern)
@@ -75,7 +76,7 @@ class YAMLInputParser:
             if fnmatch.fnmatch(filepath, f"*/{pattern}"):
                 return True
         return False
-    
+
     def parse_file(self, filepath: str) -> Optional[Dict]:
         """
         Parse a single YAML file and return structured module data.
@@ -86,8 +87,11 @@ class YAMLInputParser:
         Returns:
             Dictionary with module data or None if parsing fails
         """
+        print(f"Parsing YAML file: {filepath}")
         if not os.path.exists(filepath):
-            print(f"  Warning: YAML file not found: {filepath}")
+            msg = f"YAML file not found: {filepath}"
+            print(f"  Warning: {msg}")
+            self.errors.append({'file': filepath, 'msg': msg})
             return None
         
         try:
@@ -101,17 +105,23 @@ class YAMLInputParser:
             return self._parse_yaml_data(data, filepath)
             
         except yaml.YAMLError as e:
-            print(f"  Error parsing YAML file {filepath}: {e}")
+            msg = f"YAML syntax error: {e}"
+            print(f"  Error parsing YAML file {filepath}: {msg}")
+            self.errors.append({'file': filepath, 'msg': msg})
             return None
         except Exception as e:
-            print(f"  Error processing YAML file {filepath}: {e}")
+            msg = str(e)
+            print(f"  Error processing YAML file {filepath}: {msg}")
+            self.errors.append({'file': filepath, 'msg': msg})
             return None
     
     def _parse_yaml_data(self, data: Dict, filepath: str) -> Optional[Dict]:
         """Parse YAML data structure."""
         module_name = data.get('module')
         if not module_name:
-            print(f"  Error: Missing 'module' field in {filepath}")
+            msg = f"Missing 'module' field in {filepath}"
+            print(f"Error: {msg}")
+            self.errors.append({'file': filepath, 'msg': msg})
             return None
         
         base_addr_val = data.get('base_addr', '0x0000')
@@ -352,7 +362,6 @@ class YAMLInputParser:
                     print(f"  Skipping excluded: {yaml_file}")
                     continue
                 
-                print(f"  Parsing: {yaml_file}")
                 module = self.parse_file(yaml_file)
                 if module:
                     modules.append(module)

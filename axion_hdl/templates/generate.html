@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+
+{% block title %}Generate Outputs{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="section-title"><i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Generate Outputs</h2>
+        <p class="text-secondary">Produce VHDL modules, documentation, and header files from your design.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Output Configuration -->
+    <div class="col-md-7">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-2 px-4">
+                <h5 class="fw-bold mb-0">Configuration</h5>
+            </div>
+            <div class="card-body p-4">
+                <form id="genForm">
+                    <!-- Output Directory -->
+                    <div class="mb-5">
+                        <label class="form-label fw-bold text-secondary small text-uppercase">Output Directory</label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text bg-light border-end-0 text-muted">
+                                <i class="bi bi-folder2-open"></i>
+                            </span>
+                            <input type="text" id="outputDir" class="form-control border-start-0 bg-light"
+                                value="{{ default_dir }}" placeholder="/path/to/output">
+                            <button class="btn btn-outline-secondary" type="button" onclick="selectFolder()">
+                                Browse...
+                            </button>
+                        </div>
+                        <div class="form-text mt-2">Destination folder for all generated files.</div>
+                    </div>
+
+                    <!-- Formats -->
+                    <label class="form-label fw-bold text-secondary small text-uppercase mb-3">Target Formats</label>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex align-items-center">
+                                <input class="form-check-input ms-0 me-3" type="checkbox" id="fmtVhdl" checked
+                                    style="width: 2.5em; height: 1.25em;">
+                                <div>
+                                    <label class="form-check-label fw-bold d-block" for="fmtVhdl">VHDL Modules</label>
+                                    <span class="small text-muted">Axi-Lite wrappers</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex align-items-center">
+                                <input class="form-check-input ms-0 me-3" type="checkbox" id="fmtJson" checked
+                                    style="width: 2.5em; height: 1.25em;">
+                                <div>
+                                    <label class="form-check-label fw-bold d-block" for="fmtJson">JSON Map</label>
+                                    <span class="small text-muted">Machine-readable specs</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex align-items-center">
+                                <input class="form-check-input ms-0 me-3" type="checkbox" id="fmtHeader" checked
+                                    style="width: 2.5em; height: 1.25em;">
+                                <div>
+                                    <label class="form-check-label fw-bold d-block" for="fmtHeader">C Headers</label>
+                                    <span class="small text-muted">Driver definitions</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex align-items-center">
+                                <input class="form-check-input ms-0 me-3" type="checkbox" id="fmtDocMd" checked
+                                    style="width: 2.5em; height: 1.25em;">
+                                <div>
+                                    <label class="form-check-label fw-bold d-block" for="fmtDocMd">Markdown Docs</label>
+                                    <span class="small text-muted">Register map (.md)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex align-items-center">
+                                <input class="form-check-input ms-0 me-3" type="checkbox" id="fmtDocHtml" checked
+                                    style="width: 2.5em; height: 1.25em;">
+                                <div>
+                                    <label class="form-check-label fw-bold d-block" for="fmtDocHtml">HTML Docs</label>
+                                    <span class="small text-muted">Styled web page (.html)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-5">
+                        <button type="button" onclick="runGenerate()" class="btn btn-primary btn-lg shadow-sm">
+                            <i class="bi bi-play-circle-fill me-2"></i>Generate Files
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Output Log -->
+    <div class="col-md-5">
+        <div class="card shadow-sm border-0 h-100 bg-dark text-white">
+            <div
+                class="card-header border-secondary border-opacity-25 pt-4 pb-2 px-4 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0 text-white"><i class="bi bi-terminal me-2"></i>Activity Log</h5>
+                <span id="statusBadge" class="badge bg-secondary">Idle</span>
+            </div>
+            <div class="card-body p-0 d-flex flex-column">
+                <div id="consoleOutput" class="p-3 font-monospace small"
+                    style="height: 400px; overflow-y: auto; color: #a0a0a0;">
+                    <div class="text-secondary opacity-50 fst-italic">Ready to generate...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function selectFolder() {
+        fetch('/api/select_folder')
+            .then(res => res.json())
+            .then(data => {
+                if (data.path) {
+                    document.getElementById('outputDir').value = data.path;
+                }
+            });
+    }
+
+    function runGenerate() {
+        const log = document.getElementById('consoleOutput');
+        const badge = document.getElementById('statusBadge');
+
+        // UI State -> Running
+        log.innerHTML = '';
+        logAdd('Initializing generation...', 'text-info');
+        badge.className = 'badge bg-primary animate__animated animate__pulse animate__infinite';
+        badge.innerText = 'Running...';
+
+        const payload = {
+            output_dir: document.getElementById('outputDir').value,
+            formats: {
+                vhdl: document.getElementById('fmtVhdl').checked,
+                json: document.getElementById('fmtJson').checked,
+                header: document.getElementById('fmtHeader').checked,
+                doc_md: document.getElementById('fmtDocMd').checked,
+                doc_html: document.getElementById('fmtDocHtml').checked
+            }
+        };
+
+        fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    badge.className = 'badge bg-success';
+                    badge.innerText = 'Success';
+                    logAdd('----------------------------------------', 'text-secondary');
+                    data.logs.forEach(line => logAdd(line));
+                    logAdd('Generation completed successfully.', 'text-success fw-bold');
+                } else {
+                    badge.className = 'badge bg-danger';
+                    badge.innerText = 'Error';
+                    logAdd(data.error, 'text-danger fw-bold');
+                }
+            })
+            .catch(err => {
+                badge.className = 'badge bg-danger';
+                badge.innerText = 'Failed';
+                logAdd('Network Error: ' + err, 'text-danger');
+            });
+    }
+
+    function logAdd(text, className = '') {
+        const log = document.getElementById('consoleOutput');
+        const div = document.createElement('div');
+        if (className) div.className = className;
+        div.innerText = text;
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
+    }
+</script>
+{% endblock %}

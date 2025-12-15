@@ -286,6 +286,77 @@ begin end architecture;
         self.assertEqual(result.returncode, 0)
         self.assertTrue(os.path.exists(output_dir))
 
+    # =========================================================================
+    # CLI-013: Configuration File Support
+    # =========================================================================
+    def test_cli_013_config_file_support(self):
+        """CLI-013: --config loads settings from JSON file"""
+        import json
+        output_dir = os.path.join(self.temp_dir, "config_output")
+        config = {
+            "src_dirs": [self.temp_dir],
+            "output_dir": output_dir,
+            "exclude_patterns": ["*.txt"]
+        }
+        config_path = os.path.join(self.temp_dir, "test_config.json")
+        with open(config_path, 'w') as f:
+            json.dump(config, f)
+            
+        # Run without -s or -o, should pick up from config
+        result = self._run_cli(['--config', config_path])
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(os.path.exists(output_dir))
+
+
+
+    def test_cli_015_auto_load_config(self):
+        """CLI-015: Auto-load .axion_conf if no --config specified"""
+        import json
+        import shutil
+        import subprocess
+        import sys
+        
+        # Create a subdirectory to act as project root
+        project_dir = os.path.join(self.temp_dir, "project_root_auto")
+        if os.path.exists(project_dir):
+            shutil.rmtree(project_dir)
+        os.makedirs(project_dir)
+        
+        # Create a dummy source file
+        src_file = os.path.join(project_dir, "my_reg.json")
+        with open(src_file, "w") as f:
+            f.write('{ "module": "my_reg", "base_addr": "0x00", "registers": [] }')
+            
+        # Create .axion_conf in project root
+        output_dir = "default_output"
+        config = {
+            "src_files": ["my_reg.json"],
+            "output_dir": output_dir
+        }
+        with open(os.path.join(project_dir, ".axion_conf"), "w") as f:
+            json.dump(config, f)
+            
+        # Run CLI in that directory WITHOUT --config
+        import sys
+        import subprocess
+        
+        # Need to ensure python can find axion_hdl package
+        # The project root is available in global 'project_root'
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(project_root)
+        
+        cmd = [sys.executable, "-m", "axion_hdl.cli"]
+        result = subprocess.run(
+            cmd,
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            env=env
+        )
+        
+        self.assertEqual(result.returncode, 0, f"CLI failed: {result.stderr}")
+        self.assertTrue(os.path.exists(os.path.join(project_dir, output_dir)), "Output directory was not created from default config")
+
 
 def run_cli_tests():
     """Run all CLI tests and return results"""

@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block head %}
+<style>
+    .dashboard-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .summary-card {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: white;
+        padding: 1.25rem;
+        border-radius: 12px;
+        text-align: center;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .summary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px -5px rgba(37, 99, 235, 0.3);
+    }
+
+    .summary-card.purple {
+        background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    }
+
+    .summary-card.green {
+        background: linear-gradient(135deg, #10b981, #059669);
+    }
+
+    .summary-card.amber {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+
+    .summary-card i {
+        font-size: 1.5rem;
+        opacity: 0.85;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .summary-card h2 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 700;
+        color: white;
+        border: none;
+        padding: 0;
+    }
+
+    .summary-card p {
+        margin: 0.25rem 0 0 0;
+        opacity: 0.9;
+        font-size: 0.85rem;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .section-header h2 {
+        margin: 0;
+        border: none;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set total_regs = namespace(value=0) %}
+{% set cdc_count = namespace(value=0) %}
+{% for m in modules %}
+{% set total_regs.value = total_regs.value + m.registers|length %}
+{% if m.cdc_enabled %}
+{% set cdc_count.value = cdc_count.value + 1 %}
+{% endif %}
+{% endfor %}
+
+<div class="hero">
+    <h1><i class="bi bi-cpu me-2"></i>AXI Register Map Dashboard</h1>
+    <p class="subtitle">Managed by Axion HDL</p>
+</div>
+
+<!-- Statistics Cards -->
+<div class="dashboard-summary">
+    <div class="summary-card">
+        <i class="bi bi-box-seam"></i>
+        <h2>{{ modules|length }}</h2>
+        <p>Modules</p>
+    </div>
+    <div class="summary-card purple">
+        <i class="bi bi-list-columns-reverse"></i>
+        <h2>{{ total_regs.value }}</h2>
+        <p>Total Registers</p>
+    </div>
+    <div class="summary-card green">
+        <i class="bi bi-arrow-left-right"></i>
+        <h2>{{ cdc_count.value }}</h2>
+        <p>CDC Enabled</p>
+    </div>
+    <div class="summary-card amber">
+        <i class="bi bi-file-earmark-code"></i>
+        <h2>{{ modules|length }}</h2>
+        <p>Source Files</p>
+    </div>
+</div>
+
+<div class="section-header">
+    <h2><i class="bi bi-grid-3x3-gap text-primary"></i> Modules</h2>
+    <a href="/module/new" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i> New Module
+    </a>
+</div>
+
+<div class="module-list">
+    {% for module in modules %}
+    <a href="/module/{{ module.name }}" class="module-card-large">
+        <div class="module-main">
+            <div class="module-header">
+                <h3>{{ module.name }}</h3>
+                {% if module.cdc_enabled %}
+                <span class="badge badge-cdc">CDC</span>
+                {% endif %}
+            </div>
+
+            <div class="module-info">
+                <div class="info-item">
+                    <span class="info-label">Base Address</span>
+                    <span class="info-value">0x{{ '%04X' % module.base_address if module.base_address else '0000'
+                        }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Registers</span>
+                    <span class="info-value">{{ module.registers|length }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Source</span>
+                    <span class="info-value" title="{{ module.file }}">{{ module.file.split('/')[-1] }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="register-preview">
+            <div class="preview-title">Registers Preview</div>
+            {% for reg in module.registers[:5] %}
+            <div class="reg-item">
+                <code>{{ reg.signal_name }}</code>
+                <span class="reg-meta">{{ reg.access_mode }}</span>
+            </div>
+            {% endfor %}
+            {% if module.registers|length > 5 %}
+            <div style="font-size: 0.75rem; color: var(--primary-color); padding-top: 5px;">
+                + {{ module.registers|length - 5 }} more registers...
+            </div>
+            {% endif %}
+        </div>
+    </a>
+    {% else %}
+    <div class="card" style="text-align: center;">
+        <p>No modules loaded. Please restart with valid source files.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
