@@ -421,20 +421,22 @@ class SourceModifier:
         # Update module-level properties (base_address, cdc, etc.) if they changed
         if properties:
             new_base = properties.get('base_address')
-            if new_base and 'base_address' in original_data:
+            # Support both 'base_address' and 'base_addr' key names
+            base_key = 'base_address' if 'base_address' in original_data else ('base_addr' if 'base_addr' in original_data else None)
+            if new_base and base_key:
                 # Compare as normalized hex strings or integers
                 try:
-                    orig_base = original_data.get('base_address', 0)
+                    orig_base = original_data.get(base_key, 0)
                     orig_base_int = int(orig_base, 16) if isinstance(orig_base, str) and orig_base.startswith('0x') else int(orig_base)
                     new_base_int = int(new_base, 16) if isinstance(new_base, str) and new_base.startswith('0x') else int(new_base)
                     if new_base_int != orig_base_int:
                         # Preserve original format (hex string vs int)
                         if isinstance(orig_base, str) and orig_base.startswith('0x'):
-                            original_data['base_address'] = f"0x{new_base_int:04X}"
+                            original_data[base_key] = f"0x{new_base_int:04X}"
                         elif isinstance(orig_base, str):
-                            original_data['base_address'] = str(new_base_int)
+                            original_data[base_key] = str(new_base_int)
                         else:
-                            original_data['base_address'] = new_base_int
+                            original_data[base_key] = new_base_int
                 except (ValueError, TypeError):
                     pass
             
