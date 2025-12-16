@@ -455,19 +455,19 @@ class SourceModifier:
             orig_reg = original_regs.get(reg_name, {})
             
             # Only update attributes that actually changed
-            if new_reg.get('access') != orig_reg.get('access') and re.search(r'access\s*=', tag):
-                tag = re.sub(r'access\s*=\s*["\'][^"\']*["\']', f'access="{new_reg["access"]}"', tag)
+            if new_reg.get('access') and new_reg.get('access') != orig_reg.get('access') and re.search(r'access\s*=', tag):
+                tag = re.sub(r'access\s*=\s*["\'][^"\']*["\']', f'access="{new_reg.get("access")}"', tag)
             
             orig_width = orig_reg.get('signal_width', orig_reg.get('width', 32))
-            if new_reg.get('width') != orig_width and re.search(r'width\s*=', tag):
-                tag = re.sub(r'width\s*=\s*["\'][^"\']*["\']', f'width="{new_reg["width"]}"', tag)
+            if new_reg.get('width') and new_reg.get('width') != orig_width and re.search(r'width\s*=', tag):
+                tag = re.sub(r'width\s*=\s*["\'][^"\']*["\']', f'width="{new_reg.get("width")}"', tag)
             
-            if new_reg.get('description') != orig_reg.get('description') and re.search(r'description\s*=', tag):
-                desc = new_reg['description'].replace('&', '&amp;').replace('"', '&quot;')
+            if new_reg.get('description') and new_reg.get('description') != orig_reg.get('description') and re.search(r'description\s*=', tag):
+                desc = new_reg.get('description', '').replace('&', '&amp;').replace('"', '&quot;')
                 tag = re.sub(r'description\s*=\s*["\'][^"\']*["\']', f'description="{desc}"', tag)
             
-            if new_reg.get('default_value') != orig_reg.get('default_value') and re.search(r'default\s*=', tag):
-                tag = re.sub(r'default\s*=\s*["\'][^"\']*["\']', f'default="{new_reg["default_value"]}"', tag)
+            if new_reg.get('default_value') is not None and new_reg.get('default_value') != orig_reg.get('default_value') and re.search(r'default\s*=', tag):
+                tag = re.sub(r'default\s*=\s*["\'][^"\']*["\']', f'default="{new_reg.get("default_value")}"', tag)
             
             return tag
         
