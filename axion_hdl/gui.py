@@ -703,39 +703,33 @@ class AxionGUI:
                                  
         @self.app.route('/api/confirm_save', methods=['POST'])
         def confirm_save():
-            # In a real app we'd pass module_name in form, but here let's assume single user flow
-            # Or get it from referrer. Let's simplify and use the last pending key if possible or pass via query?
-            # Better: pass module_name in the form in diff.html. 
-            # Wait, diff.html form action is /api/confirm_save. Let's rely on referrer or just check which module has pending changes? 
-            # Ideally support multiple. Let's update diff.html to pass query param or hidden input.
-            # For now, let's grab the first key from pending_changes as a shortcut for single-user local tool.
+            # Get change_key from form data
+            change_key = request.form.get('change_key', '')
             
-            if not self.pending_changes:
-                 return redirect(url_for('index'))
-                 
-            # Find which module is being confirmed from referrer? 
-            # Let's clean up logic: user is at /diff/<module_name>. The form posts to /api/confirm_save.
-            # We can use the Referer header to parse module name, or simpler:
-            # Let's iterate pending_changes.
+            if not change_key and self.pending_changes:
+                # Fallback: use first pending key if change_key not provided
+                change_key = list(self.pending_changes.keys())[0]
             
-            # Actually, let's update this method to accept module_name in query string for robustness, 
-            # but I can't edit diff.html in this tool call.
-            # I'll rely on the Referer for now or just take the first item (since it's a local single-user tool).
+            if not change_key or change_key not in self.pending_changes:
+                return redirect(url_for('index'))
             
-            module_name = list(self.pending_changes.keys())[0]
-            pending = self.pending_changes.pop(module_name)
+            pending = self.pending_changes.pop(change_key)
+            module_name = pending.get('module_name', change_key)
+            file_path = pending.get('file_path', '')
             new_regs = pending['registers']
             props = pending.get('properties', {})
             
+            # Use file_path aware save
             success = self.modifier.save_changes(module_name, new_regs, props)
             
             if success:
-                # Reload axion analysis to reflect changes?
-                # This requires re-parsing the file.
-                # AxionHDL class needs a re-analyze method for specific file.
-                # For simplicity: redirect to dashboard, but maybe show a message "Restart to see changes fully"?
-                # Or try to re-analyze.
-                pass
+                # Trigger re-analysis to reflect changes
+                try:
+                    self.axion.analyzed_modules = []
+                    self.axion.is_analyzed = False
+                    self.axion.analyze()
+                except:
+                    pass  # Ignore analysis errors
                 
             return redirect(url_for('index'))
 
