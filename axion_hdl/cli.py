@@ -258,13 +258,25 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         axion.exclude(*args.excludes)
     
     # Analyze files
-    if not axion.analyze():
-        print("Error: Analysis failed. No modules found.", 
-              file=sys.stderr)
-        sys.exit(1)
+    # For GUI mode, tolerate analysis errors - GUI will display them gracefully
+    analysis_error = None
+    try:
+        if not axion.analyze():
+            if not args.gui:
+                print("Error: Analysis failed. No modules found.", 
+                      file=sys.stderr)
+                sys.exit(1)
+    except Exception as e:
+        if args.gui:
+            # Store error for GUI to display, but don't exit
+            analysis_error = str(e)
+            print(f"Warning: Analysis error (will be shown in GUI): {e}")
+        else:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
     
-    # Check if any modules were found
-    if not axion.analyzed_modules:
+    # Check if any modules were found (skip for GUI mode with errors)
+    if not axion.analyzed_modules and not args.gui:
         print("Warning: No modules with @axion annotations found in source directories.",
               file=sys.stderr)
         sys.exit(0)
