@@ -169,7 +169,7 @@
 
 <div class="module-list">
     {% for module in modules %}
-    <a href="/module/{{ module.name }}"
+    <a href="/module/{{ module.name }}?file={{ module.file | urlencode }}"
         class="module-card-large{% if module.rule_errors > 0 %} has-errors{% elif module.rule_warnings > 0 %} has-warnings{% endif %}">
         <div class="module-main">
             <div class="module-header">
