@@ -93,8 +93,16 @@ class AxionGUI:
                 }
                 return render_template('editor.html', module=new_module)
             
-            # Find existing module
-            module = next((m for m in self.axion.analyzed_modules if m['name'] == name), None)
+            # Find existing module - use file query param if provided for disambiguation
+            file_path = request.args.get('file')
+            if file_path:
+                # Exact match by both name and file
+                module = next((m for m in self.axion.analyzed_modules 
+                              if m['name'] == name and m['file'] == file_path), None)
+            else:
+                # Fallback to name-only match
+                module = next((m for m in self.axion.analyzed_modules if m['name'] == name), None)
+            
             if not module:
                 return "Module not found", 404
             module['is_new'] = False
