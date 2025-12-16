@@ -345,113 +345,134 @@ class SourceModifier:
         return True
 
     def _modify_yaml_content(self, module: Dict, new_registers: List[Dict], properties: Dict = None) -> Tuple[str, str]:
-        """Generate modified YAML content for the module."""
+        """Modify YAML content preserving original structure, only updating registers."""
         import yaml
         
         filepath = module['file']
         
-        # Build new module data structure
-        module_data = {
-            'module': module['name'],
-            'base_address': properties.get('base_address', '0x0000') if properties else module.get('base_address', '0x0000'),
-            'cdc_enabled': properties.get('cdc_enabled', False) if properties else module.get('cdc_enabled', False),
-            'cdc_stages': properties.get('cdc_stages', 2) if properties else module.get('cdc_stages', 2),
-            'registers': []
-        }
+        # Read original file
+        with open(filepath, 'r') as f:
+            original_data = yaml.safe_load(f)
         
-        for reg in new_registers:
-            reg_data = {
-                'name': reg.get('name'),
-                'access': reg.get('access', 'RW'),
-                'width': reg.get('width', 32),
-            }
-            if reg.get('description'):
-                reg_data['description'] = reg['description']
-            if reg.get('default_value') and reg.get('default_value') != 0:
-                reg_data['default_value'] = reg['default_value']
-            if reg.get('read_strobe'):
-                reg_data['read_strobe'] = True
-            if reg.get('write_strobe'):
-                reg_data['write_strobe'] = True
-            if reg.get('address'):
-                reg_data['address'] = reg['address']
-                
-            module_data['registers'].append(reg_data)
+        if not original_data:
+            original_data = {}
         
-        new_content = yaml.dump(module_data, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        # Build register lookup by name
+        new_reg_map = {r.get('name'): r for r in new_registers}
+        
+        # Update registers in place
+        if 'registers' in original_data:
+            for i, orig_reg in enumerate(original_data['registers']):
+                reg_name = orig_reg.get('name')
+                if reg_name in new_reg_map:
+                    new_reg = new_reg_map[reg_name]
+                    # Only update fields that exist in the new data
+                    if 'access' in new_reg:
+                        original_data['registers'][i]['access'] = new_reg['access']
+                    if 'width' in new_reg:
+                        original_data['registers'][i]['width'] = new_reg['width']
+                    if new_reg.get('description'):
+                        original_data['registers'][i]['description'] = new_reg['description']
+                    if new_reg.get('default_value') is not None:
+                        original_data['registers'][i]['default_value'] = new_reg['default_value']
+                    if 'read_strobe' in new_reg:
+                        original_data['registers'][i]['read_strobe'] = new_reg['read_strobe']
+                    if 'write_strobe' in new_reg:
+                        original_data['registers'][i]['write_strobe'] = new_reg['write_strobe']
+        
+        new_content = yaml.dump(original_data, default_flow_style=False, sort_keys=False, allow_unicode=True)
         return new_content, filepath
 
     def _modify_json_content(self, module: Dict, new_registers: List[Dict], properties: Dict = None) -> Tuple[str, str]:
-        """Generate modified JSON content for the module."""
+        """Modify JSON content preserving original structure, only updating registers."""
         import json
         
         filepath = module['file']
         
-        # Build new module data structure
-        module_data = {
-            'module': module['name'],
-            'base_address': properties.get('base_address', '0x0000') if properties else module.get('base_address', '0x0000'),
-            'cdc_enabled': properties.get('cdc_enabled', False) if properties else module.get('cdc_enabled', False),
-            'cdc_stages': properties.get('cdc_stages', 2) if properties else module.get('cdc_stages', 2),
-            'registers': []
-        }
+        # Read original file
+        with open(filepath, 'r') as f:
+            original_data = json.load(f)
         
-        for reg in new_registers:
-            reg_data = {
-                'name': reg.get('name'),
-                'access': reg.get('access', 'RW'),
-                'width': reg.get('width', 32),
-            }
-            if reg.get('description'):
-                reg_data['description'] = reg['description']
-            if reg.get('default_value') and reg.get('default_value') != 0:
-                reg_data['default_value'] = reg['default_value']
-            if reg.get('read_strobe'):
-                reg_data['read_strobe'] = True
-            if reg.get('write_strobe'):
-                reg_data['write_strobe'] = True
-            if reg.get('address'):
-                reg_data['address'] = reg['address']
-                
-            module_data['registers'].append(reg_data)
+        if not original_data:
+            original_data = {}
         
-        new_content = json.dumps(module_data, indent=2)
+        # Build register lookup by name
+        new_reg_map = {r.get('name'): r for r in new_registers}
+        
+        # Update registers in place
+        if 'registers' in original_data:
+            for i, orig_reg in enumerate(original_data['registers']):
+                reg_name = orig_reg.get('name')
+                if reg_name in new_reg_map:
+                    new_reg = new_reg_map[reg_name]
+                    # Only update fields that exist in the new data
+                    if 'access' in new_reg:
+                        original_data['registers'][i]['access'] = new_reg['access']
+                    if 'width' in new_reg:
+                        original_data['registers'][i]['width'] = new_reg['width']
+                    if new_reg.get('description'):
+                        original_data['registers'][i]['description'] = new_reg['description']
+                    if new_reg.get('default_value') is not None:
+                        original_data['registers'][i]['default_value'] = new_reg['default_value']
+                    if 'read_strobe' in new_reg:
+                        original_data['registers'][i]['read_strobe'] = new_reg['read_strobe']
+                    if 'write_strobe' in new_reg:
+                        original_data['registers'][i]['write_strobe'] = new_reg['write_strobe']
+        
+        new_content = json.dumps(original_data, indent=2)
         return new_content, filepath
 
     def _modify_xml_content(self, module: Dict, new_registers: List[Dict], properties: Dict = None) -> Tuple[str, str]:
-        """Generate modified XML content for the module."""
+        """Modify XML content preserving original structure, only updating register attributes."""
+        import re
         
         filepath = module['file']
         
-        # Build XML content manually for clean formatting
-        base_addr = properties.get('base_address', '0x0000') if properties else module.get('base_address', '0x0000')
-        cdc_enabled = 'true' if (properties.get('cdc_enabled', False) if properties else module.get('cdc_enabled', False)) else 'false'
-        cdc_stages = properties.get('cdc_stages', 2) if properties else module.get('cdc_stages', 2)
+        # Read original file - preserve all structure including comments
+        with open(filepath, 'r') as f:
+            content = f.read()
         
-        lines = ['<?xml version="1.0" encoding="UTF-8"?>']
-        lines.append(f'<register_map module="{module["name"]}" base_address="{base_addr}" cdc_enabled="{cdc_enabled}" cdc_stages="{cdc_stages}">')
-        lines.append('  <registers>')
+        # Build register lookup by name
+        new_reg_map = {r.get('name'): r for r in new_registers}
         
-        for reg in new_registers:
-            attrs = [f'name="{reg.get("name")}"']
-            attrs.append(f'access="{reg.get("access", "RW")}"')
-            attrs.append(f'width="{reg.get("width", 32)}"')
+        def update_register_tag(match):
+            """Update a single register tag with new values while preserving structure."""
+            tag = match.group(0)
             
-            if reg.get('address'):
-                attrs.append(f'address="{reg["address"]}"')
-            if reg.get('default_value') and reg.get('default_value') != 0:
-                attrs.append(f'default_value="{reg["default_value"]}"')
-            if reg.get('read_strobe'):
-                attrs.append('read_strobe="true"')
-            if reg.get('write_strobe'):
-                attrs.append('write_strobe="true"')
-            if reg.get('description'):
-                attrs.append(f'description="{reg["description"]}"')
+            # Extract current name
+            name_match = re.search(r'name\s*=\s*["\']([^"\']+)["\']', tag)
+            if not name_match:
+                return tag  # Keep original if no name found
+                
+            reg_name = name_match.group(1)
+            if reg_name not in new_reg_map:
+                return tag  # Keep original if not being updated
             
-            lines.append(f'    <register {" ".join(attrs)} />')
+            new_reg = new_reg_map[reg_name]
+            
+            # Only update attributes that exist in the tag and have new values
+            if 'access' in new_reg and re.search(r'access\s*=', tag):
+                tag = re.sub(r'access\s*=\s*["\'][^"\']*["\']', f'access="{new_reg["access"]}"', tag)
+            
+            if 'width' in new_reg and re.search(r'width\s*=', tag):
+                tag = re.sub(r'width\s*=\s*["\'][^"\']*["\']', f'width="{new_reg["width"]}"', tag)
+            
+            if new_reg.get('description') and re.search(r'description\s*=', tag):
+                # Escape special XML characters in description
+                desc = new_reg['description'].replace('&', '&amp;').replace('"', '&quot;')
+                tag = re.sub(r'description\s*=\s*["\'][^"\']*["\']', f'description="{desc}"', tag)
+            
+            if new_reg.get('default_value') is not None and re.search(r'default\s*=', tag):
+                tag = re.sub(r'default\s*=\s*["\'][^"\']*["\']', f'default="{new_reg["default_value"]}"', tag)
+            
+            return tag
         
-        lines.append('  </registers>')
-        lines.append('</register_map>')
+        # Match <register ... /> or <register ...>...</register> tags
+        new_content = re.sub(
+            r'<register\s+[^>]*(?:/>|>[^<]*</register>)', 
+            update_register_tag, 
+            content, 
+            flags=re.DOTALL
+        )
         
-        new_content = '\n'.join(lines)
         return new_content, filepath
