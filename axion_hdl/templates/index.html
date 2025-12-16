@@ -128,6 +128,15 @@
     <p class="subtitle">Managed by Axion HDL</p>
 </div>
 
+{% if analysis_error %}
+<div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+    <div>
+        <strong>Analysis Error:</strong> {{ analysis_error }}
+    </div>
+</div>
+{% endif %}
+
 <!-- Statistics Cards -->
 <div class="dashboard-summary">
     <div class="summary-card">
