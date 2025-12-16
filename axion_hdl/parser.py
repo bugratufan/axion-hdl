@@ -351,6 +351,8 @@ class VHDLParser:
                     'access_mode': attrs.get('access_mode', 'RW'),
                     'read_strobe': attrs.get('read_strobe', False),
                     'write_strobe': attrs.get('write_strobe', False),
+                    'r_strobe': attrs.get('read_strobe', False),
+                    'w_strobe': attrs.get('write_strobe', False),
                     'description': attrs.get('description', ''),
                     'default_value': attrs.get('default_value', 0),
                     'signal_width': signal_width,
