@@ -178,6 +178,13 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         help='Run validation rules. Optional: specify output report file (default: rule_check_report.json)'
     )
     
+    gen_group.add_argument(
+        '--port',
+        type=int,
+        default=5000,
+        help='Port number for GUI server (default: 5000)'
+    )
+    
     # Parse arguments
     args = parser.parse_args()
 
