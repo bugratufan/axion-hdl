@@ -344,12 +344,16 @@
     // Get current form state for comparison
     function getFormState() {
         const regs = [];
-        document.querySelectorAll('#registerTable tbody tr').forEach(row => {
+        document.querySelectorAll('.reg-row').forEach(row => {
+            const strobes = row.querySelectorAll('.strobe-toggle');
             regs.push({
                 name: row.querySelector('.reg-name-input')?.value || '',
                 width: row.querySelector('.reg-width-input')?.value || '',
                 access: row.querySelector('.reg-access-input')?.value || '',
-                default: row.querySelector('.reg-default-input')?.value || ''
+                default: row.querySelector('.reg-default-input')?.value || '',
+                description: row.querySelector('.reg-desc-input')?.value || '',
+                rStrobe: strobes[0]?.classList.contains('active') || false,
+                wStrobe: strobes[1]?.classList.contains('active') || false
             });
         });
         return JSON.stringify({
@@ -384,10 +388,12 @@
         // Store initial state
         initialState = getFormState();
 
-        // Add change listeners to all inputs
-        document.querySelectorAll('input, select').forEach(el => {
-            el.addEventListener('change', markAsChanged);
-            el.addEventListener('input', markAsChanged);
+        // Use event delegation for all inputs to handle dynamic elements
+        document.addEventListener('input', (e) => {
+            if (e.target.matches('input, textarea')) markAsChanged();
+        });
+        document.addEventListener('change', (e) => {
+            if (e.target.matches('input, select, textarea')) markAsChanged();
         });
 
         // Add Enter key to add new register
@@ -421,6 +427,7 @@
         const enabled = document.getElementById('cdcEnable').checked;
         const settings = document.getElementById('cdcSettings');
         settings.style.display = enabled ? 'block' : 'none';
+        markAsChanged();
     }
 
     function updateAccessColor(select) {
@@ -428,34 +435,43 @@
         if (select.value === 'RW') select.classList.add('text-primary');
         else if (select.value === 'RO') select.classList.add('text-success');
         else select.classList.add('text-danger');
+        markAsChanged();
     }
 
     function toggleStrobe(elem, type) {
         const isActive = elem.classList.contains('active');
         elem.classList.remove('active', 'inactive');
         elem.classList.add(isActive ? 'inactive' : 'active');
+        markAsChanged();
     }
 
     function validateName(input) {
         const val = input.value;
         const valid = /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(val) || val === '';
         input.classList.toggle('input-invalid', !valid && val !== '');
+        // input event listener handles markAsChanged
     }
 
     function validateHex(input) {
         const val = input.value;
         const valid = /^(0x)?[0-9A-Fa-f]+$/.test(val) || val === '';
         input.classList.toggle('input-invalid', !valid && val !== '');
+        // input event listener handles markAsChanged
     }
 
     function recalculateAddresses() {
         const baseAddrInput = document.querySelector('input[name="base_address"]');
+        if (!baseAddrInput) return;
+
         const baseAddr = parseInt(baseAddrInput.value, 16) || 0;
         let offset = 0;
 
         document.querySelectorAll('.reg-row').forEach(row => {
             const widthInput = row.querySelector('.reg-width-input');
             const addrBadge = row.querySelector('.reg-addr');
+            // Check if elements exist before accessing propertes
+            if (!widthInput || !addrBadge) return;
+
             const width = parseInt(widthInput.value) || 32;
 
             // Calculate number of 32-bit words needed
@@ -525,6 +541,7 @@
 
         // Focus the name input
         row.querySelector('.reg-name-input').focus();
+        markAsChanged();
     }
 
     function duplicateRow(btn) {
@@ -538,6 +555,7 @@
 
         row.parentNode.insertBefore(newRow, row.nextSibling);
         recalculateAddresses();
+        markAsChanged();
     }
 
     function deleteRow(btn) {
@@ -547,6 +565,7 @@
             setTimeout(() => {
                 row.remove();
                 recalculateAddresses();
+                markAsChanged();
             }, 300);
         }
     }
@@ -555,7 +574,8 @@
         // Clear unsaved changes flag to prevent warning when navigating to diff page
         clearUnsavedChanges();
 
-        const isNew = {{ 'true' if module.is_new else 'false' }};
+        const isNew = {{ module.is_new | lower
+    }};
 
     // Gather Module Props
     const cdcEnabled = document.getElementById('cdcEnable').checked;

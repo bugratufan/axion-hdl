@@ -359,6 +359,82 @@ class TestGUISaveIndicator:
             "Unsaved indicator not visible after change"
 
 
+    def test_save_002_indicator_on_module_property_change(self, gui_page, gui_server):
+        """GUI-SAVE-002: Indicator appears when module properties change"""
+        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
+        
+        # Change CDC Enabled
+        cdc_switch = gui_page.locator("#cdcEnable")
+        cdc_switch.click()
+        gui_page.wait_for_timeout(300)
+        indicator = gui_page.locator("#unsavedIndicator")
+        assert "visible" in (indicator.get_attribute("class") or ""), "Indicator not visible after CDC toggle"
+        
+        # Revert change
+        cdc_switch.click()
+        gui_page.wait_for_timeout(300)
+        assert "visible" not in (indicator.get_attribute("class") or ""), "Indicator visible after revert"
+
+    def test_save_003_indicator_on_register_field_change(self, gui_page, gui_server):
+        """GUI-SAVE-003: Indicator appears when register fields change"""
+        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
+        
+        # Test 1: Change description
+        desc_input = gui_page.locator(".reg-desc-input").first
+        original_desc = desc_input.input_value()
+        desc_input.fill("New Description Test")
+        gui_page.wait_for_timeout(300)
+        
+        indicator = gui_page.locator("#unsavedIndicator")
+        assert "visible" in (indicator.get_attribute("class") or ""), "Indicator not visible after description change"
+        
+        # Revert description
+        desc_input.fill(original_desc)
+        gui_page.wait_for_timeout(300)
+        assert "visible" not in (indicator.get_attribute("class") or ""), "Indicator visible after revert description"
+
+        # Test 2: Toggle Strobe
+        # Find a register, click 'R' strobe
+        r_strobe = gui_page.locator(".strobe-toggle", has_text="R").first
+        r_strobe.click()
+        gui_page.wait_for_timeout(300)
+        assert "visible" in (indicator.get_attribute("class") or ""), "Indicator not visible after strobe toggle"
+        
+        # Revert strobe
+        r_strobe.click()
+        gui_page.wait_for_timeout(300)
+        assert "visible" not in (indicator.get_attribute("class") or ""), "Indicator visible after revert strobe"
+
+    def test_save_004_indicator_clears_on_save(self, gui_page, gui_server):
+        """GUI-SAVE-004: Indicator clears after save"""
+        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
+        
+        # Make a change
+        desc_input = gui_page.locator(".reg-desc-input").first
+        desc_input.fill("Save Test Description")
+        gui_page.wait_for_timeout(300)
+        
+        indicator = gui_page.locator("#unsavedIndicator")
+        assert "visible" in (indicator.get_attribute("class") or "")
+        
+        # Save
+        gui_page.locator("button", has_text="Review").click()
+        gui_page.wait_for_url(re.compile(r"/diff"), timeout=5000)
+        
+        # Return to editor (or check if indicator is gone on diff page - usually header is shared)
+        # But indicator logic is in editor.js, so it might not be present on diff page.
+        # Let's go back to editor
+        gui_page.go_back() 
+        gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
+        
+        # Indicator should be gone because the page reloaded with new state
+        indicator = gui_page.locator("#unsavedIndicator")
+        assert "visible" not in (indicator.get_attribute("class") or "")
+
+
 class TestGUIDiffView:
     """Tests for GUI-DIFF requirements - diff display features"""
 
