@@ -418,25 +418,24 @@ class SourceModifier:
         new_reg_map = {r.get('name'): r for r in new_registers}
         original_regs = {r.get('reg_name', r.get('signal_name', r.get('name'))): r for r in module.get('registers', [])}
         
-        # Update module-level properties (base_address, cdc, etc.) if they changed
+        # Update module-level properties (base_addr, cdc, etc.) if they changed
         if properties:
             new_base = properties.get('base_address')
-            # Support both 'base_address' and 'base_addr' key names
-            base_key = 'base_address' if 'base_address' in original_data else ('base_addr' if 'base_addr' in original_data else None)
-            if new_base and base_key:
+            # Use 'base_addr' key for JSON files
+            if new_base and 'base_addr' in original_data:
                 # Compare as normalized hex strings or integers
                 try:
-                    orig_base = original_data.get(base_key, 0)
+                    orig_base = original_data.get('base_addr', 0)
                     orig_base_int = int(orig_base, 16) if isinstance(orig_base, str) and orig_base.startswith('0x') else int(orig_base)
                     new_base_int = int(new_base, 16) if isinstance(new_base, str) and new_base.startswith('0x') else int(new_base)
                     if new_base_int != orig_base_int:
                         # Preserve original format (hex string vs int)
                         if isinstance(orig_base, str) and orig_base.startswith('0x'):
-                            original_data[base_key] = f"0x{new_base_int:04X}"
+                            original_data['base_addr'] = f"0x{new_base_int:04X}"
                         elif isinstance(orig_base, str):
-                            original_data[base_key] = str(new_base_int)
+                            original_data['base_addr'] = str(new_base_int)
                         else:
-                            original_data[base_key] = new_base_int
+                            original_data['base_addr'] = new_base_int
                 except (ValueError, TypeError):
                     pass
             
