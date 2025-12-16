@@ -353,7 +353,8 @@ class VHDLParser:
                     'write_strobe': attrs.get('write_strobe', False),
                     'description': attrs.get('description', ''),
                     'default_value': attrs.get('default_value', 0),
-                    'signal_width': signal_width
+                    'signal_width': signal_width,
+                    'width': signal_width  # Standardize on 'width' for modifiers
                 }
                 
                 registers.append(reg_data)
