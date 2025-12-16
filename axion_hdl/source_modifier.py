@@ -155,12 +155,24 @@ class SourceModifier:
         
         return content
 
-    def get_modified_content(self, module_name: str, new_registers: List[Dict], properties: Dict = None) -> Tuple[str, str]:
+    def get_modified_content(self, module_name: str, new_registers: List[Dict], properties: Dict = None, file_path: str = None) -> Tuple[str, str]:
         """
         Generates the new content for the file associated with the module.
         Handles both adding NEW registers and UPDATING existing ones used Smart Preservation.
+        
+        Args:
+            module_name: Name of the module
+            new_registers: List of register dictionaries
+            properties: Optional properties dict
+            file_path: Optional file path for disambiguation when multiple modules have same name
         """
-        module = next((m for m in self.axion.analyzed_modules if m['name'] == module_name), None)
+        # Find module - use file_path if provided for disambiguation
+        if file_path:
+            module = next((m for m in self.axion.analyzed_modules 
+                          if m['name'] == module_name and m['file'] == file_path), None)
+        else:
+            module = next((m for m in self.axion.analyzed_modules if m['name'] == module_name), None)
+            
         if not module:
             raise ValueError(f"Module {module_name} not found")
 
@@ -288,10 +300,17 @@ class SourceModifier:
             
         return content, filepath
 
-    def compute_diff(self, module_name: str, new_registers: List[Dict], properties: Dict = None) -> Optional[str]:
-        """Returns the unified diff between original and modified content."""
+    def compute_diff(self, module_name: str, new_registers: List[Dict], properties: Dict = None, file_path: str = None) -> Optional[str]:
+        """Returns the unified diff between original and modified content.
+        
+        Args:
+            module_name: Name of the module
+            new_registers: List of register dictionaries
+            properties: Optional properties dict
+            file_path: Optional file path for disambiguation when multiple modules have same name
+        """
         try:
-            new_content, filepath = self.get_modified_content(module_name, new_registers, properties)
+            new_content, filepath = self.get_modified_content(module_name, new_registers, properties, file_path=file_path)
             with open(filepath, 'r') as f:
                 original_content = f.read()
             

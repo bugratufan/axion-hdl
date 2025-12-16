@@ -444,7 +444,8 @@
     }
 
     function saveChanges() {
-        const isNew = {{ 'true' if module.is_new else 'false' }};
+        const isNew = {{ 'true' if module.is_new else 'false' }
+    };
 
 
     // Gather Module Props
@@ -487,11 +488,13 @@
         };
     } else {
         // For existing modules, use diff view
+        const filePath = '{{ module.file }}';
         fetch('/api/save_diff', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 module_name: moduleName,
+                file_path: filePath,
                 properties: {
                     cdc_enabled: cdcEnabled,
                     cdc_stages: parseInt(cdcStages),
