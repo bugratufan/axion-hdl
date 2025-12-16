@@ -170,7 +170,8 @@ class AnnotationParser:
             'desc': 'description',
             'reg_name': 'reg_name',
             'bit_offset': 'bit_offset',
-            'default': 'default_value'
+            'default': 'default_value',
+            'cdc_en': 'cdc_enabled'
         }
         
         return replacements.get(key, key)
