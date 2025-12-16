@@ -337,9 +337,9 @@ class SourceModifier:
         except Exception as e:
             return f"Error generating diff: {str(e)}"
 
-    def save_changes(self, module_name: str, new_registers: List[Dict], properties: Dict = None) -> bool:
+    def save_changes(self, module_name: str, new_registers: List[Dict], properties: Dict = None, file_path: str = None) -> bool:
         """Writes the modified content to disk."""
-        new_content, filepath = self.get_modified_content(module_name, new_registers, properties)
+        new_content, filepath = self.get_modified_content(module_name, new_registers, properties, file_path=file_path)
         with open(filepath, 'w') as f:
             f.write(new_content)
         return True
@@ -356,6 +356,19 @@ class SourceModifier:
         
         # Build register lookup by name - only include registers that actually changed
         original_regs = {r.get('reg_name', r.get('signal_name', r.get('name'))): r for r in module.get('registers', [])}
+        
+        # Update base_address if it changed
+        if properties and properties.get('base_address'):
+            new_base = properties.get('base_address')
+            orig_base = module.get('base_address_raw', module.get('base_address', '0'))
+            try:
+                orig_base_int = int(orig_base, 16) if isinstance(orig_base, str) and orig_base.startswith('0x') else int(orig_base)
+                new_base_int = int(new_base, 16) if isinstance(new_base, str) and new_base.startswith('0x') else int(new_base)
+                if new_base_int != orig_base_int:
+                    # Replace base_address in YAML - support both hex and decimal formats
+                    content = re.sub(r'(base_address:\s*)([^\n]+)', rf'\g<1>0x{new_base_int:04X}', content)
+            except (ValueError, TypeError):
+                pass
         
         for new_reg in new_registers:
             reg_name = new_reg.get('name')
@@ -404,6 +417,34 @@ class SourceModifier:
         # Build lookup maps
         new_reg_map = {r.get('name'): r for r in new_registers}
         original_regs = {r.get('reg_name', r.get('signal_name', r.get('name'))): r for r in module.get('registers', [])}
+        
+        # Update module-level properties (base_address, cdc, etc.) if they changed
+        if properties:
+            new_base = properties.get('base_address')
+            if new_base and 'base_address' in original_data:
+                # Compare as normalized hex strings or integers
+                try:
+                    orig_base = original_data.get('base_address', 0)
+                    orig_base_int = int(orig_base, 16) if isinstance(orig_base, str) and orig_base.startswith('0x') else int(orig_base)
+                    new_base_int = int(new_base, 16) if isinstance(new_base, str) and new_base.startswith('0x') else int(new_base)
+                    if new_base_int != orig_base_int:
+                        # Preserve original format (hex string vs int)
+                        if isinstance(orig_base, str) and orig_base.startswith('0x'):
+                            original_data['base_address'] = f"0x{new_base_int:04X}"
+                        elif isinstance(orig_base, str):
+                            original_data['base_address'] = str(new_base_int)
+                        else:
+                            original_data['base_address'] = new_base_int
+                except (ValueError, TypeError):
+                    pass
+            
+            # Update CDC settings if they exist in original
+            if 'cdc' in original_data or 'cdc_enabled' in original_data:
+                if properties.get('cdc_enabled') is not None:
+                    cdc_key = 'cdc' if 'cdc' in original_data else 'cdc_enabled'
+                    original_data[cdc_key] = properties.get('cdc_enabled')
+                if 'cdc_stages' in original_data and properties.get('cdc_stages'):
+                    original_data['cdc_stages'] = int(properties.get('cdc_stages', 2))
         
         # Update registers in place - only if actually changed
         if 'registers' in original_data:
@@ -460,6 +501,19 @@ class SourceModifier:
         # Build lookup maps
         new_reg_map = {r.get('name'): r for r in new_registers}
         original_regs = {r.get('reg_name', r.get('signal_name', r.get('name'))): r for r in module.get('registers', [])}
+        
+        # Update base_address if it changed
+        if properties and properties.get('base_address'):
+            new_base = properties.get('base_address')
+            orig_base = module.get('base_address_raw', module.get('base_address', '0'))
+            try:
+                orig_base_int = int(orig_base, 16) if isinstance(orig_base, str) and orig_base.startswith('0x') else int(orig_base)
+                new_base_int = int(new_base, 16) if isinstance(new_base, str) and new_base.startswith('0x') else int(new_base)
+                if new_base_int != orig_base_int:
+                    # Replace base_address attribute in module tag
+                    content = re.sub(r'(base_address\s*=\s*["\'])([^"\']+)(["\'])', rf'\g<1>0x{new_base_int:04X}\3', content)
+            except (ValueError, TypeError):
+                pass
         
         def update_register_tag(match):
             """Update a single register tag only for fields that actually changed."""

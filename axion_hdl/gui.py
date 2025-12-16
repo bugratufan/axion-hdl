@@ -728,7 +728,7 @@ class AxionGUI:
             props = pending.get('properties', {})
             
             # Use file_path aware save
-            success = self.modifier.save_changes(module_name, new_regs, props)
+            success = self.modifier.save_changes(module_name, new_regs, props, file_path=file_path)
             
             if success:
                 # Trigger re-analysis to reflect changes
