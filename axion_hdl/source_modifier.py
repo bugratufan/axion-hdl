@@ -371,11 +371,19 @@ class SourceModifier:
                 replacement = rf'\g<1>{new_reg.get("access", "RW")}\2'
                 content = re.sub(pattern, replacement, content, flags=re.DOTALL)
             
-            # Check if width actually changed  
+            # Check if width actually changed (compare as integers)
             orig_width = orig_reg.get('signal_width', orig_reg.get('width', 32))
-            if new_reg.get('width') != orig_width:
+            new_width = new_reg.get('width')
+            try:
+                orig_width_int = int(orig_width) if orig_width else 32
+                new_width_int = int(new_width) if new_width else 32
+            except (ValueError, TypeError):
+                orig_width_int = 32
+                new_width_int = 32
+                
+            if new_width_int != orig_width_int:
                 pattern = rf'(- name:\s*{re.escape(reg_name)}\b.*?width:\s*)\d+(\s)'
-                replacement = rf'\g<1>{new_reg.get("width", 32)}\2'
+                replacement = rf'\g<1>{new_width_int}\2'
                 content = re.sub(pattern, replacement, content, flags=re.DOTALL)
         
         return content, filepath
@@ -473,9 +481,18 @@ class SourceModifier:
             if new_reg.get('access') and new_reg.get('access') != orig_reg.get('access') and re.search(r'access\s*=', tag):
                 tag = re.sub(r'access\s*=\s*["\'][^"\']*["\']', f'access="{new_reg.get("access")}"', tag)
             
+            # Compare width as integers to avoid type mismatch
             orig_width = orig_reg.get('signal_width', orig_reg.get('width', 32))
-            if new_reg.get('width') and new_reg.get('width') != orig_width and re.search(r'width\s*=', tag):
-                tag = re.sub(r'width\s*=\s*["\'][^"\']*["\']', f'width="{new_reg.get("width")}"', tag)
+            new_width = new_reg.get('width')
+            try:
+                orig_width_int = int(orig_width) if orig_width else 32
+                new_width_int = int(new_width) if new_width else 32
+            except (ValueError, TypeError):
+                orig_width_int = 32
+                new_width_int = 32
+                
+            if new_width_int != orig_width_int and re.search(r'width\s*=', tag):
+                tag = re.sub(r'width\s*=\s*["\'][^"\']*["\']', f'width="{new_width_int}"', tag)
             
             if new_reg.get('description') and new_reg.get('description') != orig_reg.get('description') and re.search(r'description\s*=', tag):
                 desc = new_reg.get('description', '').replace('&', '&amp;').replace('"', '&quot;')
