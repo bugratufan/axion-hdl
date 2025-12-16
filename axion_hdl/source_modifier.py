@@ -743,7 +743,10 @@ class SourceModifier:
             return False # Assume changed on error
             
         # 3. Description
-        if old_reg.get('description', '') != new_reg.get('description', ''):
+        # Normalize None -> empty string for safe comparison
+        old_desc = old_reg.get('description') or ''
+        new_desc = new_reg.get('description') or ''
+        if old_desc.strip() != new_desc.strip():
              return False
              
         # 4. Strobes
