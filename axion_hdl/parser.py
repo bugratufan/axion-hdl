@@ -179,10 +179,16 @@ class VHDLParser:
                 # Check exclusions
                 if self._is_excluded(vhdl_file):
                     continue
-                    
-                module_data = self._parse_vhdl_file(vhdl_file)
-                if module_data and module_data['registers']:
-                    modules.append(module_data)
+                
+                try:
+                    module_data = self._parse_vhdl_file(vhdl_file)
+                    if module_data and module_data['registers']:
+                        modules.append(module_data)
+                except Exception as e:
+                    # Log error but continue with other files
+                    msg = f"Error parsing {vhdl_file}: {e}"
+                    print(f"Warning: {msg}")
+                    self.errors.append({'file': vhdl_file, 'msg': str(e)})
                     
         return modules
     
