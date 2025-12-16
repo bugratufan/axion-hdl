@@ -177,6 +177,16 @@ class SourceModifier:
             raise ValueError(f"Module {module_name} not found")
 
         filepath = module['file']
+        
+        # Route to appropriate handler based on file type
+        if filepath.endswith(('.yaml', '.yml')):
+            return self._modify_yaml_content(module, new_registers, properties)
+        elif filepath.endswith('.json'):
+            return self._modify_json_content(module, new_registers, properties)
+        elif filepath.endswith('.xml'):
+            return self._modify_xml_content(module, new_registers, properties)
+        
+        # VHDL files - original logic
         with open(filepath, 'r') as f:
             content = f.read()
 
@@ -333,3 +343,115 @@ class SourceModifier:
         with open(filepath, 'w') as f:
             f.write(new_content)
         return True
+
+    def _modify_yaml_content(self, module: Dict, new_registers: List[Dict], properties: Dict = None) -> Tuple[str, str]:
+        """Generate modified YAML content for the module."""
+        import yaml
+        
+        filepath = module['file']
+        
+        # Build new module data structure
+        module_data = {
+            'module': module['name'],
+            'base_address': properties.get('base_address', '0x0000') if properties else module.get('base_address', '0x0000'),
+            'cdc_enabled': properties.get('cdc_enabled', False) if properties else module.get('cdc_enabled', False),
+            'cdc_stages': properties.get('cdc_stages', 2) if properties else module.get('cdc_stages', 2),
+            'registers': []
+        }
+        
+        for reg in new_registers:
+            reg_data = {
+                'name': reg.get('name'),
+                'access': reg.get('access', 'RW'),
+                'width': reg.get('width', 32),
+            }
+            if reg.get('description'):
+                reg_data['description'] = reg['description']
+            if reg.get('default_value') and reg.get('default_value') != 0:
+                reg_data['default_value'] = reg['default_value']
+            if reg.get('read_strobe'):
+                reg_data['read_strobe'] = True
+            if reg.get('write_strobe'):
+                reg_data['write_strobe'] = True
+            if reg.get('address'):
+                reg_data['address'] = reg['address']
+                
+            module_data['registers'].append(reg_data)
+        
+        new_content = yaml.dump(module_data, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        return new_content, filepath
+
+    def _modify_json_content(self, module: Dict, new_registers: List[Dict], properties: Dict = None) -> Tuple[str, str]:
+        """Generate modified JSON content for the module."""
+        import json
+        
+        filepath = module['file']
+        
+        # Build new module data structure
+        module_data = {
+            'module': module['name'],
+            'base_address': properties.get('base_address', '0x0000') if properties else module.get('base_address', '0x0000'),
+            'cdc_enabled': properties.get('cdc_enabled', False) if properties else module.get('cdc_enabled', False),
+            'cdc_stages': properties.get('cdc_stages', 2) if properties else module.get('cdc_stages', 2),
+            'registers': []
+        }
+        
+        for reg in new_registers:
+            reg_data = {
+                'name': reg.get('name'),
+                'access': reg.get('access', 'RW'),
+                'width': reg.get('width', 32),
+            }
+            if reg.get('description'):
+                reg_data['description'] = reg['description']
+            if reg.get('default_value') and reg.get('default_value') != 0:
+                reg_data['default_value'] = reg['default_value']
+            if reg.get('read_strobe'):
+                reg_data['read_strobe'] = True
+            if reg.get('write_strobe'):
+                reg_data['write_strobe'] = True
+            if reg.get('address'):
+                reg_data['address'] = reg['address']
+                
+            module_data['registers'].append(reg_data)
+        
+        new_content = json.dumps(module_data, indent=2)
+        return new_content, filepath
+
+    def _modify_xml_content(self, module: Dict, new_registers: List[Dict], properties: Dict = None) -> Tuple[str, str]:
+        """Generate modified XML content for the module."""
+        
+        filepath = module['file']
+        
+        # Build XML content manually for clean formatting
+        base_addr = properties.get('base_address', '0x0000') if properties else module.get('base_address', '0x0000')
+        cdc_enabled = 'true' if (properties.get('cdc_enabled', False) if properties else module.get('cdc_enabled', False)) else 'false'
+        cdc_stages = properties.get('cdc_stages', 2) if properties else module.get('cdc_stages', 2)
+        
+        lines = ['<?xml version="1.0" encoding="UTF-8"?>']
+        lines.append(f'<register_map module="{module["name"]}" base_address="{base_addr}" cdc_enabled="{cdc_enabled}" cdc_stages="{cdc_stages}">')
+        lines.append('  <registers>')
+        
+        for reg in new_registers:
+            attrs = [f'name="{reg.get("name")}"']
+            attrs.append(f'access="{reg.get("access", "RW")}"')
+            attrs.append(f'width="{reg.get("width", 32)}"')
+            
+            if reg.get('address'):
+                attrs.append(f'address="{reg["address"]}"')
+            if reg.get('default_value') and reg.get('default_value') != 0:
+                attrs.append(f'default_value="{reg["default_value"]}"')
+            if reg.get('read_strobe'):
+                attrs.append('read_strobe="true"')
+            if reg.get('write_strobe'):
+                attrs.append('write_strobe="true"')
+            if reg.get('description'):
+                attrs.append(f'description="{reg["description"]}"')
+            
+            lines.append(f'    <register {" ".join(attrs)} />')
+        
+        lines.append('  </registers>')
+        lines.append('</register_map>')
+        
+        new_content = '\n'.join(lines)
+        return new_content, filepath
