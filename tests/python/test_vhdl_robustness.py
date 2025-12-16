@@ -370,6 +370,38 @@ end str;
         # Assert DEFAULT=0 is preserved
         assert 'DEFAULT=0' in new_content, "Removed explicit DEFAULT=0!"
 
+    def test_mod_def_injection(self):
+        """Test K: Module Def Injection - Ensure @axion_def is injected if missing but props change."""
+        content = """library ieee;
+use ieee.std_logic_1164.all;
+
+entity test_def_inject is
+end test_def_inject;
+
+architecture str of test_def_inject is
+    signal reg_a : std_logic_vector(31 downto 0); -- @axion RW
+begin
+end str;
+"""
+        file_path = self._create_vhdl('test_def_inject.vhd', content)
+        self.axion.add_source(file_path)
+        self.axion.analyze()
+        module = self.axion.analyzed_modules[0]
+        regs = self._normalize_regs(module['registers'])
+        
+        # Modify module property to enable CDC
+        # This should trigger insertion of -- @axion_def CDC_EN ...
+        props = {'cdc_enabled': True}
+        
+        self.modifier.save_changes(module['name'], regs, props, file_path=file_path)
+        
+        with open(file_path, 'r') as f:
+            new_content = f.read()
+            
+        # Assert @axion_def was injected
+        assert '-- @axion_def' in new_content, "Failed to inject @axion_def definition!"
+        assert 'CDC_EN' in new_content, "Failed to include CDC_EN in injected definition"
+
 if __name__ == "__main__":
     tests = [
         'test_preservation_identity',
@@ -382,7 +414,8 @@ if __name__ == "__main__":
         'test_no_signal_init',
         'test_comment_spacing',
         'test_std_logic_support',
-        'test_hex_persistence'
+        'test_hex_persistence',
+        'test_mod_def_injection'
     ]
     
     for test_name in tests:
