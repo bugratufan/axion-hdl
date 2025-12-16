@@ -662,30 +662,43 @@ class AxionGUI:
         def save_diff():
             data = request.json
             module_name = data.get('module_name')
+            file_path = data.get('file_path', '')  # Add file path for disambiguation
             new_regs = data.get('registers')
             props = data.get('properties', {})
             
-            # Store pending changes
-            # We store tuple (regs, props) or dict wrapper
-            self.pending_changes[module_name] = {
+            # Store pending changes using file_path as unique key (or module_name for new modules)
+            change_key = file_path if file_path else module_name
+            self.pending_changes[change_key] = {
+                'module_name': module_name,
+                'file_path': file_path,
                 'registers': new_regs,
                 'properties': props
             }
-            return jsonify({'redirect': url_for('show_diff', module_name=module_name)})
+            # URL encode the file path for safe routing
+            from urllib.parse import quote
+            return jsonify({'redirect': f'/diff?key={quote(change_key, safe="")}'})
 
-        @self.app.route('/diff/<module_name>')
-        def show_diff(module_name):
-            if module_name not in self.pending_changes:
-                return redirect(url_for('view_module', name=module_name))
+        @self.app.route('/diff')
+        def show_diff():
+            from urllib.parse import unquote
+            change_key = unquote(request.args.get('key', ''))
+            
+            if change_key not in self.pending_changes:
+                return redirect(url_for('index'))
                 
-            pending = self.pending_changes[module_name]
+            pending = self.pending_changes[change_key]
+            module_name = pending['module_name']
+            file_path = pending.get('file_path', '')
             new_regs = pending['registers']
             props = pending.get('properties', {})
             
-            diff_text = self.modifier.compute_diff(module_name, new_regs, props)
+            # Pass file_path to compute_diff for correct file identification
+            diff_text = self.modifier.compute_diff(module_name, new_regs, props, file_path=file_path)
             
             return render_template('diff.html', 
-                                 module_name=module_name, 
+                                 module_name=module_name,
+                                 file_path=file_path,
+                                 change_key=change_key,
                                  diff=diff_text)
                                  
         @self.app.route('/api/confirm_save', methods=['POST'])
