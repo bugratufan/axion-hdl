@@ -125,12 +125,12 @@ test-full:
 
 ## Run GUI tests (requires playwright)
 test-gui:
-	@echo "Running GUI tests on all browsers..."
+	@echo "Running GUI tests on all browsers (parallel)..."
 	@if $(PYTHON) -c "import playwright" 2>/dev/null; then \
-		$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py -v --tb=short --browser chromium --browser firefox --browser webkit; \
+		$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py -v --tb=short --browser chromium --browser firefox --browser webkit -n auto; \
 	else \
 		echo "Warning: playwright not installed, skipping GUI tests"; \
-		echo "Install with: pip install pytest-playwright playwright && playwright install"; \
+		echo "Install with: pip install pytest-playwright playwright pytest-xdist && playwright install"; \
 	fi
 
 #------------------------------------------------------------------------------
