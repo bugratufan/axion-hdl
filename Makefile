@@ -127,7 +127,7 @@ test-full:
 test-gui:
 	@echo "Running GUI tests..."
 	@if $(PYTHON) -c "import playwright" 2>/dev/null; then \
-		$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py -v --tb=short; \
+		$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py -v --tb=short; \
 	else \
 		echo "Warning: playwright not installed, skipping GUI tests"; \
 		echo "Install with: pip install pytest-playwright playwright && playwright install chromium"; \
