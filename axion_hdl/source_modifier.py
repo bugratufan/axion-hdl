@@ -409,17 +409,17 @@ class SourceModifier:
                 
                 # Only update fields that actually changed
                 if new_reg.get('access') != orig_reg.get('access'):
-                    original_data['registers'][i]['access'] = new_reg['access']
+                    original_data['registers'][i]['access'] = new_reg.get('access')
                     
                 orig_width = orig_reg.get('signal_width', orig_reg.get('width', 32))
                 if new_reg.get('width') != orig_width:
-                    original_data['registers'][i]['width'] = new_reg['width']
+                    original_data['registers'][i]['width'] = new_reg.get('width')
                     
-                if new_reg.get('description') != orig_reg.get('description'):
-                    original_data['registers'][i]['description'] = new_reg['description']
+                if new_reg.get('description') and new_reg.get('description') != orig_reg.get('description'):
+                    original_data['registers'][i]['description'] = new_reg.get('description')
                     
-                if new_reg.get('default_value') != orig_reg.get('default_value'):
-                    original_data['registers'][i]['default_value'] = new_reg['default_value']
+                if new_reg.get('default_value') is not None and new_reg.get('default_value') != orig_reg.get('default_value'):
+                    original_data['registers'][i]['default_value'] = new_reg.get('default_value')
         
         new_content = json.dumps(original_data, indent=2)
         return new_content, filepath
