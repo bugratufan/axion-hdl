@@ -5,7 +5,7 @@
     <config cdc_en="true" cdc_stage="3"/>
     
     <!-- Read-Only Registers -->
-    <register name="status_reg" addr="0x00" access="RO" width="32" description="System status flags"/>
+    <register name="status_reg" addr="0x00" access="RO" width="32" description="Deneme"/>
     <register name="temperature_reg" addr="0x04" access="RO" width="32" r_strobe="true" description="Temperature sensor reading"/>
     <register name="pressure_reg" addr="0x08" access="RO" width="32" r_strobe="true" description="Pressure sensor value"/>
     <register name="humidity_reg" addr="0x0C" access="RO" width="32" description="Humidity sensor value"/>

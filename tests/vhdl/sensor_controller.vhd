@@ -36,28 +36,28 @@ end entity sensor_controller;
 architecture rtl of sensor_controller is
 
     -- Read-Only Registers (Hardware writes, Software reads)
-    signal status_reg : std_logic_vector(31 downto 0); -- @axion RO DESC="System status flags"
-    signal temperature_reg : std_logic_vector(31 downto 0); -- @axion RO R_STROBE DESC="Temperature sensor reading"
-    signal pressure_reg : std_logic_vector(31 downto 0); -- @axion RO R_STROBE ADDR=0x08 DESC="Pressure sensor value"
-    signal humidity_reg : std_logic_vector(31 downto 0); -- @axion RO DESC="Humidity sensor value"
-    signal error_count_reg : std_logic_vector(31 downto 0); -- @axion RO DESC="Total error count"
+    signal status_reg : std_logic_vector(31 downto 0); -- @axion: RO description=System status flags
+    signal temperature_reg : std_logic_vector(31 downto 0); -- @axion: RO description=Temperature sensor reading
+    signal pressure_reg : std_logic_vector(31 downto 0); -- @axion: RO description=Pressure sensor value
+    signal humidity_reg : std_logic_vector(31 downto 0); -- @axion: RO description=Humidity sensor value
+    signal error_count_reg : std_logic_vector(31 downto 0); -- @axion: RO description=Total error count
     
     -- Write-Only Registers (Software writes, Hardware reads)
-    signal control_reg : std_logic_vector(31 downto 0); -- @axion WO W_STROBE DESC="Main control register"
-    signal threshold_high_reg : std_logic_vector(31 downto 0); -- @axion WO DESC="High threshold value"
-    signal threshold_low_reg : std_logic_vector(31 downto 0); -- @axion WO ADDR=0x20 DESC="Low threshold value"
+    signal control_reg : std_logic_vector(31 downto 0); -- @axion: WO description=Main control register
+    signal threshold_high_reg : std_logic_vector(31 downto 0); -- @axion: WO description=High threshold value
+    signal threshold_low_reg : std_logic_vector(31 downto 0); -- @axion: WO description=Low threshold value
     
     -- Read-Write Registers (Both can access)
-    signal config_reg : std_logic_vector(31 downto 0); -- @axion RW
-    signal calibration_reg : std_logic_vector(31 downto 0); -- @axion RW R_STROBE W_STROBE
-    signal mode_reg : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x30
+    signal config_reg : std_logic_vector(31 downto 0); -- @axion: RW
+    signal calibration_reg : std_logic_vector(31 downto 0); -- @axion: RW
+    signal mode_reg : std_logic_vector(31 downto 0); -- @axion: RW
     
     -- Manual address assignment test
-    signal debug_reg : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x100
-    signal timestamp_reg : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x104
+    signal debug_reg : std_logic_vector(31 downto 0); -- @axion: RW
+    signal timestamp_reg : std_logic_vector(31 downto 0); -- @axion: RO
     
     -- Combined features test
-    signal interrupt_status_reg : std_logic_vector(31 downto 0); -- @axion RW R_STROBE W_STROBE ADDR=0x200
+    signal interrupt_status_reg : std_logic_vector(31 downto 0); -- @axion: RW
     
     -- Internal signals
     signal error_counter : unsigned(31 downto 0);
