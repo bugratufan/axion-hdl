@@ -411,9 +411,22 @@ class SourceModifier:
                 if new_reg.get('access') != orig_reg.get('access') and 'access' in file_reg:
                     original_data['registers'][i]['access'] = new_reg.get('access')
                     
+                # Compare width as integers to avoid false positives from type differences
                 orig_width = orig_reg.get('signal_width', orig_reg.get('width', 32))
-                if new_reg.get('width') != orig_width and 'width' in file_reg:
-                    original_data['registers'][i]['width'] = new_reg.get('width')
+                new_width = new_reg.get('width')
+                try:
+                    orig_width_int = int(orig_width) if orig_width else 32
+                    new_width_int = int(new_width) if new_width else 32
+                except (ValueError, TypeError):
+                    orig_width_int = 32
+                    new_width_int = 32
+                    
+                if new_width_int != orig_width_int and 'width' in file_reg:
+                    # Preserve original type (int or str)
+                    if isinstance(file_reg['width'], int):
+                        original_data['registers'][i]['width'] = new_width_int
+                    else:
+                        original_data['registers'][i]['width'] = str(new_width_int)
                     
                 # Only update description if it exists in original file
                 if 'description' in file_reg and new_reg.get('description') and new_reg.get('description') != orig_reg.get('description'):
