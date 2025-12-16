@@ -345,46 +345,43 @@ class SourceModifier:
         return True
 
     def _modify_yaml_content(self, module: Dict, new_registers: List[Dict], properties: Dict = None) -> Tuple[str, str]:
-        """Modify YAML content preserving original structure, only updating registers."""
-        import yaml
+        """Modify YAML content preserving original structure using text-based replacement."""
+        import re
         
         filepath = module['file']
         
-        # Read original file
+        # Read original file as text to preserve comments and formatting
         with open(filepath, 'r') as f:
-            original_data = yaml.safe_load(f)
+            content = f.read()
         
-        if not original_data:
-            original_data = {}
+        # Build register lookup by name - only include registers that actually changed
+        original_regs = {r.get('reg_name', r.get('signal_name', r.get('name'))): r for r in module.get('registers', [])}
         
-        # Build register lookup by name
-        new_reg_map = {r.get('name'): r for r in new_registers}
+        for new_reg in new_registers:
+            reg_name = new_reg.get('name')
+            orig_reg = original_regs.get(reg_name)
+            
+            if not orig_reg:
+                continue
+            
+            # Check if access actually changed
+            if new_reg.get('access') != orig_reg.get('access'):
+                # Find and replace access for this register's block
+                pattern = rf'(- name:\s*{re.escape(reg_name)}\b.*?access:\s*)[A-Z]+(\s)'
+                replacement = rf'\g<1>{new_reg.get("access", "RW")}\2'
+                content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+            
+            # Check if width actually changed  
+            orig_width = orig_reg.get('signal_width', orig_reg.get('width', 32))
+            if new_reg.get('width') != orig_width:
+                pattern = rf'(- name:\s*{re.escape(reg_name)}\b.*?width:\s*)\d+(\s)'
+                replacement = rf'\g<1>{new_reg.get("width", 32)}\2'
+                content = re.sub(pattern, replacement, content, flags=re.DOTALL)
         
-        # Update registers in place
-        if 'registers' in original_data:
-            for i, orig_reg in enumerate(original_data['registers']):
-                reg_name = orig_reg.get('name')
-                if reg_name in new_reg_map:
-                    new_reg = new_reg_map[reg_name]
-                    # Only update fields that exist in the new data
-                    if 'access' in new_reg:
-                        original_data['registers'][i]['access'] = new_reg['access']
-                    if 'width' in new_reg:
-                        original_data['registers'][i]['width'] = new_reg['width']
-                    if new_reg.get('description'):
-                        original_data['registers'][i]['description'] = new_reg['description']
-                    if new_reg.get('default_value') is not None:
-                        original_data['registers'][i]['default_value'] = new_reg['default_value']
-                    if 'read_strobe' in new_reg:
-                        original_data['registers'][i]['read_strobe'] = new_reg['read_strobe']
-                    if 'write_strobe' in new_reg:
-                        original_data['registers'][i]['write_strobe'] = new_reg['write_strobe']
-        
-        new_content = yaml.dump(original_data, default_flow_style=False, sort_keys=False, allow_unicode=True)
-        return new_content, filepath
+        return content, filepath
 
     def _modify_json_content(self, module: Dict, new_registers: List[Dict], properties: Dict = None) -> Tuple[str, str]:
-        """Modify JSON content preserving original structure, only updating registers."""
+        """Modify JSON content preserving original structure, only updating changed registers."""
         import json
         
         filepath = module['file']
@@ -396,34 +393,39 @@ class SourceModifier:
         if not original_data:
             original_data = {}
         
-        # Build register lookup by name
+        # Build lookup maps
         new_reg_map = {r.get('name'): r for r in new_registers}
+        original_regs = {r.get('reg_name', r.get('signal_name', r.get('name'))): r for r in module.get('registers', [])}
         
-        # Update registers in place
+        # Update registers in place - only if actually changed
         if 'registers' in original_data:
-            for i, orig_reg in enumerate(original_data['registers']):
-                reg_name = orig_reg.get('name')
-                if reg_name in new_reg_map:
-                    new_reg = new_reg_map[reg_name]
-                    # Only update fields that exist in the new data
-                    if 'access' in new_reg:
-                        original_data['registers'][i]['access'] = new_reg['access']
-                    if 'width' in new_reg:
-                        original_data['registers'][i]['width'] = new_reg['width']
-                    if new_reg.get('description'):
-                        original_data['registers'][i]['description'] = new_reg['description']
-                    if new_reg.get('default_value') is not None:
-                        original_data['registers'][i]['default_value'] = new_reg['default_value']
-                    if 'read_strobe' in new_reg:
-                        original_data['registers'][i]['read_strobe'] = new_reg['read_strobe']
-                    if 'write_strobe' in new_reg:
-                        original_data['registers'][i]['write_strobe'] = new_reg['write_strobe']
+            for i, file_reg in enumerate(original_data['registers']):
+                reg_name = file_reg.get('name')
+                if reg_name not in new_reg_map:
+                    continue
+                    
+                new_reg = new_reg_map[reg_name]
+                orig_reg = original_regs.get(reg_name, {})
+                
+                # Only update fields that actually changed
+                if new_reg.get('access') != orig_reg.get('access'):
+                    original_data['registers'][i]['access'] = new_reg['access']
+                    
+                orig_width = orig_reg.get('signal_width', orig_reg.get('width', 32))
+                if new_reg.get('width') != orig_width:
+                    original_data['registers'][i]['width'] = new_reg['width']
+                    
+                if new_reg.get('description') != orig_reg.get('description'):
+                    original_data['registers'][i]['description'] = new_reg['description']
+                    
+                if new_reg.get('default_value') != orig_reg.get('default_value'):
+                    original_data['registers'][i]['default_value'] = new_reg['default_value']
         
         new_content = json.dumps(original_data, indent=2)
         return new_content, filepath
 
     def _modify_xml_content(self, module: Dict, new_registers: List[Dict], properties: Dict = None) -> Tuple[str, str]:
-        """Modify XML content preserving original structure, only updating register attributes."""
+        """Modify XML content preserving original structure, only updating changed register attributes."""
         import re
         
         filepath = module['file']
@@ -432,11 +434,12 @@ class SourceModifier:
         with open(filepath, 'r') as f:
             content = f.read()
         
-        # Build register lookup by name
+        # Build lookup maps
         new_reg_map = {r.get('name'): r for r in new_registers}
+        original_regs = {r.get('reg_name', r.get('signal_name', r.get('name'))): r for r in module.get('registers', [])}
         
         def update_register_tag(match):
-            """Update a single register tag with new values while preserving structure."""
+            """Update a single register tag only for fields that actually changed."""
             tag = match.group(0)
             
             # Extract current name
@@ -449,20 +452,21 @@ class SourceModifier:
                 return tag  # Keep original if not being updated
             
             new_reg = new_reg_map[reg_name]
+            orig_reg = original_regs.get(reg_name, {})
             
-            # Only update attributes that exist in the tag and have new values
-            if 'access' in new_reg and re.search(r'access\s*=', tag):
+            # Only update attributes that actually changed
+            if new_reg.get('access') != orig_reg.get('access') and re.search(r'access\s*=', tag):
                 tag = re.sub(r'access\s*=\s*["\'][^"\']*["\']', f'access="{new_reg["access"]}"', tag)
             
-            if 'width' in new_reg and re.search(r'width\s*=', tag):
+            orig_width = orig_reg.get('signal_width', orig_reg.get('width', 32))
+            if new_reg.get('width') != orig_width and re.search(r'width\s*=', tag):
                 tag = re.sub(r'width\s*=\s*["\'][^"\']*["\']', f'width="{new_reg["width"]}"', tag)
             
-            if new_reg.get('description') and re.search(r'description\s*=', tag):
-                # Escape special XML characters in description
+            if new_reg.get('description') != orig_reg.get('description') and re.search(r'description\s*=', tag):
                 desc = new_reg['description'].replace('&', '&amp;').replace('"', '&quot;')
                 tag = re.sub(r'description\s*=\s*["\'][^"\']*["\']', f'description="{desc}"', tag)
             
-            if new_reg.get('default_value') is not None and re.search(r'default\s*=', tag):
+            if new_reg.get('default_value') != orig_reg.get('default_value') and re.search(r'default\s*=', tag):
                 tag = re.sub(r'default\s*=\s*["\'][^"\']*["\']', f'default="{new_reg["default_value"]}"', tag)
             
             return tag
