@@ -357,7 +357,7 @@ class SourceModifier:
         # Build register lookup by name - only include registers that actually changed
         original_regs = {r.get('reg_name', r.get('signal_name', r.get('name'))): r for r in module.get('registers', [])}
         
-        # Update base_address if it changed
+        # Update base_addr if it changed
         if properties and properties.get('base_address'):
             new_base = properties.get('base_address')
             orig_base = module.get('base_address_raw', module.get('base_address', '0'))
@@ -365,8 +365,8 @@ class SourceModifier:
                 orig_base_int = int(orig_base, 16) if isinstance(orig_base, str) and orig_base.startswith('0x') else int(orig_base)
                 new_base_int = int(new_base, 16) if isinstance(new_base, str) and new_base.startswith('0x') else int(new_base)
                 if new_base_int != orig_base_int:
-                    # Replace base_address in YAML - support both hex and decimal formats
-                    content = re.sub(r'(base_address:\s*)([^\n]+)', rf'\g<1>0x{new_base_int:04X}', content)
+                    # Replace base_addr in YAML
+                    content = re.sub(r'(base_addr:\s*)([^\n]+)', rf'\g<1>0x{new_base_int:04X}', content)
             except (ValueError, TypeError):
                 pass
         
@@ -503,7 +503,7 @@ class SourceModifier:
         new_reg_map = {r.get('name'): r for r in new_registers}
         original_regs = {r.get('reg_name', r.get('signal_name', r.get('name'))): r for r in module.get('registers', [])}
         
-        # Update base_address if it changed
+        # Update base_addr if it changed
         if properties and properties.get('base_address'):
             new_base = properties.get('base_address')
             orig_base = module.get('base_address_raw', module.get('base_address', '0'))
@@ -511,8 +511,8 @@ class SourceModifier:
                 orig_base_int = int(orig_base, 16) if isinstance(orig_base, str) and orig_base.startswith('0x') else int(orig_base)
                 new_base_int = int(new_base, 16) if isinstance(new_base, str) and new_base.startswith('0x') else int(new_base)
                 if new_base_int != orig_base_int:
-                    # Replace base_address attribute in module tag
-                    content = re.sub(r'(base_address\s*=\s*["\'])([^"\']+)(["\'])', rf'\g<1>0x{new_base_int:04X}\3', content)
+                    # Replace base_addr attribute in module tag
+                    content = re.sub(r'(base_addr\s*=\s*["\'])([^"\']+)(["\'])', rf'\g<1>0x{new_base_int:04X}\3', content)
             except (ValueError, TypeError):
                 pass
         
