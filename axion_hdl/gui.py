@@ -27,6 +27,9 @@ class AxionGUI:
         self.app = Flask(__name__)
         self.app.secret_key = 'axion-hdl-dev-key' 
         
+        # Read version from .version file
+        self.version = self._read_version()
+        
         # Simple in-memory storage for pending changes during review
         # Key: module_name, Value: list of registers
         self.pending_changes = {} 
@@ -35,6 +38,11 @@ class AxionGUI:
         from axion_hdl.rule_checker import RuleChecker
         self.modifier = SourceModifier(self.axion)
         self.checker = RuleChecker()
+        
+        # Inject version into all templates
+        @self.app.context_processor
+        def inject_version():
+            return {'version': self.version}
         
         # --- Routes ---
         @self.app.route('/')
@@ -847,6 +855,31 @@ class AxionGUI:
         
         # Run Flask app
         self.app.run(port=port, debug=True, use_reloader=False)
+
+    def _read_version(self):
+        """Read version from .version file."""
+        import os
+        
+        # Try multiple possible locations for .version file
+        possible_paths = [
+            os.path.join(os.path.dirname(__file__), '..', '.version'),  # Package install
+            os.path.join(os.getcwd(), '.version'),  # Current directory
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                try:
+                    with open(path, 'r') as f:
+                        return f.read().strip()
+                except:
+                    pass
+        
+        # Fallback to package version if .version not found
+        try:
+            from axion_hdl import __version__
+            return __version__
+        except:
+            return "unknown"
 
 def start_gui(axion_instance):
     """Entry point for CLI to start GUI."""
