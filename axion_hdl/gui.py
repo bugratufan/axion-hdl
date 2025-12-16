@@ -881,7 +881,7 @@ class AxionGUI:
         except:
             return "unknown"
 
-def start_gui(axion_instance):
-    """Entry point for CLI to start GUI."""
+def start_gui(axion_instance, port=5000):
     gui = AxionGUI(axion_instance)
+    gui.port = port
     gui.run()
