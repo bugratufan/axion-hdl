@@ -407,18 +407,20 @@ class SourceModifier:
                 new_reg = new_reg_map[reg_name]
                 orig_reg = original_regs.get(reg_name, {})
                 
-                # Only update fields that actually changed
-                if new_reg.get('access') != orig_reg.get('access'):
+                # Only update fields that actually changed AND exist in original
+                if new_reg.get('access') != orig_reg.get('access') and 'access' in file_reg:
                     original_data['registers'][i]['access'] = new_reg.get('access')
                     
                 orig_width = orig_reg.get('signal_width', orig_reg.get('width', 32))
-                if new_reg.get('width') != orig_width:
+                if new_reg.get('width') != orig_width and 'width' in file_reg:
                     original_data['registers'][i]['width'] = new_reg.get('width')
                     
-                if new_reg.get('description') and new_reg.get('description') != orig_reg.get('description'):
+                # Only update description if it exists in original file
+                if 'description' in file_reg and new_reg.get('description') and new_reg.get('description') != orig_reg.get('description'):
                     original_data['registers'][i]['description'] = new_reg.get('description')
                     
-                if new_reg.get('default_value') is not None and new_reg.get('default_value') != orig_reg.get('default_value'):
+                # Only update default_value if it exists in original file
+                if 'default_value' in file_reg and new_reg.get('default_value') != orig_reg.get('default_value'):
                     original_data['registers'][i]['default_value'] = new_reg.get('default_value')
         
         new_content = json.dumps(original_data, indent=2)
