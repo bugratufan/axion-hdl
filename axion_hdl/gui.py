@@ -43,7 +43,35 @@ class AxionGUI:
             self.axion.analyzed_modules = []
             self.axion.is_analyzed = False
             self.axion.analyze()
-            return render_template('index.html', modules=self.axion.analyzed_modules)
+            
+            # Run rule checks and compute per-module error/warning counts
+            self.checker = RuleChecker()  # Reset checker
+            self.checker.run_all_checks(self.axion.analyzed_modules)
+            
+            # Build module status map: {module_name: {errors: count, warnings: count}}
+            module_status = {}
+            for err in self.checker.errors:
+                name = err.get('module', 'unknown')
+                if name not in module_status:
+                    module_status[name] = {'errors': 0, 'warnings': 0}
+                module_status[name]['errors'] += 1
+            
+            for warn in self.checker.warnings:
+                name = warn.get('module', 'unknown')
+                if name not in module_status:
+                    module_status[name] = {'errors': 0, 'warnings': 0}
+                module_status[name]['warnings'] += 1
+            
+            # Attach status to each module
+            for m in self.axion.analyzed_modules:
+                status = module_status.get(m['name'], {'errors': 0, 'warnings': 0})
+                m['rule_errors'] = status['errors']
+                m['rule_warnings'] = status['warnings']
+            
+            return render_template('index.html', 
+                                   modules=self.axion.analyzed_modules,
+                                   total_errors=len(self.checker.errors),
+                                   total_warnings=len(self.checker.warnings))
             
         @self.app.route('/api/modules')
         def get_modules():
