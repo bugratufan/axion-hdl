@@ -730,7 +730,10 @@ class SourceModifier:
     def _are_registers_identical(self, old_reg: Dict, new_reg: Dict) -> bool:
         """Compare register properties to check if any change occurred."""
         # 1. Access Mode
-        if old_reg.get('access') != new_reg.get('access'):
+        # 1. Access Mode (normalize key names: parser uses access_mode, source uses access)
+        old_access = old_reg.get('access') or old_reg.get('access_mode')
+        new_access = new_reg.get('access') or new_reg.get('access_mode')
+        if old_access != new_access:
             return False
             
         # 2. Width (Integer comparison)
