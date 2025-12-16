@@ -469,6 +469,12 @@ class SourceModifier:
         
         # Update registers in place - only if actually changed
         if 'registers' in original_data:
+            # First, remove any registers that are no longer in the new list
+            original_data['registers'] = [
+                reg for reg in original_data['registers'] 
+                if reg.get('name') in new_reg_map
+            ]
+            
             for i, file_reg in enumerate(original_data['registers']):
                 reg_name = file_reg.get('name')
                 if reg_name not in new_reg_map:
@@ -498,33 +504,41 @@ class SourceModifier:
                     else:
                         original_data['registers'][i]['width'] = str(new_width_int)
                     
-                # Only update description if it exists in original file
-                if 'description' in file_reg and new_reg.get('description') and new_reg.get('description') != orig_reg.get('description'):
-                    original_data['registers'][i]['description'] = new_reg.get('description')
+                # Update or ADD description
+                new_desc = new_reg.get('description')
+                if new_desc and new_desc != orig_reg.get('description'):
+                    original_data['registers'][i]['description'] = new_desc
                     
-                # Only update default_value if it exists in original file
-                if 'default_value' in file_reg and new_reg.get('default_value') != orig_reg.get('default_value'):
-                    original_data['registers'][i]['default_value'] = new_reg.get('default_value')
+                # Update or ADD default_value (add if non-zero/non-empty)
+                new_default = new_reg.get('default_value')
+                if new_default and new_default not in (0, '0', '0x0', ''):
+                    if new_default != orig_reg.get('default_value'):
+                        original_data['registers'][i]['default_value'] = new_default
+                elif 'default_value' in file_reg and not new_default:
+                    # Remove if set to empty/zero and was present
+                    del original_data['registers'][i]['default_value']
                 
-                # Update r_strobe if it exists in original file
-                if 'r_strobe' in file_reg:
-                    new_r_strobe = new_reg.get('r_strobe', False)
-                    # Check rd_strobe first, fallback to r_strobe if None
-                    orig_r_strobe = orig_reg.get('rd_strobe')
-                    if orig_r_strobe is None:
-                        orig_r_strobe = orig_reg.get('r_strobe', False)
-                    if new_r_strobe != orig_r_strobe:
-                        original_data['registers'][i]['r_strobe'] = new_r_strobe
+                # Update or ADD r_strobe
+                new_r_strobe = new_reg.get('r_strobe', False)
+                orig_r_strobe = orig_reg.get('rd_strobe')
+                if orig_r_strobe is None:
+                    orig_r_strobe = orig_reg.get('r_strobe', False)
+                if new_r_strobe != orig_r_strobe:
+                    if new_r_strobe:  # Add or update if True
+                        original_data['registers'][i]['r_strobe'] = True
+                    elif 'r_strobe' in file_reg:  # Remove if False and was present
+                        del original_data['registers'][i]['r_strobe']
                 
-                # Update w_strobe if it exists in original file
-                if 'w_strobe' in file_reg:
-                    new_w_strobe = new_reg.get('w_strobe', False)
-                    # Check wr_strobe first, fallback to w_strobe if None
-                    orig_w_strobe = orig_reg.get('wr_strobe')
-                    if orig_w_strobe is None:
-                        orig_w_strobe = orig_reg.get('w_strobe', False)
-                    if new_w_strobe != orig_w_strobe:
-                        original_data['registers'][i]['w_strobe'] = new_w_strobe
+                # Update or ADD w_strobe
+                new_w_strobe = new_reg.get('w_strobe', False)
+                orig_w_strobe = orig_reg.get('wr_strobe')
+                if orig_w_strobe is None:
+                    orig_w_strobe = orig_reg.get('w_strobe', False)
+                if new_w_strobe != orig_w_strobe:
+                    if new_w_strobe:  # Add or update if True
+                        original_data['registers'][i]['w_strobe'] = True
+                    elif 'w_strobe' in file_reg:  # Remove if False and was present
+                        del original_data['registers'][i]['w_strobe']
         
         new_content = json.dumps(original_data, indent=2)
         return new_content, filepath
