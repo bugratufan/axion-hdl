@@ -129,11 +129,13 @@
 </div>
 
 {% if analysis_error %}
-<div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
-    <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
-    <div>
-        <strong>Analysis Error:</strong> {{ analysis_error }}
+<div class="alert alert-danger mb-4" role="alert">
+    <div class="d-flex align-items-center mb-2">
+        <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+        <strong>Analysis Error</strong>
     </div>
+    <pre class="mb-0 p-3 bg-white rounded"
+        style="font-size: 0.8rem; overflow-x: auto; white-space: pre; font-family: 'Monaco', 'Menlo', 'Consolas', monospace;">{{ analysis_error }}</pre>
 </div>
 {% endif %}
 
