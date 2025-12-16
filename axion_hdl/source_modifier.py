@@ -194,6 +194,9 @@ class SourceModifier:
 
         # Update Generics first
         content = self._update_generics(content, properties)
+        
+        # Update Module Definitions (@axion_def)
+        content = self._update_module_definition(content, properties)
 
         # Identify existing signals
         existing_names = set()
@@ -767,3 +770,59 @@ class SourceModifier:
             return False
             
         return True
+
+    def _update_module_definition(self, content: str, properties: Dict) -> str:
+        """Updates or injects @axion_def annotation for module properties."""
+        if not properties:
+            return content
+            
+        def_pattern = r'(--\s*@axion_def\s+)(.+)'
+        match = re.search(def_pattern, content, re.IGNORECASE)
+        
+        cdc_en = properties.get('cdc_enabled')
+        cdc_stages = properties.get('cdc_stages')
+        
+        if match:
+            # Update existing
+            prefix = match.group(1)
+            attrs_str = match.group(2)
+            
+            # Simple approach: Check if CDC fields exist and update/remove them
+            # This avoids full re-serialization which might lose custom formatting
+            
+            # 1. CDC Enable
+            if cdc_en is True:
+                if not re.search(r'\bCDC_EN\b', attrs_str):
+                    attrs_str += " CDC_EN"
+            elif cdc_en is False:
+                attrs_str = re.sub(r'\s*\bCDC_EN\b', '', attrs_str)
+                
+            # 2. CDC Stages
+            if cdc_stages:
+                if re.search(r'\bCDC_STAGE=\d+', attrs_str):
+                     attrs_str = re.sub(r'\bCDC_STAGE=\d+', f'CDC_STAGE={cdc_stages}', attrs_str)
+                elif cdc_en is True:
+                     attrs_str += f" CDC_STAGE={cdc_stages}"
+                     
+            updated_line = f"{prefix}{attrs_str.strip()}"
+            return re.sub(def_pattern, updated_line, content, count=1)
+            
+        else:
+            # Inject new if CDC enabled
+            if cdc_en:
+                new_attrs = ["CDC_EN"]
+                if cdc_stages:
+                    new_attrs.append(f"CDC_STAGE={cdc_stages}")
+                    
+                new_line = f"-- @axion_def {' '.join(new_attrs)}"
+                
+                # Insert before entity
+                entity_match = re.search(r'entity\s+(\w+)\s+is', content, re.IGNORECASE)
+                if entity_match:
+                    start = entity_match.start()
+                    return content[:start] + new_line + "\n" + content[start:]
+                else:
+                    # Fallback: Top of file
+                    return new_line + "\n" + content
+                    
+        return content
