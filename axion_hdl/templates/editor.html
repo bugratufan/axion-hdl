@@ -555,8 +555,7 @@
         // Clear unsaved changes flag to prevent warning when navigating to diff page
         clearUnsavedChanges();
 
-        const isNew = {{ 'true' if module.is_new else 'false' }
-    };
+        const isNew = {{ 'true' if module.is_new else 'false' }};
 
     // Gather Module Props
     const cdcEnabled = document.getElementById('cdcEnable').checked;
