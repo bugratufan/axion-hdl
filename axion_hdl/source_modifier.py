@@ -401,7 +401,9 @@ class SourceModifier:
             
             # Check if r_strobe changed
             new_r_strobe = new_reg.get('r_strobe', False)
-            orig_r_strobe = orig_reg.get('rd_strobe', orig_reg.get('r_strobe', False))
+            orig_r_strobe = orig_reg.get('rd_strobe')
+            if orig_r_strobe is None:
+                orig_r_strobe = orig_reg.get('r_strobe', False)
             if new_r_strobe != orig_r_strobe:
                 pattern = rf'(- name:\s*{re.escape(reg_name)}\b.*?r_strobe:\s*)(true|false)(\s)'
                 replacement = rf'\g<1>{str(new_r_strobe).lower()}\3'
@@ -409,7 +411,9 @@ class SourceModifier:
             
             # Check if w_strobe changed
             new_w_strobe = new_reg.get('w_strobe', False)
-            orig_w_strobe = orig_reg.get('wr_strobe', orig_reg.get('w_strobe', False))
+            orig_w_strobe = orig_reg.get('wr_strobe')
+            if orig_w_strobe is None:
+                orig_w_strobe = orig_reg.get('w_strobe', False)
             if new_w_strobe != orig_w_strobe:
                 pattern = rf'(- name:\s*{re.escape(reg_name)}\b.*?w_strobe:\s*)(true|false)(\s)'
                 replacement = rf'\g<1>{str(new_w_strobe).lower()}\3'
@@ -505,14 +509,20 @@ class SourceModifier:
                 # Update r_strobe if it exists in original file
                 if 'r_strobe' in file_reg:
                     new_r_strobe = new_reg.get('r_strobe', False)
-                    orig_r_strobe = orig_reg.get('rd_strobe', orig_reg.get('r_strobe', False))
+                    # Check rd_strobe first, fallback to r_strobe if None
+                    orig_r_strobe = orig_reg.get('rd_strobe')
+                    if orig_r_strobe is None:
+                        orig_r_strobe = orig_reg.get('r_strobe', False)
                     if new_r_strobe != orig_r_strobe:
                         original_data['registers'][i]['r_strobe'] = new_r_strobe
                 
                 # Update w_strobe if it exists in original file
                 if 'w_strobe' in file_reg:
                     new_w_strobe = new_reg.get('w_strobe', False)
-                    orig_w_strobe = orig_reg.get('wr_strobe', orig_reg.get('w_strobe', False))
+                    # Check wr_strobe first, fallback to w_strobe if None
+                    orig_w_strobe = orig_reg.get('wr_strobe')
+                    if orig_w_strobe is None:
+                        orig_w_strobe = orig_reg.get('w_strobe', False)
                     if new_w_strobe != orig_w_strobe:
                         original_data['registers'][i]['w_strobe'] = new_w_strobe
         
@@ -588,13 +598,17 @@ class SourceModifier:
             
             # Update r_strobe if attribute exists
             new_r_strobe = new_reg.get('r_strobe', False)
-            orig_r_strobe = orig_reg.get('rd_strobe', orig_reg.get('r_strobe', False))
+            orig_r_strobe = orig_reg.get('rd_strobe')
+            if orig_r_strobe is None:
+                orig_r_strobe = orig_reg.get('r_strobe', False)
             if new_r_strobe != orig_r_strobe and re.search(r'r_strobe\s*=', tag):
                 tag = re.sub(r'r_strobe\s*=\s*["\'][^"\']*["\']', f'r_strobe="{str(new_r_strobe).lower()}"', tag)
             
             # Update w_strobe if attribute exists
             new_w_strobe = new_reg.get('w_strobe', False)
-            orig_w_strobe = orig_reg.get('wr_strobe', orig_reg.get('w_strobe', False))
+            orig_w_strobe = orig_reg.get('wr_strobe')
+            if orig_w_strobe is None:
+                orig_w_strobe = orig_reg.get('w_strobe', False)
             if new_w_strobe != orig_w_strobe and re.search(r'w_strobe\s*=', tag):
                 tag = re.sub(r'w_strobe\s*=\s*["\'][^"\']*["\']', f'w_strobe="{str(new_w_strobe).lower()}"', tag)
             
