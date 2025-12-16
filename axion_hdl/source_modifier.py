@@ -787,15 +787,25 @@ class SourceModifier:
             prefix = match.group(1)
             attrs_str = match.group(2)
             
-            # Simple approach: Check if CDC fields exist and update/remove them
-            # This avoids full re-serialization which might lose custom formatting
+            # Standardized CDC Logic: Use KV pairs (CDC_EN=true/false)
+            # Find existing CDC_EN token (flag or KV)
+            # Pattern matches: CDC_EN, CDC_EN=true, CDC_EN=false, CDC_EN=1, etc.
+            cdc_pattern = r'\bCDC_EN(?:=(?:true|false|yes|no|1|0))?\b'
             
-            # 1. CDC Enable
             if cdc_en is True:
-                if not re.search(r'\bCDC_EN\b', attrs_str):
-                    attrs_str += " CDC_EN"
+                if re.search(cdc_pattern, attrs_str, re.IGNORECASE):
+                    # Replace existing with explicit true
+                    attrs_str = re.sub(cdc_pattern, 'CDC_EN=true', attrs_str, flags=re.IGNORECASE)
+                else:
+                    # Append if missing
+                    attrs_str += " CDC_EN=true"
             elif cdc_en is False:
-                attrs_str = re.sub(r'\s*\bCDC_EN\b', '', attrs_str)
+                if re.search(cdc_pattern, attrs_str, re.IGNORECASE):
+                    # Replace existing with explicit false (if it was there)
+                    attrs_str = re.sub(cdc_pattern, 'CDC_EN=false', attrs_str, flags=re.IGNORECASE)
+                # If explicit false was NOT there, we generally don't add it to keep it clean,
+                # UNLESS the user explicitly requested it in properties? 
+                # For now, if we are disabling, we overwrite existing to =false.
                 
             # 2. CDC Stages
             if cdc_stages:
@@ -810,7 +820,7 @@ class SourceModifier:
         else:
             # Inject new if CDC enabled
             if cdc_en:
-                new_attrs = ["CDC_EN"]
+                new_attrs = ["CDC_EN=true"]
                 if cdc_stages:
                     new_attrs.append(f"CDC_STAGE={cdc_stages}")
                     
