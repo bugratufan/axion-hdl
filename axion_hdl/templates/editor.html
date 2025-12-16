@@ -124,182 +124,175 @@
     </div>
 </div>
 
-<div class="row g-4">
-    <!-- Module Configuration (Left Column) -->
-    <div class="col-lg-3">
-        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
-            <div class="card-body p-4">
-                <h5 class="card-title fw-bold mb-4 text-dark"><i
-                        class="bi bi-sliders me-2 text-primary"></i>Configuration</h5>
-
-                <form id="moduleForm">
-                    <!-- Base Address -->
-                    <div class="mb-4">
-                        <label class="form-label text-secondary fw-bold small text-uppercase mb-2">Base Address</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0 text-muted font-monospace">0x</span>
-                            <input type="text" name="base_address"
-                                class="form-control border-start-0 ps-0 font-monospace fw-bold"
-                                value="{{ '%04X' % module.base_address if module.base_address else '0000' }}"
-                                pattern="[0-9A-Fa-f]+" placeholder="0000" oninput="recalculateAddresses()">
-                        </div>
-                        <small class="text-muted mt-1 d-block">Module base offset in memory map</small>
-                    </div>
-
-                    <hr class="border-secondary opacity-10 my-4">
-
-                    <!-- CDC Settings -->
-                    <div class="mb-2">
-                        <label class="form-label text-secondary fw-bold small text-uppercase mb-3">CDC Settings</label>
-
-                        <div class="form-check form-switch mb-3 p-0 d-flex justify-content-between align-items-center">
-                            <label class="form-check-label text-dark fw-medium" for="cdcEnable">Enable
-                                Synchronization</label>
-                            <input class="form-check-input ms-0" type="checkbox" role="switch" id="cdcEnable" {% if
-                                module.cdc_enabled %}checked{% endif %} onchange="toggleCDC()"
-                                style="width: 3em; height: 1.5em; margin-left: auto !important;">
-                        </div>
-
-                        <div id="cdcSettings" class="mt-3 p-3 bg-light rounded-3 animate__animated animate__fadeIn"
-                            style="{% if not module.cdc_enabled %}display: none;{% endif %}">
-                            <label class="form-label small text-muted mb-1">Sync Stages (Flip-Flops)</label>
-                            <div class="d-flex align-items-center">
-                                <i class="bi bi-layers text-secondary me-2"></i>
-                                <input type="number" id="cdcStages"
-                                    class="form-control form-control-sm border-0 bg-white shadow-none fw-bold"
-                                    value="{{ module.cdc_stages or 2 }}" min="2" max="5">
-                            </div>
-                        </div>
-                    </div>
-                </form>
+<!-- Module Configuration (Compact Top Bar) -->
+<div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+    <div class="card-body p-4">
+        <form id="moduleForm" class="row g-4 align-items-end">
+            <!-- Base Address -->
+            <div class="col-auto">
+                <label class="form-label text-secondary fw-bold small text-uppercase mb-2">Base Address</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0 text-muted font-monospace">0x</span>
+                    <input type="text" name="base_address"
+                        class="form-control border-start-0 ps-0 font-monospace fw-bold"
+                        value="{{ '%04X' % module.base_address if module.base_address else '0000' }}"
+                        pattern="[0-9A-Fa-f]+" placeholder="0000" oninput="recalculateAddresses()" style="width: 80px;">
+                </div>
             </div>
-        </div>
+
+            <!-- CDC Enable -->
+            <div class="col-auto">
+                <label class="form-label text-secondary fw-bold small text-uppercase mb-2">CDC Sync</label>
+                <div class="form-check form-switch d-flex align-items-center gap-2 mb-0" style="min-height: 38px;">
+                    <input class="form-check-input" type="checkbox" role="switch" id="cdcEnable" {% if
+                        module.cdc_enabled %}checked{% endif %} onchange="toggleCDC()"
+                        style="width: 2.5em; height: 1.25em;">
+                    <label class="form-check-label text-dark" for="cdcEnable">
+                        {% if module.cdc_enabled %}Enabled{% else %}Disabled{% endif %}
+                    </label>
+                </div>
+            </div>
+
+            <!-- CDC Stages (shown when enabled) -->
+            <div class="col-auto" id="cdcSettings" {% if not module.cdc_enabled %}style="display: none;" {% endif %}>
+                <label class="form-label text-secondary fw-bold small text-uppercase mb-2">CDC Stages</label>
+                <input type="number" id="cdcStages" class="form-control fw-bold" value="{{ module.cdc_stages or 2 }}"
+                    min="2" max="5" style="width: 70px;">
+            </div>
+
+            <!-- Source File Info -->
+            <div class="col-auto ms-auto text-end">
+                <label class="form-label text-secondary fw-bold small text-uppercase mb-2">Source</label>
+                <div class="text-muted small font-monospace" style="min-height: 38px; line-height: 38px;">
+                    {{ module.file.split('/')[-1] }}
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Register Map (Full Width) -->
+<div class="card border-0 shadow-sm rounded-4 bg-white">
+    <div class="card-header bg-white border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
+        <h5 class="card-title fw-bold mb-0"><i class="bi bi-table me-2 text-primary"></i>Register Map</h5>
+        <button onclick="addRegister()" class="btn btn-sm btn-light text-primary fw-bold hover-lift" id="addRegBtn">
+            <i class="bi bi-plus-circle-fill me-1"></i> New Register
+        </button>
     </div>
 
-    <!-- Register Map (Right Column) -->
-    <div class="col-lg-9">
-        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
-            <div class="card-header bg-white border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
-                <h5 class="card-title fw-bold mb-0"><i class="bi bi-table me-2 text-primary"></i>Register Map</h5>
-                <button onclick="addRegister()" class="btn btn-sm btn-light text-primary fw-bold hover-lift"
-                    id="addRegBtn">
-                    <i class="bi bi-plus-circle-fill me-1"></i> New Register
-                </button>
-            </div>
-
-            <div class="card-body p-0 mt-3">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0" id="regsTable">
-                        <thead class="bg-light text-secondary small text-uppercase text-muted border-top border-bottom">
-                            <tr>
-                                <th class="ps-4 py-3" style="width: 8%" data-tooltip="Calculated memory offset">Addr
-                                </th>
-                                <th class="py-3" style="width: 18%">Name</th>
-                                <th class="py-3" style="width: 8%">Width</th>
-                                <th class="py-3" style="width: 7%">Access</th>
-                                <th class="py-3" style="width: 10%">Default</th>
-                                <th class="py-3" style="width: 10%" data-tooltip="Read/Write Strobe signals">Strobes
-                                </th>
-                                <th class="py-3" style="width: 24%">Description</th>
-                                <th class="pe-4 py-3 text-end" style="width: 15%">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="regsBody" class="border-top-0">
-                            {% set addr_offset = namespace(value=0) %}
-                            {% for reg in module.registers %}
-                            {% set width = 32 %}
-                            {% if reg.width %}
-                            {% set width = reg.width %}
-                            {% elif 'vector' in reg.signal_type %}
-                            {% set width = reg.signal_type.split('(')[1].split(' downto')[0] | int + 1 if '(' in
-                            reg.signal_type else 32 %}
-                            {% elif reg.signal_type == 'std_logic' %}
-                            {% set width = 1 %}
-                            {% endif %}
-                            <tr class="reg-row border-bottom-0" data-index="{{ loop.index0 }}">
-                                <td class="ps-4">
-                                    <span class="addr-badge reg-addr">0x{{ '%02X' % (addr_offset.value | int) }}</span>
-                                </td>
-                                <td>
-                                    <input type="text" value="{{ reg.reg_name or reg.signal_name }}"
-                                        class="form-control font-monospace reg-name-input fw-bold bg-light-subtle border-0"
-                                        placeholder="reg_name" oninput="validateName(this)">
-                                </td>
-                                <td>
-                                    <div class="input-group input-group-sm">
-                                        <input type="number" value="{{ width }}"
-                                            class="form-control reg-width-input border-0 bg-light-subtle" min="1"
-                                            max="1024" style="width: 50px;" onchange="recalculateAddresses()">
-                                        <span class="input-group-text border-0 bg-transparent text-muted small">b</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <select
-                                        class="form-select form-select-sm reg-access-input fw-bold border-0 bg-light-subtle
+    <div class="card-body p-0 mt-3">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="regsTable">
+                <thead class="bg-light text-secondary small text-uppercase text-muted border-top border-bottom">
+                    <tr>
+                        <th class="ps-4 py-3" style="width: 8%" data-tooltip="Calculated memory offset">Addr
+                        </th>
+                        <th class="py-3" style="width: 18%">Name</th>
+                        <th class="py-3" style="width: 8%">Width</th>
+                        <th class="py-3" style="width: 7%">Access</th>
+                        <th class="py-3" style="width: 10%">Default</th>
+                        <th class="py-3" style="width: 10%" data-tooltip="Read/Write Strobe signals">Strobes
+                        </th>
+                        <th class="py-3" style="width: 24%">Description</th>
+                        <th class="pe-4 py-3 text-end" style="width: 15%">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="regsBody" class="border-top-0">
+                    {% set addr_offset = namespace(value=0) %}
+                    {% for reg in module.registers %}
+                    {% set width = 32 %}
+                    {% if reg.width %}
+                    {% set width = reg.width %}
+                    {% elif 'vector' in reg.signal_type %}
+                    {% set width = reg.signal_type.split('(')[1].split(' downto')[0] | int + 1 if '(' in
+                    reg.signal_type else 32 %}
+                    {% elif reg.signal_type == 'std_logic' %}
+                    {% set width = 1 %}
+                    {% endif %}
+                    <tr class="reg-row border-bottom-0" data-index="{{ loop.index0 }}">
+                        <td class="ps-4">
+                            <span class="addr-badge reg-addr">0x{{ '%02X' % (addr_offset.value | int) }}</span>
+                        </td>
+                        <td>
+                            <input type="text" value="{{ reg.reg_name or reg.signal_name }}"
+                                class="form-control font-monospace reg-name-input fw-bold bg-light-subtle border-0"
+                                placeholder="reg_name" oninput="validateName(this)">
+                        </td>
+                        <td>
+                            <div class="input-group input-group-sm">
+                                <input type="number" value="{{ width }}"
+                                    class="form-control reg-width-input border-0 bg-light-subtle" min="1" max="1024"
+                                    style="width: 50px;" onchange="recalculateAddresses()">
+                                <span class="input-group-text border-0 bg-transparent text-muted small">b</span>
+                            </div>
+                        </td>
+                        <td>
+                            <select
+                                class="form-select form-select-sm reg-access-input fw-bold border-0 bg-light-subtle
                                         {% if reg.access_mode=='RW' %}text-primary{% elif reg.access_mode=='RO' %}text-success{% else %}text-danger{% endif %}"
-                                        onchange="updateAccessColor(this)">
-                                        <option value="RW" class="text-primary" {% if reg.access_mode=='RW' %}selected{%
-                                            endif %}>RW</option>
-                                        <option value="RO" class="text-success" {% if reg.access_mode=='RO' %}selected{%
-                                            endif %}>RO</option>
-                                        <option value="WO" class="text-danger" {% if reg.access_mode=='WO' %}selected{%
-                                            endif %}>WO</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <input type="text" value="{{ reg.default_value or '0x0' }}"
-                                        class="form-control form-control-sm font-monospace reg-default-input border-0 bg-light-subtle text-secondary"
-                                        style="width: 70px;" oninput="validateHex(this)">
-                                </td>
-                                <td>
-                                    <div class="strobe-group">
-                                        <span class="strobe-toggle {{ 'active' if reg.r_strobe else 'inactive' }}"
-                                            onclick="toggleStrobe(this, 'r')" data-tooltip="Read Strobe">
-                                            R
-                                        </span>
-                                        <span class="strobe-toggle {{ 'active' if reg.w_strobe else 'inactive' }}"
-                                            onclick="toggleStrobe(this, 'w')" data-tooltip="Write Strobe">
-                                            W
-                                        </span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <input type="text" value="{{ reg.description }}"
-                                        class="form-control form-control-sm reg-desc-input border-0 bg-transparent"
-                                        placeholder="Add description...">
-                                </td>
-                                <td class="pe-4 text-end">
-                                    <button onclick="duplicateRow(this)"
-                                        class="action-btn btn btn-outline-primary btn-sm border-0 bg-primary-subtle text-primary me-1"
-                                        title="Duplicate Register" data-tooltip="Duplicate">
-                                        <i class="bi bi-copy"></i>
-                                    </button>
-                                    <button onclick="deleteRow(this)"
-                                        class="action-btn btn btn-outline-danger btn-sm border-0 bg-danger-subtle text-danger"
-                                        title="Delete Register" data-tooltip="Delete">
-                                        <i class="bi bi-trash-fill"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            {% set addr_offset.value = addr_offset.value + ((width + 31) // 32) * 4 %}
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                onchange="updateAccessColor(this)">
+                                <option value="RW" class="text-primary" {% if reg.access_mode=='RW' %}selected{% endif
+                                    %}>RW</option>
+                                <option value="RO" class="text-success" {% if reg.access_mode=='RO' %}selected{% endif
+                                    %}>RO</option>
+                                <option value="WO" class="text-danger" {% if reg.access_mode=='WO' %}selected{% endif
+                                    %}>WO</option>
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" value="{{ reg.default_value or '0x0' }}"
+                                class="form-control form-control-sm font-monospace reg-default-input border-0 bg-light-subtle text-secondary"
+                                style="width: 70px;" oninput="validateHex(this)">
+                        </td>
+                        <td>
+                            <div class="strobe-group">
+                                <span class="strobe-toggle {{ 'active' if reg.r_strobe else 'inactive' }}"
+                                    onclick="toggleStrobe(this, 'r')" data-tooltip="Read Strobe">
+                                    R
+                                </span>
+                                <span class="strobe-toggle {{ 'active' if reg.w_strobe else 'inactive' }}"
+                                    onclick="toggleStrobe(this, 'w')" data-tooltip="Write Strobe">
+                                    W
+                                </span>
+                            </div>
+                        </td>
+                        <td>
+                            <input type="text" value="{{ reg.description }}"
+                                class="form-control form-control-sm reg-desc-input border-0 bg-transparent"
+                                placeholder="Add description...">
+                        </td>
+                        <td class="pe-4 text-end">
+                            <button onclick="duplicateRow(this)"
+                                class="action-btn btn btn-outline-primary btn-sm border-0 bg-primary-subtle text-primary me-1"
+                                title="Duplicate Register" data-tooltip="Duplicate">
+                                <i class="bi bi-copy"></i>
+                            </button>
+                            <button onclick="deleteRow(this)"
+                                class="action-btn btn btn-outline-danger btn-sm border-0 bg-danger-subtle text-danger"
+                                title="Delete Register" data-tooltip="Delete">
+                                <i class="bi bi-trash-fill"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% set addr_offset.value = addr_offset.value + ((width + 31) // 32) * 4 %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-                {% if not module.registers %}
-                <div class="text-center py-5 text-muted" id="emptyState">
-                    <div class="mb-3 p-3 bg-light rounded-circle d-inline-block">
-                        <i class="bi bi-layers fs-1 text-secondary"></i>
-                    </div>
-                    <h5 class="fw-bold text-dark">Empty Register Map</h5>
-                    <p class="small">Start building your register interface via the button above.</p>
-                </div>
-                {% endif %}
+        {% if not module.registers %}
+        <div class="text-center py-5 text-muted" id="emptyState">
+            <div class="mb-3 p-3 bg-light rounded-circle d-inline-block">
+                <i class="bi bi-layers fs-1 text-secondary"></i>
             </div>
+            <h5 class="fw-bold text-dark">Empty Register Map</h5>
+            <p class="small">Start building your register interface via the button above.</p>
+            {% endif %}
         </div>
     </div>
 </div>
+
+
 
 <script>
     // Global state
@@ -451,7 +444,8 @@
     }
 
     function saveChanges() {
-        const isNew = {{ 'true' if module.is_new else 'false' }};
+        const isNew = {{ 'true' if module.is_new else 'false' }
+    };
 
     // Gather Module Props
     const cdcEnabled = document.getElementById('cdcEnable').checked;
