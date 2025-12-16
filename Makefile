@@ -127,10 +127,10 @@ test-full:
 test-gui:
 	@echo "Running GUI tests on all browsers (parallel)..."
 	@if $(PYTHON) -c "import playwright" 2>/dev/null; then \
-		$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py -v --tb=short --browser chromium --browser firefox --browser webkit -n auto; \
+		$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py -v --tb=short --browser chromium --browser firefox --browser webkit -n 4 --reruns 2 --reruns-delay 1; \
 	else \
 		echo "Warning: playwright not installed, skipping GUI tests"; \
-		echo "Install with: pip install pytest-playwright playwright pytest-xdist && playwright install"; \
+		echo "Install with: pip install pytest-playwright playwright pytest-xdist pytest-rerunfailures && playwright install"; \
 	fi
 
 #------------------------------------------------------------------------------
