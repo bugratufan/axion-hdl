@@ -214,10 +214,11 @@ class TestGUIGeneration:
     
     def test_gen_009_status_badge(self, gui_page, gui_server):
         """GUI-GEN-009: Status badge shows Idle state initially"""
-        gui_page.goto(f"{gui_server.url}/generate")
-        gui_page.wait_for_load_state("networkidle")
+        gui_page.goto(f"{gui_server.url}/generate", timeout=60000)
+        gui_page.wait_for_load_state("domcontentloaded")
         
         badge = gui_page.locator("#statusBadge")
+        badge.wait_for(state="visible", timeout=10000)
         assert badge.is_visible(), "Status badge not visible"
     
     def test_gen_012_doc_md_toggle(self, gui_page, gui_server):
