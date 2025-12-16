@@ -370,6 +370,17 @@ class SourceModifier:
             except (ValueError, TypeError):
                 pass
         
+        # Build new register name set for deletion detection
+        new_reg_names = {r.get('name') for r in new_registers}
+        
+        # Remove registers that are no longer in the new list
+        for orig_name in list(original_regs.keys()):
+            if orig_name not in new_reg_names:
+                # Remove the entire register block from YAML
+                # Match: "  - name: reg_name\n    ...until next register or end of registers section"
+                pattern = rf'^\s*-\s*name:\s*{re.escape(orig_name)}\b[^\n]*\n(?:\s+[^\n]+\n)*?(?=\s*-\s*name:|\s*$)'
+                content = re.sub(pattern, '', content, flags=re.MULTILINE)
+        
         for new_reg in new_registers:
             reg_name = new_reg.get('name')
             orig_reg = original_regs.get(reg_name)
@@ -399,25 +410,68 @@ class SourceModifier:
                 replacement = rf'\g<1>{new_width_int}\2'
                 content = re.sub(pattern, replacement, content, flags=re.DOTALL)
             
+            # Helper to insert field if missing
+            def update_or_insert_yaml_field(content, reg_name, field_name, new_value, anchor_field='width'):
+                # Try replacing first
+                pattern = rf'(- name:\s*{re.escape(reg_name)}\b.*?{field_name}:\s*)([^\n]+)(\n)'
+                match = re.search(pattern, content, flags=re.DOTALL | re.IGNORECASE)
+                
+                if match:
+                    # Field exists, update it
+                    replacement = rf'\g<1>{new_value}\3'
+                    return re.sub(pattern, replacement, content, flags=re.DOTALL | re.IGNORECASE)
+                else:
+                    # Field missing, insert it after anchor
+                    anchor_pattern = rf'(- name:\s*{re.escape(reg_name)}\b.*?{anchor_field}:\s*[^\n]+\n)'
+                    anchor_match = re.search(anchor_pattern, content, flags=re.DOTALL)
+                    if anchor_match:
+                        # Find indentation of the anchor line
+                        indent = re.match(r'\s*', anchor_match.group(0).split('\n')[-2]).group(0)
+                        # Use same indentation for new field
+                        insertion = f'{indent}{field_name}: {new_value}\n'
+                        return content[:anchor_match.end()] + insertion + content[anchor_match.end():]
+                return content
+
+            # Check if description changed
+            new_desc = new_reg.get('description')
+            if new_desc and new_desc != orig_reg.get('description'):
+                content = update_or_insert_yaml_field(content, reg_name, 'description', f'"{new_desc}"')
+
+            # Check if default_value changed
+            new_default = new_reg.get('default_value')
+            if new_default and new_default not in (0, '0', '0x0', ''):
+                if new_default != orig_reg.get('default_value'):
+                    content = update_or_insert_yaml_field(content, reg_name, 'default_value', new_default)
+            elif not new_default:
+                # Remove if exists and new value is empty
+                pattern = rf'(- name:\s*{re.escape(reg_name)}\b.*?)\s+default_value:\s*[^\n]+\n'
+                content = re.sub(pattern, r'\1', content, flags=re.DOTALL)
+
             # Check if r_strobe changed
             new_r_strobe = new_reg.get('r_strobe', False)
             orig_r_strobe = orig_reg.get('rd_strobe')
             if orig_r_strobe is None:
                 orig_r_strobe = orig_reg.get('r_strobe', False)
+            
             if new_r_strobe != orig_r_strobe:
-                pattern = rf'(- name:\s*{re.escape(reg_name)}\b.*?r_strobe:\s*)(true|false)(\s)'
-                replacement = rf'\g<1>{str(new_r_strobe).lower()}\3'
-                content = re.sub(pattern, replacement, content, flags=re.DOTALL | re.IGNORECASE)
+                if new_r_strobe: # True
+                    content = update_or_insert_yaml_field(content, reg_name, 'r_strobe', 'true')
+                else: # False -> remove
+                    pattern = rf'(- name:\s*{re.escape(reg_name)}\b.*?)\s+r_strobe:\s*[^\n]+\n'
+                    content = re.sub(pattern, r'\1', content, flags=re.DOTALL | re.IGNORECASE)
             
             # Check if w_strobe changed
             new_w_strobe = new_reg.get('w_strobe', False)
             orig_w_strobe = orig_reg.get('wr_strobe')
             if orig_w_strobe is None:
                 orig_w_strobe = orig_reg.get('w_strobe', False)
+            
             if new_w_strobe != orig_w_strobe:
-                pattern = rf'(- name:\s*{re.escape(reg_name)}\b.*?w_strobe:\s*)(true|false)(\s)'
-                replacement = rf'\g<1>{str(new_w_strobe).lower()}\3'
-                content = re.sub(pattern, replacement, content, flags=re.DOTALL | re.IGNORECASE)
+                if new_w_strobe: # True
+                    content = update_or_insert_yaml_field(content, reg_name, 'w_strobe', 'true')
+                else: # False -> remove
+                    pattern = rf'(- name:\s*{re.escape(reg_name)}\b.*?)\s+w_strobe:\s*[^\n]+\n'
+                    content = re.sub(pattern, r'\1', content, flags=re.DOTALL | re.IGNORECASE)
         
         return content, filepath
 
@@ -570,6 +624,15 @@ class SourceModifier:
             except (ValueError, TypeError):
                 pass
         
+        # Remove registers that are no longer in the new list
+        new_reg_names = {r.get('name') for r in new_registers}
+        for orig_name in list(original_regs.keys()):
+            if orig_name not in new_reg_names:
+                # Remove the entire register tag
+                # Match: <register ... name="orig_name" ... /> or <register ... name="orig_name" ...>...</register>
+                pattern = rf'<register\s+[^>]*name=["\']{re.escape(orig_name)}["\'][^>]*(?:/>|>[^<]*</register>)'
+                content = re.sub(pattern, '', content, flags=re.DOTALL)
+
         def update_register_tag(match):
             """Update a single register tag only for fields that actually changed."""
             tag = match.group(0)
@@ -581,14 +644,29 @@ class SourceModifier:
                 
             reg_name = name_match.group(1)
             if reg_name not in new_reg_map:
-                return tag  # Keep original if not being updated
+                return tag  # Should have been deleted already if not in map, but safe check
             
             new_reg = new_reg_map[reg_name]
             orig_reg = original_regs.get(reg_name, {})
             
+            # Helper to insert attribute if missing
+            def insert_attr(tag_str, attr_name, attr_value):
+                if attr_value is None: return tag_str
+                # Insert before closing /> or >
+                if '/>' in tag_str:
+                    return tag_str.replace('/>', f' {attr_name}="{attr_value}"/>')
+                elif '>' in tag_str:
+                    # Find the first > that closes the opening tag
+                    first_close = tag_str.find('>')
+                    return tag_str[:first_close] + f' {attr_name}="{attr_value}"' + tag_str[first_close:]
+                return tag_str
+
             # Only update attributes that actually changed
-            if new_reg.get('access') and new_reg.get('access') != orig_reg.get('access') and re.search(r'access\s*=', tag):
-                tag = re.sub(r'access\s*=\s*["\'][^"\']*["\']', f'access="{new_reg.get("access")}"', tag)
+            if new_reg.get('access') and new_reg.get('access') != orig_reg.get('access'):
+                if re.search(r'access\s*=', tag):
+                    tag = re.sub(r'access\s*=\s*["\'][^"\']*["\']', f'access="{new_reg.get("access")}"', tag)
+                else:
+                    tag = insert_attr(tag, 'access', new_reg.get('access'))
             
             # Compare width as integers to avoid type mismatch
             orig_width = orig_reg.get('signal_width', orig_reg.get('width', 32))
@@ -600,31 +678,62 @@ class SourceModifier:
                 orig_width_int = 32
                 new_width_int = 32
                 
-            if new_width_int != orig_width_int and re.search(r'width\s*=', tag):
-                tag = re.sub(r'width\s*=\s*["\'][^"\']*["\']', f'width="{new_width_int}"', tag)
+            if new_width_int != orig_width_int:
+                if re.search(r'width\s*=', tag):
+                    tag = re.sub(r'width\s*=\s*["\'][^"\']*["\']', f'width="{new_width_int}"', tag)
+                else:
+                    tag = insert_attr(tag, 'width', new_width_int)
             
-            if new_reg.get('description') and new_reg.get('description') != orig_reg.get('description') and re.search(r'description\s*=', tag):
-                desc = new_reg.get('description', '').replace('&', '&amp;').replace('"', '&quot;')
-                tag = re.sub(r'description\s*=\s*["\'][^"\']*["\']', f'description="{desc}"', tag)
+            # Description update/add
+            new_desc = new_reg.get('description')
+            if new_desc and new_desc != orig_reg.get('description'):
+                desc = new_desc.replace('&', '&amp;').replace('"', '&quot;')
+                if re.search(r'description\s*=', tag):
+                    tag = re.sub(r'description\s*=\s*["\'][^"\']*["\']', f'description="{desc}"', tag)
+                else:
+                    tag = insert_attr(tag, 'description', desc)
             
-            if new_reg.get('default_value') is not None and new_reg.get('default_value') != orig_reg.get('default_value') and re.search(r'default\s*=', tag):
-                tag = re.sub(r'default\s*=\s*["\'][^"\']*["\']', f'default="{new_reg.get("default_value")}"', tag)
+            # Default value update/add/remove
+            new_default = new_reg.get('default_value')
+            if new_default and new_default not in (0, '0', '0x0', ''):
+                if new_default != orig_reg.get('default_value'):
+                    if re.search(r'default\s*=', tag):
+                        tag = re.sub(r'default\s*=\s*["\'][^"\']*["\']', f'default="{new_default}"', tag)
+                    else:
+                        tag = insert_attr(tag, 'default', new_default)
+            elif re.search(r'default\s*=', tag) and not new_default:
+                # Remove if exists and new value is empty
+                tag = re.sub(r'\s+default\s*=\s*["\'][^"\']*["\']', '', tag)
             
-            # Update r_strobe if attribute exists
+            # r_strobe update/add/remove
             new_r_strobe = new_reg.get('r_strobe', False)
             orig_r_strobe = orig_reg.get('rd_strobe')
             if orig_r_strobe is None:
                 orig_r_strobe = orig_reg.get('r_strobe', False)
-            if new_r_strobe != orig_r_strobe and re.search(r'r_strobe\s*=', tag):
-                tag = re.sub(r'r_strobe\s*=\s*["\'][^"\']*["\']', f'r_strobe="{str(new_r_strobe).lower()}"', tag)
             
-            # Update w_strobe if attribute exists
+            if new_r_strobe != orig_r_strobe:
+                if new_r_strobe: # True
+                    if re.search(r'r_strobe\s*=', tag):
+                        tag = re.sub(r'r_strobe\s*=\s*["\'][^"\']*["\']', f'r_strobe="true"', tag)
+                    else:
+                        tag = insert_attr(tag, 'r_strobe', 'true')
+                elif re.search(r'r_strobe\s*=', tag): # False and exists -> remove
+                    tag = re.sub(r'\s+r_strobe\s*=\s*["\'][^"\']*["\']', '', tag)
+            
+            # w_strobe update/add/remove
             new_w_strobe = new_reg.get('w_strobe', False)
             orig_w_strobe = orig_reg.get('wr_strobe')
             if orig_w_strobe is None:
                 orig_w_strobe = orig_reg.get('w_strobe', False)
-            if new_w_strobe != orig_w_strobe and re.search(r'w_strobe\s*=', tag):
-                tag = re.sub(r'w_strobe\s*=\s*["\'][^"\']*["\']', f'w_strobe="{str(new_w_strobe).lower()}"', tag)
+                
+            if new_w_strobe != orig_w_strobe:
+                if new_w_strobe: # True
+                    if re.search(r'w_strobe\s*=', tag):
+                        tag = re.sub(r'w_strobe\s*=\s*["\'][^"\']*["\']', f'w_strobe="true"', tag)
+                    else:
+                        tag = insert_attr(tag, 'w_strobe', 'true')
+                elif re.search(r'w_strobe\s*=', tag): # False and exists -> remove
+                    tag = re.sub(r'\s+w_strobe\s*=\s*["\'][^"\']*["\']', '', tag)
             
             return tag
         

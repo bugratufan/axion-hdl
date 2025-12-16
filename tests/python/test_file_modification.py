@@ -250,6 +250,144 @@ registers:
         assert control_match and control_match.group(1) == 'RO', \
             f"Control reg access not changed to RO"
 
+    def test_mod_009_register_deletion(self, yaml_test_file, tmp_path):
+        """GUI-MOD-009: Register deletion when removed from list"""
+        axion = AxionHDL()
+        axion.add_source(str(tmp_path))
+        axion.analyze()
+        
+        modifier = SourceModifier(axion)
+        module = next((m for m in axion.analyzed_modules if m['name'] == 'test_yaml_module'), None)
+        assert module is not None
+        
+        # Remove 'config_reg'
+        new_registers = [
+            {'name': 'status_reg', 'access': 'RO', 'width': 32}
+        ]
+        
+        new_content, _ = modifier._modify_yaml_content(module, new_registers)
+        
+        assert "name: status_reg" in new_content
+        assert "name: config_reg" not in new_content, "Deleted register still present in YAML"
+
+    def test_mod_010_field_addition_yaml(self, yaml_test_file, tmp_path):
+        """GUI-MOD-010: Adding new fields (strobe, default) to YAML"""
+        axion = AxionHDL()
+        axion.add_source(str(tmp_path))
+        axion.analyze()
+        
+        modifier = SourceModifier(axion)
+        module = next((m for m in axion.analyzed_modules if m['name'] == 'test_yaml_module'), None)
+        
+        # Add r_strobe and default_value to status_reg
+        new_registers = [
+            {
+                'name': 'status_reg', 
+                'access': 'RO', 
+                'width': 32,
+                'r_strobe': True,
+                'default_value': '0xDEADBEEF'
+            },
+            {'name': 'config_reg', 'access': 'RW', 'width': 32}
+        ]
+        
+        new_content, _ = modifier._modify_yaml_content(module, new_registers)
+        
+        assert "r_strobe: true" in new_content, "r_strobe not added to YAML"
+        assert "default_value: 0xDEADBEEF" in new_content, "default_value not added to YAML"
+
+    def test_mod_011_field_addition_xml(self, xml_test_file, tmp_path):
+        """GUI-MOD-011: Adding new fields (strobe, default) to XML"""
+        axion = AxionHDL()
+        axion.add_source(str(tmp_path))
+        axion.analyze()
+        
+        modifier = SourceModifier(axion)
+        module = next((m for m in axion.analyzed_modules if m['name'] == 'test_xml_module'), None)
+        
+        # Add w_strobe to control_reg
+        new_registers = [
+            {'name': 'status_reg', 'access': 'RO', 'width': 32},
+            {
+                'name': 'control_reg', 
+                'access': 'RW', 
+                'width': 32,
+                'w_strobe': True
+            }
+        ]
+        
+        new_content, _ = modifier._modify_xml_content(module, new_registers)
+        
+        assert 'w_strobe="true"' in new_content, "w_strobe attribute not added to XML"
+
+    def test_mod_012_register_deletion_xml(self, xml_test_file, tmp_path):
+        """GUI-MOD-012: Register deletion in XML"""
+        axion = AxionHDL()
+        axion.add_source(str(tmp_path))
+        axion.analyze()
+        
+        modifier = SourceModifier(axion)
+        module = next((m for m in axion.analyzed_modules if m['name'] == 'test_xml_module'), None)
+        
+        # Remove status_reg
+        new_registers = [
+            {'name': 'control_reg', 'access': 'RW', 'width': 32}
+        ]
+        
+        new_content, _ = modifier._modify_xml_content(module, new_registers)
+        
+        assert 'name="control_reg"' in new_content
+        assert 'name="status_reg"' not in new_content, "Deleted register still present in XML"
+
+    def test_mod_013_field_addition_json(self, json_test_file, tmp_path):
+        """GUI-MOD-013: Adding new fields (strobe, default) to JSON"""
+        axion = AxionHDL()
+        axion.add_source(str(tmp_path))
+        axion.analyze()
+        
+        modifier = SourceModifier(axion)
+        module = next((m for m in axion.analyzed_modules if m['name'] == 'test_json_module'), None)
+        
+        # Add r_strobe to data_reg
+        new_registers = [
+            {
+                'name': 'data_reg', 
+                'access': 'RW', 
+                'width': 32,
+                'r_strobe': True
+            },
+            {'name': 'ctrl_reg', 'access': 'WO', 'width': 16}
+        ]
+        
+        new_content, _ = modifier._modify_json_content(module, new_registers)
+        
+        import json
+        data = json.loads(new_content)
+        data_reg = next(r for r in data['registers'] if r['name'] == 'data_reg')
+        assert data_reg.get('r_strobe') is True, "r_strobe not added to JSON"
+
+    def test_mod_014_register_deletion_json(self, json_test_file, tmp_path):
+        """GUI-MOD-014: Register deletion in JSON"""
+        axion = AxionHDL()
+        axion.add_source(str(tmp_path))
+        axion.analyze()
+        
+        modifier = SourceModifier(axion)
+        module = next((m for m in axion.analyzed_modules if m['name'] == 'test_json_module'), None)
+        
+        # Remove data_reg
+        new_registers = [
+            {'name': 'ctrl_reg', 'access': 'WO', 'width': 16}
+        ]
+        
+        new_content, _ = modifier._modify_json_content(module, new_registers)
+        
+        import json
+        data = json.loads(new_content)
+        reg_names = [r['name'] for r in data['registers']]
+        assert 'ctrl_reg' in reg_names
+        assert 'data_reg' not in reg_names, "Deleted register still present in JSON"
+
 
 class TestDiffGeneration:
     """Tests for diff generation when no changes are made"""
@@ -289,6 +427,11 @@ registers:
         # Note: This may fail if YAML reformatting happens, but for text-based
         # modification it should work
         # We accept either None or an empty/minimal diff
+
+
+
+
+
 
 
 if __name__ == "__main__":
