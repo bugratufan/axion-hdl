@@ -99,7 +99,7 @@ registers:
         """GUI-MOD-002: YAML file comments preserved during modification"""
         # Setup axion instance
         axion = AxionHDL()
-        axion.sources = [str(tmp_path)]
+        axion.add_source(str(tmp_path))
         axion.analyze()
         
         modifier = SourceModifier(axion)
@@ -123,7 +123,7 @@ registers:
     def test_mod_003_yaml_structure_preservation(self, yaml_test_file, tmp_path):
         """GUI-MOD-003: YAML file structure (keys, order) preserved"""
         axion = AxionHDL()
-        axion.sources = [str(tmp_path)]
+        axion.add_source(str(tmp_path))
         axion.analyze()
         
         modifier = SourceModifier(axion)
@@ -149,7 +149,7 @@ registers:
     def test_mod_004_json_structure_preservation(self, json_test_file, tmp_path):
         """GUI-MOD-004: JSON file structure preserved, only changed fields updated"""
         axion = AxionHDL()
-        axion.sources = [str(tmp_path)]
+        axion.add_source(str(tmp_path))
         axion.analyze()
         
         modifier = SourceModifier(axion)
@@ -175,7 +175,7 @@ registers:
     def test_mod_005_xml_comment_preservation(self, xml_test_file, tmp_path):
         """GUI-MOD-005: XML file comments preserved during modification"""
         axion = AxionHDL()
-        axion.sources = [str(tmp_path)]
+        axion.add_source(str(tmp_path))
         axion.analyze()
         
         modifier = SourceModifier(axion)
@@ -198,7 +198,7 @@ registers:
     def test_mod_006_xml_attribute_preservation(self, xml_test_file, tmp_path):
         """GUI-MOD-006: XML attributes not modified unless explicitly changed"""
         axion = AxionHDL()
-        axion.sources = [str(tmp_path)]
+        axion.add_source(str(tmp_path))
         axion.analyze()
         
         modifier = SourceModifier(axion)
@@ -222,7 +222,7 @@ registers:
     def test_mod_008_only_changed_fields_modified(self, xml_test_file, tmp_path):
         """GUI-MOD-008: Only fields that were actually changed are modified"""
         axion = AxionHDL()
-        axion.sources = [str(tmp_path)]
+        axion.add_source(str(tmp_path))
         axion.analyze()
         
         modifier = SourceModifier(axion)
@@ -271,7 +271,7 @@ registers:
     def test_no_change_returns_none(self, simple_yaml, tmp_path):
         """GUI-MOD-007: No change should return None diff"""
         axion = AxionHDL()
-        axion.sources = [str(tmp_path)]
+        axion.add_source(str(tmp_path))
         axion.analyze()
         
         modifier = SourceModifier(axion)
