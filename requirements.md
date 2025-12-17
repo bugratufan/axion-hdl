@@ -106,6 +106,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | GEN-015 | HTML Documentation Generation | Generates styled `register_map.html` with embedded CSS. | Python Unit Test (`gen.test_gen_015`) |
 | GEN-016 | PDF Documentation Generation | Generates `register_map.pdf` file (optional, requires weasyprint). | Python Unit Test (`gen.test_gen_016`) |
 | GEN-017 | Address Range Calculation | Calculates and displays address range (start-end) for each module. | Python Unit Test (`gen.test_gen_017`) |
+| GEN-018 | Base Address Generic | VHDL entity includes `BASE_ADDR` generic used for offset calculation. | Python Unit Test (`gen.test_gen_018`) |
 
 ## 5. Error Handling (ERR)
 
@@ -223,4 +224,5 @@ Testing and verification are automated via `make test`, which maps tests back to
 | VAL-002 | Format Error Visibility | Parsing errors (malformed syntax) must be visible in Rule Check results. | Python Unit Test (`val.test_val_002`) |
 | VAL-003 | Logical Integrity Check | Validates integrity of loaded modules (e.g. non-empty register lists). | Python Unit Test (`val.test_val_003`) |
 | VAL-004 | Description Presence | Warns if registers are missing descriptions/documentation. | Python Unit Test (`val.test_val_004`) |
+| VAL-005 | Duplicate Module Name | Error if multiple modules share the same name. | Python Unit Test (`val.test_val_005`) |
 

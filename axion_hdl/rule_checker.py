@@ -158,6 +158,7 @@ class RuleChecker:
                     )
 
     def check_duplicate_names(self, modules: List[Dict]) -> None:
+        """Check for duplicate register names within a module."""
         for module in modules:
             seen = set()
             for reg in module['registers']:
@@ -165,6 +166,20 @@ class RuleChecker:
                 if name in seen:
                     self._add_error("Duplicate Name", module['name'], f"Register '{name}' defined multiple times")
                 seen.add(name)
+
+    def check_unique_module_names(self, modules: List[Dict]) -> None:
+        """Check for duplicate module names across the project."""
+        seen = set()
+        duplicates = set()
+        for module in modules:
+            name = module.get('name')
+            if name:
+                if name in seen:
+                    duplicates.add(name)
+                seen.add(name)
+        
+        for name in duplicates:
+            self._add_error("Duplicate Module", name, f"Module name '{name}' is used by multiple files/definitions")
 
     def _check_single_file(self, filepath: str, exclude_patterns: List[str] = None) -> None:
         """Check a single source file for format issues."""
@@ -402,6 +417,7 @@ class RuleChecker:
         self.check_naming_conventions(modules)
         self.check_address_alignment(modules)
         self.check_duplicate_names(modules)
+        self.check_unique_module_names(modules)
         
         return {
             'errors': self.errors,
