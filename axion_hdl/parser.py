@@ -242,11 +242,24 @@ class VHDLParser:
             'packed_registers': packed_registers  # New: subregister groups
         }
     
+        return cdc_enabled, cdc_stages, base_address
+    
     def _parse_axion_def(self, content: str) -> Tuple[bool, int, int]:
         """Parse @axion_def annotation using common library."""
-        attrs = self.annotation_parser.parse_def_annotation(content)
+        # Find ALL matches to handle split definitions
+        matches = self.annotation_parser.def_pattern.finditer(content)
         
-        if not attrs:
+        attrs = {}
+        found_any = False
+        
+        for match in matches:
+            found_any = True
+            attrs_str = match.group(1).strip()
+            # Merge attributes from this line
+            line_attrs = self.annotation_parser.parse_attributes(attrs_str)
+            attrs.update(line_attrs)
+        
+        if not found_any:
             return False, 2, 0x00
         
         cdc_enabled = attrs.get('cdc_enabled', False)
@@ -333,7 +346,22 @@ class VHDLParser:
                 # Allocate relative address (with signal width for proper spacing)
                 manual_addr = attrs.get('address')
                 if manual_addr is not None:
-                    relative_addr = addr_mgr.allocate_address(manual_addr, signal_width, signal_name)
+                    # If manual address is absolute (>= base_address), preserve it by converting to relative
+                    # If it's small (offset), use it directly
+                    if isinstance(manual_addr, str):
+                         if manual_addr.startswith('0x'):
+                             manual_addr_int = int(manual_addr, 16)
+                         else:
+                             manual_addr_int = int(manual_addr)
+                    else:
+                        manual_addr_int = manual_addr
+                        
+                    if manual_addr_int >= base_address and base_address > 0:
+                        mapped_addr = manual_addr_int - base_address
+                    else:
+                        mapped_addr = manual_addr_int
+                        
+                    relative_addr = addr_mgr.allocate_address(mapped_addr, signal_width, signal_name)
                 else:
                     relative_addr = addr_mgr.allocate_address(signal_width=signal_width, signal_name=signal_name)
                 
@@ -370,7 +398,21 @@ class VHDLParser:
             manual_addr = first_signal['attrs'].get('address')
             
             if manual_addr is not None:
-                relative_addr = addr_mgr.allocate_address(manual_addr, 32, reg_name)
+                # Handle absolute vs relative manual address for packed groups
+                if isinstance(manual_addr, str):
+                     if manual_addr.startswith('0x'):
+                         manual_addr_int = int(manual_addr, 16)
+                     else:
+                         manual_addr_int = int(manual_addr)
+                else:
+                    manual_addr_int = manual_addr
+                    
+                if manual_addr_int >= base_address and base_address > 0:
+                    mapped_addr = manual_addr_int - base_address
+                else:
+                    mapped_addr = manual_addr_int
+                    
+                relative_addr = addr_mgr.allocate_address(mapped_addr, 32, reg_name)
             else:
                 relative_addr = addr_mgr.allocate_address(signal_width=32, signal_name=reg_name)
             
