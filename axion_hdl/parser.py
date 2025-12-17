@@ -8,13 +8,13 @@ Uses axion_hdl for reusable utilities.
 import os
 import re
 import fnmatch
-from typing import Dict, List, Optional, Tuple, Set
+from typing import Dict, List, Optional, Tuple, Any, Set
 
 # Import from axion_hdl (unified package)
-from axion_hdl.address_manager import AddressManager
-from axion_hdl.vhdl_utils import VHDLUtils
-from axion_hdl.annotation_parser import AnnotationParser
-from axion_hdl.bit_field_manager import BitFieldManager, BitOverlapError
+from .address_manager import AddressManager, AddressConflictError # Import specific error
+from .vhdl_utils import VHDLUtils
+from .annotation_parser import AnnotationParser
+from .bit_field_manager import BitFieldManager, BitOverlapError
 
 
 class VHDLParser:
@@ -239,7 +239,9 @@ class VHDLParser:
             'cdc_stages': cdc_stages,
             'base_address': base_address,
             'registers': registers,
-            'packed_registers': packed_registers  # New: subregister groups
+
+            'packed_registers': packed_registers,  # New: subregister groups
+            'parsing_errors': self.errors  # Pass accumulated errors to module
         }
     
         return cdc_enabled, cdc_stages, base_address
@@ -361,9 +363,22 @@ class VHDLParser:
                     else:
                         mapped_addr = manual_addr_int
                         
-                    relative_addr = addr_mgr.allocate_address(mapped_addr, signal_width, signal_name)
+                    try:
+                        relative_addr = addr_mgr.allocate_address(mapped_addr, signal_width, signal_name)
+                    except AddressConflictError as e:
+                        print(f"Warning: {e}")
+                        self.errors.append({'file': filepath, 'line': line_num, 'msg': str(e)})
+                        # Assign special error value or just continue with collision?
+                        # Using mapped_addr ensures it appears in the list, even if conflicting
+                        relative_addr = mapped_addr 
                 else:
-                    relative_addr = addr_mgr.allocate_address(signal_width=signal_width, signal_name=signal_name)
+                    try:
+                        relative_addr = addr_mgr.allocate_address(signal_width=signal_width, signal_name=signal_name)
+                    except AddressConflictError as e:
+                        print(f"Warning: {e}")
+                        self.errors.append({'file': filepath, 'line': line_num, 'msg': str(e)})
+                        relative_addr = addr_mgr.get_next_available_address() # Just take next speculative one?
+                        # Or perhaps -1 to indicate error? But let's keep it usable for display
                 
                 # Add base address offset to get absolute address
                 absolute_addr = base_address + relative_addr
@@ -412,9 +427,19 @@ class VHDLParser:
                 else:
                     mapped_addr = manual_addr_int
                     
-                relative_addr = addr_mgr.allocate_address(mapped_addr, 32, reg_name)
+                try:
+                    relative_addr = addr_mgr.allocate_address(mapped_addr, 32, reg_name)
+                except AddressConflictError as e:
+                    print(f"Warning: {e}")
+                    self.errors.append({'file': filepath, 'msg': str(e)})
+                    relative_addr = mapped_addr
             else:
-                relative_addr = addr_mgr.allocate_address(signal_width=32, signal_name=reg_name)
+                try:
+                    relative_addr = addr_mgr.allocate_address(signal_width=32, signal_name=reg_name)
+                except AddressConflictError as e:
+                    print(f"Warning: {e}")
+                    self.errors.append({'file': filepath, 'msg': str(e)})
+                    relative_addr = addr_mgr.get_next_available_address()
             
             absolute_addr = base_address + relative_addr
             
