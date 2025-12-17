@@ -62,8 +62,15 @@ class AxionGUI:
             total_warnings = 0
             try:
                 self.checker = RuleChecker()  # Reset checker
+                
                 self.checker.run_all_checks(self.axion.analyzed_modules)
                 
+                # Inject parsing errors from modules AFTER checks (so they aren't wiped)
+                for m in self.axion.analyzed_modules:
+                    if 'parsing_errors' in m:
+                        for err in m['parsing_errors']:
+                            self.checker._add_error("Parsing Error", m['name'], err.get('msg', 'Unknown parsing error'))
+
                 # Build module status map: {module_name: {errors: count, warnings: count}}
                 module_status = {}
                 for err in self.checker.errors:
