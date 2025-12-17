@@ -209,6 +209,9 @@ Testing and verification are automated via `make test`, which maps tests back to
 | GUI-004 | Source Modification | Can write changes back to source files (JSON/YAML/VHDL*). | Manual / Integration Test |
 | GUI-005 | Diff & Review | Shows visual diff of VHDL/Config changes before saving. | Manual / Integration Test |
 | GUI-006 | Auto-Reload | Application state updates after saving. | Manual / Integration Test |
+| GUI-007 | Restrict Register Renaming | For VHDL sources, existing registers cannot be renamed. | Manual / Integration Test |
+| GUI-008 | Layout Refinement | Column widths optimized; Width displayed without units. | Manual / Integration Test |
+| GUI-009 | CDC Toggle | Editor allows toggling CDC enable state. | Manual / Integration Test |
 
 > GUI-004 VHDL modification is currently experimental and supports mainly appending new signals to identified declaration blocks.
 

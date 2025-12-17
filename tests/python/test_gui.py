@@ -176,6 +176,30 @@ class TestGUIEditor:
         new_count = gui_page.locator(".reg-row").count()
         assert new_count == initial_count + 1, f"Row not added: {initial_count} -> {new_count}"
 
+    def test_edit_013_vhdl_readonly_name(self, gui_page, gui_server):
+        """GUI-EDIT-013: Name input is readonly for VHDL modules"""
+        gui_page.goto(gui_server.url)
+        # Find a VHDL module card
+        vhdl_card = gui_page.locator(".module-card-large", has_text=re.compile(r"\.vhd", re.IGNORECASE))
+        
+        if vhdl_card.count() > 0:
+            vhdl_card.first.click()
+            gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
+            
+            # Check first existing register - Name input should be readonly
+            # Note: Empty register maps won't have rows, so check count
+            if gui_page.locator(".reg-row").count() > 0:
+                name_input = gui_page.locator(".reg-name-input").first
+                assert name_input.get_attribute("readonly") is not None, "Name input should be readonly for VHDL"
+            
+            # Add new register - should NOT be readonly
+            gui_page.locator("#addRegBtn").click()
+            gui_page.wait_for_timeout(500)
+            
+            new_row = gui_page.locator(".reg-row").last
+            new_name = new_row.locator(".reg-name-input")
+            assert new_name.get_attribute("readonly") is None, "New register name should be editable"
+
 
 class TestGUIGeneration:
     """Tests for GUI-GEN requirements"""

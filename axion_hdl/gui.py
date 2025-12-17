@@ -129,7 +129,8 @@ class AxionGUI:
             if not module:
                 return "Module not found", 404
             module['is_new'] = False
-            return render_template('editor.html', module=module)
+            is_vhdl = module.get('file', '').lower().endswith(('.vhd', '.vhdl'))
+            return render_template('editor.html', module=module, is_vhdl=is_vhdl)
 
         @self.app.route('/rule-check')
         def rule_check_page():
