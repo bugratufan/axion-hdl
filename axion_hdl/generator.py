@@ -667,14 +667,15 @@ class VHDLGenerator:
             if reg['access_mode'] in ['WO', 'RW']:
                 num_regs = self._get_num_regs(reg['signal_type'])
                 if num_regs == 1:
-                    offset = reg["address_int"]
+                    offset = reg.get("relative_address_int", reg["address_int"] - module_data.get('base_address', 0))
                     lines.append(f"        if unsigned(axi_awaddr) = unsigned(BASE_ADDR) + {offset} then")
                     lines.append("            wr_addr_valid_n <= '0';  -- Valid write address")
                     lines.append("        end if;")
                 else:
                     # Multi-register signal - add all chunk addresses
+                    base_relative = reg.get("relative_address_int", reg["address_int"] - module_data.get('base_address', 0))
                     for i in range(num_regs):
-                        offset = reg["address_int"] + (i * 4)
+                        offset = base_relative + (i * 4)
                         lines.append(f"        if unsigned(axi_awaddr) = unsigned(BASE_ADDR) + {offset} then")
                         lines.append(f"            wr_addr_valid_n <= '0';  -- Valid write address ({reg['signal_name']} reg{i})")
                         lines.append("        end if;")
@@ -682,7 +683,7 @@ class VHDLGenerator:
         # Add packed register write address validation
         for packed_reg in module_data.get('packed_registers', []):
             if packed_reg['access_mode'] in ['WO', 'RW']:
-                offset = packed_reg["address_int"]
+                offset = packed_reg.get("relative_address_int", packed_reg["address_int"] - module_data.get('base_address', 0))
                 lines.append(f"        if unsigned(axi_awaddr) = unsigned(BASE_ADDR) + {offset} then")
                 lines.append(f"            wr_addr_valid_n <= '0';  -- Valid write address ({packed_reg['reg_name']} packed)")
                 lines.append("        end if;")
@@ -706,14 +707,15 @@ class VHDLGenerator:
             if reg['access_mode'] in ['RO', 'RW']:
                 num_regs = self._get_num_regs(reg['signal_type'])
                 if num_regs == 1:
-                    offset = reg["address_int"]
+                    offset = reg.get("relative_address_int", reg["address_int"] - module_data.get('base_address', 0))
                     lines.append(f"        if unsigned(axi_araddr) = unsigned(BASE_ADDR) + {offset} then")
                     lines.append("            rd_addr_valid_n <= '0';  -- Valid read address")
                     lines.append("        end if;")
                 else:
                     # Multi-register signal - add all chunk addresses
+                    base_relative = reg.get("relative_address_int", reg["address_int"] - module_data.get('base_address', 0))
                     for i in range(num_regs):
-                        offset = reg["address_int"] + (i * 4)
+                        offset = base_relative + (i * 4)
                         lines.append(f"        if unsigned(axi_araddr) = unsigned(BASE_ADDR) + {offset} then")
                         lines.append(f"            rd_addr_valid_n <= '0';  -- Valid read address ({reg['signal_name']} reg{i})")
                         lines.append("        end if;")
@@ -721,7 +723,7 @@ class VHDLGenerator:
         # Add packed register read address validation
         for packed_reg in module_data.get('packed_registers', []):
             if packed_reg['access_mode'] in ['RO', 'RW']:
-                offset = packed_reg["address_int"]
+                offset = packed_reg.get("relative_address_int", packed_reg["address_int"] - module_data.get('base_address', 0))
                 lines.append(f"        if unsigned(axi_araddr) = unsigned(BASE_ADDR) + {offset} then")
                 lines.append(f"            rd_addr_valid_n <= '0';  -- Valid read address ({packed_reg['reg_name']} packed)")
                 lines.append("        end if;")
@@ -786,10 +788,10 @@ class VHDLGenerator:
                 continue
             if reg['access_mode'] in ['WO', 'RW']:
                 num_regs = self._get_num_regs(reg['signal_type'])
-                base_addr = reg["address_int"]
+                base_relative = reg.get("relative_address_int", reg["address_int"] - module_data.get('base_address', 0))
                 
                 for chunk in range(num_regs):
-                    offset = base_addr + (chunk * 4)
+                    offset = base_relative + (chunk * 4)
                     reg_suffix = f"_reg{chunk}" if num_regs > 1 else "_reg"
                     
                     lines.append(f"                    if unsigned(wr_addr_reg) = unsigned(BASE_ADDR) + {offset} then")
@@ -811,7 +813,7 @@ class VHDLGenerator:
         # Packed register write logic (subregisters)
         for packed_reg in module_data.get('packed_registers', []):
             if packed_reg['access_mode'] in ['WO', 'RW']:
-                offset = packed_reg["address_int"]
+                offset = packed_reg.get("relative_address_int", packed_reg["address_int"] - module_data.get('base_address', 0))
                 
                 lines.append(f"                    if unsigned(wr_addr_reg) = unsigned(BASE_ADDR) + {offset} then")
                 lines.append("                        -- Byte-level write strobe")
@@ -873,10 +875,10 @@ class VHDLGenerator:
                 continue
             if reg['access_mode'] in ['RO', 'RW']:
                 num_regs = self._get_num_regs(reg['signal_type'])
-                base_addr = reg["address_int"]
+                base_relative = reg.get("relative_address_int", reg["address_int"] - module_data.get('base_address', 0))
                 
                 for chunk in range(num_regs):
-                    offset = base_addr + (chunk * 4)
+                    offset = base_relative + (chunk * 4)
                     reg_suffix = f"_reg{chunk}" if num_regs > 1 else "_reg"
                     
                     lines.append(f"            if unsigned(rd_addr_reg) = unsigned(BASE_ADDR) + {offset} then")
@@ -886,7 +888,7 @@ class VHDLGenerator:
         # Packed register read address decoder
         for packed_reg in module_data.get('packed_registers', []):
             if packed_reg['access_mode'] in ['RO', 'RW']:
-                offset = packed_reg["address_int"]
+                offset = packed_reg.get("relative_address_int", packed_reg["address_int"] - module_data.get('base_address', 0))
                 lines.append(f"            if unsigned(rd_addr_reg) = unsigned(BASE_ADDR) + {offset} then")
                 lines.append(f"                rd_data_reg <= {packed_reg['reg_name']}_reg;")
                 lines.append("            end if;")
@@ -914,7 +916,8 @@ class VHDLGenerator:
             if reg['access_mode'] == 'RO':
                 lines.append(f"    -- Read-Only (in port - module provides value, AXI reads): {reg['signal_name']}")
                 if reg['read_strobe']:
-                    lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and unsigned(rd_addr_reg) = unsigned(BASE_ADDR) + {reg['address_int']}) else '0';")
+                    offset = reg.get("relative_address_int", reg["address_int"] - module_data.get('base_address', 0))
+                    lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and unsigned(rd_addr_reg) = unsigned(BASE_ADDR) + {offset}) else '0';")
                 
                 # RO is 'in' port - assign chunks from input to internal registers
                 if num_regs == 1:
@@ -941,7 +944,8 @@ class VHDLGenerator:
             elif reg['access_mode'] == 'WO':
                 lines.append(f"    -- Write-Only (out port - AXI writes, module reads): {reg['signal_name']}")
                 if reg['write_strobe']:
-                    lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and unsigned(wr_addr_reg) = unsigned(BASE_ADDR) + {reg['address_int']}) else '0';")
+                    offset = reg.get("relative_address_int", reg["address_int"] - module_data.get('base_address', 0))
+                    lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and unsigned(wr_addr_reg) = unsigned(BASE_ADDR) + {offset}) else '0';")
                 
                 # WO is 'out' port - concatenate chunks to output
                 if num_regs == 1:
@@ -967,10 +971,11 @@ class VHDLGenerator:
                     
             else:  # RW
                 lines.append(f"    -- Read-Write (out port - AXI reads/writes, module reads): {reg['signal_name']}")
+                offset = reg.get("relative_address_int", reg["address_int"] - module_data.get('base_address', 0))
                 if reg['read_strobe']:
-                    lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and unsigned(rd_addr_reg) = unsigned(BASE_ADDR) + {reg['address_int']}) else '0';")
+                    lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and unsigned(rd_addr_reg) = unsigned(BASE_ADDR) + {offset}) else '0';")
                 if reg['write_strobe']:
-                    lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and unsigned(wr_addr_reg) = unsigned(BASE_ADDR) + {reg['address_int']}) else '0';")
+                    lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and unsigned(wr_addr_reg) = unsigned(BASE_ADDR) + {offset}) else '0';")
                 
                 # RW is 'out' port - concatenate chunks to output
                 if num_regs == 1:
