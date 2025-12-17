@@ -8,6 +8,8 @@ Enable CDC synchronizers when your AXI bus and register logic use different cloc
 ```vhdl
 -- @axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3
 ```
+Note: `CDC_EN` can be used as a standalone flag (enables CDC) or as a key-value pair (`CDC_EN=true` / `CDC_EN=false`).
+
 
 ### YAML
 ```yaml

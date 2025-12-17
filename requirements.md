@@ -79,7 +79,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | PARSER-001 | Basic entity name extraction and whitespace handling | Parser correctly identifies `entity <name>` regardless of whitespace. | Python Unit Test (`parser.test_parser_001`) |
 | PARSER-002 | Parse std_logic and std_logic_vector types | Correctly identifies signal width (1 for std_logic, N for vector). | Python Unit Test (`parser.test_parser_002`) |
 | PARSER-003 | Parse Access Modes and strobe flags | extracts RW/RO/WO and R_STROBE/W_STROBE from `@axion` comments. | Python Unit Test (`parser.test_parser_003`) |
-| PARSER-004 | Parse Attributes | Extracts `BASE_ADDR`, `CDC_EN`, `CDC_STAGE` key-values. | Python Unit Test (`parser.test_parser_004`) |
+| PARSER-004 | Parse Attributes | Extracts `BASE_ADDR`, `CDC_EN` (flag/kv), `CDC_STAGE` key-values. | Python Unit Test (`parser.test_parser_004`) |
 | PARSER-005 | Parse Hex/Decimal addresses | Handles `0x10` and `16` as valid address inputs. | Python Unit Test (`parser.test_parser_005`) |
 | PARSER-006 | Parse Descriptions | Extracts description string from comments, handling quotes. | Python Unit Test (`parser.test_parser_006`) |
 | PARSER-007 | Exclude directories | Skips directories specified in exclude list. | Python Unit Test (`parser.test_parser_007`) |
