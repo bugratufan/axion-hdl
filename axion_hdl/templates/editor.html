@@ -426,7 +426,12 @@
     function toggleCDC() {
         const enabled = document.getElementById('cdcEnable').checked;
         const settings = document.getElementById('cdcSettings');
+        const label = document.querySelector('label[for="cdcEnable"]');
+
         settings.style.display = enabled ? 'block' : 'none';
+        if (label) {
+            label.textContent = enabled ? 'Enabled' : 'Disabled';
+        }
         markAsChanged();
     }
 
