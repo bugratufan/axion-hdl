@@ -230,8 +230,8 @@
                         </th>
                         <th class="py-3" style="width: 16%">Name</th>
                         <th class="py-3" style="width: 10%">Width</th>
-                        <th class="py-3" style="width: 10%">Access</th>
-                        <th class="py-3" style="width: 10%">Default</th>
+                        <th class="py-3" style="width: 8%">Access</th>
+                        <th class="py-3" style="width: 12%">Default</th>
                         <th class="py-3" style="width: 10%" data-tooltip="Read/Write Strobe signals">Strobes
                         </th>
                         <th class="py-3" style="width: 24%">Description</th>
@@ -257,14 +257,14 @@
                         <td>
                             <input type="text" value="{{ reg.reg_name or reg.signal_name }}"
                                 class="form-control font-monospace reg-name-input fw-bold bg-light-subtle border-0"
-                                placeholder="reg_name" oninput="validateName(this)">
+                                placeholder="reg_name" oninput="validateName(this)" {% if is_vhdl %}readonly
+                                title="Renaming allowed only for new registers" {% endif %}>
                         </td>
                         <td>
                             <div class="input-group input-group-sm">
                                 <input type="number" value="{{ width }}"
                                     class="form-control reg-width-input border-0 bg-light-subtle" min="1" max="1024"
                                     style="width: 50px;" onchange="recalculateAddresses()">
-                                <span class="input-group-text border-0 bg-transparent text-muted small">b</span>
                             </div>
                         </td>
                         <td>
@@ -510,7 +510,6 @@
         <td>
             <div class="input-group input-group-sm">
                 <input type="number" value="32" class="form-control reg-width-input border-0 bg-light-subtle" min="1" max="1024" style="width: 50px;" onchange="recalculateAddresses()">
-                <span class="input-group-text border-0 bg-transparent text-muted small">b</span>
             </div>
         </td>
         <td>
