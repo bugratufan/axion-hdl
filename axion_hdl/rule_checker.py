@@ -55,8 +55,9 @@ class RuleChecker:
                     reg_addr = reg.get('address_int', 0) 
                     width = int(reg.get('width', 32)) if reg.get('width') else 32
                     byte_width = (width + 7) // 8
-                    # reg_addr is relative offset, so absolute end is base + offset + size
-                    reg_end = base_addr + reg_addr + max(4, byte_width)
+                    # reg_addr is absolute address (base + offset)
+                    # So end address is just start + size
+                    reg_end = reg_addr + max(4, byte_width)
                     max_addr = max(max_addr, reg_end)
                 
                 module_ranges.append({
