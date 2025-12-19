@@ -70,3 +70,19 @@ def test_check_documentation_warning():
     warnings = [w for w in checker.warnings if w['type'] == 'Missing Documentation']
     assert len(warnings) == 1
     assert "2 registers are missing descriptions" in warnings[0]['msg']
+
+
+def test_val_003_logical_integrity_check():
+    """VAL-003: Validates integrity of loaded modules (non-empty register lists)."""
+    checker = RuleChecker()
+    modules = [
+        {'name': 'empty_mod', 'registers': []},  # Invalid - empty registers
+        {'name': 'valid_mod', 'registers': [{'name': 'r1'}]}  # Valid
+    ]
+    
+    checker.run_all_checks(modules)
+    
+    # Check for integrity warnings about empty register list
+    integrity_issues = [w for w in checker.warnings if 'empty_mod' in w.get('module', '')]
+    assert len(integrity_issues) >= 1, "Should warn about module with empty register list"
+
