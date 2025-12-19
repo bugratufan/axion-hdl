@@ -252,7 +252,13 @@
                     {% endif %}
                     <tr class="reg-row border-bottom-0" data-index="{{ loop.index0 }}">
                         <td class="ps-4">
-                            <span class="addr-badge reg-addr">0x{{ '%02X' % (addr_offset.value | int) }}</span>
+                            <!-- Address Input: Use input for manual editing -->
+                            <input type="text"
+                                class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
+                                value="0x{{ '%02X' % (addr_offset.value | int) }}" style="width: 70px;"
+                                data-locked="{{ 'true' if reg.manual_address else 'false' }}"
+                                title="{{ 'Manual Address' if reg.manual_address else 'Auto-calculated' }}"
+                                onchange="onAddressChange(this)">
                         </td>
                         <td>
                             <input type="text" value="{{ reg.reg_name or reg.signal_name }}"
@@ -339,34 +345,53 @@
     // Global state
     let nextAddr = 0;
     let hasUnsavedChanges = false;
-    let initialState = null;
+    // Note: window.initialState is used globally for test synchronization
 
     // Get current form state for comparison
     function getFormState() {
-        const regs = [];
-        document.querySelectorAll('.reg-row').forEach(row => {
-            const strobes = row.querySelectorAll('.strobe-toggle');
-            regs.push({
-                name: row.querySelector('.reg-name-input')?.value || '',
-                width: row.querySelector('.reg-width-input')?.value || '',
-                access: row.querySelector('.reg-access-input')?.value || '',
-                default: row.querySelector('.reg-default-input')?.value || '',
-                description: row.querySelector('.reg-desc-input')?.value || '',
-                rStrobe: strobes[0]?.classList.contains('active') || false,
-                wStrobe: strobes[1]?.classList.contains('active') || false
+        try {
+            const regs = [];
+            document.querySelectorAll('.reg-row').forEach(row => {
+                const strobes = row.querySelectorAll('.strobe-toggle');
+                regs.push({
+                    name: row.querySelector('.reg-name-input')?.value || '',
+                    width: row.querySelector('.reg-width-input')?.value || '',
+                    access: row.querySelector('.reg-access-input')?.value || '',
+                    default: row.querySelector('.reg-default-input')?.value || '',
+                    description: row.querySelector('.reg-desc-input')?.value || '',
+                    rStrobe: strobes[0]?.classList.contains('active') || false,
+                    wStrobe: strobes[1]?.classList.contains('active') || false
+                });
             });
-        });
-        return JSON.stringify({
-            baseAddr: document.querySelector('input[name="base_address"]')?.value || '',
-            cdcEnabled: document.getElementById('cdcEnable')?.checked || false,
-            cdcStages: document.getElementById('cdcStages')?.value || '',
-            registers: regs
-        });
+            return JSON.stringify({
+                baseAddr: document.querySelector('input[name="base_address"]')?.value || '',
+                cdcEnabled: document.getElementById('cdcEnable')?.checked || false,
+                cdcStages: document.getElementById('cdcStages')?.value || '',
+                registers: regs
+            });
+        } catch (e) {
+            console.error("getFormState error:", e);
+            return JSON.stringify({ registers: [] });
+        }
+    }
+    // Helper to get raw address value without decoration if possible, 
+    // but getFormState comparison needs stability.
+    // The previous implementation captured values. My new `getFormState` logic is correct 
+    // BUT `initialState` needs to be set AFTER `recalculateAddresses` potentially fixes up the UI.
+
+    // Also, markAsChanged logic works by comparing json strings.
+    // If I add data-locked attribute, getFormState uses `getAttribute`. 
+    // Wait, getFormState uses `value` and `getAttribute`.
+    // Let's ensure getFormState captures the locked state correctly.
+
+    // Get Register Address (helper)
+    function getRegAddress(row) {
+        return row.querySelector('.reg-addr-input')?.value || '0x0';
     }
 
     // Mark as changed
     function markAsChanged() {
-        if (initialState && getFormState() !== initialState) {
+        if (window.initialState && getFormState() !== window.initialState) {
             hasUnsavedChanges = true;
             document.getElementById('unsavedIndicator')?.classList.add('visible');
         } else {
@@ -381,28 +406,54 @@
         document.getElementById('unsavedIndicator')?.classList.remove('visible');
     }
 
-    // Initialize addresses on load
-    document.addEventListener('DOMContentLoaded', function () {
-        recalculateAddresses();
+    // Initialize addresses on load (BUT don't overwrite locked ones)
+    // Note: We skip recalculation on load to respect server-rendered values
+    // unless they are missing.
+    // recalculateAddresses(); // REMOVED to respect server values
 
-        // Store initial state
-        initialState = getFormState();
+    // Store initial state
+    window.initialState = getFormState();
 
-        // Use event delegation for all inputs to handle dynamic elements
-        document.addEventListener('input', (e) => {
-            if (e.target.matches('input, textarea')) markAsChanged();
-        });
-        document.addEventListener('change', (e) => {
-            if (e.target.matches('input, select, textarea')) markAsChanged();
-        });
+    // Use event delegation for all inputs to handle dynamic elements
+    document.addEventListener('input', (e) => {
+        if (e.target.matches('input, textarea')) markAsChanged();
+    });
+    document.addEventListener('change', (e) => {
+        if (e.target.matches('input, select, textarea')) markAsChanged();
+    });
 
-        // Add Enter key to add new register
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' && e.ctrlKey) {
-                addRegister();
+    // Add Enter key to add new register
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && e.ctrlKey) {
+            addRegister();
+        }
+    });
+
+    // RE-CAPTURE initial state after brief delay ensuring render stability
+    // AND after recalculateAddresses has potentially settled
+    setTimeout(() => {
+        // Ensure manual address fields from server are locked correctly if needed
+        document.querySelectorAll('.reg-addr-input').forEach(input => {
+            if (input.getAttribute('data-locked') === 'true') {
+                input.classList.add('fw-bold', 'text-dark');
+                input.classList.remove('text-secondary');
             }
         });
-    });
+        window.initialState = getFormState();
+    }, 200);
+
+
+    function onAddressChange(input) {
+        input.setAttribute('data-locked', 'true');
+        input.title = "Manual Address";
+        input.classList.remove('text-secondary');
+        input.classList.add('fw-bold', 'text-dark');
+        validateHex(input);
+
+        // Trigger ripple effect for subsequent registers
+        recalculateAddresses();
+        markAsChanged();
+    }
 
     // Warn before leaving page with unsaved changes
     window.addEventListener('beforeunload', function (e) {
@@ -468,22 +519,31 @@
         const baseAddrInput = document.querySelector('input[name="base_address"]');
         if (!baseAddrInput) return;
 
-        const baseAddr = parseInt(baseAddrInput.value, 16) || 0;
+        // Base addr is only for display context, offset calculation is relative
         let offset = 0;
 
         document.querySelectorAll('.reg-row').forEach(row => {
             const widthInput = row.querySelector('.reg-width-input');
-            const addrBadge = row.querySelector('.reg-addr');
-            // Check if elements exist before accessing propertes
-            if (!widthInput || !addrBadge) return;
+            const addrInput = row.querySelector('.reg-addr-input');
+
+            if (!widthInput || !addrInput) return;
+
+            const isLocked = addrInput.getAttribute('data-locked') === 'true';
+
+            // If locked, use the manual value as the new offset baseline
+            if (isLocked) {
+                // Parse current manual value
+                const manualVal = parseInt(addrInput.value, 16);
+                if (!isNaN(manualVal)) {
+                    offset = manualVal;
+                }
+            } else {
+                // If unlocked, update value
+                addrInput.value = '0x' + offset.toString(16).toUpperCase().padStart(2, '0');
+            }
 
             const width = parseInt(widthInput.value) || 32;
-
-            // Calculate number of 32-bit words needed
             const numWords = Math.ceil(width / 32);
-
-            // Update displayed address (relative offset, not including base)
-            addrBadge.textContent = '0x' + offset.toString(16).toUpperCase().padStart(2, '0');
 
             // Move to next available address
             offset += numWords * 4;
@@ -493,16 +553,23 @@
     }
 
     function addRegister() {
-        // Remove empty state if present
-        const emptyState = document.getElementById('emptyState');
-        if (emptyState) emptyState.remove();
+        try {
+            // Remove empty state if present
+            const emptyState = document.getElementById('emptyState');
+            if (emptyState) emptyState.remove();
 
-        const tbody = document.getElementById('regsBody');
-        const row = document.createElement('tr');
-        row.className = 'reg-row border-bottom-0 animate__animated animate__fadeIn';
-        row.innerHTML = `
-        <td class="ps-4">
-            <span class="addr-badge reg-addr">0x${nextAddr.toString(16).toUpperCase().padStart(2, '0')}</span>
+            const tbody = document.getElementById('regsBody');
+            const row = document.createElement('tr');
+            row.className = 'reg-row border-bottom-0 animate__animated animate__fadeIn';
+            row.innerHTML = `
+            <td class="ps-4">
+            <input type="text" 
+                class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
+                value="0x` + nextAddr.toString(16).toUpperCase().padStart(2, '0') + `"
+                style="width: 70px;"
+                data-locked="false"
+                title="Auto-calculated"
+                onchange="onAddressChange(this)">
         </td>
         <td>
             <input type="text" placeholder="new_reg" class="form-control font-monospace reg-name-input fw-bold bg-light-subtle border-0" oninput="validateName(this)">
@@ -540,12 +607,23 @@
             </button>
         </td>
     `;
-        tbody.appendChild(row);
-        recalculateAddresses();
+            tbody.appendChild(row);
+            recalculateAddresses();
 
-        // Focus the name input
-        row.querySelector('.reg-name-input').focus();
-        markAsChanged();
+            // Focus the name input
+            const nameInput = row.querySelector('.reg-name-input');
+            if (nameInput) {
+                nameInput.focus();
+                // Force removal of readonly attribute for new registers
+                setTimeout(() => {
+                    nameInput.removeAttribute('readonly');
+                }, 0);
+            }
+
+            markAsChanged();
+        } catch (e) {
+            console.error("addRegister error:", e);
+        }
     }
 
     function duplicateRow(btn) {
@@ -578,8 +656,7 @@
         // Clear unsaved changes flag to prevent warning when navigating to diff page
         clearUnsavedChanges();
 
-        const isNew = {{ module.is_new | lower
-    }};
+        const isNew = {% if module.is_new %} true{% else %} false{% endif %};
 
     // Gather Module Props
     const cdcEnabled = document.getElementById('cdcEnable').checked;
@@ -598,9 +675,14 @@
             default_value: row.querySelector('.reg-default-input').value,
             description: row.querySelector('.reg-desc-input').value,
             r_strobe: strobes[0].classList.contains('active'),
-            w_strobe: strobes[1].classList.contains('active')
+            w_strobe: strobes[1].classList.contains('active'),
+            // Capture address if manually set
+            address: row.querySelector('.reg-addr-input').value,
+            manual_address: row.querySelector('.reg-addr-input').getAttribute('data-locked') === 'true'
         });
     });
+
+    console.log("Saving regs:", regs); // Debug 
 
     if (isNew) {
         // For new modules, show file path modal
