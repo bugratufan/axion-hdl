@@ -72,8 +72,12 @@ begin
 end architecture;
 '''
         content = self._generate_and_read_vhdl(vhdl, "cdc_test")
-        # Check for 2-stage synchronizer signals (sync0, sync1)
-        self.assertTrue('sync' in content.lower() or 'module_clk' in content.lower())
+        # CDC-001: Verify module_clk port exists for CDC-enabled module
+        self.assertIn('module_clk', content.lower(), 
+            "CDC-enabled module must have module_clk port")
+        # Verify sync-related signals or logic is present
+        self.assertTrue('sync' in content.lower(), 
+            "CDC-enabled module should have synchronizer signals")
     
     def test_cdc_001_stage_count_3(self):
         """CDC-001: CDC_STAGE=3 generates 3-stage synchronizer"""
@@ -90,8 +94,11 @@ begin
 end architecture;
 '''
         content = self._generate_and_read_vhdl(vhdl, "cdc3_test")
-        # Should have CDC-related content when CDC is enabled
-        self.assertTrue(len(content) > 0)
+        # CDC-001: With 3-stage CDC, should have module_clk and sync signals
+        self.assertIn('module_clk', content.lower(), 
+            "3-stage CDC module must have module_clk port")
+        self.assertTrue(len(content) > 500, 
+            "CDC-enabled module should have substantial generated code")
     
     # =========================================================================
     # CDC-002: CDC Default Stage Count
@@ -111,8 +118,9 @@ begin
 end architecture;
 '''
         content = self._generate_and_read_vhdl(vhdl, "cdc_default")
-        # Verify module_clk port exists for CDC
-        self.assertTrue('module_clk' in content.lower() or 'sync' in content.lower() or len(content) > 0)
+        # CDC-002: Default to 2 stages - verify module_clk port exists
+        self.assertIn('module_clk', content.lower(), 
+            "CDC-enabled module (default stages) must have module_clk port")
     
     # =========================================================================
     # CDC-003: CDC Signal Declaration
@@ -132,8 +140,11 @@ begin
 end architecture;
 '''
         content = self._generate_and_read_vhdl(vhdl, "cdc_signals")
-        # Generated VHDL should exist
-        self.assertTrue(len(content) > 0)
+        # CDC-003: Generated VHDL with CDC should have signal declarations
+        self.assertTrue(len(content) > 500, 
+            "CDC module should generate substantial VHDL")
+        self.assertIn('signal', content.lower(), 
+            "CDC module should declare internal signals")
     
     # =========================================================================
     # CDC-004: CDC Module Clock Port
@@ -153,8 +164,9 @@ begin
 end architecture;
 '''
         content = self._generate_and_read_vhdl(vhdl, "cdc_clk")
-        # Check for module_clk port in entity
-        self.assertTrue('module_clk' in content.lower() or len(content) > 0)
+        # CDC-004: CDC-enabled modules must have module_clk in entity
+        self.assertIn('module_clk', content.lower(), 
+            "CDC-enabled module must have module_clk port")
     
     # =========================================================================
     # CDC-005: CDC Disabled Behavior
@@ -174,9 +186,14 @@ begin
 end architecture;
 '''
         content = self._generate_and_read_vhdl(vhdl, "no_cdc")
-        # Check that module_clk is NOT in the entity ports when CDC disabled
-        # Note: module_clk might still appear in architecture for internal use
-        self.assertTrue(len(content) > 0)
+        # CDC-005: Without CDC_EN, module_clk should NOT be in entity port list
+        # Extract entity section to verify no module_clk in ports
+        self.assertTrue(len(content) > 100, 
+            "Non-CDC module should still generate VHDL")
+        # The module_clk should not appear as port
+        entity_section = content.lower().split('architecture')[0] if 'architecture' in content.lower() else content.lower()
+        self.assertNotIn('module_clk', entity_section, 
+            "Non-CDC module should not have module_clk port")
     
     # =========================================================================
     # CDC-006: RO Register CDC Path
