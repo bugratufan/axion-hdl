@@ -29,7 +29,12 @@ class AddressConflictError(Exception):
         
         module_info = f" in module '{module_name}'" if module_name else ""
         
-        self.message = (
+        self.clean_message = (
+            f"Address Conflict{module_info}: Address 0x{address:04X} is already assigned to '{existing_signal}'. "
+            f"Cannot assign to '{new_signal}'."
+        )
+        
+        self.formatted_message = (
             f"\n"
             f"╔══════════════════════════════════════════════════════════════════════════════╗\n"
             f"║                          ADDRESS CONFLICT ERROR                              ║\n"
@@ -49,7 +54,7 @@ class AddressConflictError(Exception):
             f"║   Or remove ADDR to use auto-assignment                                      ║\n"
             f"╚══════════════════════════════════════════════════════════════════════════════╝\n"
         )
-        super().__init__(self.message)
+        super().__init__(self.clean_message)
 
 
 class AddressManager:

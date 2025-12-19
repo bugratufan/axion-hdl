@@ -27,6 +27,9 @@ class AxionGUI:
         self.app = Flask(__name__)
         self.app.secret_key = 'axion-hdl-dev-key' 
         
+        # Read version from .version file
+        self.version = self._read_version()
+        
         # Simple in-memory storage for pending changes during review
         # Key: module_name, Value: list of registers
         self.pending_changes = {} 
@@ -36,14 +39,69 @@ class AxionGUI:
         self.modifier = SourceModifier(self.axion)
         self.checker = RuleChecker()
         
+        # Inject version into all templates
+        @self.app.context_processor
+        def inject_version():
+            return {'version': self.version}
+        
         # --- Routes ---
         @self.app.route('/')
         def index():
             # Re-analyze sources on each dashboard load to pick up new/changed files
-            self.axion.analyzed_modules = []
-            self.axion.is_analyzed = False
-            self.axion.analyze()
-            return render_template('index.html', modules=self.axion.analyzed_modules)
+            analysis_error = None
+            try:
+                self.axion.analyzed_modules = []
+                self.axion.is_analyzed = False
+                self.axion.analyze()
+            except Exception as e:
+                analysis_error = str(e)
+                # Keep any partially analyzed modules
+            
+            # Run rule checks and compute per-module error/warning counts
+            total_errors = 0
+            total_warnings = 0
+            try:
+                self.checker = RuleChecker()  # Reset checker
+                
+                self.checker.run_all_checks(self.axion.analyzed_modules)
+                
+                # Inject parsing errors from modules AFTER checks (so they aren't wiped)
+                for m in self.axion.analyzed_modules:
+                    if 'parsing_errors' in m:
+                        for err in m['parsing_errors']:
+                            self.checker._add_error("Parsing Error", m['name'], err.get('msg', 'Unknown parsing error'))
+
+                # Build module status map: {module_name: {errors: count, warnings: count}}
+                module_status = {}
+                for err in self.checker.errors:
+                    name = err.get('module', 'unknown')
+                    if name not in module_status:
+                        module_status[name] = {'errors': 0, 'warnings': 0}
+                    module_status[name]['errors'] += 1
+                
+                for warn in self.checker.warnings:
+                    name = warn.get('module', 'unknown')
+                    if name not in module_status:
+                        module_status[name] = {'errors': 0, 'warnings': 0}
+                    module_status[name]['warnings'] += 1
+                
+                # Attach status to each module
+                for m in self.axion.analyzed_modules:
+                    status = module_status.get(m['name'], {'errors': 0, 'warnings': 0})
+                    m['rule_errors'] = status['errors']
+                    m['rule_warnings'] = status['warnings']
+                
+                total_errors = len(self.checker.errors)
+                total_warnings = len(self.checker.warnings)
+            except Exception as e:
+                if not analysis_error:
+                    analysis_error = str(e)
+            
+            return render_template('index.html', 
+                                   modules=self.axion.analyzed_modules,
+                                   total_errors=total_errors,
+                                   total_warnings=total_warnings,
+                                   analysis_error=analysis_error)
             
         @self.app.route('/api/modules')
         def get_modules():
@@ -65,12 +123,21 @@ class AxionGUI:
                 }
                 return render_template('editor.html', module=new_module)
             
-            # Find existing module
-            module = next((m for m in self.axion.analyzed_modules if m['name'] == name), None)
+            # Find existing module - use file query param if provided for disambiguation
+            file_path = request.args.get('file')
+            if file_path:
+                # Exact match by both name and file
+                module = next((m for m in self.axion.analyzed_modules 
+                              if m['name'] == name and m['file'] == file_path), None)
+            else:
+                # Fallback to name-only match
+                module = next((m for m in self.axion.analyzed_modules if m['name'] == name), None)
+            
             if not module:
                 return "Module not found", 404
             module['is_new'] = False
-            return render_template('editor.html', module=module)
+            is_vhdl = module.get('file', '').lower().endswith(('.vhd', '.vhdl'))
+            return render_template('editor.html', module=module, is_vhdl=is_vhdl)
 
         @self.app.route('/rule-check')
         def rule_check_page():
@@ -236,6 +303,8 @@ class AxionGUI:
                         
                     res = True
                     if formats.get('vhdl'): res &= self.axion.generate_vhdl()
+                    if formats.get('xml'): res &= self.axion.generate_xml()
+                    if formats.get('yaml'): res &= self.axion.generate_yaml()
                     if formats.get('json'): res &= self.axion.generate_json()
                     if formats.get('header'): res &= self.axion.generate_c_header()
                     if formats.get('doc_md'): res &= self.axion.generate_documentation(format="md")
@@ -609,67 +678,74 @@ class AxionGUI:
         def save_diff():
             data = request.json
             module_name = data.get('module_name')
+            file_path = data.get('file_path', '')  # Add file path for disambiguation
             new_regs = data.get('registers')
             props = data.get('properties', {})
             
-            # Store pending changes
-            # We store tuple (regs, props) or dict wrapper
-            self.pending_changes[module_name] = {
+            # Store pending changes using file_path as unique key (or module_name for new modules)
+            change_key = file_path if file_path else module_name
+            self.pending_changes[change_key] = {
+                'module_name': module_name,
+                'file_path': file_path,
                 'registers': new_regs,
                 'properties': props
             }
-            return jsonify({'redirect': url_for('show_diff', module_name=module_name)})
+            # URL encode the file path for safe routing
+            from urllib.parse import quote
+            return jsonify({'redirect': f'/diff?key={quote(change_key, safe="")}'})
 
-        @self.app.route('/diff/<module_name>')
-        def show_diff(module_name):
-            if module_name not in self.pending_changes:
-                return redirect(url_for('view_module', name=module_name))
+        @self.app.route('/diff')
+        def show_diff():
+            from urllib.parse import unquote
+            change_key = unquote(request.args.get('key', ''))
+            
+            if change_key not in self.pending_changes:
+                return redirect(url_for('index'))
                 
-            pending = self.pending_changes[module_name]
+            pending = self.pending_changes[change_key]
+            module_name = pending['module_name']
+            file_path = pending.get('file_path', '')
             new_regs = pending['registers']
             props = pending.get('properties', {})
             
-            diff_text = self.modifier.compute_diff(module_name, new_regs, props)
+            # Pass file_path to compute_diff for correct file identification
+            diff_text = self.modifier.compute_diff(module_name, new_regs, props, file_path=file_path)
             
             return render_template('diff.html', 
-                                 module_name=module_name, 
+                                 module_name=module_name,
+                                 file_path=file_path,
+                                 change_key=change_key,
                                  diff=diff_text)
                                  
         @self.app.route('/api/confirm_save', methods=['POST'])
         def confirm_save():
-            # In a real app we'd pass module_name in form, but here let's assume single user flow
-            # Or get it from referrer. Let's simplify and use the last pending key if possible or pass via query?
-            # Better: pass module_name in the form in diff.html. 
-            # Wait, diff.html form action is /api/confirm_save. Let's rely on referrer or just check which module has pending changes? 
-            # Ideally support multiple. Let's update diff.html to pass query param or hidden input.
-            # For now, let's grab the first key from pending_changes as a shortcut for single-user local tool.
+            # Get change_key from form data
+            change_key = request.form.get('change_key', '')
             
-            if not self.pending_changes:
-                 return redirect(url_for('index'))
-                 
-            # Find which module is being confirmed from referrer? 
-            # Let's clean up logic: user is at /diff/<module_name>. The form posts to /api/confirm_save.
-            # We can use the Referer header to parse module name, or simpler:
-            # Let's iterate pending_changes.
+            if not change_key and self.pending_changes:
+                # Fallback: use first pending key if change_key not provided
+                change_key = list(self.pending_changes.keys())[0]
             
-            # Actually, let's update this method to accept module_name in query string for robustness, 
-            # but I can't edit diff.html in this tool call.
-            # I'll rely on the Referer for now or just take the first item (since it's a local single-user tool).
+            if not change_key or change_key not in self.pending_changes:
+                return redirect(url_for('index'))
             
-            module_name = list(self.pending_changes.keys())[0]
-            pending = self.pending_changes.pop(module_name)
+            pending = self.pending_changes.pop(change_key)
+            module_name = pending.get('module_name', change_key)
+            file_path = pending.get('file_path', '')
             new_regs = pending['registers']
             props = pending.get('properties', {})
             
-            success = self.modifier.save_changes(module_name, new_regs, props)
+            # Use file_path aware save
+            success = self.modifier.save_changes(module_name, new_regs, props, file_path=file_path)
             
             if success:
-                # Reload axion analysis to reflect changes?
-                # This requires re-parsing the file.
-                # AxionHDL class needs a re-analyze method for specific file.
-                # For simplicity: redirect to dashboard, but maybe show a message "Restart to see changes fully"?
-                # Or try to re-analyze.
-                pass
+                # Trigger re-analysis to reflect changes
+                try:
+                    self.axion.analyzed_modules = []
+                    self.axion.is_analyzed = False
+                    self.axion.analyze()
+                except:
+                    pass  # Ignore analysis errors
                 
             return redirect(url_for('index'))
 
@@ -788,7 +864,32 @@ class AxionGUI:
         # Run Flask app
         self.app.run(port=port, debug=True, use_reloader=False)
 
-def start_gui(axion_instance):
-    """Entry point for CLI to start GUI."""
+    def _read_version(self):
+        """Read version from .version file."""
+        import os
+        
+        # Try multiple possible locations for .version file
+        possible_paths = [
+            os.path.join(os.path.dirname(__file__), '..', '.version'),  # Package install
+            os.path.join(os.getcwd(), '.version'),  # Current directory
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                try:
+                    with open(path, 'r') as f:
+                        return f.read().strip()
+                except:
+                    pass
+        
+        # Fallback to package version if .version not found
+        try:
+            from axion_hdl import __version__
+            return __version__
+        except:
+            return "unknown"
+
+def start_gui(axion_instance, port=5000):
     gui = AxionGUI(axion_instance)
+    gui.port = port
     gui.run()
