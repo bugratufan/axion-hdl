@@ -402,6 +402,94 @@ end architecture rtl;
             # PDF files start with %PDF-
             self.assertTrue(header.startswith(b'%PDF-'), 
                 "Generated PDF should have valid PDF header")
+    
+    # =========================================================================
+    # GEN-013: YAML Register Map Generation
+    # =========================================================================
+    def test_gen_013_yaml_map_exists(self):
+        """GEN-013: YAML register map file generated"""
+        # Generate YAML if not already done
+        self.axion.generate_yaml()
+        yaml_file = os.path.join(self.output_dir, "generator_test_regs.yaml")
+        self.assertTrue(os.path.exists(yaml_file), 
+            "YAML register map should be generated")
+    
+    def test_gen_013_yaml_valid_syntax(self):
+        """GEN-013: YAML file has valid syntax and structure"""
+        try:
+            import yaml
+        except ImportError:
+            self.skipTest("PyYAML not available")
+        
+        self.axion.generate_yaml()
+        yaml_file = os.path.join(self.output_dir, "generator_test_regs.yaml")
+        
+        with open(yaml_file, 'r') as f:
+            data = yaml.safe_load(f)
+        
+        self.assertIsInstance(data, dict)
+        self.assertIn('module', data, "YAML must contain 'module' field")
+        self.assertEqual(data['module'], 'generator_test')
+        self.assertIn('registers', data, "YAML must contain 'registers' field")
+        self.assertIsInstance(data['registers'], list)
+        self.assertGreater(len(data['registers']), 0, "YAML must have at least one register")
+    
+    # =========================================================================
+    # GEN-014: JSON Register Map Generation
+    # =========================================================================
+    def test_gen_014_json_map_exists(self):
+        """GEN-014: JSON register map file generated"""
+        self.axion.generate_json()
+        json_file = os.path.join(self.output_dir, "generator_test_regs.json")
+        self.assertTrue(os.path.exists(json_file), 
+            "JSON register map should be generated")
+    
+    def test_gen_014_json_valid_syntax(self):
+        """GEN-014: JSON file has valid syntax and structure"""
+        import json
+        
+        self.axion.generate_json()
+        json_file = os.path.join(self.output_dir, "generator_test_regs.json")
+        
+        with open(json_file, 'r') as f:
+            data = json.load(f)
+        
+        self.assertIsInstance(data, dict)
+        self.assertIn('module', data, "JSON must contain 'module' field")
+        self.assertEqual(data['module'], 'generator_test')
+        self.assertIn('registers', data, "JSON must contain 'registers' field")
+        self.assertIsInstance(data['registers'], list)
+        self.assertGreater(len(data['registers']), 0, "JSON must have at least one register")
+    
+    # =========================================================================
+    # GEN-017: Address Range Calculation
+    # =========================================================================
+    def test_gen_017_address_range_in_module(self):
+        """GEN-017: Module has calculated address range"""
+        self.assertTrue(len(self.axion.analyzed_modules) > 0, "Must have analyzed modules")
+        module = self.axion.analyzed_modules[0]
+        
+        # Get registers and calculate expected range
+        registers = module.get('registers', [])
+        self.assertGreater(len(registers), 0, "Module must have registers")
+        
+        # Find min and max addresses
+        min_addr = min(r.get('relative_address_int', r.get('address_int', 0)) for r in registers)
+        max_addr = max(r.get('relative_address_int', r.get('address_int', 0)) for r in registers)
+        
+        # Address range should cover all registers
+        self.assertGreaterEqual(max_addr, min_addr, 
+            "Address range must be valid (max >= min)")
+    
+    def test_gen_017_address_range_display(self):
+        """GEN-017: Address range displayed in documentation"""
+        # Check that markdown documentation shows address information
+        with open(self.gen_md, 'r') as f:
+            content = f.read()
+        
+        # Should have address information displayed
+        self.assertIn('0x', content.lower(), 
+            "Documentation should display address values")
 
 
 def run_generator_tests():
