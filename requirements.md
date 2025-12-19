@@ -54,6 +54,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | AXION-024 | Register Bit Field Support | Partial field updates must preserve other bits in the register. | VHDL Simulation (`vhdl.req.axion_024`) |
 | AXION-025 | Wide Signal Support | Signals >32 bits must span multiple consecutive registers. | VHDL Simulation (`vhdl.req.axion_025x`) |
 | AXION-026 | Multi-register access | Reads/Writes to parts of wide signals must correctly update specific bits. | VHDL Simulation (`vhdl.req.axion_026x`) |
+| AXION-027 | Existing File Overwrite | The tool must overwrite existing files in the output directory. | Python Unit Test (`python.gen.overwrite`) |
 
 ## 2. Bus Protocol (AXI-LITE)
 

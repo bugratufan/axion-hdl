@@ -842,7 +842,7 @@ class VHDLGenerator:
         # Register Read Logic
         lines.extend([
             "    -- Register Read Logic",
-            "    process(rd_addr_reg, BASE_ADDR, rd_access_error",
+            "    process(rd_addr_reg, rd_access_error",
         ])
         
         # Add read sensitivity list

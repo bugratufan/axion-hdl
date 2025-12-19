@@ -24,7 +24,7 @@ class VHDLParser:
         self.annotation_parser = AnnotationParser(annotation_prefix='@axion')
         self.vhdl_utils = VHDLUtils()
         self.axion_signal_pattern = re.compile(
-            r'signal\s+(\w+)\s*:\s*([^;]+);\s*--\s*@axion\s+(.+)'
+            r'signal\s+(\w+)\s*:\s*([^;]+);\s*--\s*@axion(?::?)\s+(.+)'
         )
         # Exclusion patterns (files, directories, or glob patterns)
         self.exclude_patterns: Set[str] = set()
@@ -398,6 +398,7 @@ class VHDLParser:
                     'w_strobe': attrs.get('write_strobe', False),
                     'description': attrs.get('description', ''),
                     'default_value': attrs.get('default_value', 0),
+                    'manual_address': True if manual_addr is not None else False,
                     'signal_width': signal_width,
                     'width': signal_width  # Standardize on 'width' for modifiers
                 }
