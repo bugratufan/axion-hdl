@@ -10,9 +10,12 @@ Testing is automated via Playwright browser tests mapped back to these requireme
 | **GUI-LAUNCH** | Server Launch | GUI server startup and browser opening |
 | **GUI-DASH** | Dashboard | Module listing and summary display |
 | **GUI-EDIT** | Editor | Register editing functionality |
+| **GUI-SAVE** | Save & Changes | Unsaved changes tracking and warnings |
+| **GUI-MOD** | File Modification | YAML/JSON/XML/VHDL file modification |
 | **GUI-GEN** | Generation | Output generation interface |
 | **GUI-RULE** | Rule Check | Design rule checking interface |
 | **GUI-DIFF** | Diff/Review | Change preview and confirmation |
+| **GUI-NAV** | Navigation | Site navigation and layout |
 
 ---
 
@@ -42,7 +45,6 @@ Testing is automated via Playwright browser tests mapped back to these requireme
 | GUI-DASH-009 | Statistics Cards | Dashboard shows summary cards for modules, registers, CDC count, and sources. | Playwright (`gui.test_dash_009`) |
 | GUI-DASH-010 | CDC Count Display | Dashboard statistics show count of CDC-enabled modules. | Playwright (`gui.test_dash_010`) |
 
-
 ---
 
 ## 3. Module Editor (GUI-EDIT)
@@ -71,7 +73,36 @@ Testing is automated via Playwright browser tests mapped back to these requireme
 
 ---
 
-## 4. Output Generation (GUI-GEN)
+## 4. Save & Unsaved Changes (GUI-SAVE)
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| GUI-SAVE-001 | Unsaved Changes Indicator | Visual indicator appears when unsaved changes exist. | Playwright (`gui.test_save_001`) |
+| GUI-SAVE-002 | Page Leave Warning | Confirmation dialog shown when leaving editor with unsaved changes. | Playwright (`gui.test_save_002`) |
+| GUI-SAVE-003 | Browser Close Warning | Browser beforeunload warning prevents accidental close with unsaved changes. | Playwright (`gui.test_save_003`) |
+| GUI-SAVE-004 | Navigation Warning | Navigation to other pages prompts for unsaved changes. | Playwright (`gui.test_save_004`) |
+| GUI-SAVE-005 | Diff Return Preservation | Changes preserved when returning from diff page without confirming. | Playwright (`gui.test_save_005`) |
+| GUI-SAVE-006 | Clear Indicator on Save | Unsaved changes indicator clears after successful save. | Playwright (`gui.test_save_006`) |
+
+---
+
+## 5. File Modification (GUI-MOD)
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| GUI-MOD-001 | VHDL Minimal Edit | VHDL files modified with only changed signals updated. | Python Unit Test (`gui.test_mod_001`) |
+| GUI-MOD-002 | YAML Comment Preservation | YAML file comments preserved during modification. | Python Unit Test (`gui.test_mod_002`) |
+| GUI-MOD-003 | YAML Structure Preservation | YAML file structure (keys, order) preserved during modification. | Python Unit Test (`gui.test_mod_003`) |
+| GUI-MOD-004 | JSON Structure Preservation | JSON file structure preserved, only changed fields updated. | Python Unit Test (`gui.test_mod_004`) |
+| GUI-MOD-005 | XML Comment Preservation | XML file comments preserved during modification. | Python Unit Test (`gui.test_mod_005`) |
+| GUI-MOD-006 | XML Attribute Preservation | XML attributes not modified unless explicitly changed. | Python Unit Test (`gui.test_mod_006`) |
+| GUI-MOD-007 | No Change No Diff | When no actual changes made, diff shows "No changes detected". | Playwright (`gui.test_mod_007`) |
+| GUI-MOD-008 | Only Changed Fields | Diff shows only fields that were actually changed. | Playwright (`gui.test_mod_008`) |
+| GUI-MOD-009 | Module Disambiguation | Same-named modules from different files correctly resolved. | Playwright (`gui.test_mod_009`) |
+
+---
+
+## 6. Output Generation (GUI-GEN)
 
 | ID | Definition | Acceptance Criteria | Test Method |
 |----|------------|---------------------|-------------|
@@ -88,10 +119,13 @@ Testing is automated via Playwright browser tests mapped back to these requireme
 | GUI-GEN-011 | Error Feedback | Generation errors display in activity log. | Playwright (`gui.test_gen_011`) |
 | GUI-GEN-012 | Markdown Doc Toggle | Markdown docs checkbox toggles Markdown generation, enabled by default. | Playwright (`gui.test_gen_012`) |
 | GUI-GEN-013 | HTML Doc Toggle | HTML docs checkbox toggles HTML generation, enabled by default. | Playwright (`gui.test_gen_013`) |
+| GUI-GEN-014 | YAML Format Toggle | YAML output checkbox toggles YAML generation. | Playwright (`gui.test_gen_014`) |
+| GUI-GEN-015 | XML Format Toggle | XML output checkbox toggles XML generation. | Playwright (`gui.test_gen_015`) |
+| GUI-GEN-016 | All Formats Default | All generation formats enabled by default. | Playwright (`gui.test_gen_016`) |
 
 ---
 
-## 5. Rule Check (GUI-RULE)
+## 7. Rule Check (GUI-RULE)
 
 | ID | Definition | Acceptance Criteria | Test Method |
 |----|------------|---------------------|-------------|
@@ -103,7 +137,7 @@ Testing is automated via Playwright browser tests mapped back to these requireme
 
 ---
 
-## 6. Diff & Review (GUI-DIFF)
+## 8. Diff & Review (GUI-DIFF)
 
 | ID | Definition | Acceptance Criteria | Test Method |
 |----|------------|---------------------|-------------|
@@ -112,10 +146,15 @@ Testing is automated via Playwright browser tests mapped back to these requireme
 | GUI-DIFF-003 | Confirm Button | Confirm button applies changes to source files. | Playwright (`gui.test_diff_003`) |
 | GUI-DIFF-004 | Cancel Action | Cancel/back navigation returns to editor. | Playwright (`gui.test_diff_004`) |
 | GUI-DIFF-005 | Success Redirect | Successful save redirects to dashboard. | Playwright (`gui.test_diff_005`) |
+| GUI-DIFF-006 | Unified View | Unified diff view shows additions and deletions inline. | Playwright (`gui.test_diff_006`) |
+| GUI-DIFF-007 | Side-by-Side View | Side-by-side view toggle shows original and modified. | Playwright (`gui.test_diff_007`) |
+| GUI-DIFF-008 | View Toggle | Toggle button switches between unified and side-by-side. | Playwright (`gui.test_diff_008`) |
+| GUI-DIFF-009 | Color Coding | Additions green, deletions red, context default. | Playwright (`gui.test_diff_009`) |
+| GUI-DIFF-010 | File Path Display | Shows file path being modified. | Playwright (`gui.test_diff_010`) |
 
 ---
 
-## 7. Navigation & Layout (GUI-NAV)
+## 9. Navigation & Layout (GUI-NAV)
 
 | ID | Definition | Acceptance Criteria | Test Method |
 |----|------------|---------------------|-------------|
@@ -123,5 +162,5 @@ Testing is automated via Playwright browser tests mapped back to these requireme
 | GUI-NAV-002 | Modules Link | Modules link navigates to dashboard. | Playwright (`gui.test_nav_002`) |
 | GUI-NAV-003 | Rule Check Link | Rule Check link navigates to rule check page. | Playwright (`gui.test_nav_003`) |
 | GUI-NAV-004 | Generate Link | Generate link navigates to generation page. | Playwright (`gui.test_nav_004`) |
-| GUI-NAV-005 | Footer Version | Footer displays correct version. | Playwright (`gui.test_nav_005`) |
+| GUI-NAV-005 | Footer Version | Footer displays version from .version file. | Playwright (`gui.test_nav_005`) |
 | GUI-NAV-006 | Responsive Design | Layout adapts to different screen widths. | Playwright (`gui.test_nav_006`) |

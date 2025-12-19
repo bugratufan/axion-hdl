@@ -39,10 +39,10 @@ static int tests_failed = 0;
 /*******************************************************************************
  * Include all three headers - no conflicts due to module prefixes!
  ******************************************************************************/
-#include "../../output/sensor_controller_regs.h"
-#include "../../output/spi_controller_regs.h"
-#include "../../output/mixed_width_controller_regs.h"
-#include "../../output/subregister_test_xml_regs.h"
+#include "sensor_controller_regs.h"
+#include "spi_controller_regs.h"
+#include "mixed_width_controller_regs.h"
+#include "subregister_test_xml_regs.h"
 
 /*******************************************************************************
  * Test: Header Inclusion Without Conflicts

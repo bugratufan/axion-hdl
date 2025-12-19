@@ -12,22 +12,24 @@ Axion-HDL is a powerful Python-based automation tool that generates AXI4-Lite re
 
 getting-started
 data-formats
+examples
 cli-reference
-gui
 outputs
 ```
 
 ```{toctree}
 :maxdepth: 2
-:caption: Advanced
+:caption: Tools
 
-advanced-features
+gui
+rule-checker
 ```
 
 ```{toctree}
 :maxdepth: 2
-:caption: Development
+:caption: Reference
 
+requirements
 developer-guide
 api-reference
 ```
@@ -39,6 +41,7 @@ api-reference
 - **Interactive GUI**: Web-based interface for visual register management
 - **Clock Domain Crossing**: Automatic CDC synchronizers
 - **Auto-Addressing**: Smart conflict detection and address assignment
+- **Rule Checker**: Validate your register definitions before generation
 
 ## Installation
 

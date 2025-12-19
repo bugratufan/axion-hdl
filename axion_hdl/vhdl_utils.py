@@ -50,6 +50,10 @@ class VHDLUtils:
         """
         type_str = type_str.strip()
         
+        # Remove initialization if present
+        if ':=' in type_str:
+            type_str = type_str.split(':=')[0].strip()
+        
         # Check for vector types with range
         vector_match = re.search(
             r'(\w+)\s*\(\s*(\d+)\s+(downto|to)\s+(\d+)\s*\)',
