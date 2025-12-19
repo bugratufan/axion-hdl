@@ -52,10 +52,12 @@ class RuleChecker:
             if registers:
                 max_addr = base_addr
                 for reg in registers:
-                    reg_addr = reg.get('address_int', 0)
+                    reg_addr = reg.get('address_int', 0) 
                     width = int(reg.get('width', 32)) if reg.get('width') else 32
                     byte_width = (width + 7) // 8
-                    reg_end = reg_addr + max(4, byte_width) 
+                    # reg_addr is absolute address (base + offset)
+                    # So end address is just start + size
+                    reg_end = reg_addr + max(4, byte_width)
                     max_addr = max(max_addr, reg_end)
                 
                 module_ranges.append({
@@ -64,48 +66,26 @@ class RuleChecker:
                     'end': max_addr - 1
                 })
 
-        # Smart Grouping for overlaps
-        # If multiple modules overlap at standard 0x0 base, report it cleanly
-        zero_base_overlaps = [] 
-        other_overlaps = []
-
+        # Find overlaps
+        overlaps = defaultdict(list)
         for i, m1 in enumerate(module_ranges):
             for m2 in module_ranges[i+1:]:
-                if m1['start'] <= m2['end'] and m2['start'] <= m1['end']:
-                    if m1['start'] == 0 and m2['start'] == 0:
-                        zero_base_overlaps.append((m1, m2))
-                    else:
-                        other_overlaps.append((m1, m2))
+                # Check intersection: max(start1, start2) <= min(end1, end2)
+                overlap_start = max(m1['start'], m2['start'])
+                overlap_end = min(m1['end'], m2['end'])
+                
+                if overlap_start <= overlap_end:
+                    # Found overlap
+                    msg = f"Address region 0x{m1['start']:X}-0x{m1['end']:X} overlaps with {m2['name']} (0x{m2['start']:X}-0x{m2['end']:X})"
+                    overlaps[m1['name']].append(msg)
+                    
+                    msg2 = f"Address region 0x{m2['start']:X}-0x{m2['end']:X} overlaps with {m1['name']} (0x{m1['start']:X}-0x{m1['end']:X})"
+                    overlaps[m2['name']].append(msg2)
         
-        if zero_base_overlaps:
-            count = len(zero_base_overlaps)
-            names = set()
-            for m1, m2 in zero_base_overlaps:
-                names.add(m1['name'])
-                names.add(m2['name'])
-            
-            # If many modules are overlapping at 0x0, likely they are not assigned addresses yet.
-            # Report as a single block error if count is high
-            if count > 5:
-                self._add_error(
-                    "Address Overlap", 
-                    "Multiple Modules", 
-                    f"{len(names)} modules have overlapping address ranges starting at 0x0000. Please assign unique Base Addresses."
-                )
-            else:
-                 for m1, m2 in zero_base_overlaps:
-                     self._add_error(
-                        "Address Overlap",
-                        f"{m1['name']} & {m2['name']}",
-                        f"Region 0x{m1['start']:X}-0x{m1['end']:X} overlaps with 0x{m2['start']:X}-0x{m2['end']:X}"
-                    )
-
-        for m1, m2 in other_overlaps:
-            self._add_error(
-                "Address Overlap",
-                f"{m1['name']} & {m2['name']}",
-                f"Region 0x{m1['start']:X}-0x{m1['end']:X} overlaps with 0x{m2['start']:X}-0x{m2['end']:X}"
-            )
+        # Report errors per module
+        for mod_name, messages in overlaps.items():
+            for msg in messages:
+                self._add_error("Address Overlap", mod_name, msg)
 
     def check_default_values(self, modules: List[Dict]) -> None:
         """Check if default values fit within register width."""
@@ -179,6 +159,7 @@ class RuleChecker:
                     )
 
     def check_duplicate_names(self, modules: List[Dict]) -> None:
+        """Check for duplicate register names within a module."""
         for module in modules:
             seen = set()
             for reg in module['registers']:
@@ -186,6 +167,20 @@ class RuleChecker:
                 if name in seen:
                     self._add_error("Duplicate Name", module['name'], f"Register '{name}' defined multiple times")
                 seen.add(name)
+
+    def check_unique_module_names(self, modules: List[Dict]) -> None:
+        """Check for duplicate module names across the project."""
+        seen = set()
+        duplicates = set()
+        for module in modules:
+            name = module.get('name')
+            if name:
+                if name in seen:
+                    duplicates.add(name)
+                seen.add(name)
+        
+        for name in duplicates:
+            self._add_error("Duplicate Module", name, f"Module name '{name}' is used by multiple files/definitions")
 
     def _check_single_file(self, filepath: str, exclude_patterns: List[str] = None) -> None:
         """Check a single source file for format issues."""
@@ -423,6 +418,7 @@ class RuleChecker:
         self.check_naming_conventions(modules)
         self.check_address_alignment(modules)
         self.check_duplicate_names(modules)
+        self.check_unique_module_names(modules)
         
         return {
             'errors': self.errors,

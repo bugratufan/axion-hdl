@@ -50,6 +50,26 @@
                         </div>
                         <div class="col-md-6">
                             <div class="form-check form-switch p-3 bg-light rounded-3 d-flex align-items-center">
+                                <input class="form-check-input ms-0 me-3" type="checkbox" id="fmtXml" checked
+                                    style="width: 2.5em; height: 1.25em;">
+                                <div>
+                                    <label class="form-check-label fw-bold d-block" for="fmtXml">XML Map</label>
+                                    <span class="small text-muted">IP-XACT compatible</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex align-items-center">
+                                <input class="form-check-input ms-0 me-3" type="checkbox" id="fmtYaml" checked
+                                    style="width: 2.5em; height: 1.25em;">
+                                <div>
+                                    <label class="form-check-label fw-bold d-block" for="fmtYaml">YAML Map</label>
+                                    <span class="small text-muted">Human-readable config</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 d-flex align-items-center">
                                 <input class="form-check-input ms-0 me-3" type="checkbox" id="fmtJson" checked
                                     style="width: 2.5em; height: 1.25em;">
                                 <div>
@@ -143,6 +163,8 @@
             output_dir: document.getElementById('outputDir').value,
             formats: {
                 vhdl: document.getElementById('fmtVhdl').checked,
+                xml: document.getElementById('fmtXml').checked,
+                yaml: document.getElementById('fmtYaml').checked,
                 json: document.getElementById('fmtJson').checked,
                 header: document.getElementById('fmtHeader').checked,
                 doc_md: document.getElementById('fmtDocMd').checked,

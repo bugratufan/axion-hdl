@@ -6,6 +6,7 @@ Uses Flask test client instead of subprocess for more reliable testing.
 import pytest
 import sys
 import os
+import subprocess
 from pathlib import Path
 import threading
 import time
@@ -13,6 +14,20 @@ import time
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+
+def reset_vhdl_files():
+    """Reset VHDL test files to their git state"""
+    vhdl_dir = PROJECT_ROOT / "tests" / "vhdl"
+    subprocess.run(["git", "checkout", str(vhdl_dir)], cwd=PROJECT_ROOT, capture_output=True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def reset_test_files():
+    """Reset test files before and after test session"""
+    reset_vhdl_files()
+    yield
+    reset_vhdl_files()
 
 
 class FlaskTestServer:
@@ -73,25 +88,41 @@ class FlaskTestServer:
             self.thread.join(timeout=5)
 
 
-# Global server instance to persist across test session
-_server_instance = None
+# Global server instances - one per worker
+_server_instances = {}
+
+
+def get_worker_port(worker_id):
+    """Get unique port for each parallel worker"""
+    if worker_id == "master" or worker_id is None:
+        return 5001
+    # worker_id is like "gw0", "gw1", etc.
+    try:
+        worker_num = int(worker_id.replace("gw", ""))
+        return 5001 + worker_num
+    except:
+        return 5001
 
 
 @pytest.fixture(scope="session")
-def gui_server():
+def gui_server(request):
     """Fixture that provides a running GUI server for the test session"""
-    global _server_instance
+    global _server_instances
     
-    if _server_instance is None:
-        _server_instance = FlaskTestServer(port=5001)
-        _server_instance.start()
+    # Get worker id for parallel testing
+    worker_id = getattr(request.config, "workerinput", {}).get("workerid", "master")
+    port = get_worker_port(worker_id)
     
-    yield _server_instance
+    if worker_id not in _server_instances:
+        _server_instances[worker_id] = FlaskTestServer(port=port)
+        _server_instances[worker_id].start()
+    
+    yield _server_instances[worker_id]
     
     # Cleanup at end of session
-    if _server_instance:
-        _server_instance.stop()
-        _server_instance = None
+    if worker_id in _server_instances:
+        _server_instances[worker_id].stop()
+        del _server_instances[worker_id]
 
 
 @pytest.fixture(scope="session")

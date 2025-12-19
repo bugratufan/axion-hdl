@@ -54,6 +54,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | AXION-024 | Register Bit Field Support | Partial field updates must preserve other bits in the register. | VHDL Simulation (`vhdl.req.axion_024`) |
 | AXION-025 | Wide Signal Support | Signals >32 bits must span multiple consecutive registers. | VHDL Simulation (`vhdl.req.axion_025x`) |
 | AXION-026 | Multi-register access | Reads/Writes to parts of wide signals must correctly update specific bits. | VHDL Simulation (`vhdl.req.axion_026x`) |
+| AXION-027 | Existing File Overwrite | The tool must overwrite existing files in the output directory. | Python Unit Test (`python.gen.overwrite`) |
 
 ## 2. Bus Protocol (AXI-LITE)
 
@@ -79,7 +80,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | PARSER-001 | Basic entity name extraction and whitespace handling | Parser correctly identifies `entity <name>` regardless of whitespace. | Python Unit Test (`parser.test_parser_001`) |
 | PARSER-002 | Parse std_logic and std_logic_vector types | Correctly identifies signal width (1 for std_logic, N for vector). | Python Unit Test (`parser.test_parser_002`) |
 | PARSER-003 | Parse Access Modes and strobe flags | extracts RW/RO/WO and R_STROBE/W_STROBE from `@axion` comments. | Python Unit Test (`parser.test_parser_003`) |
-| PARSER-004 | Parse Attributes | Extracts `BASE_ADDR`, `CDC_EN`, `CDC_STAGE` key-values. | Python Unit Test (`parser.test_parser_004`) |
+| PARSER-004 | Parse Attributes | Extracts `BASE_ADDR`, `CDC_EN` (flag/kv), `CDC_STAGE` key-values. | Python Unit Test (`parser.test_parser_004`) |
 | PARSER-005 | Parse Hex/Decimal addresses | Handles `0x10` and `16` as valid address inputs. | Python Unit Test (`parser.test_parser_005`) |
 | PARSER-006 | Parse Descriptions | Extracts description string from comments, handling quotes. | Python Unit Test (`parser.test_parser_006`) |
 | PARSER-007 | Exclude directories | Skips directories specified in exclude list. | Python Unit Test (`parser.test_parser_007`) |
@@ -106,6 +107,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | GEN-015 | HTML Documentation Generation | Generates styled `register_map.html` with embedded CSS. | Python Unit Test (`gen.test_gen_015`) |
 | GEN-016 | PDF Documentation Generation | Generates `register_map.pdf` file (optional, requires weasyprint). | Python Unit Test (`gen.test_gen_016`) |
 | GEN-017 | Address Range Calculation | Calculates and displays address range (start-end) for each module. | Python Unit Test (`gen.test_gen_017`) |
+| GEN-018 | Base Address Generic | VHDL entity includes `BASE_ADDR` generic used for offset calculation. | Python Unit Test (`gen.test_gen_018`) |
 
 ## 5. Error Handling (ERR)
 
@@ -209,6 +211,9 @@ Testing and verification are automated via `make test`, which maps tests back to
 | GUI-004 | Source Modification | Can write changes back to source files (JSON/YAML/VHDL*). | Manual / Integration Test |
 | GUI-005 | Diff & Review | Shows visual diff of VHDL/Config changes before saving. | Manual / Integration Test |
 | GUI-006 | Auto-Reload | Application state updates after saving. | Manual / Integration Test |
+| GUI-007 | Restrict Register Renaming | For VHDL sources, existing registers cannot be renamed. | Manual / Integration Test |
+| GUI-008 | Layout Refinement | Column widths optimized; Width displayed without units. | Manual / Integration Test |
+| GUI-009 | CDC Toggle | Editor allows toggling CDC enable state. | Manual / Integration Test |
 
 > GUI-004 VHDL modification is currently experimental and supports mainly appending new signals to identified declaration blocks.
 
@@ -220,4 +225,5 @@ Testing and verification are automated via `make test`, which maps tests back to
 | VAL-002 | Format Error Visibility | Parsing errors (malformed syntax) must be visible in Rule Check results. | Python Unit Test (`val.test_val_002`) |
 | VAL-003 | Logical Integrity Check | Validates integrity of loaded modules (e.g. non-empty register lists). | Python Unit Test (`val.test_val_003`) |
 | VAL-004 | Description Presence | Warns if registers are missing descriptions/documentation. | Python Unit Test (`val.test_val_004`) |
+| VAL-005 | Duplicate Module Name | Error if multiple modules share the same name. | Python Unit Test (`val.test_val_005`) |
 

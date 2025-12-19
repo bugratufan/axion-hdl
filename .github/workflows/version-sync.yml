@@ -57,13 +57,13 @@ jobs:
             echo "bump_type=minor" >> $GITHUB_OUTPUT
             echo "should_bump=true" >> $GITHUB_OUTPUT
             echo "Feature branch detected - will bump MINOR version"
-          elif [[ "$BRANCH" == fix/* ]] || [[ "$BRANCH" == bugfix/* ]]; then
+          elif [[ "$BRANCH" == fix/* ]] || [[ "$BRANCH" == bugfix/* ]] || [[ "$BRANCH" == wip/* ]]; then
             echo "bump_type=patch" >> $GITHUB_OUTPUT
             echo "should_bump=true" >> $GITHUB_OUTPUT
             echo "Fix/bugfix branch detected - will bump PATCH version"
           else
             echo "should_bump=false" >> $GITHUB_OUTPUT
-            echo "Non-feature/fix branch - skipping version bump"
+            echo "Non-feature/fix/wip branch - skipping version bump"
           fi
 
       - name: Auto-bump version
