@@ -8,13 +8,13 @@ Uses axion_hdl for reusable utilities.
 import os
 import re
 import fnmatch
-from typing import Dict, List, Optional, Tuple, Set
+from typing import Dict, List, Optional, Tuple, Any, Set
 
 # Import from axion_hdl (unified package)
-from axion_hdl.address_manager import AddressManager
-from axion_hdl.vhdl_utils import VHDLUtils
-from axion_hdl.annotation_parser import AnnotationParser
-from axion_hdl.bit_field_manager import BitFieldManager, BitOverlapError
+from .address_manager import AddressManager, AddressConflictError # Import specific error
+from .vhdl_utils import VHDLUtils
+from .annotation_parser import AnnotationParser
+from .bit_field_manager import BitFieldManager, BitOverlapError
 
 
 class VHDLParser:
@@ -24,7 +24,7 @@ class VHDLParser:
         self.annotation_parser = AnnotationParser(annotation_prefix='@axion')
         self.vhdl_utils = VHDLUtils()
         self.axion_signal_pattern = re.compile(
-            r'signal\s+(\w+)\s*:\s*([^;]+);\s*--\s*@axion\s+(.+)'
+            r'signal\s+(\w+)\s*:\s*([^;]+);\s*--\s*@axion(?::?)\s+(.+)'
         )
         # Exclusion patterns (files, directories, or glob patterns)
         self.exclude_patterns: Set[str] = set()
@@ -179,10 +179,16 @@ class VHDLParser:
                 # Check exclusions
                 if self._is_excluded(vhdl_file):
                     continue
-                    
-                module_data = self._parse_vhdl_file(vhdl_file)
-                if module_data and module_data['registers']:
-                    modules.append(module_data)
+                
+                try:
+                    module_data = self._parse_vhdl_file(vhdl_file)
+                    if module_data and module_data['registers']:
+                        modules.append(module_data)
+                except Exception as e:
+                    # Log error but continue with other files
+                    msg = f"Error parsing {vhdl_file}: {e}"
+                    print(f"Warning: {msg}")
+                    self.errors.append({'file': vhdl_file, 'msg': str(e)})
                     
         return modules
     
@@ -233,14 +239,29 @@ class VHDLParser:
             'cdc_stages': cdc_stages,
             'base_address': base_address,
             'registers': registers,
-            'packed_registers': packed_registers  # New: subregister groups
+
+            'packed_registers': packed_registers,  # New: subregister groups
+            'parsing_errors': self.errors  # Pass accumulated errors to module
         }
+    
+        return cdc_enabled, cdc_stages, base_address
     
     def _parse_axion_def(self, content: str) -> Tuple[bool, int, int]:
         """Parse @axion_def annotation using common library."""
-        attrs = self.annotation_parser.parse_def_annotation(content)
+        # Find ALL matches to handle split definitions
+        matches = self.annotation_parser.def_pattern.finditer(content)
         
-        if not attrs:
+        attrs = {}
+        found_any = False
+        
+        for match in matches:
+            found_any = True
+            attrs_str = match.group(1).strip()
+            # Merge attributes from this line
+            line_attrs = self.annotation_parser.parse_attributes(attrs_str)
+            attrs.update(line_attrs)
+        
+        if not found_any:
             return False, 2, 0x00
         
         cdc_enabled = attrs.get('cdc_enabled', False)
@@ -327,9 +348,37 @@ class VHDLParser:
                 # Allocate relative address (with signal width for proper spacing)
                 manual_addr = attrs.get('address')
                 if manual_addr is not None:
-                    relative_addr = addr_mgr.allocate_address(manual_addr, signal_width, signal_name)
+                    # If manual address is absolute (>= base_address), preserve it by converting to relative
+                    # If it's small (offset), use it directly
+                    if isinstance(manual_addr, str):
+                         if manual_addr.startswith('0x'):
+                             manual_addr_int = int(manual_addr, 16)
+                         else:
+                             manual_addr_int = int(manual_addr)
+                    else:
+                        manual_addr_int = manual_addr
+                        
+                    if manual_addr_int >= base_address and base_address > 0:
+                        mapped_addr = manual_addr_int - base_address
+                    else:
+                        mapped_addr = manual_addr_int
+                        
+                    try:
+                        relative_addr = addr_mgr.allocate_address(mapped_addr, signal_width, signal_name)
+                    except AddressConflictError as e:
+                        print(f"Warning: {e}")
+                        self.errors.append({'file': filepath, 'line': line_num, 'msg': str(e)})
+                        # Assign special error value or just continue with collision?
+                        # Using mapped_addr ensures it appears in the list, even if conflicting
+                        relative_addr = mapped_addr 
                 else:
-                    relative_addr = addr_mgr.allocate_address(signal_width=signal_width, signal_name=signal_name)
+                    try:
+                        relative_addr = addr_mgr.allocate_address(signal_width=signal_width, signal_name=signal_name)
+                    except AddressConflictError as e:
+                        print(f"Warning: {e}")
+                        self.errors.append({'file': filepath, 'line': line_num, 'msg': str(e)})
+                        relative_addr = addr_mgr.get_next_available_address() # Just take next speculative one?
+                        # Or perhaps -1 to indicate error? But let's keep it usable for display
                 
                 # Add base address offset to get absolute address
                 absolute_addr = base_address + relative_addr
@@ -345,9 +394,13 @@ class VHDLParser:
                     'access_mode': attrs.get('access_mode', 'RW'),
                     'read_strobe': attrs.get('read_strobe', False),
                     'write_strobe': attrs.get('write_strobe', False),
+                    'r_strobe': attrs.get('read_strobe', False),
+                    'w_strobe': attrs.get('write_strobe', False),
                     'description': attrs.get('description', ''),
                     'default_value': attrs.get('default_value', 0),
-                    'signal_width': signal_width
+                    'manual_address': True if manual_addr is not None else False,
+                    'signal_width': signal_width,
+                    'width': signal_width  # Standardize on 'width' for modifiers
                 }
                 
                 registers.append(reg_data)
@@ -361,9 +414,33 @@ class VHDLParser:
             manual_addr = first_signal['attrs'].get('address')
             
             if manual_addr is not None:
-                relative_addr = addr_mgr.allocate_address(manual_addr, 32, reg_name)
+                # Handle absolute vs relative manual address for packed groups
+                if isinstance(manual_addr, str):
+                     if manual_addr.startswith('0x'):
+                         manual_addr_int = int(manual_addr, 16)
+                     else:
+                         manual_addr_int = int(manual_addr)
+                else:
+                    manual_addr_int = manual_addr
+                    
+                if manual_addr_int >= base_address and base_address > 0:
+                    mapped_addr = manual_addr_int - base_address
+                else:
+                    mapped_addr = manual_addr_int
+                    
+                try:
+                    relative_addr = addr_mgr.allocate_address(mapped_addr, 32, reg_name)
+                except AddressConflictError as e:
+                    print(f"Warning: {e}")
+                    self.errors.append({'file': filepath, 'msg': str(e)})
+                    relative_addr = mapped_addr
             else:
-                relative_addr = addr_mgr.allocate_address(signal_width=32, signal_name=reg_name)
+                try:
+                    relative_addr = addr_mgr.allocate_address(signal_width=32, signal_name=reg_name)
+                except AddressConflictError as e:
+                    print(f"Warning: {e}")
+                    self.errors.append({'file': filepath, 'msg': str(e)})
+                    relative_addr = addr_mgr.get_next_available_address()
             
             absolute_addr = base_address + relative_addr
             

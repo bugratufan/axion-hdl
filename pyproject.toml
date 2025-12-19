@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "axion-hdl"
-version = "0.8.0"
+version = "0.8.1"
 description = "Automated AXI4-Lite Register Interface Generator for VHDL modules"
 readme = "README.md"
 license = {text = "MIT"}
@@ -49,6 +49,7 @@ dev = [
     "pytest>=6.0",
     "pytest-cov>=2.0",
     "pytest-playwright>=0.4.0",
+    "pytest-xdist>=3.0",
     "playwright>=1.40.0",
     "black>=21.0",
     "flake8>=3.9",

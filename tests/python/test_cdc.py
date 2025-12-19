@@ -220,6 +220,46 @@ end architecture;
         # RW register should have output port
         self.assertTrue('control_rw' in content.lower())
 
+    # =========================================================================
+    # CDC-008: CDC Flag Equivalence
+    # =========================================================================
+    def test_cdc_008_equivalence(self):
+        """CDC-008: CDC_EN flag is equivalent to CDC_EN=true"""
+        vhdl_flag = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x0000 CDC_EN
+entity cdc_flag is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of cdc_flag is
+    signal reg : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x00
+begin
+end architecture;
+'''
+        vhdl_kv = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x0000 CDC_EN=true
+entity cdc_kv is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of cdc_kv is
+    signal reg : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x00
+begin
+end architecture;
+'''
+        content_flag = self._generate_and_read_vhdl(vhdl_flag, "cdc_flag")
+        content_kv = self._generate_and_read_vhdl(vhdl_kv, "cdc_kv")
+        
+        # Verify both generated content with module clock port (CDC enabled)
+        self.assertTrue('module_clk' in content_flag.lower())
+        self.assertTrue('module_clk' in content_kv.lower())
+        
+        # Verify content similarity (ignoring entity names)
+        # We can check specific CDC logic blocks
+        self.assertTrue('sync' in content_flag.lower())
+
 
 def run_cdc_tests():
     """Run all CDC tests and return results"""
