@@ -71,6 +71,17 @@ class AxionGUI:
                         for err in m['parsing_errors']:
                             self.checker._add_error("Parsing Error", m['name'], err.get('msg', 'Unknown parsing error'))
 
+                # Also inject global parse errors (e.g. invalid files)
+                if hasattr(self.axion, 'parse_errors') and self.axion.parse_errors:
+                    import os
+                    for err in self.axion.parse_errors:
+                        fname = os.path.basename(err.get('file', 'unknown_file'))
+                        self.checker._add_error(
+                            "Format Error", 
+                            fname, 
+                            err.get('msg', 'Unknown error')
+                        )
+
                 # Build module status map: {module_name: {errors: count, warnings: count}}
                 module_status = {}
                 for err in self.checker.errors:
