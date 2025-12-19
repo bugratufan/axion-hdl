@@ -24,11 +24,14 @@ import time
 import json
 import re
 import unittest
+import tempfile
+import shutil
+import atexit
 from datetime import datetime
 from typing import List, Dict, Any, Tuple
 from pathlib import Path
 
-# ANSI colors
+# Color codes
 GREEN = "\033[92m"
 RED = "\033[91m"
 YELLOW = "\033[93m"
@@ -42,6 +45,19 @@ RESULTS_DIR = PROJECT_ROOT / ".test_results"
 RESULTS_FILE = RESULTS_DIR / "results.json"
 MARKDOWN_FILE = PROJECT_ROOT / "TEST_RESULTS.md"
 REQUIREMENTS_FILE = PROJECT_ROOT / "instructions" / "requirements.md"
+
+# Create a global temporary directory for generated files
+# This ensures that tests do not pollute the source tree (e.g. tests/vhdl or output/)
+GEN_OUTPUT_DIR = Path(tempfile.mkdtemp(prefix="axion_test_gen_"))
+
+def cleanup_gen_files():
+    """Cleanup generated files directory"""
+    if GEN_OUTPUT_DIR.exists():
+        shutil.rmtree(GEN_OUTPUT_DIR, ignore_errors=True)
+
+atexit.register(cleanup_gen_files)
+
+print(f"Test generation directory: {GEN_OUTPUT_DIR}")
 
 # Add project root to python path to import axion_hdl
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -134,7 +150,7 @@ def run_python_unit_tests() -> List[TestResult]:
     name = "Analyze VHDL Files"
     start = time.time()
     try:
-        axion = AxionHDL(output_dir=str(PROJECT_ROOT / "output"))
+        axion = AxionHDL(output_dir=str(GEN_OUTPUT_DIR))
         axion.add_src(str(PROJECT_ROOT / "tests" / "vhdl"))
         axion.exclude("error_cases")
         success = axion.analyze()
@@ -153,13 +169,13 @@ def run_python_unit_tests() -> List[TestResult]:
     name = "Generate VHDL Modules"
     start = time.time()
     try:
-        axion = AxionHDL(output_dir=str(PROJECT_ROOT / "output"))
+        axion = AxionHDL(output_dir=str(GEN_OUTPUT_DIR))
         axion.add_src(str(PROJECT_ROOT / "tests" / "vhdl"))
         axion.exclude("error_cases")
         axion.analyze()
         axion.generate_vhdl()
         # Check output files exist
-        vhdl_files = list((PROJECT_ROOT / "output").glob("*_axion_reg.vhd"))
+        vhdl_files = list(GEN_OUTPUT_DIR.glob("*_axion_reg.vhd"))
         if len(vhdl_files) >= 2:
             results.append(TestResult(test_id, name, "passed", time.time() - start,
                                       f"Generated {len(vhdl_files)} VHDL files",
@@ -177,12 +193,12 @@ def run_python_unit_tests() -> List[TestResult]:
     name = "Generate C Headers"
     start = time.time()
     try:
-        axion = AxionHDL(output_dir=str(PROJECT_ROOT / "output"))
+        axion = AxionHDL(output_dir=str(GEN_OUTPUT_DIR))
         axion.add_src(str(PROJECT_ROOT / "tests" / "vhdl"))
         axion.exclude("error_cases")
         axion.analyze()
         axion.generate_c_header()
-        c_files = list((PROJECT_ROOT / "output").glob("*_regs.h"))
+        c_files = list(GEN_OUTPUT_DIR.glob("*_regs.h"))
         if len(c_files) >= 2:
             results.append(TestResult(test_id, name, "passed", time.time() - start,
                                       f"Generated {len(c_files)} C header files",
@@ -200,12 +216,12 @@ def run_python_unit_tests() -> List[TestResult]:
     name = "Generate XML Register Map"
     start = time.time()
     try:
-        axion = AxionHDL(output_dir=str(PROJECT_ROOT / "output"))
+        axion = AxionHDL(output_dir=str(GEN_OUTPUT_DIR))
         axion.add_src(str(PROJECT_ROOT / "tests" / "vhdl"))
         axion.exclude("error_cases")
         axion.analyze()
         axion.generate_xml()
-        xml_files = list((PROJECT_ROOT / "output").glob("*_regs.xml"))
+        xml_files = list(GEN_OUTPUT_DIR.glob("*_regs.xml"))
         if len(xml_files) >= 2:
             results.append(TestResult(test_id, name, "passed", time.time() - start,
                                       f"Generated {len(xml_files)} XML files",
@@ -223,12 +239,12 @@ def run_python_unit_tests() -> List[TestResult]:
     name = "Generate Markdown Documentation"
     start = time.time()
     try:
-        axion = AxionHDL(output_dir=str(PROJECT_ROOT / "output"))
+        axion = AxionHDL(output_dir=str(GEN_OUTPUT_DIR))
         axion.add_src(str(PROJECT_ROOT / "tests" / "vhdl"))
         axion.exclude("error_cases")
         axion.analyze()
         axion.generate_documentation(format="md")
-        doc_file = PROJECT_ROOT / "output" / "register_map.md"
+        doc_file = GEN_OUTPUT_DIR / "register_map.md"
         if doc_file.exists():
             results.append(TestResult(test_id, name, "passed", time.time() - start,
                                       "Generated register_map.md",
@@ -268,15 +284,24 @@ def run_address_conflict_tests() -> List[TestResult]:
             axion = AxionHDL()
             axion.add_src(temp_dir)
             axion.set_output_dir(Path(temp_dir) / "output")
+            axion.analyze()
             
-            try:
-                axion.analyze()
-                results.append(TestResult(test_id, name, "failed", time.time() - start,
-                                          "No AddressConflictError raised",
-                                          category="python", subcategory="conflict"))
-            except AddressConflictError as e:
+            # Check if parsing_errors contains address conflict
+            found_conflict = False
+            for module in axion.analyzed_modules:
+                errors = module.get('parsing_errors', [])
+                for err in errors:
+                    if 'Address Conflict' in err.get('msg', ''):
+                        found_conflict = True
+                        break
+            
+            if found_conflict:
                 results.append(TestResult(test_id, name, "passed", time.time() - start,
-                                          "AddressConflictError correctly raised",
+                                          "Address conflict correctly detected in parsing_errors",
+                                          category="python", subcategory="conflict"))
+            else:
+                results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                          "No address conflict detected in parsing_errors",
                                           category="python", subcategory="conflict"))
     except Exception as e:
         results.append(TestResult(test_id, name, "failed", time.time() - start,
@@ -353,15 +378,24 @@ end architecture;
             axion = AxionHDL()
             axion.add_src(temp_dir)
             axion.set_output_dir(Path(temp_dir) / "output")
+            axion.analyze()
             
-            try:
-                axion.analyze()
-                results.append(TestResult(test_id, name, "failed", time.time() - start,
-                                          "Wide signal overlap not detected",
-                                          category="python", subcategory="conflict"))
-            except AddressConflictError as e:
+            # Check for overlap error in parsing_errors
+            found_overlap = False
+            for module in axion.analyzed_modules:
+                errors = module.get('parsing_errors', [])
+                for err in errors:
+                    if 'Address Conflict' in err.get('msg', '') or 'overlap' in err.get('msg', '').lower():
+                        found_overlap = True
+                        break
+            
+            if found_overlap:
                 results.append(TestResult(test_id, name, "passed", time.time() - start,
                                           "Wide signal overlap correctly detected",
+                                          category="python", subcategory="conflict"))
+            else:
+                results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                          "Wide signal overlap not detected",
                                           category="python", subcategory="conflict"))
     except Exception as e:
         results.append(TestResult(test_id, name, "failed", time.time() - start,
@@ -404,6 +438,7 @@ def run_c_tests() -> List[TestResult]:
     
     success, duration, output = run_command([
         "gcc", "-Wall", "-Wextra", "-Werror", "-pedantic", "-std=c11",
+        "-I", str(GEN_OUTPUT_DIR),
         "-o", str(output_binary), str(test_file)
     ])
     
@@ -469,6 +504,39 @@ def run_vhdl_tests() -> List[TestResult]:
     
     ghdl_opts = ["--std=08", f"--workdir={work_dir}"]
     
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Generate needed VHDL files for analysis tests
+    # -------------------------------------------------------------------------
+    # Use global temp directory for generated files
+    gen_output_dir = GEN_OUTPUT_DIR
+    
+    try:
+        start_gen = time.time()
+        axion = AxionHDL(output_dir=str(gen_output_dir))
+        axion.add_src(str(PROJECT_ROOT / "tests" / "vhdl"))
+        axion.exclude("address_conflict_test.vhd", "test_parser_*.vhd", "error_cases", "*_tb.vhd")
+        
+        # We need to analyze and generate for standard controllers
+        axion.analyze()
+        axion.generate_vhdl()
+        
+        # Verify generation
+        expected_files = [
+            "sensor_controller_axion_reg.vhd",
+            "spi_controller_axion_reg.vhd",
+            "mixed_width_controller_axion_reg.vhd"
+        ]
+        
+        missing = [f for f in expected_files if not (gen_output_dir / f).exists()]
+        if missing:
+            print(f"Warning: Failed to generate {missing}")
+            
+    except Exception as e:
+        print(f"Error during VHDL generation setup: {e}")
+        
+    # -------------------------------------------------------------------------
+    
     # Test 2: Analyze sensor_controller.vhd
     test_id = "vhdl.analyze.sensor_controller"
     name = "Analyze sensor_controller.vhd"
@@ -477,13 +545,40 @@ def run_vhdl_tests() -> List[TestResult]:
     status = "passed" if success else "failed"
     results.append(TestResult(test_id, name, status, duration, output,
                               category="vhdl", subcategory="analyze"))
-    
+                              
+    # Test 11: Analyze generated sensor_controller_axion_reg.vhd
+    test_id = "vhdl.analyze.sensor_axion"
+    name = "Analyze sensor_controller_axion_reg.vhd"
+    # Look for generated file in temp directory
+    vhdl_file = gen_output_dir / "sensor_controller_axion_reg.vhd"
+    if vhdl_file.exists():
+        success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
+        status = "passed" if success else "failed"
+    else:
+        success, duration, output = False, 0, "Skipped because file not found in temp dir"
+        status = "failed"
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="analyze"))
+                              
     # Test 3: Analyze spi_controller.vhd
     test_id = "vhdl.analyze.spi_controller"
     name = "Analyze spi_controller.vhd"
     vhdl_file = PROJECT_ROOT / "tests" / "vhdl" / "spi_controller.vhd"
     success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
     status = "passed" if success else "failed"
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="analyze"))
+                              
+    # Test 12: Analyze generated spi_controller_axion_reg.vhd
+    test_id = "vhdl.analyze.spi_axion"
+    name = "Analyze spi_controller_axion_reg.vhd"
+    vhdl_file = gen_output_dir / "spi_controller_axion_reg.vhd"
+    if vhdl_file.exists():
+        success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
+        status = "passed" if success else "failed"
+    else:
+        success, duration, output = False, 0, "Skipped because file not found"
+        status = "failed"
     results.append(TestResult(test_id, name, status, duration, output,
                               category="vhdl", subcategory="analyze"))
     
@@ -495,14 +590,28 @@ def run_vhdl_tests() -> List[TestResult]:
     status = "passed" if success else "failed"
     results.append(TestResult(test_id, name, status, duration, output,
                               category="vhdl", subcategory="analyze"))
-    
+                              
+    # Test 13: Analyze generated mixed_width_controller_axion_reg.vhd
+    test_id = "vhdl.analyze.mixed_axion"
+    name = "Analyze mixed_width_controller_axion_reg.vhd"
+    vhdl_file = gen_output_dir / "mixed_width_controller_axion_reg.vhd"
+    if vhdl_file.exists():
+        success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
+        status = "passed" if success else "failed"
+    else:
+        success, duration, output = False, 0, "Skipped because file not found"
+        status = "failed"
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="analyze"))
+        
     # Test 5: Generate VHDL for subregister_test.vhd
     test_id = "vhdl.generate.subregister"
     name = "SUB-VHDL: Generate subregister_test_axion_reg.vhd"
     start = time.time()
     try:
         # Generate VHDL dynamically
-        axion = AxionHDL(output_dir=str(PROJECT_ROOT / "output"))
+        # Use global temp dir
+        axion = AxionHDL(output_dir=str(GEN_OUTPUT_DIR))
         axion.add_src(str(PROJECT_ROOT / "tests" / "vhdl"))
         axion.exclude("address_conflict_test.vhd", "test_parser_*.vhd", "error_cases")
         # Only analyze subregister_test.vhd for this test to be fast
@@ -514,7 +623,7 @@ def run_vhdl_tests() -> List[TestResult]:
         # To be safe and compliant with Axion flow, we'll just generate everything in that dir
         axion.generate_vhdl()
         
-        gen_file = PROJECT_ROOT / "output" / "subregister_test_axion_reg.vhd"
+        gen_file = GEN_OUTPUT_DIR / "subregister_test_axion_reg.vhd"
         if gen_file.exists():
             duration = time.time() - start
             results.append(TestResult(test_id, name, "passed", duration, f"Generated {gen_file}",
@@ -543,7 +652,7 @@ def run_vhdl_tests() -> List[TestResult]:
     # Test 7: Analyze generated subregister_test_axion_reg.vhd
     test_id = "vhdl.analyze.subregister_axion"
     name = "SUB-VHDL: Analyze generated subregister_test_axion_reg.vhd"
-    vhdl_file = PROJECT_ROOT / "output" / "subregister_test_axion_reg.vhd"
+    vhdl_file = GEN_OUTPUT_DIR / "subregister_test_axion_reg.vhd"
     if success_gen and vhdl_file.exists():
         success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
         status = "passed" if success else "failed"
@@ -593,7 +702,7 @@ def run_vhdl_tests() -> List[TestResult]:
     # Test 11: Analyze generated sensor_controller_axion_reg.vhd
     test_id = "vhdl.analyze.sensor_axion"
     name = "Analyze sensor_controller_axion_reg.vhd"
-    vhdl_file = PROJECT_ROOT / "output" / "sensor_controller_axion_reg.vhd"
+    vhdl_file = GEN_OUTPUT_DIR / "sensor_controller_axion_reg.vhd"
     if vhdl_file.exists():
         success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
         status = "passed" if success else "failed"
@@ -603,10 +712,10 @@ def run_vhdl_tests() -> List[TestResult]:
     results.append(TestResult(test_id, name, status, duration, output,
                               category="vhdl", subcategory="analyze"))
     
-    # Test 6: Analyze generated spi_controller_axion_reg.vhd
+    # Test 12: Analyze generated spi_controller_axion_reg.vhd
     test_id = "vhdl.analyze.spi_axion"
     name = "Analyze spi_controller_axion_reg.vhd"
-    vhdl_file = PROJECT_ROOT / "output" / "spi_controller_axion_reg.vhd"
+    vhdl_file = GEN_OUTPUT_DIR / "spi_controller_axion_reg.vhd"
     if vhdl_file.exists():
         success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
         status = "passed" if success else "failed"
@@ -616,10 +725,10 @@ def run_vhdl_tests() -> List[TestResult]:
     results.append(TestResult(test_id, name, status, duration, output,
                               category="vhdl", subcategory="analyze"))
     
-    # Test 7: Analyze generated mixed_width_controller_axion_reg.vhd
+    # Test 13: Analyze generated mixed_width_controller_axion_reg.vhd
     test_id = "vhdl.analyze.mixed_axion"
     name = "Analyze mixed_width_controller_axion_reg.vhd"
-    vhdl_file = PROJECT_ROOT / "output" / "mixed_width_controller_axion_reg.vhd"
+    vhdl_file = GEN_OUTPUT_DIR / "mixed_width_controller_axion_reg.vhd"
     if vhdl_file.exists():
         success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
         status = "passed" if success else "failed"
@@ -648,7 +757,7 @@ def run_vhdl_tests() -> List[TestResult]:
     # Reanalyze all generated files to prevent "file has changed" errors
     # This is needed because axion.generate_vhdl() may regenerate files mid-test
     for gen_file in ["sensor_controller_axion_reg.vhd", "spi_controller_axion_reg.vhd", "mixed_width_controller_axion_reg.vhd"]:
-        gen_path = PROJECT_ROOT / "output" / gen_file
+        gen_path = GEN_OUTPUT_DIR / gen_file
         if gen_path.exists():
             run_command(["ghdl", "-a"] + ghdl_opts + [str(gen_path)])
     # Also reanalyze the testbench
@@ -668,14 +777,15 @@ def run_vhdl_tests() -> List[TestResult]:
     name = "XML: Generate VHDL from tests/xml/subregister_test.xml"
     start = time.time()
     try:
-        axion = AxionHDL(output_dir=str(PROJECT_ROOT / "output"))
+        # Generate into temp dir
+        axion = AxionHDL(output_dir=str(GEN_OUTPUT_DIR))
         axion.add_xml_src(str(PROJECT_ROOT / "tests" / "xml"))
         axion.analyze()
         axion.analyze()
         axion.generate_vhdl()
         axion.generate_c_header()
         
-        gen_file = PROJECT_ROOT / "output" / "subregister_test_xml_axion_reg.vhd"
+        gen_file = GEN_OUTPUT_DIR / "subregister_test_xml_axion_reg.vhd"
         if gen_file.exists():
             duration = time.time() - start
             results.append(TestResult(test_id, name, "passed", duration, f"Generated {gen_file}",
@@ -695,7 +805,7 @@ def run_vhdl_tests() -> List[TestResult]:
     # Test XML-2: Analyze Generated VHDL
     test_id = "vhdl.xml.analyze_gen"
     name = "XML: Analyze generated subregister_test_xml_axion_reg.vhd"
-    vhdl_file = PROJECT_ROOT / "output" / "subregister_test_xml_axion_reg.vhd"
+    vhdl_file = GEN_OUTPUT_DIR / "subregister_test_xml_axion_reg.vhd"
     if success_xml_gen and vhdl_file.exists():
         success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
         status = "passed" if success else "failed"
@@ -1081,6 +1191,7 @@ def run_generator_tests() -> List[TestResult]:
     
     try:
         from tests.python.test_generator import TestGeneratorRequirements
+        from tests.python.test_overwrite import TestGenerationOverwrite
         import io
         import sys
         
@@ -1088,12 +1199,21 @@ def run_generator_tests() -> List[TestResult]:
         TestGeneratorRequirements.setUpClass()
         
         loader = unittest.TestLoader()
-        suite = loader.loadTestsFromTestCase(TestGeneratorRequirements)
+        suite_gen = loader.loadTestsFromTestCase(TestGeneratorRequirements)
+        suite_over = loader.loadTestsFromTestCase(TestGenerationOverwrite)
+        
+        # Combine suites
+        suite = unittest.TestSuite()
+        suite.addTests(suite_gen)
+        suite.addTests(suite_over)
         
         # Run each test
         for test in suite:
             test_name = str(test).split()[0]
-            req_id = test_name.replace('test_gen_', 'GEN-').replace('_', '-').upper()
+            if "overwrite" in test_name:
+                req_id = "AXION-027"
+            else:
+                req_id = test_name.replace('test_gen_', 'GEN-').replace('_', '-').upper()
             
             start = time.time()
             try:
