@@ -1,0 +1,4 @@
+<register_map module="manual_test" base_addr="0x1000">
+    <register name="regA" addr="0x00" width="32" access="RW"/>
+    <register name="regB" addr="0x10" width="32" access="RW"/>
+</register_map>

@@ -264,7 +264,8 @@ class XMLInputParser:
                 'write_strobe': w_strobe,
                 'description': description,
                 'default_value': default_val,
-                'default_value_hex': f"0x{default_val:X}"
+                'default_value_hex': f"0x{default_val:X}",
+                'manual_address': bool(addr_str)  # Mark as manual if explicitly defined
             }
             registers.append(register)
 
@@ -382,8 +383,10 @@ class XMLInputParser:
                 offset_elem = reg_elem.find('addressOffset')
             
             addr = 0
+            has_explicit_addr = False
             if offset_elem is not None and offset_elem.text:
                 addr = self._parse_address(offset_elem.text)
+                has_explicit_addr = True
             
             # Get access mode
             access_elem = reg_elem.find('spirit:access', ns)
@@ -437,7 +440,8 @@ class XMLInputParser:
                 'w_strobe': w_strobe,
                 'read_strobe': r_strobe,   # Alias for VHDLParser compatibility
                 'write_strobe': w_strobe,  # Alias for VHDLParser compatibility
-                'description': description or ''
+                'description': description or '',
+                'manual_address': has_explicit_addr
             }
             registers.append(register)
         
