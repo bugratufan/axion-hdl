@@ -357,8 +357,17 @@ class SourceModifier:
             new_base = properties.get('base_address')
             orig_base = module.get('base_address_raw', module.get('base_address', '0'))
             try:
-                orig_base_int = int(orig_base, 16) if isinstance(orig_base, str) and orig_base.startswith('0x') else int(orig_base)
-                new_base_int = int(new_base, 16) if isinstance(new_base, str) and new_base.startswith('0x') else int(new_base)
+                # Helper for flexible hex parsing
+                def parse_hex_safe(val):
+                    if isinstance(val, int): return val
+                    val = str(val).strip()
+                    if val.lower().startswith('0x'): return int(val, 16)
+                    try: return int(val, 16)
+                    except ValueError: return int(val)
+
+                orig_base_int = parse_hex_safe(orig_base)
+                new_base_int = parse_hex_safe(new_base)
+
                 if new_base_int != orig_base_int:
                     # Replace base_addr in YAML
                     content = re.sub(r'(base_addr:\s*)([^\n]+)', rf'\g<1>0x{new_base_int:04X}', content)
@@ -426,6 +435,17 @@ class SourceModifier:
                         insertion = f'{indent}{field_name}: {new_value}\n'
                         return content[:anchor_match.end()] + insertion + content[anchor_match.end():]
                 return content
+
+            # Check if address changed
+            new_addr = new_reg.get('address')
+            if new_addr:
+                 try: 
+                     val = int(str(new_addr), 16) if str(new_addr).startswith('0x') else int(str(new_addr))
+                     formatted = f"0x{val:X}"
+                     # Only update if manual address requested or it changed significantly?
+                     # For now, if passed in new_reg, assume we want it
+                     content = update_or_insert_yaml_field(content, reg_name, 'addr', formatted)
+                 except: pass
 
             # Check if description changed
             new_desc = new_reg.get('description')
@@ -495,18 +515,25 @@ class SourceModifier:
                 # Compare as normalized hex strings or integers
                 try:
                     orig_base = original_data.get('base_addr', 0)
-                    orig_base_int = int(orig_base, 16) if isinstance(orig_base, str) and orig_base.startswith('0x') else int(orig_base)
-                    new_base_int = int(new_base, 16) if isinstance(new_base, str) and new_base.startswith('0x') else int(new_base)
-                    if new_base_int != orig_base_int:
-                        # Preserve original format (hex string vs int)
-                        if isinstance(orig_base, str) and orig_base.startswith('0x'):
-                            original_data['base_addr'] = f"0x{new_base_int:04X}"
-                        elif isinstance(orig_base, str):
-                            original_data['base_addr'] = str(new_base_int)
-                        else:
-                            original_data['base_addr'] = new_base_int
                 except (ValueError, TypeError):
                     pass
+            
+            # Handle base address hex parsing (safe)
+            def parse_hex_safe(val):
+                if isinstance(val, int): return val
+                val = str(val).strip()
+                if val.lower().startswith('0x'): return int(val, 16)
+                try: return int(val, 16)
+                except ValueError: return int(val)
+
+            orig_base = original_data.get('base_addr', 0)
+            try:
+                orig_base_int = parse_hex_safe(orig_base)
+                new_base_int = parse_hex_safe(new_base) if new_base else orig_base_int
+                
+                if new_base and new_base_int != orig_base_int:
+                     original_data['base_addr'] = f"0x{new_base_int:04X}"
+            except: pass
             
             # Update CDC settings if they exist in original
             if 'cdc' in original_data or 'cdc_enabled' in original_data:
@@ -551,7 +578,19 @@ class SourceModifier:
                     if isinstance(file_reg['width'], int):
                         original_data['registers'][i]['width'] = new_width_int
                     else:
+
                         original_data['registers'][i]['width'] = str(new_width_int)
+                
+                # Update or ADD address
+                new_addr = new_reg.get('address')
+                if new_addr:
+                    try:
+                        val = int(str(new_addr), 16) if str(new_addr).startswith('0x') else int(str(new_addr))
+                        original_data['registers'][i]['addr'] = f"0x{val:X}"
+                        # Remove 'address' if mistakenly used
+                        if 'address' in original_data['registers'][i]:
+                            del original_data['registers'][i]['address']
+                    except: pass
                     
                 # Update or ADD description
                 new_desc = new_reg.get('description')
@@ -611,8 +650,21 @@ class SourceModifier:
             new_base = properties.get('base_address')
             orig_base = module.get('base_address_raw', module.get('base_address', '0'))
             try:
-                orig_base_int = int(orig_base, 16) if isinstance(orig_base, str) and orig_base.startswith('0x') else int(orig_base)
-                new_base_int = int(new_base, 16) if isinstance(new_base, str) and new_base.startswith('0x') else int(new_base)
+                # Handle base address hex parsing (even without 0x prefix if valid hex)
+                def parse_hex_safe(val):
+                    if isinstance(val, int): return val
+                    val = str(val).strip()
+                    if val.lower().startswith('0x'): return int(val, 16)
+                    # Try treating as hex first if it looks like it
+                    try:
+                        return int(val, 16)
+                    except ValueError:
+                        return int(val) # Fallback to decimal
+
+                orig_base = module.get('base_address_raw', module.get('base_address', '0'))
+                orig_base_int = parse_hex_safe(orig_base)
+                new_base_int = parse_hex_safe(new_base)
+                
                 if new_base_int != orig_base_int:
                     # Replace base_addr attribute in module tag
                     content = re.sub(r'(base_addr\s*=\s*["\'])([^"\']+)(["\'])', rf'\g<1>0x{new_base_int:04X}\3', content)
@@ -730,6 +782,25 @@ class SourceModifier:
                 elif re.search(r'w_strobe\s*=', tag): # False and exists -> remove
                     tag = re.sub(r'\s+w_strobe\s*=\s*["\'][^"\']*["\']', '', tag)
             
+            # Address update/add
+            new_addr = new_reg.get('address')
+            # normalize address
+            try:
+                if new_addr:
+                    new_addr_int = int(str(new_addr), 16) if str(new_addr).startswith('0x') else int(str(new_addr))
+                    # Check if address explicit attribute exists or if we need to add/update it
+                    # Only if it differs from auto-calc or is explicitly manual?
+                    # For XML, usually we want to persist it if it's there.
+                    
+                    if re.search(r'\b(addr|address)\s*=', tag):
+                        # Update existing
+                        tag = re.sub(r'\b(addr|address)\s*=\s*["\'][^"\']*["\']', f'addr="0x{new_addr_int:X}"', tag)
+                    elif new_reg.get('manual_address'):
+                        # Insert if manual
+                        tag = insert_attr(tag, 'addr', f"0x{new_addr_int:X}")
+            except:
+                pass
+
             return tag
         
         # Match <register ... /> or <register ...>...</register> tags
