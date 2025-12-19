@@ -65,7 +65,7 @@ docs = [
 
 [project.urls]
 Homepage = "https://github.com/bugratufan/axion-hdl"
-Documentation = "https://github.com/bugratufan/axion-hdl#readme"
+Documentation = "https://axion-hdl.readthedocs.io"
 Repository = "https://github.com/bugratufan/axion-hdl"
 "Bug Tracker" = "https://github.com/bugratufan/axion-hdl/issues"
 
