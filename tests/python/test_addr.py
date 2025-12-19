@@ -195,9 +195,18 @@ end architecture;
         
         axion = AxionHDL(output_dir=self.output_dir)
         axion.add_src(self.temp_dir)
+        axion.analyze()
         
-        with self.assertRaises(AddressConflictError):
-            axion.analyze()
+        # Check for address conflict in parsing_errors
+        found_conflict = False
+        for module in axion.analyzed_modules:
+            errors = module.get('parsing_errors', [])
+            for err in errors:
+                if 'Address Conflict' in err.get('msg', ''):
+                    found_conflict = True
+                    break
+        
+        self.assertTrue(found_conflict, "Address conflict should be detected in parsing_errors")
     
     # =========================================================================
     # ADDR-006: Wide Signal Address Space Allocation

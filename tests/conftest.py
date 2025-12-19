@@ -6,6 +6,7 @@ Uses Flask test client instead of subprocess for more reliable testing.
 import pytest
 import sys
 import os
+import subprocess
 from pathlib import Path
 import threading
 import time
@@ -13,6 +14,20 @@ import time
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+
+def reset_vhdl_files():
+    """Reset VHDL test files to their git state"""
+    vhdl_dir = PROJECT_ROOT / "tests" / "vhdl"
+    subprocess.run(["git", "checkout", str(vhdl_dir)], cwd=PROJECT_ROOT, capture_output=True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def reset_test_files():
+    """Reset test files before and after test session"""
+    reset_vhdl_files()
+    yield
+    reset_vhdl_files()
 
 
 class FlaskTestServer:
