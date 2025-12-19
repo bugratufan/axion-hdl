@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "axion-hdl"
-version = "v0.8.1"
+version = "0.8.2"
 description = "Automated AXI4-Lite Register Interface Generator for VHDL modules"
 readme = "README.md"
 license = {text = "MIT"}

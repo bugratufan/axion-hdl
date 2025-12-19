@@ -9,7 +9,7 @@
     <register name="temperature_reg" addr="0x04" access="RO" width="32" r_strobe="true" description="Temperature sensor reading"/>
     <register name="pressure_reg" addr="0x08" access="RO" width="32" r_strobe="true" description="Pressure sensor value"/>
     <register name="humidity_reg" addr="0x0C" access="RO" width="32" description="Humidity sensor value"/>
-    <register name="error_count_reg" addr="0x10" access="RO" width="32" description="Total error count"/>
+    <register name="error_count_reg" access="RO" width="32" description="Total error count"/>
     
     <!-- Write-Only Registers -->
     <register name="control_reg" addr="0x14" access="WO" width="32" w_strobe="true" description="Main control register"/>
