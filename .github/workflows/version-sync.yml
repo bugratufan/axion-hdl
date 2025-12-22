@@ -1,6 +1,8 @@
 # Version Sync Workflow
-# - On PRs to develop: auto-bump version and sync
-# - On PRs to main: strip -dev suffix from version and sync
+# - On PRs to develop: NO version bump (just sync)
+# - On PRs from develop to main: Analyze changes and bump accordingly
+#   - If any feature branch changes found -> minor bump
+#   - If only bugfix/fix/wip changes -> patch bump
 
 name: Version Sync
 
@@ -14,9 +16,48 @@ permissions:
   pull-requests: read
 
 jobs:
-  # Version sync for develop PRs (auto-bump with dev suffix)
+  # Version sync for develop PRs (NO version bump, just sync existing)
   version-sync-develop:
     if: github.base_ref == 'develop'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Sync version to all files (no bump)
+        run: |
+          echo "📝 Syncing version to all files (no auto-bump for develop PRs)"
+          python scripts/sync_version.py
+          python scripts/sync_version.py --check
+
+      - name: Commit version changes if needed
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          if git diff --quiet && git diff --staged --quiet; then
+            echo "No version changes to commit"
+          else
+            VERSION=$(cat .version)
+            git add .version pyproject.toml setup.py axion_hdl/__init__.py
+            git commit -m "chore: sync version to ${VERSION} [skip ci]"
+            git push
+            echo "✅ Version changes committed and pushed"
+          fi
+
+  # Version sync for main PRs (analyze changes and bump)
+  version-sync-main:
+    if: github.base_ref == 'main'
     runs-on: ubuntu-latest
     
     steps:
@@ -35,42 +76,98 @@ jobs:
       - name: Check if .version was modified
         id: version-check
         run: |
-          git fetch origin develop
-          CHANGED_FILES=$(git diff --name-only origin/develop...HEAD)
+          git fetch origin main
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
           
           if echo "$CHANGED_FILES" | grep -q "^\.version$"; then
             echo "version_changed=true" >> $GITHUB_OUTPUT
-            echo "📝 .version file was modified in this PR"
+            echo "📝 .version file was modified in this PR - skipping auto-bump"
           else
             echo "version_changed=false" >> $GITHUB_OUTPUT
-            echo "🔄 .version file was NOT modified - will auto-bump"
+            echo "🔄 .version file was NOT modified - will analyze changes for auto-bump"
           fi
 
-      - name: Determine bump type from branch name
-        id: bump-type
+      - name: Analyze merged branch origins
+        id: analyze-branches
         if: steps.version-check.outputs.version_changed == 'false'
         run: |
-          BRANCH="${{ github.head_ref }}"
-          echo "Branch name: $BRANCH"
+          echo "🔍 Analyzing changes between main and develop..."
           
-          if [[ "$BRANCH" == feature/* ]]; then
+          # Get all merge commits between main and current HEAD
+          # These represent the branches that were merged into develop
+          git fetch origin main develop
+          
+          # Get commit messages from develop that are not in main
+          # This helps identify the original branch types
+          COMMITS=$(git log origin/main..HEAD --oneline --merges 2>/dev/null || echo "")
+          
+          echo "Merge commits found:"
+          echo "$COMMITS"
+          
+          # Also check the current branch name (useful if merging directly)
+          CURRENT_BRANCH="${{ github.head_ref }}"
+          echo "Current branch: $CURRENT_BRANCH"
+          
+          # Look for feature branches in merge commit messages
+          # Pattern: "Merge pull request #XX from user/feature/..."
+          # Or: "Merge branch 'feature/...' into develop"
+          HAS_FEATURE=false
+          
+          # Check merge commit messages
+          if echo "$COMMITS" | grep -qiE "(feature/|feat/)"; then
+            HAS_FEATURE=true
+            echo "✅ Found feature branch merges"
+          fi
+          
+          # Also check if any non-merge commits reference feature branches
+          ALL_COMMIT_MSGS=$(git log origin/main..HEAD --oneline 2>/dev/null || echo "")
+          if echo "$ALL_COMMIT_MSGS" | grep -qiE "(feat:|feature:)"; then
+            HAS_FEATURE=true
+            echo "✅ Found feature commits"
+          fi
+          
+          # Check the PR branch name itself
+          if [[ "$CURRENT_BRANCH" == feature/* ]] || [[ "$CURRENT_BRANCH" == feat/* ]]; then
+            HAS_FEATURE=true
+            echo "✅ Current branch is a feature branch"
+          fi
+          
+          if [ "$HAS_FEATURE" = true ]; then
             echo "bump_type=minor" >> $GITHUB_OUTPUT
             echo "should_bump=true" >> $GITHUB_OUTPUT
-            echo "Feature branch detected - will bump MINOR version"
-          elif [[ "$BRANCH" == fix/* ]] || [[ "$BRANCH" == bugfix/* ]] || [[ "$BRANCH" == wip/* ]]; then
-            echo "bump_type=patch" >> $GITHUB_OUTPUT
-            echo "should_bump=true" >> $GITHUB_OUTPUT
-            echo "Fix/bugfix branch detected - will bump PATCH version"
+            echo "📦 Will bump MINOR version (feature changes detected)"
           else
-            echo "should_bump=false" >> $GITHUB_OUTPUT
-            echo "Non-feature/fix/wip branch - skipping version bump"
+            # Check if there are any commits at all (bugfix/wip/fix)
+            if [ -n "$ALL_COMMIT_MSGS" ]; then
+              echo "bump_type=patch" >> $GITHUB_OUTPUT
+              echo "should_bump=true" >> $GITHUB_OUTPUT
+              echo "🔧 Will bump PATCH version (bugfix/fix/wip changes only)"
+            else
+              echo "should_bump=false" >> $GITHUB_OUTPUT
+              echo "⏭️ No significant changes detected - skipping bump"
+            fi
           fi
 
       - name: Auto-bump version
-        if: steps.version-check.outputs.version_changed == 'false' && steps.bump-type.outputs.should_bump == 'true'
+        if: steps.version-check.outputs.version_changed == 'false' && steps.analyze-branches.outputs.should_bump == 'true'
         run: |
-          python scripts/sync_version.py --bump ${{ steps.bump-type.outputs.bump_type }}
+          BUMP_TYPE="${{ steps.analyze-branches.outputs.bump_type }}"
+          echo "🚀 Bumping $BUMP_TYPE version..."
+          python scripts/sync_version.py --bump $BUMP_TYPE
           echo "New version: $(cat .version)"
+
+      - name: Strip -dev suffix from version (if present)
+        run: |
+          CURRENT_VERSION=$(cat .version)
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Remove .devXXX suffix if present
+          CLEAN_VERSION=$(echo "$CURRENT_VERSION" | sed 's/\.dev[0-9]*$//')
+          echo "Clean version: $CLEAN_VERSION"
+          
+          # Write clean version
+          echo "$CLEAN_VERSION" > .version
+          echo "✅ Version updated to: $CLEAN_VERSION"
 
       - name: Sync version to all files
         run: |
@@ -87,72 +184,7 @@ jobs:
           else
             VERSION=$(cat .version)
             git add .version pyproject.toml setup.py axion_hdl/__init__.py
-            git commit -m "chore: sync version to ${VERSION} [skip ci]"
-            git push
-            echo "✅ Version changes committed and pushed"
-          fi
-
-  # Version sync for main PRs (strip -dev suffix)
-  version-sync-main:
-    if: github.base_ref == 'main'
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Strip -dev suffix from version
-        run: |
-          CURRENT_VERSION=$(cat .version)
-          echo "Current version: $CURRENT_VERSION"
-          
-          # Remove .devXXX suffix if present
-          CLEAN_VERSION=$(echo "$CURRENT_VERSION" | sed 's/\.dev[0-9]*$//')
-          echo "Clean version: $CLEAN_VERSION"
-          
-          # Write clean version
-          echo "$CLEAN_VERSION" > .version
-          echo "✅ Version updated to: $CLEAN_VERSION"
-
-      - name: Sync version to all files
-        run: |
-          VERSION=$(cat .version)
-          
-          # Update pyproject.toml
-          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
-          
-          # Update setup.py
-          sed -i "s/version=\"[^\"]*\"/version=\"$VERSION\"/" setup.py
-          
-          # Update __init__.py
-          sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" axion_hdl/__init__.py
-          
-          echo "✅ Version synced to all files: $VERSION"
-          
-          # Verify
-          echo "=== Verification ==="
-          grep "version" .version pyproject.toml setup.py axion_hdl/__init__.py | head -10
-
-      - name: Commit version changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          
-          if git diff --quiet && git diff --staged --quiet; then
-            echo "No version changes to commit"
-          else
-            VERSION=$(cat .version)
-            git add .version pyproject.toml setup.py axion_hdl/__init__.py
-            git commit -m "chore: prepare release ${VERSION} - remove dev suffix [skip ci]"
+            git commit -m "chore: prepare release ${VERSION} [skip ci]"
             git push
             echo "✅ Release version committed and pushed"
           fi
