@@ -22,6 +22,14 @@ def reset_vhdl_files():
     subprocess.run(["git", "checkout", str(vhdl_dir)], cwd=PROJECT_ROOT, capture_output=True)
 
 
+def reset_all_test_files():
+    """Reset all test source files (VHDL, XML, YAML, JSON) to their git state"""
+    for subdir in ["vhdl", "xml", "yaml", "json"]:
+        test_dir = PROJECT_ROOT / "tests" / subdir
+        if test_dir.exists():
+            subprocess.run(["git", "checkout", str(test_dir)], cwd=PROJECT_ROOT, capture_output=True)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def reset_test_files():
     """Reset test files before and after test session"""
@@ -49,6 +57,9 @@ class FlaskTestServer:
         # Create Axion instance and analyze
         axion = AxionHDL(output_dir=str(PROJECT_ROOT / "output"))
         axion.add_src(str(PROJECT_ROOT / "tests" / "vhdl"))
+        axion.add_source(str(PROJECT_ROOT / "tests" / "xml"))
+        axion.add_source(str(PROJECT_ROOT / "tests" / "yaml"))
+        axion.add_source(str(PROJECT_ROOT / "tests" / "json"))
         axion.exclude("error_cases")
         axion.analyze()
         

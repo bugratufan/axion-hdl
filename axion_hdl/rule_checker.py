@@ -408,10 +408,25 @@ class RuleChecker:
                     f"{undocumented_count} registers are missing descriptions."
                 )
 
+    def check_logical_integrity(self, modules: List[Dict]) -> None:
+        """VAL-003: Check logical integrity of modules (e.g., non-empty register lists)."""
+        for module in modules:
+            name = module.get('name', 'unknown')
+            registers = module.get('registers', [])
+            
+            # Check for empty register list
+            if len(registers) == 0:
+                self._add_warning(
+                    "Logical Integrity",
+                    name,
+                    "Module has no registers defined."
+                )
+
     def run_all_checks(self, modules: List[Dict]) -> Dict[str, List]:
         self.errors = []
         self.warnings = []
         
+        self.check_logical_integrity(modules)
         self.check_documentation(modules)
         self.check_address_overlaps(modules)
         self.check_default_values(modules)
