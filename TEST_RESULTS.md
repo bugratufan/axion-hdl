@@ -6,12 +6,12 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Tests** | 243 |
-| ✅ Passed | 242 |
+| **Total Tests** | 251 |
+| ✅ Passed | 250 |
 | ❌ Failed | 1 |
 | ⏭️ Skipped | 0 |
-| ⏱️ Total Time | 2.79s |
-| 🕐 Last Run | 2025-12-19 07:47:01 |
+| ⏱️ Total Time | 3.21s |
+| 🕐 Last Run | 2025-12-26 21:33:25 |
 
 ## 🐍 Python Tests
 
@@ -48,7 +48,7 @@
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
 | ✅ | `c.compile.gcc_check` | GCC Available | 0.001s |
-| ✅ | `c.compile.headers` | Compile C Header Test | 0.091s |
+| ✅ | `c.compile.headers` | Compile C Header Test | 0.136s |
 | ✅ | `c.compile.run` | Run C Header Test Binary | 0.001s |
 
 ## 🔧 VHDL Tests
@@ -59,8 +59,8 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.ghdl.check` | GHDL Available | 0.004s |
-| ✅ | `vhdl.run.subregister_tb` | SUB-VHDL: Run subregister_test_tb Simulation | 0.108s |
+| ✅ | `vhdl.ghdl.check` | GHDL Available | 0.005s |
+| ✅ | `vhdl.run.subregister_tb` | SUB-VHDL: Run subregister_test_tb Simulation | 0.109s |
 
 ### VHDL Analysis
 
@@ -68,19 +68,19 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.analyze.sensor_controller` | Analyze sensor_controller.vhd | 0.012s |
+| ✅ | `vhdl.analyze.sensor_controller` | Analyze sensor_controller.vhd | 0.011s |
 | ✅ | `vhdl.analyze.sensor_axion` | Analyze sensor_controller_axion_reg.vhd | 0.015s |
 | ✅ | `vhdl.analyze.spi_controller` | Analyze spi_controller.vhd | 0.011s |
 | ✅ | `vhdl.analyze.spi_axion` | Analyze spi_controller_axion_reg.vhd | 0.013s |
 | ✅ | `vhdl.analyze.mixed_width` | Analyze mixed_width_controller.vhd | 0.011s |
 | ✅ | `vhdl.analyze.mixed_axion` | Analyze mixed_width_controller_axion_reg.vhd | 0.016s |
-| ✅ | `vhdl.analyze.subregister_test` | SUB-VHDL: Analyze subregister_test.vhd | 0.012s |
+| ✅ | `vhdl.analyze.subregister_test` | SUB-VHDL: Analyze subregister_test.vhd | 0.011s |
 | ✅ | `vhdl.analyze.subregister_axion` | SUB-VHDL: Analyze generated subregister_test_axion_reg.vhd | 0.013s |
-| ✅ | `vhdl.analyze.subregister_tb` | SUB-VHDL: Analyze subregister_test_tb.vhd | 0.013s |
+| ✅ | `vhdl.analyze.subregister_tb` | SUB-VHDL: Analyze subregister_test_tb.vhd | 0.014s |
 | ✅ | `vhdl.analyze.sensor_axion` | Analyze sensor_controller_axion_reg.vhd | 0.015s |
-| ✅ | `vhdl.analyze.spi_axion` | Analyze spi_controller_axion_reg.vhd | 0.013s |
-| ✅ | `vhdl.analyze.mixed_axion` | Analyze mixed_width_controller_axion_reg.vhd | 0.016s |
-| ✅ | `vhdl.analyze.testbench` | Analyze multi_module_tb.vhd | 0.025s |
+| ✅ | `vhdl.analyze.spi_axion` | Analyze spi_controller_axion_reg.vhd | 0.014s |
+| ✅ | `vhdl.analyze.mixed_axion` | Analyze mixed_width_controller_axion_reg.vhd | 0.017s |
+| ✅ | `vhdl.analyze.testbench` | Analyze multi_module_tb.vhd | 0.026s |
 
 ### Generate
 
@@ -88,7 +88,7 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.generate.subregister` | SUB-VHDL: Generate subregister_test_axion_reg.vhd | 0.006s |
+| ✅ | `vhdl.generate.subregister` | SUB-VHDL: Generate subregister_test_axion_reg.vhd | 0.005s |
 
 ### Elaboration
 
@@ -96,7 +96,7 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.elaboration.subregister_tb` | SUB-VHDL: Elaborate subregister_test_tb | 0.105s |
+| ✅ | `vhdl.elaboration.subregister_tb` | SUB-VHDL: Elaborate subregister_test_tb | 0.106s |
 
 ### Elaboration
 
@@ -104,7 +104,7 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.elaborate.testbench` | Elaborate multi_module_tb | 0.199s |
+| ✅ | `vhdl.elaborate.testbench` | Elaborate multi_module_tb | 0.201s |
 
 ### Xml
 
@@ -112,11 +112,11 @@
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `vhdl.xml.generate` | XML: Generate VHDL from tests/xml/subregister_test.xml | 0.002s |
+| ✅ | `vhdl.xml.generate` | XML: Generate VHDL from tests/xml/subregister_test.xml | 0.003s |
 | ✅ | `vhdl.xml.analyze_gen` | XML: Analyze generated subregister_test_xml_axion_reg.vhd | 0.013s |
-| ✅ | `vhdl.xml.analyze_tb` | XML: Analyze subregister_xml_test_tb.vhd | 0.013s |
-| ✅ | `vhdl.xml.elaborate` | XML: Elaborate subregister_xml_test_tb | 0.104s |
-| ✅ | `vhdl.xml.run` | XML: Run subregister_xml_test_tb | 0.106s |
+| ✅ | `vhdl.xml.analyze_tb` | XML: Analyze subregister_xml_test_tb.vhd | 0.014s |
+| ✅ | `vhdl.xml.elaborate` | XML: Elaborate subregister_xml_test_tb | 0.105s |
+| ✅ | `vhdl.xml.run` | XML: Run subregister_xml_test_tb | 0.107s |
 
 ### Requirements Verification (AXION/AXI-LITE)
 
@@ -211,7 +211,7 @@
 
 ### GEN Requirements
 
-**38/38 passed**
+**44/44 passed**
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
@@ -233,7 +233,7 @@
 | ✅ | `gen.test_gen_007_state_machine_exists` | GEN-007-STATE-MACHINE-EXISTS: GEN-007: State machine logic present | 0.000s |
 | ✅ | `gen.test_gen_008_address_decoder` | GEN-008-ADDRESS-DECODER: GEN-008: Address decoder has case statement | 0.000s |
 | ✅ | `gen.test_gen_009_base_address_macro` | GEN-009-BASE-ADDRESS-MACRO: GEN-009: Base address macro defined | 0.000s |
-| ✅ | `gen.test_gen_009_c_header_compiles` | GEN-009-C-HEADER-COMPILES: GEN-009: C header compiles without warnings | 0.060s |
+| ✅ | `gen.test_gen_009_c_header_compiles` | GEN-009-C-HEADER-COMPILES: GEN-009: C header compiles without warnings | 0.055s |
 | ✅ | `gen.test_gen_009_c_header_exists` | GEN-009-C-HEADER-EXISTS: GEN-009: C header file generated | 0.000s |
 | ✅ | `gen.test_gen_009_include_guards` | GEN-009-INCLUDE-GUARDS: GEN-009: Header has include guards | 0.000s |
 | ✅ | `gen.test_gen_009_offset_macros` | GEN-009-OFFSET-MACROS: GEN-009: Register offset macros defined | 0.000s |
@@ -245,6 +245,10 @@
 | ✅ | `gen.test_gen_012_has_register_table` | GEN-012-HAS-REGISTER-TABLE: GEN-012: Document has register table | 0.000s |
 | ✅ | `gen.test_gen_012_markdown_exists` | GEN-012-MARKDOWN-EXISTS: GEN-012: Markdown file generated | 0.000s |
 | ✅ | `gen.test_gen_012_shows_address` | GEN-012-SHOWS-ADDRESS: GEN-012: Document shows addresses | 0.000s |
+| ✅ | `gen.test_gen_013_yaml_map_exists` | GEN-013-YAML-MAP-EXISTS: GEN-013: YAML register map file generated | 0.001s |
+| ✅ | `gen.test_gen_013_yaml_valid_syntax` | GEN-013-YAML-VALID-SYNTAX: GEN-013: YAML file has valid syntax and structure | 0.003s |
+| ✅ | `gen.test_gen_014_json_map_exists` | GEN-014-JSON-MAP-EXISTS: GEN-014: JSON register map file generated | 0.000s |
+| ✅ | `gen.test_gen_014_json_valid_syntax` | GEN-014-JSON-VALID-SYNTAX: GEN-014: JSON file has valid syntax and structure | 0.000s |
 | ✅ | `gen.test_gen_015_html_exists` | GEN-015-HTML-EXISTS: GEN-015: HTML file generated | 0.000s |
 | ✅ | `gen.test_gen_015_html_has_doctype` | GEN-015-HTML-HAS-DOCTYPE: GEN-015: HTML has proper DOCTYPE | 0.000s |
 | ✅ | `gen.test_gen_015_html_has_module_name` | GEN-015-HTML-HAS-MODULE-NAME: GEN-015: HTML has module name | 0.000s |
@@ -252,6 +256,8 @@
 | ✅ | `gen.test_gen_015_html_has_table` | GEN-015-HTML-HAS-TABLE: GEN-015: HTML has register table | 0.000s |
 | ✅ | `gen.test_gen_016_pdf_exists_or_skipped` | GEN-016-PDF-EXISTS-OR-SKIPPED: GEN-016: PDF file generated or skipped if weasyprint unavailable | 0.000s |
 | ✅ | `gen.test_gen_016_pdf_valid_if_exists` | GEN-016-PDF-VALID-IF-EXISTS: GEN-016: PDF has valid header if generated | 0.000s |
+| ✅ | `gen.test_gen_017_address_range_display` | GEN-017-ADDRESS-RANGE-DISPLAY: GEN-017: Address range displayed in documentation | 0.000s |
+| ✅ | `gen.test_gen_017_address_range_in_module` | GEN-017-ADDRESS-RANGE-IN-MODULE: GEN-017: Module has calculated address range | 0.000s |
 | ✅ | `gen.test_overwrite_existing_file` | AXION-027: Verify that generation overwrites an existing file with the same name. | 0.001s |
 
 ## 🚨 Error Handling Tests (ERR-xxx)
@@ -278,25 +284,27 @@ No module named 'pytest'
 
 ### CLI Requirements
 
-**16/16 passed**
+**18/18 passed**
 
 | Status | Test ID | Test Name | Duration |
 |:------:|:--------|:----------|:--------:|
-| ✅ | `cli.test_cli_001_help_option` | CLI-001-HELP-OPTION: CLI-001: --help displays usage information | 0.075s |
-| ✅ | `cli.test_cli_001_help_short_option` | CLI-001-HELP-SHORT-OPTION: CLI-001: -h displays usage information | 0.072s |
-| ✅ | `cli.test_cli_002_version_option` | CLI-002-VERSION-OPTION: CLI-002: --version displays version | 0.071s |
-| ✅ | `cli.test_cli_003_source_file_vhdl` | CLI-003-SOURCE-FILE-VHDL: CLI-003: -s accepts single VHDL file | 0.072s |
-| ✅ | `cli.test_cli_003_source_file_xml` | CLI-003-SOURCE-FILE-XML: CLI-003: -s accepts single XML file | 0.073s |
-| ✅ | `cli.test_cli_003_source_option_long` | CLI-003-SOURCE-OPTION-LONG: CLI-003: --source option specifies source directory | 0.078s |
+| ✅ | `cli.test_cli_001_help_option` | CLI-001-HELP-OPTION: CLI-001: --help displays usage information | 0.073s |
+| ✅ | `cli.test_cli_001_help_short_option` | CLI-001-HELP-SHORT-OPTION: CLI-001: -h displays usage information | 0.085s |
+| ✅ | `cli.test_cli_002_version_option` | CLI-002-VERSION-OPTION: CLI-002: --version displays version | 0.068s |
+| ✅ | `cli.test_cli_003_source_file_vhdl` | CLI-003-SOURCE-FILE-VHDL: CLI-003: -s accepts single VHDL file | 0.070s |
+| ✅ | `cli.test_cli_003_source_file_xml` | CLI-003-SOURCE-FILE-XML: CLI-003: -s accepts single XML file | 0.070s |
+| ✅ | `cli.test_cli_003_source_option_long` | CLI-003-SOURCE-OPTION-LONG: CLI-003: --source option specifies source directory | 0.080s |
 | ✅ | `cli.test_cli_003_source_option_short` | CLI-003-SOURCE-OPTION-SHORT: CLI-003: -s option specifies source directory | 0.090s |
 | ✅ | `cli.test_cli_004_mixed_files_and_dirs` | CLI-004-MIXED-FILES-AND-DIRS: CLI-004: -s accepts mix of files and directories | 0.071s |
-| ✅ | `cli.test_cli_004_multiple_sources` | CLI-004-MULTIPLE-SOURCES: CLI-004: Multiple -s options accepted | 0.107s |
-| ✅ | `cli.test_cli_005_output_option_long` | CLI-005-OUTPUT-OPTION-LONG: CLI-005: --output option specifies output directory | 0.129s |
-| ✅ | `cli.test_cli_005_output_option_short` | CLI-005-OUTPUT-OPTION-SHORT: CLI-005: -o option specifies output directory | 0.143s |
-| ✅ | `cli.test_cli_006_exclude_option` | CLI-006-EXCLUDE-OPTION: CLI-006: -e option excludes files/directories | 0.165s |
-| ✅ | `cli.test_cli_009_invalid_source_error` | CLI-009-INVALID-SOURCE-ERROR: CLI-009: Non-existent source reports error | 0.066s |
-| ✅ | `cli.test_cli_010_output_dir_creation` | CLI-010-OUTPUT-DIR-CREATION: CLI-010: Non-existent output directory is created | 0.186s |
-| ✅ | `cli.test_cli_013_config_file_support` | CLI-013-CONFIG-FILE-SUPPORT: CLI-013: --config loads settings from JSON file | 0.207s |
+| ✅ | `cli.test_cli_004_multiple_sources` | CLI-004-MULTIPLE-SOURCES: CLI-004: Multiple -s options accepted | 0.106s |
+| ✅ | `cli.test_cli_005_output_option_long` | CLI-005-OUTPUT-OPTION-LONG: CLI-005: --output option specifies output directory | 0.130s |
+| ✅ | `cli.test_cli_005_output_option_short` | CLI-005-OUTPUT-OPTION-SHORT: CLI-005: -o option specifies output directory | 0.154s |
+| ✅ | `cli.test_cli_006_exclude_option` | CLI-006-EXCLUDE-OPTION: CLI-006: -e option excludes files/directories | 0.173s |
+| ✅ | `cli.test_cli_009_invalid_source_error` | CLI-009-INVALID-SOURCE-ERROR: CLI-009: Non-existent source reports error | 0.068s |
+| ✅ | `cli.test_cli_010_output_dir_creation` | CLI-010-OUTPUT-DIR-CREATION: CLI-010: Non-existent output directory is created | 0.191s |
+| ✅ | `cli.test_cli_011_yaml_output_flag` | CLI-011-YAML-OUTPUT-FLAG: CLI-011: --yaml flag generates YAML register map | 0.162s |
+| ✅ | `cli.test_cli_012_json_output_flag` | CLI-012-JSON-OUTPUT-FLAG: CLI-012: --json flag generates JSON register map | 0.143s |
+| ✅ | `cli.test_cli_013_config_file_support` | CLI-013-CONFIG-FILE-SUPPORT: CLI-013: --config loads settings from JSON file | 0.234s |
 | ✅ | `cli.test_cli_015_auto_load_config` | CLI-015-AUTO-LOAD-CONFIG: CLI-015: Auto-load .axion_conf if no --config specified | 0.071s |
 
 ## 🔄 CDC Tests (CDC-xxx)
@@ -351,4 +359,4 @@ No module named 'pytest'
 | ✅ | `stress.test_stress_006_boundary_values` | STRESS-006-BOUNDARY-VALUES: STRESS-006: Generation handles all register types | 0.001s |
 
 ---
-*Generated by `make test` at 2025-12-19 07:47:01*
+*Generated by `make test` at 2025-12-26 21:33:25*
