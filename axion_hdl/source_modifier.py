@@ -357,13 +357,45 @@ class SourceModifier:
             new_base = properties.get('base_address')
             orig_base = module.get('base_address_raw', module.get('base_address', '0'))
             try:
-                orig_base_int = int(orig_base, 16) if isinstance(orig_base, str) and orig_base.startswith('0x') else int(orig_base)
-                new_base_int = int(new_base, 16) if isinstance(new_base, str) and new_base.startswith('0x') else int(new_base)
+                # Helper for flexible hex parsing
+                def parse_hex_safe(val):
+                    if isinstance(val, int): return val
+                    val = str(val).strip()
+                    if val.lower().startswith('0x'): return int(val, 16)
+                    try: return int(val, 16)
+                    except ValueError: return int(val)
+
+                orig_base_int = parse_hex_safe(orig_base)
+                new_base_int = parse_hex_safe(new_base)
+
                 if new_base_int != orig_base_int:
                     # Replace base_addr in YAML
                     content = re.sub(r'(base_addr:\s*)([^\n]+)', rf'\g<1>0x{new_base_int:04X}', content)
             except (ValueError, TypeError):
                 pass
+        
+        # Update CDC config if changed
+        if properties:
+            cdc_enabled = properties.get('cdc_enabled')
+            cdc_stages = properties.get('cdc_stages')
+            
+            # Update cdc_en in config section
+            if cdc_enabled is not None:
+                cdc_val = 'true' if cdc_enabled else 'false'
+                if re.search(r'cdc_en\s*:', content):
+                    content = re.sub(r'(cdc_en\s*:\s*)(\S+)', rf'\g<1>{cdc_val}', content)
+                else:
+                    # Try to add cdc_en after config: line
+                    content = re.sub(r'(config:\s*\n)', rf'\1  cdc_en: {cdc_val}\n', content)
+            
+            # Update cdc_stage in config section
+            if cdc_stages is not None:
+                stage_val = str(int(cdc_stages))
+                if re.search(r'cdc_stage\s*:', content):
+                    content = re.sub(r'(cdc_stage\s*:\s*)(\d+)', rf'\g<1>{stage_val}', content)
+                else:
+                    # Try to add cdc_stage after config: line
+                    content = re.sub(r'(config:\s*\n)', rf'\1  cdc_stage: {stage_val}\n', content)
         
         # Build new register name set for deletion detection
         new_reg_names = {r.get('name') for r in new_registers}
@@ -426,6 +458,17 @@ class SourceModifier:
                         insertion = f'{indent}{field_name}: {new_value}\n'
                         return content[:anchor_match.end()] + insertion + content[anchor_match.end():]
                 return content
+
+            # Check if address changed
+            new_addr = new_reg.get('address')
+            if new_addr:
+                 try: 
+                     val = int(str(new_addr), 16) if str(new_addr).startswith('0x') else int(str(new_addr))
+                     formatted = f"0x{val:X}"
+                     # Only update if manual address requested or it changed significantly?
+                     # For now, if passed in new_reg, assume we want it
+                     content = update_or_insert_yaml_field(content, reg_name, 'addr', formatted)
+                 except: pass
 
             # Check if description changed
             new_desc = new_reg.get('description')
@@ -495,26 +538,50 @@ class SourceModifier:
                 # Compare as normalized hex strings or integers
                 try:
                     orig_base = original_data.get('base_addr', 0)
-                    orig_base_int = int(orig_base, 16) if isinstance(orig_base, str) and orig_base.startswith('0x') else int(orig_base)
-                    new_base_int = int(new_base, 16) if isinstance(new_base, str) and new_base.startswith('0x') else int(new_base)
-                    if new_base_int != orig_base_int:
-                        # Preserve original format (hex string vs int)
-                        if isinstance(orig_base, str) and orig_base.startswith('0x'):
-                            original_data['base_addr'] = f"0x{new_base_int:04X}"
-                        elif isinstance(orig_base, str):
-                            original_data['base_addr'] = str(new_base_int)
-                        else:
-                            original_data['base_addr'] = new_base_int
                 except (ValueError, TypeError):
                     pass
             
-            # Update CDC settings if they exist in original
-            if 'cdc' in original_data or 'cdc_enabled' in original_data:
-                if properties.get('cdc_enabled') is not None:
-                    cdc_key = 'cdc' if 'cdc' in original_data else 'cdc_enabled'
-                    original_data[cdc_key] = properties.get('cdc_enabled')
-                if 'cdc_stages' in original_data and properties.get('cdc_stages'):
-                    original_data['cdc_stages'] = int(properties.get('cdc_stages', 2))
+            # Handle base address hex parsing (safe)
+            def parse_hex_safe(val):
+                if isinstance(val, int): return val
+                val = str(val).strip()
+                if val.lower().startswith('0x'): return int(val, 16)
+                try: return int(val, 16)
+                except ValueError: return int(val)
+
+            orig_base = original_data.get('base_addr', 0)
+            try:
+                orig_base_int = parse_hex_safe(orig_base)
+                new_base_int = parse_hex_safe(new_base) if new_base else orig_base_int
+                
+                if new_base and new_base_int != orig_base_int:
+                     original_data['base_addr'] = f"0x{new_base_int:04X}"
+            except: pass
+            
+            # Update CDC settings - handle both top-level and nested config structure
+            cdc_enabled = properties.get('cdc_enabled')
+            cdc_stages = properties.get('cdc_stages')
+            
+            if cdc_enabled is not None:
+                # Check nested config structure first (matches sensor_controller.json)
+                if 'config' in original_data:
+                    original_data['config']['cdc_en'] = cdc_enabled
+                elif 'cdc' in original_data:
+                    original_data['cdc'] = cdc_enabled
+                elif 'cdc_enabled' in original_data:
+                    original_data['cdc_enabled'] = cdc_enabled
+                elif 'cdc_en' in original_data:
+                    original_data['cdc_en'] = cdc_enabled
+            
+            if cdc_stages is not None:
+                stage_val = int(cdc_stages)
+                # Check nested config structure first
+                if 'config' in original_data:
+                    original_data['config']['cdc_stage'] = stage_val
+                elif 'cdc_stages' in original_data:
+                    original_data['cdc_stages'] = stage_val
+                elif 'cdc_stage' in original_data:
+                    original_data['cdc_stage'] = stage_val
         
         # Update registers in place - only if actually changed
         if 'registers' in original_data:
@@ -551,7 +618,19 @@ class SourceModifier:
                     if isinstance(file_reg['width'], int):
                         original_data['registers'][i]['width'] = new_width_int
                     else:
+
                         original_data['registers'][i]['width'] = str(new_width_int)
+                
+                # Update or ADD address
+                new_addr = new_reg.get('address')
+                if new_addr:
+                    try:
+                        val = int(str(new_addr), 16) if str(new_addr).startswith('0x') else int(str(new_addr))
+                        original_data['registers'][i]['addr'] = f"0x{val:X}"
+                        # Remove 'address' if mistakenly used
+                        if 'address' in original_data['registers'][i]:
+                            del original_data['registers'][i]['address']
+                    except: pass
                     
                 # Update or ADD description
                 new_desc = new_reg.get('description')
@@ -611,13 +690,59 @@ class SourceModifier:
             new_base = properties.get('base_address')
             orig_base = module.get('base_address_raw', module.get('base_address', '0'))
             try:
-                orig_base_int = int(orig_base, 16) if isinstance(orig_base, str) and orig_base.startswith('0x') else int(orig_base)
-                new_base_int = int(new_base, 16) if isinstance(new_base, str) and new_base.startswith('0x') else int(new_base)
+                # Handle base address hex parsing (even without 0x prefix if valid hex)
+                def parse_hex_safe(val):
+                    if isinstance(val, int): return val
+                    val = str(val).strip()
+                    if val.lower().startswith('0x'): return int(val, 16)
+                    # Try treating as hex first if it looks like it
+                    try:
+                        return int(val, 16)
+                    except ValueError:
+                        return int(val) # Fallback to decimal
+
+                orig_base = module.get('base_address_raw', module.get('base_address', '0'))
+                orig_base_int = parse_hex_safe(orig_base)
+                new_base_int = parse_hex_safe(new_base)
+                
                 if new_base_int != orig_base_int:
                     # Replace base_addr attribute in module tag
                     content = re.sub(r'(base_addr\s*=\s*["\'])([^"\']+)(["\'])', rf'\g<1>0x{new_base_int:04X}\3', content)
             except (ValueError, TypeError):
                 pass
+        
+        # Update CDC config if changed
+        if properties:
+            cdc_enabled = properties.get('cdc_enabled')
+            cdc_stages = properties.get('cdc_stages')
+            
+            # Check if <config> tag exists
+            has_config_tag = re.search(r'<config\b', content) is not None
+            
+            # Update cdc_en in <config> tag
+            if cdc_enabled is not None:
+                cdc_val = 'true' if cdc_enabled else 'false'
+                if re.search(r'<config[^>]*cdc_en\s*=', content):
+                    content = re.sub(r'(cdc_en\s*=\s*["\'])([^"\']+)(["\'])', rf'\g<1>{cdc_val}\3', content)
+                elif has_config_tag:
+                    # Add cdc_en to existing config tag
+                    content = re.sub(r'(<config\s+)', rf'\1cdc_en="{cdc_val}" ', content)
+                else:
+                    # Create new config tag after register_map opening tag
+                    stage_attr = f' cdc_stage="{cdc_stages}"' if cdc_stages else ''
+                    config_tag = f'\n    <config cdc_en="{cdc_val}"{stage_attr}/>'
+                    content = re.sub(r'(<register_map[^>]*>)', rf'\1{config_tag}', content)
+                    has_config_tag = True  # Mark as added
+            
+            # Update cdc_stage in <config> tag
+            if cdc_stages is not None:
+                stage_val = str(int(cdc_stages))
+                if re.search(r'<config[^>]*cdc_stage\s*=', content):
+                    content = re.sub(r'(cdc_stage\s*=\s*["\'])(\d+)(["\'])', rf'\g<1>{stage_val}\3', content)
+                elif has_config_tag:
+                    # Add cdc_stage to existing config tag (might have been added above)
+                    content = re.sub(r'(<config\s+[^>]*?)(\s*/>)', rf'\1 cdc_stage="{stage_val}"\2', content)
+
         
         # Remove registers that are no longer in the new list
         new_reg_names = {r.get('name') for r in new_registers}
@@ -730,6 +855,25 @@ class SourceModifier:
                 elif re.search(r'w_strobe\s*=', tag): # False and exists -> remove
                     tag = re.sub(r'\s+w_strobe\s*=\s*["\'][^"\']*["\']', '', tag)
             
+            # Address update/add
+            new_addr = new_reg.get('address')
+            # normalize address
+            try:
+                if new_addr:
+                    new_addr_int = int(str(new_addr), 16) if str(new_addr).startswith('0x') else int(str(new_addr))
+                    # Check if address explicit attribute exists or if we need to add/update it
+                    # Only if it differs from auto-calc or is explicitly manual?
+                    # For XML, usually we want to persist it if it's there.
+                    
+                    if re.search(r'\b(addr|address)\s*=', tag):
+                        # Update existing
+                        tag = re.sub(r'\b(addr|address)\s*=\s*["\'][^"\']*["\']', f'addr="0x{new_addr_int:X}"', tag)
+                    elif new_reg.get('manual_address'):
+                        # Insert if manual
+                        tag = insert_attr(tag, 'addr', f"0x{new_addr_int:X}")
+            except:
+                pass
+
             return tag
         
         # Match <register ... /> or <register ...>...</register> tags
@@ -802,6 +946,7 @@ class SourceModifier:
         
         cdc_en = properties.get('cdc_enabled')
         cdc_stages = properties.get('cdc_stages')
+        base_address = properties.get('base_address')
         
         if match:
             # Update existing
@@ -834,26 +979,56 @@ class SourceModifier:
                      attrs_str = re.sub(r'\bCDC_STAGE=\d+', f'CDC_STAGE={cdc_stages}', attrs_str)
                 elif cdc_en is True:
                      attrs_str += f" CDC_STAGE={cdc_stages}"
+            
+            # 3. Base Address
+            if base_address:
+                # Normalize base address to hex format
+                try:
+                    if isinstance(base_address, str):
+                        base_int = int(base_address.replace('0x', '').replace('0X', ''), 16)
+                    else:
+                        base_int = int(base_address)
+                    base_hex = f"0x{base_int:04X}"
+                    
+                    if re.search(r'\bBASE_ADDR=0x[0-9A-Fa-f]+', attrs_str):
+                        attrs_str = re.sub(r'\bBASE_ADDR=0x[0-9A-Fa-f]+', f'BASE_ADDR={base_hex}', attrs_str)
+                    else:
+                        attrs_str += f" BASE_ADDR={base_hex}"
+                except (ValueError, TypeError):
+                    pass
                      
             updated_line = f"{prefix}{attrs_str.strip()}"
             return re.sub(def_pattern, updated_line, content, count=1)
             
         else:
-            # Inject new if CDC enabled
-            if cdc_en:
-                new_attrs = ["CDC_EN=true"]
-                if cdc_stages:
-                    new_attrs.append(f"CDC_STAGE={cdc_stages}")
-                    
-                new_line = f"-- @axion_def {' '.join(new_attrs)}"
+            # Inject new if CDC enabled OR base_address is being set
+            if cdc_en or base_address:
+                new_attrs = []
+                if cdc_en:
+                    new_attrs.append("CDC_EN=true")
+                    if cdc_stages:
+                        new_attrs.append(f"CDC_STAGE={cdc_stages}")
                 
-                # Insert before entity
-                entity_match = re.search(r'entity\s+(\w+)\s+is', content, re.IGNORECASE)
-                if entity_match:
-                    start = entity_match.start()
-                    return content[:start] + new_line + "\n" + content[start:]
-                else:
-                    # Fallback: Top of file
-                    return new_line + "\n" + content
+                if base_address:
+                    try:
+                        if isinstance(base_address, str):
+                            base_int = int(base_address.replace('0x', '').replace('0X', ''), 16)
+                        else:
+                            base_int = int(base_address)
+                        new_attrs.append(f"BASE_ADDR=0x{base_int:04X}")
+                    except (ValueError, TypeError):
+                        pass
+                
+                if new_attrs:
+                    new_line = f"-- @axion_def {' '.join(new_attrs)}"
+                    
+                    # Insert before entity
+                    entity_match = re.search(r'entity\s+(\w+)\s+is', content, re.IGNORECASE)
+                    if entity_match:
+                        start = entity_match.start()
+                        return content[:start] + new_line + "\n" + content[start:]
+                    else:
+                        # Fallback: Top of file
+                        return new_line + "\n" + content
                     
         return content
