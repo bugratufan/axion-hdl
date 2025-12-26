@@ -239,7 +239,6 @@
                     </tr>
                 </thead>
                 <tbody id="regsBody" class="border-top-0">
-                    {% set addr_offset = namespace(value=0) %}
                     {% for reg in module.registers %}
                     {% set width = 32 %}
                     {% if reg.width %}
@@ -255,7 +254,7 @@
                             <!-- Address Input: Use input for manual editing -->
                             <input type="text"
                                 class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
-                                value="0x{{ '%02X' % (addr_offset.value | int) }}" style="width: 70px;"
+                                value="0x{{ '%02X' % reg.relative_address_int }}" style="width: 70px;"
                                 data-locked="{{ 'true' if reg.manual_address else 'false' }}"
                                 title="{{ 'Manual Address' if reg.manual_address else 'Auto-calculated' }}"
                                 onchange="onAddressChange(this)">
@@ -321,7 +320,6 @@
                             </button>
                         </td>
                     </tr>
-                    {% set addr_offset.value = addr_offset.value + ((width + 31) // 32) * 4 %}
                     {% endfor %}
                 </tbody>
             </table>

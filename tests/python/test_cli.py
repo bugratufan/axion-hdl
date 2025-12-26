@@ -287,6 +287,42 @@ begin end architecture;
         self.assertTrue(os.path.exists(output_dir))
 
     # =========================================================================
+    # CLI-011: YAML Output Flag
+    # =========================================================================
+    def test_cli_011_yaml_output_flag(self):
+        """CLI-011: --yaml flag generates YAML register map"""
+        output_dir = os.path.join(self.temp_dir, "output_yaml_flag")
+        result = self._run_cli([
+            '-s', self.temp_dir,
+            '-o', output_dir,
+            '--yaml'
+        ])
+        self.assertEqual(result.returncode, 0, f"CLI failed: {result.stderr}")
+        
+        # Check YAML file was generated
+        yaml_files = list(Path(output_dir).glob('*_regs.yaml'))
+        self.assertGreater(len(yaml_files), 0, 
+            "YAML register map should be generated with --yaml flag")
+
+    # =========================================================================
+    # CLI-012: JSON Output Flag
+    # =========================================================================
+    def test_cli_012_json_output_flag(self):
+        """CLI-012: --json flag generates JSON register map"""
+        output_dir = os.path.join(self.temp_dir, "output_json_flag")
+        result = self._run_cli([
+            '-s', self.temp_dir,
+            '-o', output_dir,
+            '--json'
+        ])
+        self.assertEqual(result.returncode, 0, f"CLI failed: {result.stderr}")
+        
+        # Check JSON file was generated
+        json_files = list(Path(output_dir).glob('*_regs.json'))
+        self.assertGreater(len(json_files), 0, 
+            "JSON register map should be generated with --json flag")
+
+    # =========================================================================
     # CLI-013: Configuration File Support
     # =========================================================================
     def test_cli_013_config_file_support(self):
