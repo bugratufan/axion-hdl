@@ -5,6 +5,8 @@ include requirements.txt
 recursive-include axion_hdl *.py *.md
 recursive-include instructions *.md
 recursive-include tests *.py *.vhd *.c *.sh
+recursive-include axion_hdl/templates *
+recursive-include axion_hdl/static *
 exclude *.pyc
 exclude __pycache__
 prune .git
