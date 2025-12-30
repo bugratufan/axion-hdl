@@ -888,7 +888,6 @@ class SourceModifier:
 
     def _are_registers_identical(self, old_reg: Dict, new_reg: Dict) -> bool:
         """Compare register properties to check if any change occurred."""
-        # 1. Access Mode
         # 1. Access Mode (normalize key names: parser uses access_mode, source uses access)
         old_access = old_reg.get('access') or old_reg.get('access_mode')
         new_access = new_reg.get('access') or new_reg.get('access_mode')
@@ -917,9 +916,9 @@ class SourceModifier:
         new_r = bool(new_reg.get('r_strobe'))
         if old_r != new_r: return False
         
-        old_w = bool(old_reg.get('write_strobe') or old_reg.get('w_strobe'))
-        new_w = bool(new_reg.get('w_strobe'))
-        if old_w != new_w: return False
+        old_ws = bool(old_reg.get('write_strobe') or old_reg.get('w_strobe'))
+        new_ws = bool(new_reg.get('w_strobe'))
+        if old_ws != new_ws: return False
         
         # 5. Default Value (Smart Compare)
         def parse_val(v):
@@ -930,9 +929,28 @@ class SourceModifier:
                     return int(v)
                 return 0
             except: return 0
+        
+        def parse_hex(v):
+            """Parse hex address value."""
+            try:
+                if v is None: return None
+                if isinstance(v, int): return v
+                if isinstance(v, str):
+                    v = v.strip().upper()
+                    if v.startswith('0X'): return int(v, 16)
+                    return int(v, 16) if v else None
+                return None
+            except: return None
             
         if parse_val(old_reg.get('default_value')) != parse_val(new_reg.get('default_value')):
             return False
+        
+        # 6. Address (compare if manual_address is set in new_reg)
+        if new_reg.get('manual_address'):
+            old_addr = parse_hex(old_reg.get('address') or old_reg.get('relative_address'))
+            new_addr = parse_hex(new_reg.get('address'))
+            if old_addr != new_addr:
+                return False
             
         return True
 
