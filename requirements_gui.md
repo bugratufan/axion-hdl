@@ -70,6 +70,13 @@ Testing is automated via Playwright browser tests mapped back to these requireme
 | GUI-EDIT-017 | Empty State | Shows empty state message when no registers. | Playwright (`gui.test_edit_017`) |
 | GUI-EDIT-018 | Validation Feedback | Invalid inputs show visual error indication. | Playwright (`gui.test_edit_018`) |
 | GUI-EDIT-019 | Duplicate Register | Duplicate button creates copy of register row. | Playwright (`gui.test_edit_019`) |
+| GUI-EDIT-020 | Address Input Editable | Address input field is editable for manual address assignment. | Playwright (`gui.test_edit_020`) |
+| GUI-EDIT-021 | Address Conflict Resolution | When address conflicts occur, non-manual addresses auto-shift to resolve conflicts. | Playwright (`gui.test_edit_021`) |
+| GUI-EDIT-022 | Manual Address Preservation | Manually assigned addresses are preserved unless they conflict with a newly edited address. | Playwright (`gui.test_edit_022`) |
+| GUI-EDIT-023 | Address Change Visual Indicator | When address differs from original, show old address with strikethrough and new address. | Playwright (`gui.test_edit_023`) |
+| GUI-EDIT-024 | Address Revert on Clear | If user clears a manual address or removes conflict, original address is restored. | Playwright (`gui.test_edit_024`) |
+| GUI-EDIT-025 | Real-time Address Update | Address changes appear immediately without page reload. | Playwright (`gui.test_edit_025`) |
+| GUI-EDIT-026 | Address Conflict Warning | Visual warning indicator shown when address conflict is detected. | Playwright (`gui.test_edit_026`) |
 
 ---
 

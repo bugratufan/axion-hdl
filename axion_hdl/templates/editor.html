@@ -69,6 +69,51 @@
         color: #475569;
     }
 
+    /* Address change visual indicators */
+    .addr-cell {
+        position: relative;
+    }
+
+    .addr-original {
+        font-size: 0.65rem;
+        color: #94a3b8;
+        text-decoration: line-through;
+        margin-right: 4px;
+    }
+
+    .addr-changed {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .addr-conflict {
+        border: 2px solid #ef4444 !important;
+        background-color: #fef2f2 !important;
+    }
+
+    .addr-conflict-warning {
+        color: #ef4444;
+        font-size: 0.8rem;
+        margin-left: 4px;
+    }
+
+    .addr-revert-btn {
+        cursor: pointer;
+        color: #64748b;
+        font-size: 0.7rem;
+        padding: 2px 4px;
+        border-radius: 3px;
+        background: #e2e8f0;
+        border: none;
+        transition: all 0.15s;
+    }
+
+    .addr-revert-btn:hover {
+        background: #cbd5e1;
+        color: #1e293b;
+    }
+
     .strobe-group {
         display: flex;
         gap: 4px;
@@ -250,14 +295,24 @@
                     {% set width = 1 %}
                     {% endif %}
                     <tr class="reg-row border-bottom-0" data-index="{{ loop.index0 }}">
-                        <td class="ps-4">
+                        <td class="ps-4 addr-cell">
                             <!-- Address Input: Use input for manual editing -->
-                            <input type="text"
-                                class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
-                                value="0x{{ '%02X' % reg.relative_address_int }}" style="width: 70px;"
-                                data-locked="{{ 'true' if reg.manual_address else 'false' }}"
-                                title="{{ 'Manual Address' if reg.manual_address else 'Auto-calculated' }}"
-                                onchange="onAddressChange(this)">
+                            <div class="addr-changed">
+                                <span class="addr-original" style="display: none;"></span>
+                                <input type="text"
+                                    class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
+                                    value="0x{{ '%02X' % reg.relative_address_int }}" style="width: 70px;"
+                                    data-locked="{{ 'true' if reg.manual_address else 'false' }}"
+                                    data-original="0x{{ '%02X' % reg.relative_address_int }}"
+                                    title="{{ 'Manual Address' if reg.manual_address else 'Auto-calculated' }}"
+                                    onchange="onAddressChange(this)" onblur="onAddressBlur(this)">
+                                <button class="addr-revert-btn" style="display: none;" onclick="revertAddress(this)"
+                                    data-action="revert-address" title="Revert to original">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                                <span class="addr-conflict-warning" style="display: none;"><i
+                                        class="bi bi-exclamation-triangle"></i></span>
+                            </div>
                         </td>
                         <td>
                             <input type="text" value="{{ reg.reg_name or reg.signal_name }}"
@@ -448,9 +503,104 @@
         input.classList.add('fw-bold', 'text-dark');
         validateHex(input);
 
-        // Trigger ripple effect for subsequent registers
+        // Show visual change indicator
+        updateAddressVisualIndicator(input);
+
+        // Trigger conflict resolution for subsequent registers
         recalculateAddresses();
+
+        // Check for conflicts
+        detectAddressConflicts();
+
         markAsChanged();
+    }
+
+    function onAddressBlur(input) {
+        // If input is empty, revert to original or auto-calculate
+        if (input.value.trim() === '') {
+            revertAddress(input.closest('.addr-changed').querySelector('.addr-revert-btn'));
+        }
+    }
+
+    function updateAddressVisualIndicator(input) {
+        const container = input.closest('.addr-changed');
+        if (!container) return;
+
+        const originalSpan = container.querySelector('.addr-original');
+        const revertBtn = container.querySelector('.addr-revert-btn');
+        const originalValue = input.getAttribute('data-original');
+        const currentValue = input.value;
+
+        if (originalValue && currentValue !== originalValue) {
+            // Show original with strikethrough
+            originalSpan.textContent = originalValue;
+            originalSpan.style.display = 'inline';
+            if (revertBtn) revertBtn.style.display = 'inline-block';
+        } else {
+            // Hide indicators
+            originalSpan.style.display = 'none';
+            if (revertBtn) revertBtn.style.display = 'none';
+        }
+    }
+
+    function revertAddress(btn) {
+        if (!btn) return;
+        const container = btn.closest('.addr-changed');
+        if (!container) return;
+
+        const input = container.querySelector('.reg-addr-input');
+        const originalValue = input.getAttribute('data-original');
+
+        if (originalValue) {
+            input.value = originalValue;
+        }
+
+        // Unlock and recalculate
+        input.setAttribute('data-locked', 'false');
+        input.title = "Auto-calculated";
+        input.classList.remove('fw-bold', 'text-dark', 'addr-conflict');
+        input.classList.add('text-secondary');
+
+        // Hide visual indicators
+        const originalSpan = container.querySelector('.addr-original');
+        const warningSpan = container.querySelector('.addr-conflict-warning');
+        if (originalSpan) originalSpan.style.display = 'none';
+        if (warningSpan) warningSpan.style.display = 'none';
+        btn.style.display = 'none';
+
+        recalculateAddresses();
+        detectAddressConflicts();
+        markAsChanged();
+    }
+
+    function detectAddressConflicts() {
+        const addressMap = new Map();
+        const inputs = document.querySelectorAll('.reg-addr-input');
+
+        // First pass: collect all addresses
+        inputs.forEach((input, index) => {
+            const addr = input.value.toUpperCase();
+            if (!addressMap.has(addr)) {
+                addressMap.set(addr, []);
+            }
+            addressMap.set(addr, [...addressMap.get(addr), { input, index }]);
+        });
+
+        // Second pass: mark conflicts
+        inputs.forEach(input => {
+            const container = input.closest('.addr-changed');
+            const warningSpan = container?.querySelector('.addr-conflict-warning');
+            const addr = input.value.toUpperCase();
+            const conflicts = addressMap.get(addr);
+
+            if (conflicts && conflicts.length > 1) {
+                input.classList.add('addr-conflict');
+                if (warningSpan) warningSpan.style.display = 'inline';
+            } else {
+                input.classList.remove('addr-conflict');
+                if (warningSpan) warningSpan.style.display = 'none';
+            }
+        });
     }
 
     // Warn before leaving page with unsaved changes
@@ -520,6 +670,16 @@
         // Base addr is only for display context, offset calculation is relative
         let offset = 0;
 
+        // Collect locked addresses first to resolve conflicts
+        const lockedAddresses = new Set();
+        document.querySelectorAll('.reg-row').forEach(row => {
+            const addrInput = row.querySelector('.reg-addr-input');
+            if (addrInput && addrInput.getAttribute('data-locked') === 'true') {
+                const val = parseInt(addrInput.value, 16);
+                if (!isNaN(val)) lockedAddresses.add(val);
+            }
+        });
+
         document.querySelectorAll('.reg-row').forEach(row => {
             const widthInput = row.querySelector('.reg-width-input');
             const addrInput = row.querySelector('.reg-addr-input');
@@ -527,27 +687,38 @@
             if (!widthInput || !addrInput) return;
 
             const isLocked = addrInput.getAttribute('data-locked') === 'true';
+            const width = parseInt(widthInput.value) || 32;
+            const numWords = Math.ceil(width / 32);
+            const regSize = numWords * 4;
 
             // If locked, use the manual value as the new offset baseline
             if (isLocked) {
                 // Parse current manual value
                 const manualVal = parseInt(addrInput.value, 16);
                 if (!isNaN(manualVal)) {
-                    offset = manualVal;
+                    offset = manualVal + regSize;
                 }
             } else {
-                // If unlocked, update value
+                // Skip over any locked addresses that would conflict
+                while (lockedAddresses.has(offset)) {
+                    offset += 4;
+                }
+
+                // Update value
                 addrInput.value = '0x' + offset.toString(16).toUpperCase().padStart(2, '0');
+
+                // Update visual indicator for auto-calculated addresses
+                updateAddressVisualIndicator(addrInput);
+
+                // Move to next available address
+                offset += regSize;
             }
-
-            const width = parseInt(widthInput.value) || 32;
-            const numWords = Math.ceil(width / 32);
-
-            // Move to next available address
-            offset += numWords * 4;
         });
 
         nextAddr = offset;
+
+        // Check for remaining conflicts
+        detectAddressConflicts();
     }
 
     function addRegister() {
@@ -558,17 +729,27 @@
 
             const tbody = document.getElementById('regsBody');
             const row = document.createElement('tr');
+            const newAddr = '0x' + nextAddr.toString(16).toUpperCase().padStart(2, '0');
             row.className = 'reg-row border-bottom-0 animate__animated animate__fadeIn';
             row.innerHTML = `
-            <td class="ps-4">
-            <input type="text" 
-                class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
-                value="0x` + nextAddr.toString(16).toUpperCase().padStart(2, '0') + `"
-                style="width: 70px;"
-                data-locked="false"
-                title="Auto-calculated"
-                onchange="onAddressChange(this)">
-        </td>
+            <td class="ps-4 addr-cell">
+                <div class="addr-changed">
+                    <span class="addr-original" style="display: none;"></span>
+                    <input type="text" 
+                        class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
+                        value="${newAddr}"
+                        style="width: 70px;"
+                        data-locked="false"
+                        data-original="${newAddr}"
+                        title="Auto-calculated"
+                        onchange="onAddressChange(this)"
+                        onblur="onAddressBlur(this)">
+                    <button class="addr-revert-btn" style="display: none;" onclick="revertAddress(this)" data-action="revert-address" title="Revert to original">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </button>
+                    <span class="addr-conflict-warning" style="display: none;"><i class="bi bi-exclamation-triangle"></i></span>
+                </div>
+            </td>
         <td>
             <input type="text" placeholder="new_reg" class="form-control font-monospace reg-name-input fw-bold bg-light-subtle border-0" oninput="validateName(this)">
         </td>

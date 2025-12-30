@@ -908,7 +908,6 @@ class VHDLGenerator:
         for reg in module_data['registers']:
             if reg.get('is_packed'):
                 continue
-            addr_hex = self._addr_to_vhdl_hex(reg["address_int"], module_data)
             signal_type = reg['signal_type']
             num_regs = self._get_num_regs(signal_type)
             signal_width = self._get_signal_width(signal_type)
@@ -1047,43 +1046,6 @@ class VHDLGenerator:
         
         return lines
     
-    def _get_addr_bits(self, module_data: Dict) -> str:
-        """Determine address bit range needed."""
-        if not module_data.get('registers'):
-            return "7 downto 0"  # Default to 8 bits if no registers
-
-        max_addr = max(reg['address_int'] for reg in module_data['registers'])
-        if max_addr < 256:
-            return "7 downto 0"   # 8 bits, 2 hex digits
-        elif max_addr < 4096:
-            return "11 downto 0"  # 12 bits, 3 hex digits
-        else:
-            return "15 downto 0"  # 16 bits, 4 hex digits
-    
-    def _addr_to_vhdl_hex(self, addr_int: int, module_data: Dict = None) -> str:
-        """Convert address integer to VHDL hex string literal with proper width."""
-        # Determine required bit width based on max address in module
-        if module_data and module_data.get('registers'):
-            max_addr = max(reg['address_int'] for reg in module_data['registers'])
-            if max_addr < 256:
-                hex_digits = 2  # 8 bits
-            elif max_addr < 4096:
-                hex_digits = 3  # 12 bits
-            else:
-                hex_digits = 4  # 16 bits
-        else:
-            # Default: use minimum digits needed
-            if addr_int < 256:
-                hex_digits = 2
-            elif addr_int < 4096:
-                hex_digits = 3
-            else:
-                hex_digits = 4
-        
-        # Convert to hex with proper width
-        hex_str = f"{addr_int:0{hex_digits}X}"
-        return f'x"{hex_str}"'
-
     def _generate_cdc_process(self, module_data: Dict) -> List[str]:
         """Generate CDC synchronization process for cross-domain signals."""
         lines = []
