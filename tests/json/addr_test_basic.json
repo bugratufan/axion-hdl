@@ -1,0 +1,36 @@
+{
+    "module": "addr_test_basic",
+    "base_addr": "0x0000",
+    "registers": [
+        {
+            "name": "reg_a",
+            "addr": "0x00",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "reg_b",
+            "addr": "0x04",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "reg_c",
+            "addr": "0x08",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "reg_d",
+            "addr": "0x0C",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "reg_e",
+            "addr": "0x10",
+            "width": 32,
+            "access": "RW"
+        }
+    ]
+}

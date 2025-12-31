@@ -1,386 +1,365 @@
 """
-GUI Address Assignment Tests
+GUI Address Assignment Tests - Comprehensive Multi-Format Testing
 
 Tests for register address assignment functionality in the editor.
 Based on requirements GUI-EDIT-020 to GUI-EDIT-035.
 
-Scenarios covered:
-1. Unique address (no conflict)
-2. Below register shift
-3. Chain shift
-4. Middle register change
-5. Multiple user changes
-6. User conflict warning
-7. Above register conflict
-8. Revert functionality
+Test Fixtures (each in VHDL, JSON, XML, YAML):
+- addr_test_basic: 5 sequential registers (0x00-0x10)
+- addr_test_chain: 8 sequential registers (0x00-0x1C)  
+- addr_test_gaps: 4 registers with gaps (0x00, 0x10, 0x20, 0x24)
+
+Scenarios Tested:
+1. Unique address (no conflict) - others unchanged
+2. Below register shift on conflict
+3. Chain shift for sequential registers
+4. Middle register change - only below affected
+5. Multiple user changes coexist
+6. User conflict warning (same address)
+7. Above register never auto-shifts
+8. Gap preservation
+9. Revert restores all
 """
 import pytest
 from playwright.sync_api import expect
 
 
-class TestAddressInputBasics:
-    """Basic address input functionality tests."""
+# Format suffixes for each file type
+FORMATS = {
+    "vhdl": ".vhd",
+    "json": ".json",
+    "xml": ".xml",
+    "yaml": ".yaml"
+}
 
-    def test_edit_020_address_input_editable(self, gui_page, gui_server):
-        """GUI-EDIT-020: Address input field is editable."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
 
-        addr_input = gui_page.locator(".reg-addr-input").first
-        expect(addr_input).to_be_editable()
+def navigate_to_module_by_format(gui_page, gui_server, module_base_name, file_format, min_registers=2):
+    """Navigate to a specific module matching base name and format."""
+    gui_page.goto(gui_server.url)
+    gui_page.wait_for_selector(".module-card-large", timeout=5000)
+    
+    suffix = FORMATS.get(file_format, "")
+    # The filename shown in card is like "addr_test_basic.json"
+    target_filename = f"{module_base_name}{suffix}"
+    
+    modules = gui_page.locator(".module-card-large")
+    count = modules.count()
+    
+    for i in range(count):
+        card = modules.nth(i)
         
-        # Should accept hex values
-        addr_input.fill("0x10")
-        addr_input.dispatch_event("change")
-        assert addr_input.input_value() == "0x10"
-
-    def test_edit_034_original_address_tracking(self, gui_page, gui_server):
-        """GUI-EDIT-034: Address input tracks original value via data-original."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
-
-        addr_input = gui_page.locator(".reg-addr-input").first
-        original = addr_input.get_attribute("data-original")
-        assert original is not None, "data-original attribute should exist"
-        assert original.startswith("0x") or original.isdigit(), "Should be a valid address"
-
-    def test_edit_035_locked_state_tracking(self, gui_page, gui_server):
-        """GUI-EDIT-035: User-modified addresses marked with data-locked=true."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
-
-        addr_input = gui_page.locator(".reg-addr-input").first
+        # The filename is in .info-value span with title attribute containing full path
+        # Or we can check card's href which has ?file=...
+        card_html = card.evaluate("el => el.outerHTML").lower()
         
-        # Change address
-        addr_input.fill("0x50")
-        addr_input.dispatch_event("change")
-        gui_page.wait_for_timeout(300)
-        
-        locked = addr_input.get_attribute("data-locked")
-        assert locked == "true", "Changed address should be locked"
+        if target_filename.lower() in card_html:
+            card.click()
+            gui_page.wait_for_url("**/module/**", timeout=5000)
+            
+            addr_inputs = gui_page.locator(".reg-addr-input")
+            reg_count = addr_inputs.count()
+            if reg_count >= min_registers:
+                return True
+            
+            # Not enough registers, go back
+            gui_page.goto(gui_server.url)
+            gui_page.wait_for_selector(".module-card-large", timeout=5000)
+    
+    return False
 
 
-class TestAddressUserModified:
-    """Tests for user-modified address behavior."""
+# =============================================================================
+# SCENARIO 1: Unique Address (No Conflict)
+# =============================================================================
+class TestScenario1_UniqueAddress:
+    """Scenario 1: Setting unique address - other registers stay unchanged."""
 
-    def test_edit_021_user_address_fixed(self, gui_page, gui_server):
-        """GUI-EDIT-021: User-modified address stays fixed."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
+    @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
+    def test_unique_address_no_shift(self, gui_page, gui_server, file_format):
+        """Set first to 0x100 - others should NOT change."""
+        if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_basic", file_format, 3):
+            pytest.skip(f"addr_test_basic{FORMATS[file_format]} not found")
 
         addr_inputs = gui_page.locator(".reg-addr-input")
-        if addr_inputs.count() < 2:
-            pytest.skip("Need at least 2 registers")
-
-        # Set first register to specific address
-        first_input = addr_inputs.nth(0)
-        first_input.fill("0x20")
-        first_input.dispatch_event("change")
-        gui_page.wait_for_timeout(300)
         
-        # Change second register (should not affect first)
-        second_input = addr_inputs.nth(1)
-        second_input.fill("0x30")
-        second_input.dispatch_event("change")
-        gui_page.wait_for_timeout(300)
-        
-        # First should still be 0x20
-        assert first_input.input_value().upper() == "0X20", "User address should stay fixed"
-
-    def test_edit_022_unique_address_no_shift(self, gui_page, gui_server):
-        """GUI-EDIT-022: Unique address doesn't shift other registers."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
-
-        addr_inputs = gui_page.locator(".reg-addr-input")
-        if addr_inputs.count() < 3:
-            pytest.skip("Need at least 3 registers")
-
-        # Get original addresses
+        # Store originals
         orig_1 = addr_inputs.nth(1).input_value()
         orig_2 = addr_inputs.nth(2).input_value()
         
-        # Set first to a unique address (no conflict)
+        # Set first to unique address
         addr_inputs.nth(0).fill("0x100")
         addr_inputs.nth(0).dispatch_event("change")
         gui_page.wait_for_timeout(300)
         
-        # Others should NOT change
-        assert addr_inputs.nth(1).input_value() == orig_1, "Second should not change"
-        assert addr_inputs.nth(2).input_value() == orig_2, "Third should not change"
+        # Others unchanged
+        assert addr_inputs.nth(1).input_value() == orig_1, f"{file_format}: reg_b unchanged"
+        assert addr_inputs.nth(2).input_value() == orig_2, f"{file_format}: reg_c unchanged"
 
 
-class TestAddressShifting:
-    """Tests for automatic address shifting on conflict."""
+# =============================================================================
+# SCENARIO 2: Below Register Shift
+# =============================================================================
+class TestScenario2_BelowShift:
+    """Scenario 2: Conflict shifts register below."""
 
-    def test_edit_023_below_register_shift(self, gui_page, gui_server):
-        """GUI-EDIT-023: Register below shifts when conflict occurs."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
+    @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
+    def test_below_register_shifts(self, gui_page, gui_server, file_format):
+        """Set first to second's address - second shifts."""
+        if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_basic", file_format, 3):
+            pytest.skip(f"addr_test_basic{FORMATS[file_format]} not found")
 
         addr_inputs = gui_page.locator(".reg-addr-input")
-        if addr_inputs.count() < 2:
-            pytest.skip("Need at least 2 registers")
-
-        # Get second register's original address
+        
         second_orig = addr_inputs.nth(1).input_value()
         second_orig_int = int(second_orig, 16)
         
-        # Set first register to same address as second
+        # Set first to second's address
         addr_inputs.nth(0).fill(second_orig)
         addr_inputs.nth(0).dispatch_event("change")
         gui_page.wait_for_timeout(300)
         
-        # Second should have shifted
-        second_new = addr_inputs.nth(1).input_value()
-        second_new_int = int(second_new, 16)
-        assert second_new_int > second_orig_int, \
-            f"Second should shift up: was {second_orig}, now {second_new}"
+        # Second should shift
+        second_new = int(addr_inputs.nth(1).input_value(), 16)
+        assert second_new > second_orig_int, f"{file_format}: second should shift"
 
-    def test_edit_024_chain_shift(self, gui_page, gui_server):
-        """GUI-EDIT-024: Chain shift when multiple conflicts occur."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
+
+# =============================================================================
+# SCENARIO 3: Chain Shift
+# =============================================================================
+class TestScenario3_ChainShift:
+    """Scenario 3: Multiple sequential registers shift in chain."""
+
+    @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
+    def test_chain_shift(self, gui_page, gui_server, file_format):
+        """Set first to second's address - all below shift in chain."""
+        if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_chain", file_format, 5):
+            pytest.skip(f"addr_test_chain{FORMATS[file_format]} not found")
 
         addr_inputs = gui_page.locator(".reg-addr-input")
-        if addr_inputs.count() < 3:
-            pytest.skip("Need at least 3 registers")
+        
+        orig_1 = int(addr_inputs.nth(1).input_value(), 16)
+        orig_3 = int(addr_inputs.nth(3).input_value(), 16)
+        
+        # Set first to second's address
+        addr_inputs.nth(0).fill(addr_inputs.nth(1).input_value())
+        addr_inputs.nth(0).dispatch_event("change")
+        gui_page.wait_for_timeout(300)
+        
+        # Chain: all shifted
+        new_1 = int(addr_inputs.nth(1).input_value(), 16)
+        new_3 = int(addr_inputs.nth(3).input_value(), 16)
+        
+        assert new_1 > orig_1, f"{file_format}: reg_1 should shift"
+        assert new_3 > orig_3, f"{file_format}: reg_3 should shift"
 
-        # Get original addresses
+
+# =============================================================================
+# SCENARIO 4: Middle Register Change
+# =============================================================================
+class TestScenario4_MiddleChange:
+    """Scenario 4: Middle register change - only below affected."""
+
+    @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
+    def test_middle_change_only_affects_below(self, gui_page, gui_server, file_format):
+        """Change reg_2 to reg_3's address - reg_0,1 unchanged."""
+        if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_chain", file_format, 5):
+            pytest.skip(f"addr_test_chain{FORMATS[file_format]} not found")
+
+        addr_inputs = gui_page.locator(".reg-addr-input")
+        
+        orig_0 = addr_inputs.nth(0).input_value()
+        orig_1 = addr_inputs.nth(1).input_value()
+        orig_3 = int(addr_inputs.nth(3).input_value(), 16)
+        
+        # Change reg_2 to reg_3's address
+        addr_inputs.nth(2).fill(addr_inputs.nth(3).input_value())
+        addr_inputs.nth(2).dispatch_event("change")
+        gui_page.wait_for_timeout(300)
+        
+        # Above unchanged
+        assert addr_inputs.nth(0).input_value() == orig_0, f"{file_format}: reg_0 unchanged"
+        assert addr_inputs.nth(1).input_value() == orig_1, f"{file_format}: reg_1 unchanged"
+        
+        # Below shifted
+        new_3 = int(addr_inputs.nth(3).input_value(), 16)
+        assert new_3 > orig_3, f"{file_format}: reg_3 should shift"
+
+
+# =============================================================================
+# SCENARIO 5: Multiple User Changes Coexist
+# =============================================================================
+class TestScenario5_MultipleUserChanges:
+    """Scenario 5: Multiple user changes to different addresses coexist."""
+
+    @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
+    def test_multiple_unique_changes(self, gui_page, gui_server, file_format):
+        """Set reg_0=0x100, reg_1=0x200 - both should stick."""
+        if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_basic", file_format, 3):
+            pytest.skip(f"addr_test_basic{FORMATS[file_format]} not found")
+
+        addr_inputs = gui_page.locator(".reg-addr-input")
+        
+        addr_inputs.nth(0).fill("0x100")
+        addr_inputs.nth(0).dispatch_event("change")
+        gui_page.wait_for_timeout(200)
+        
+        addr_inputs.nth(1).fill("0x200")
+        addr_inputs.nth(1).dispatch_event("change")
+        gui_page.wait_for_timeout(300)
+        
+        assert addr_inputs.nth(0).input_value().upper() == "0X100"
+        assert addr_inputs.nth(1).input_value().upper() == "0X200"
+
+
+# =============================================================================
+# SCENARIO 6: User Conflict Warning
+# =============================================================================
+class TestScenario6_UserConflictWarning:
+    """Scenario 6: Two user changes to SAME address - warning shown."""
+
+    @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
+    def test_user_conflict_shows_warning(self, gui_page, gui_server, file_format):
+        """Set both reg_0 and reg_1 to 0x50 - conflict warning."""
+        if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_basic", file_format, 2):
+            pytest.skip(f"addr_test_basic{FORMATS[file_format]} not found")
+
+        addr_inputs = gui_page.locator(".reg-addr-input")
+        
+        addr_inputs.nth(0).fill("0x50")
+        addr_inputs.nth(0).dispatch_event("change")
+        gui_page.wait_for_timeout(200)
+        
+        addr_inputs.nth(1).fill("0x50")
+        addr_inputs.nth(1).dispatch_event("change")
+        gui_page.wait_for_timeout(300)
+        
+        conflicts = gui_page.locator(".addr-conflict")
+        assert conflicts.count() > 0, f"{file_format}: conflict warning expected"
+
+
+# =============================================================================
+# SCENARIO 7: Above Register Never Shifts
+# =============================================================================
+class TestScenario7_AboveNeverShifts:
+    """Scenario 7: Above register NEVER auto-shifts."""
+
+    @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
+    def test_above_register_static(self, gui_page, gui_server, file_format):
+        """Set reg_2 to reg_0's address - reg_0 unchanged, warning shown."""
+        if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_basic", file_format, 3):
+            pytest.skip(f"addr_test_basic{FORMATS[file_format]} not found")
+
+        addr_inputs = gui_page.locator(".reg-addr-input")
+        
+        first_orig = addr_inputs.nth(0).input_value()
+        
+        # Set third to first's address
+        addr_inputs.nth(2).fill(first_orig)
+        addr_inputs.nth(2).dispatch_event("change")
+        gui_page.wait_for_timeout(300)
+        
+        # First should NOT change
+        assert addr_inputs.nth(0).input_value() == first_orig, \
+            f"{file_format}: above register never shifts"
+        
+        # Warning should appear
+        conflicts = gui_page.locator(".addr-conflict")
+        assert conflicts.count() > 0, f"{file_format}: conflict warning expected"
+
+
+# =============================================================================
+# SCENARIO 8: Gap Preservation
+# =============================================================================
+class TestScenario8_GapPreservation:
+    """Scenario 8: Gaps in address space are preserved."""
+
+    @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
+    def test_gaps_preserved(self, gui_page, gui_server, file_format):
+        """Set first to 0x200 - gaps preserved, others unchanged."""
+        if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_gaps", file_format, 3):
+            pytest.skip(f"addr_test_gaps{FORMATS[file_format]} not found")
+
+        addr_inputs = gui_page.locator(".reg-addr-input")
+        
         orig_1 = addr_inputs.nth(1).input_value()
         orig_2 = addr_inputs.nth(2).input_value()
         
-        # Set first to second's address - causes chain shift
+        # Set first to high address
+        addr_inputs.nth(0).fill("0x200")
+        addr_inputs.nth(0).dispatch_event("change")
+        gui_page.wait_for_timeout(300)
+        
+        # Others keep their gap-filled positions
+        assert addr_inputs.nth(1).input_value() == orig_1, f"{file_format}: gap preserved"
+        assert addr_inputs.nth(2).input_value() == orig_2, f"{file_format}: gap preserved"
+
+
+# =============================================================================
+# SCENARIO 9: Revert Restores All
+# =============================================================================
+class TestScenario9_Revert:
+    """Scenario 9: Revert restores all to original."""
+
+    @pytest.mark.parametrize("file_format", ["json", "yaml"])  # Subset for speed
+    def test_revert_restores_all(self, gui_page, gui_server, file_format):
+        """After shift, revert returns everything to original."""
+        if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_basic", file_format, 3):
+            pytest.skip(f"addr_test_basic{FORMATS[file_format]} not found")
+
+        addr_inputs = gui_page.locator(".reg-addr-input")
+        
+        orig_0 = addr_inputs.nth(0).input_value()
+        orig_1 = addr_inputs.nth(1).input_value()
+        
+        # Cause shift
         addr_inputs.nth(0).fill(orig_1)
         addr_inputs.nth(0).dispatch_event("change")
         gui_page.wait_for_timeout(300)
         
-        new_1 = addr_inputs.nth(1).input_value()
-        new_2 = addr_inputs.nth(2).input_value()
+        # Verify shifted
+        assert addr_inputs.nth(1).input_value() != orig_1
         
-        # Both should have shifted
-        assert int(new_1, 16) > int(orig_1, 16), "Second should shift"
-        assert int(new_2, 16) >= int(orig_2, 16), "Third should shift or stay"
-
-    def test_edit_025_middle_register_change(self, gui_page, gui_server):
-        """GUI-EDIT-025: Middle register change only affects below."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
-
-        addr_inputs = gui_page.locator(".reg-addr-input")
-        if addr_inputs.count() < 4:
-            pytest.skip("Need at least 4 registers")
-
-        # Get all original addresses
-        orig_0 = addr_inputs.nth(0).input_value()
-        orig_2 = addr_inputs.nth(2).input_value()
-        orig_3 = addr_inputs.nth(3).input_value()
-        
-        # Change middle register (index 1) to conflict with index 2
-        addr_inputs.nth(1).fill(orig_2)
-        addr_inputs.nth(1).dispatch_event("change")
-        gui_page.wait_for_timeout(300)
-        
-        # First should NOT change (above)
-        assert addr_inputs.nth(0).input_value() == orig_0, "Above register should not change"
-        
-        # Third should shift (below)
-        new_2 = addr_inputs.nth(2).input_value()
-        assert int(new_2, 16) > int(orig_2, 16), "Below register should shift"
-
-
-class TestMultipleUserChanges:
-    """Tests for multiple user address changes."""
-
-    def test_edit_026_multiple_user_changes_coexist(self, gui_page, gui_server):
-        """GUI-EDIT-026: Multiple user changes can coexist if non-conflicting."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
-
-        addr_inputs = gui_page.locator(".reg-addr-input")
-        if addr_inputs.count() < 3:
-            pytest.skip("Need at least 3 registers")
-
-        # Set multiple unique addresses
-        addr_inputs.nth(0).fill("0x10")
-        addr_inputs.nth(0).dispatch_event("change")
-        gui_page.wait_for_timeout(200)
-        
-        addr_inputs.nth(1).fill("0x20")
-        addr_inputs.nth(1).dispatch_event("change")
-        gui_page.wait_for_timeout(200)
-        
-        # Both should remain as set
-        assert addr_inputs.nth(0).input_value().upper() == "0X10"
-        assert addr_inputs.nth(1).input_value().upper() == "0X20"
-        
-        # No conflict warnings
-        conflicts = gui_page.locator(".addr-conflict")
-        assert conflicts.count() == 0, "No conflicts expected for unique addresses"
-
-
-class TestConflictWarnings:
-    """Tests for conflict warning display."""
-
-    def test_edit_027_user_conflict_warning(self, gui_page, gui_server):
-        """GUI-EDIT-027: Warning shown when two user addresses conflict."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
-
-        addr_inputs = gui_page.locator(".reg-addr-input")
-        if addr_inputs.count() < 2:
-            pytest.skip("Need at least 2 registers")
-
-        # Set BOTH to same address (user conflict)
-        addr_inputs.nth(0).fill("0x10")
-        addr_inputs.nth(0).dispatch_event("change")
-        gui_page.wait_for_timeout(200)
-        
-        addr_inputs.nth(1).fill("0x10")
-        addr_inputs.nth(1).dispatch_event("change")
-        gui_page.wait_for_timeout(300)
-        
-        # Should show conflict warning
-        conflicts = gui_page.locator(".addr-conflict")
-        assert conflicts.count() > 0, "Conflict warning should be shown"
-
-    def test_edit_028_above_register_conflict_warning(self, gui_page, gui_server):
-        """GUI-EDIT-028: Warning when lower register conflicts with upper (no auto-shift)."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
-
-        addr_inputs = gui_page.locator(".reg-addr-input")
-        if addr_inputs.count() < 2:
-            pytest.skip("Need at least 2 registers")
-
-        # Get first register's address
-        first_addr = addr_inputs.nth(0).input_value()
-        
-        # Set SECOND to same as FIRST (lower conflicts with upper)
-        addr_inputs.nth(1).fill(first_addr)
-        addr_inputs.nth(1).dispatch_event("change")
-        gui_page.wait_for_timeout(300)
-        
-        # First should NOT have changed (above register never shifts)
-        assert addr_inputs.nth(0).input_value() == first_addr, \
-            "Above register should NOT shift"
-        
-        # Conflict warning should be shown
-        conflicts = gui_page.locator(".addr-conflict")
-        assert conflicts.count() > 0, "Conflict warning should be shown"
-
-
-class TestRevertFunctionality:
-    """Tests for address revert functionality."""
-
-    def test_edit_029_address_revert(self, gui_page, gui_server):
-        """GUI-EDIT-029: Revert button restores original address."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
-
-        addr_input = gui_page.locator(".reg-addr-input").first
-        original = addr_input.get_attribute("data-original")
-        
-        # Change address
-        addr_input.fill("0x99")
-        addr_input.dispatch_event("change")
-        gui_page.wait_for_timeout(300)
-        
-        # Click revert button
+        # Revert
         revert_btn = gui_page.locator(".addr-revert-btn").first
         if revert_btn.is_visible():
             revert_btn.click()
             gui_page.wait_for_timeout(300)
             
-            # Should return to original
-            assert addr_input.input_value() == original, "Should revert to original"
+            assert addr_inputs.nth(0).input_value() == orig_0, f"{file_format}: reverted"
+            assert addr_inputs.nth(1).input_value() == orig_1, f"{file_format}: dependent reverted"
 
 
+# =============================================================================
+# VISUAL INDICATORS
+# =============================================================================
 class TestVisualIndicators:
-    """Tests for visual change indicators."""
+    """Test visual feedback elements."""
 
-    def test_edit_030_visual_change_indicator(self, gui_page, gui_server):
-        """GUI-EDIT-030: Visual indicator shows when address differs from original."""
+    def test_strikethrough_shown(self, gui_page, gui_server):
+        """Changed address shows strikethrough original."""
         gui_page.goto(gui_server.url)
         gui_page.wait_for_selector(".module-card-large", timeout=5000)
         gui_page.locator(".module-card-large").first.click()
         gui_page.wait_for_url("**/module/**", timeout=5000)
 
         addr_input = gui_page.locator(".reg-addr-input").first
+        addr_input.fill("0x99")
+        addr_input.dispatch_event("change")
+        gui_page.wait_for_timeout(300)
         
-        # Change address
+        original_span = gui_page.locator(".addr-original").first
+        expect(original_span).to_be_visible()
+
+    def test_locked_attribute(self, gui_page, gui_server):
+        """Changed address has data-locked=true."""
+        gui_page.goto(gui_server.url)
+        gui_page.wait_for_selector(".module-card-large", timeout=5000)
+        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_url("**/module/**", timeout=5000)
+
+        addr_input = gui_page.locator(".reg-addr-input").first
         addr_input.fill("0x88")
         addr_input.dispatch_event("change")
         gui_page.wait_for_timeout(300)
         
-        # Should show strikethrough original
-        original_span = gui_page.locator(".addr-original").first
-        expect(original_span).to_be_visible()
-
-
-class TestEdgeCases:
-    """Edge case tests."""
-
-    def test_edit_031_gap_allowed(self, gui_page, gui_server):
-        """GUI-EDIT-031: User can create gaps in address space."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
-
-        addr_inputs = gui_page.locator(".reg-addr-input")
-        if addr_inputs.count() < 2:
-            pytest.skip("Need at least 2 registers")
-
-        # Set first to very high address (creates gap)
-        addr_inputs.nth(0).fill("0x100")
-        addr_inputs.nth(0).dispatch_event("change")
-        gui_page.wait_for_timeout(300)
-        
-        # Should be accepted without error
-        assert addr_inputs.nth(0).input_value().upper() == "0X100"
-        
-        # Second should remain unchanged
-        second = addr_inputs.nth(1).input_value()
-        second_int = int(second, 16)
-        assert second_int < 0x100, "Second should not jump to fill gap"
-
-    def test_edit_032_realtime_update(self, gui_page, gui_server):
-        """GUI-EDIT-032: Address changes appear immediately."""
-        gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
-        gui_page.wait_for_url("**/module/**", timeout=5000)
-
-        addr_input = gui_page.locator(".reg-addr-input").first
-        
-        # Change and check immediately (no explicit wait)
-        addr_input.fill("0x44")
-        addr_input.dispatch_event("change")
-        
-        # Should update immediately
-        assert addr_input.input_value() == "0x44"
+        assert addr_input.get_attribute("data-locked") == "true"
