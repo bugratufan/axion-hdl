@@ -1,19 +1,19 @@
 {% extends 'base.html' %}
 
-{% block content %}
+{% block head %}
 <style>
     .diff-container {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
         border-radius: 8px;
         overflow: hidden;
         margin-bottom: 1.5rem;
     }
 
     .diff-header {
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        background: var(--hover-bg);
         padding: 1rem 1.5rem;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid var(--border-color);
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -21,7 +21,7 @@
 
     .diff-header h5 {
         margin: 0;
-        color: #334155;
+        color: var(--text-color);
         font-weight: 600;
     }
 
@@ -36,13 +36,14 @@
     }
 
     .diff-toggle .btn.active {
-        background: #3b82f6;
+        background: var(--primary-color);
         color: white;
     }
 
     .diff-toggle .btn:not(.active) {
-        background: #e2e8f0;
-        color: #64748b;
+        background: var(--hover-bg);
+        color: var(--text-muted);
+        border: 1px solid var(--border-color);
     }
 
     /* Unified diff view */
@@ -60,27 +61,37 @@
     }
 
     .diff-unified .diff-line.addition {
-        background: #dcfce7;
+        background: rgba(34, 197, 94, 0.15);
         border-left-color: #22c55e;
+        color: #4ade80;
+    }
+
+    [data-theme="light"] .diff-unified .diff-line.addition {
+        background: #dcfce7;
         color: #166534;
     }
 
     .diff-unified .diff-line.deletion {
-        background: #fee2e2;
+        background: rgba(239, 68, 68, 0.15);
         border-left-color: #ef4444;
+        color: #f87171;
+    }
+
+    [data-theme="light"] .diff-unified .diff-line.deletion {
+        background: #fee2e2;
         color: #991b1b;
     }
 
     .diff-unified .diff-line.header {
-        background: #f1f5f9;
-        color: #475569;
+        background: var(--hover-bg);
+        color: var(--text-muted);
         font-weight: 500;
-        border-left-color: #94a3b8;
+        border-left-color: var(--text-muted);
     }
 
     .diff-unified .diff-line.context {
-        background: #ffffff;
-        color: #334155;
+        background: var(--card-bg);
+        color: var(--text-color);
     }
 
     /* Side-by-side diff view */
@@ -100,24 +111,34 @@
     }
 
     .diff-split-pane.left {
-        border-right: 1px solid #e2e8f0;
+        border-right: 1px solid var(--border-color);
     }
 
     .diff-split-pane .pane-header {
-        background: #f8fafc;
+        background: var(--hover-bg);
         padding: 0.5rem 1rem;
         font-weight: 600;
-        color: #64748b;
-        border-bottom: 1px solid #e2e8f0;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border-color);
         text-align: center;
     }
 
     .diff-split-pane .pane-header.old {
+        background: rgba(239, 68, 68, 0.1);
+        color: #f87171;
+    }
+
+    [data-theme="light"] .diff-split-pane .pane-header.old {
         background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
         color: #991b1b;
     }
 
     .diff-split-pane .pane-header.new {
+        background: rgba(34, 197, 94, 0.1);
+        color: #4ade80;
+    }
+
+    [data-theme="light"] .diff-split-pane .pane-header.new {
         background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
         color: #166534;
     }
@@ -130,24 +151,34 @@
     }
 
     .diff-split .left .diff-line.deletion {
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
+    }
+
+    [data-theme="light"] .diff-split .left .diff-line.deletion {
         background: #fee2e2;
         color: #991b1b;
     }
 
     .diff-split .right .diff-line.addition {
+        background: rgba(34, 197, 94, 0.15);
+        color: #4ade80;
+    }
+
+    [data-theme="light"] .diff-split .right .diff-line.addition {
         background: #dcfce7;
         color: #166534;
     }
 
     .diff-split .diff-line.empty {
-        background: #f8fafc;
+        background: var(--hover-bg);
     }
 
     /* No changes message */
     .no-changes {
         padding: 3rem;
         text-align: center;
-        color: #64748b;
+        color: var(--text-muted);
     }
 
     .no-changes i {
@@ -182,8 +213,8 @@
     }
 
     .btn-cancel {
-        background: #f1f5f9;
-        color: #475569;
+        background: var(--hover-bg);
+        color: var(--text-color);
         border: none;
         padding: 0.75rem 1.5rem;
         border-radius: 8px;
@@ -196,18 +227,21 @@
     }
 
     .btn-cancel:hover {
-        background: #e2e8f0;
+        background: var(--border-color);
     }
 
     .file-path {
         font-family: monospace;
         font-size: 0.875rem;
-        color: #64748b;
-        background: #f8fafc;
+        color: var(--text-muted);
+        background: var(--hover-bg);
         padding: 0.25rem 0.5rem;
         border-radius: 4px;
     }
 </style>
+{% endblock %}
+
+{% block content %}
 
 <div class="hero" style="padding: 1.5rem 0;">
     <h1><i class="bi bi-file-diff me-2"></i>Review Changes</h1>
@@ -323,7 +357,7 @@
         document.getElementById('btn-unified').classList.add('active');
         document.getElementById('btn-split').classList.remove('active');
     }
-    
+
     function showSplit() {
         document.getElementById('diff-unified').style.display = 'none';
         document.getElementById('diff-split').classList.add('active');

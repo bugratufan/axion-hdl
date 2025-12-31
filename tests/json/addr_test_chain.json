@@ -1,0 +1,54 @@
+{
+    "module": "addr_test_chain",
+    "base_addr": "0x0000",
+    "registers": [
+        {
+            "name": "chain_reg_0",
+            "addr": "0x00",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "chain_reg_1",
+            "addr": "0x04",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "chain_reg_2",
+            "addr": "0x08",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "chain_reg_3",
+            "addr": "0x0C",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "chain_reg_4",
+            "addr": "0x10",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "chain_reg_5",
+            "addr": "0x14",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "chain_reg_6",
+            "addr": "0x18",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "chain_reg_7",
+            "addr": "0x1C",
+            "width": 32,
+            "access": "RW"
+        }
+    ]
+}

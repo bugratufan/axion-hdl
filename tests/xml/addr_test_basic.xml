@@ -1,0 +1,8 @@
+<register_map module="addr_test_basic" base_addr="0x0000">
+    <!-- 5 sequential registers at 0x00, 0x04, 0x08, 0x0C, 0x10 -->
+    <register name="reg_a" addr="0x00" width="32" access="RW" />
+    <register name="reg_b" addr="0x04" width="32" access="RW" />
+    <register name="reg_c" addr="0x08" width="32" access="RW" />
+    <register name="reg_d" addr="0x0C" width="32" access="RW" />
+    <register name="reg_e" addr="0x10" width="32" access="RW" />
+</register_map>

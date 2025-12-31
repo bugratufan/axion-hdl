@@ -1,0 +1,30 @@
+{
+    "module": "addr_test_gaps",
+    "base_addr": "0x0000",
+    "registers": [
+        {
+            "name": "gap_reg_a",
+            "addr": "0x00",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "gap_reg_b",
+            "addr": "0x10",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "gap_reg_c",
+            "addr": "0x20",
+            "width": 32,
+            "access": "RW"
+        },
+        {
+            "name": "gap_reg_d",
+            "addr": "0x24",
+            "width": 32,
+            "access": "RW"
+        }
+    ]
+}
