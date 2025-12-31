@@ -80,21 +80,31 @@
     }
 
     .badge-error {
-        background: #fef2f2;
-        color: #dc2626;
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
         font-size: 0.7rem;
         padding: 0.2rem 0.5rem;
         border-radius: 4px;
         font-weight: 600;
     }
 
+    [data-theme="light"] .badge-error {
+        background: #fef2f2;
+        color: #dc2626;
+    }
+
     .badge-warning {
-        background: #fffbeb;
-        color: #d97706;
+        background: rgba(245, 158, 11, 0.15);
+        color: #fbbf24;
         font-size: 0.7rem;
         padding: 0.2rem 0.5rem;
         border-radius: 4px;
         font-weight: 600;
+    }
+
+    [data-theme="light"] .badge-warning {
+        background: #fffbeb;
+        color: #d97706;
     }
 
     .module-badges {
@@ -110,6 +120,18 @@
     .module-card-large.has-warnings:not(.has-errors) {
         border-left: 4px solid #f59e0b;
     }
+
+    /* Dark mode alert override */
+    [data-theme="dark"] .alert-danger {
+        background: rgba(239, 68, 68, 0.15);
+        border-color: rgba(239, 68, 68, 0.3);
+        color: #f87171;
+    }
+
+    [data-theme="dark"] .alert-danger pre {
+        background: var(--card-bg) !important;
+        color: var(--text-color);
+    }
 </style>
 {% endblock %}
 
@@ -124,7 +146,7 @@
 {% endfor %}
 
 <div class="hero">
-    <h1><i class="bi bi-cpu me-2"></i>AXI Register Map Dashboard</h1>
+    <h1>AXI Register Map Dashboard</h1>
     <p class="subtitle">Managed by Axion HDL</p>
 </div>
 
@@ -172,9 +194,9 @@
 </div>
 
 <div class="section-header">
-    <h2><i class="bi bi-grid-3x3-gap text-primary"></i> Modules</h2>
+    <h2>Modules</h2>
     <a href="/module/new" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-1"></i> New Module
+        <i class="bi bi-plus me-1"></i>New Module
     </a>
 </div>
 
