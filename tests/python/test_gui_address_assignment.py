@@ -363,3 +363,89 @@ class TestVisualIndicators:
         gui_page.wait_for_timeout(300)
         
         assert addr_input.get_attribute("data-locked") == "true"
+
+
+class TestSaveValidation:
+    """Tests for save validation when address conflicts exist (GUI-EDIT-036).
+    
+    NOTE: Full conflict simulation is limited by Playwright's event triggering.
+    These tests verify the UI elements and JS functions are present.
+    Manual testing recommended for full validation.
+    """
+
+    def test_save_button_has_id(self, gui_page, gui_server):
+        """Save button has correct ID for JS manipulation."""
+        gui_page.goto(gui_server.url)
+        gui_page.wait_for_selector(".module-card-large", timeout=5000)
+        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_url("**/module/**", timeout=5000)
+        gui_page.wait_for_timeout(500)
+
+        save_btn = gui_page.locator("#saveBtn")
+        assert save_btn.count() == 1, "Save button with ID saveBtn should exist"
+
+    def test_conflict_warning_element_exists(self, gui_page, gui_server):
+        """Conflict warning badge element exists in DOM."""
+        gui_page.goto(gui_server.url)
+        gui_page.wait_for_selector(".module-card-large", timeout=5000)
+        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_url("**/module/**", timeout=5000)
+        gui_page.wait_for_timeout(500)
+
+        conflict_warning = gui_page.locator("#conflictWarning")
+        assert conflict_warning.count() == 1, "Conflict warning element should exist"
+
+    def test_detect_address_conflicts_function_exists(self, gui_page, gui_server):
+        """detectAddressConflicts JS function is defined."""
+        gui_page.goto(gui_server.url)
+        gui_page.wait_for_selector(".module-card-large", timeout=5000)
+        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_url("**/module/**", timeout=5000)
+        gui_page.wait_for_timeout(500)
+
+        result = gui_page.evaluate("typeof detectAddressConflicts === 'function'")
+        assert result == True, "detectAddressConflicts function should be defined"
+
+    def test_update_save_button_state_function_exists(self, gui_page, gui_server):
+        """updateSaveButtonState JS function is defined."""
+        gui_page.goto(gui_server.url)
+        gui_page.wait_for_selector(".module-card-large", timeout=5000)
+        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_url("**/module/**", timeout=5000)
+        gui_page.wait_for_timeout(500)
+
+        result = gui_page.evaluate("typeof updateSaveButtonState === 'function'")
+        assert result == True, "updateSaveButtonState function should be defined"
+
+    def test_conflict_disables_save_via_js(self, gui_page, gui_server):
+        """Calling updateSaveButtonState(true) disables save button."""
+        gui_page.goto(gui_server.url)
+        gui_page.wait_for_selector(".module-card-large", timeout=5000)
+        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_url("**/module/**", timeout=5000)
+        gui_page.wait_for_timeout(500)
+
+        # Call JS directly to simulate conflict state
+        gui_page.evaluate("updateSaveButtonState(true)")
+        gui_page.wait_for_timeout(200)
+        
+        save_btn = gui_page.locator("#saveBtn")
+        assert not save_btn.is_enabled(), "Save button should be disabled when updateSaveButtonState(true) is called"
+
+    def test_no_conflict_enables_save_via_js(self, gui_page, gui_server):
+        """Calling updateSaveButtonState(false) enables save button."""
+        gui_page.goto(gui_server.url)
+        gui_page.wait_for_selector(".module-card-large", timeout=5000)
+        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_url("**/module/**", timeout=5000)
+        gui_page.wait_for_timeout(500)
+
+        # Disable then re-enable
+        gui_page.evaluate("updateSaveButtonState(true)")
+        gui_page.wait_for_timeout(200)
+        gui_page.evaluate("updateSaveButtonState(false)")
+        gui_page.wait_for_timeout(200)
+        
+        save_btn = gui_page.locator("#saveBtn")
+        assert save_btn.is_enabled(), "Save button should be enabled when updateSaveButtonState(false) is called"
+

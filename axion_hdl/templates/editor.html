@@ -203,8 +203,11 @@
         <small class="text-muted">{{ module.file }}</small>
         {% endif %}
     </div>
-    <div>
-        <button onclick="saveChanges()" class="btn btn-primary px-4 shadow-sm fw-medium">
+    <div class="d-flex align-items-center gap-2">
+        <span id="conflictWarning" class="badge bg-danger d-none"><i class="bi bi-exclamation-triangle me-1"></i>Address
+            Conflicts</span>
+        <button id="saveBtn" onclick="saveChanges()" class="btn btn-primary px-4 shadow-sm fw-medium"
+            title="Review and save changes">
             <i class="bi bi-save2-fill me-2"></i>{% if module.is_new %}Save As...{% else %}Review & Save{% endif %}
         </button>
     </div>
@@ -600,6 +603,7 @@
     function detectAddressConflicts() {
         const addressMap = new Map();
         const inputs = document.querySelectorAll('.reg-addr-input');
+        let hasConflicts = false;
 
         // First pass: collect all addresses
         inputs.forEach((input, index) => {
@@ -620,11 +624,35 @@
             if (conflicts && conflicts.length > 1) {
                 input.classList.add('addr-conflict');
                 if (warningSpan) warningSpan.style.display = 'inline';
+                hasConflicts = true;
             } else {
                 input.classList.remove('addr-conflict');
                 if (warningSpan) warningSpan.style.display = 'none';
             }
         });
+
+        // Update save button state based on conflicts
+        updateSaveButtonState(hasConflicts);
+        return hasConflicts;
+    }
+
+    function updateSaveButtonState(hasConflicts) {
+        const saveBtn = document.getElementById('saveBtn');
+        const conflictWarning = document.getElementById('conflictWarning');
+
+        if (hasConflicts) {
+            saveBtn.disabled = true;
+            saveBtn.classList.remove('btn-primary');
+            saveBtn.classList.add('btn-secondary');
+            saveBtn.title = 'Cannot save: Address conflicts must be resolved first';
+            if (conflictWarning) conflictWarning.classList.remove('d-none');
+        } else {
+            saveBtn.disabled = false;
+            saveBtn.classList.remove('btn-secondary');
+            saveBtn.classList.add('btn-primary');
+            saveBtn.title = 'Review and save changes';
+            if (conflictWarning) conflictWarning.classList.add('d-none');
+        }
     }
 
     // Warn before leaving page with unsaved changes
@@ -1036,6 +1064,11 @@
             }
         }).catch(err => alert('Error saving: ' + err));
     }
+
+    // Detect conflicts on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        detectAddressConflicts();
+    });
 </script>
 
 <!-- Save File Modal -->
