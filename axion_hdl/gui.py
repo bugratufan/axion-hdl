@@ -404,6 +404,12 @@ class AxionGUI:
                             message=err.get('msg', 'Unknown error')
                         )
 
+                # Inject parsing errors from modules (to match index() behavior)
+                for m in self.axion.analyzed_modules:
+                    if 'parsing_errors' in m:
+                        for err in m['parsing_errors']:
+                            self.checker._add_error("Parsing Error", m['name'], err.get('msg', 'Unknown parsing error'))
+
             return jsonify({
                 'errors': self.checker.errors,
                 'warnings': self.checker.warnings,
