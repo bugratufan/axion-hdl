@@ -253,7 +253,14 @@
             <div class="col-auto ms-auto text-end">
                 <label class="form-label text-secondary fw-bold small text-uppercase mb-2">Source</label>
                 <div class="text-muted small font-monospace" style="min-height: 38px; line-height: 38px;">
-                    {{ module.file.split('/')[-1] }}
+                    {% if module.file %}
+                    <a href="/source?file={{ module.file | urlencode }}" class="text-decoration-none"
+                        title="{{ module.file }}" style="color: var(--primary-color);">
+                        <i class="bi bi-file-earmark-code me-1"></i>{{ module.file.split('/')[-1] }}
+                    </a>
+                    {% else %}
+                    <span class="text-muted">No source file</span>
+                    {% endif %}
                 </div>
             </div>
         </form>
