@@ -99,6 +99,7 @@ The following requirements define the interactive register address assignment be
 | GUI-EDIT-033 | Width Change Shift | When register width changes to occupy more space, subsequent registers shift down if needed. | Playwright (`gui.test_edit_033`) |
 | GUI-EDIT-034 | Original Address Tracking | Each address input tracks its original value via data-original attribute for revert functionality. | Playwright (`gui.test_edit_034`) |
 | GUI-EDIT-035 | Locked State Tracking | User-modified addresses are marked with data-locked="true" to distinguish from auto-calculated. | Playwright (`gui.test_edit_035`) |
+| GUI-EDIT-036 | Save Blocked on Conflict | "Review & Save" button is disabled and shows warning tooltip when address conflicts exist. Save is only allowed when all conflicts are resolved. | Playwright (`gui.test_edit_036`) |
 
 ---
 
