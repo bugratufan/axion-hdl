@@ -760,6 +760,132 @@ class AxionGUI:
                 
             return redirect(url_for('index'))
 
+        @self.app.route('/source')
+        def view_source():
+            """View source file with syntax highlighting"""
+            filepath = request.args.get('file', '')
+            
+            if not filepath:
+                return "No file specified", 400
+            
+            if not os.path.exists(filepath):
+                return f"File not found: {filepath}", 404
+            
+            # Security: Only allow viewing files within known source directories
+            # or files that are in the analyzed modules
+            allowed = False
+            all_dirs = (
+                self.axion.src_dirs + self.axion.xml_src_dirs + 
+                self.axion.yaml_src_dirs + self.axion.json_src_dirs
+            )
+            all_files = (
+                self.axion.src_files + self.axion.xml_src_files +
+                self.axion.yaml_src_files + self.axion.json_src_files
+            )
+            
+            # Check if file is in a known directory
+            for d in all_dirs:
+                if filepath.startswith(os.path.abspath(d)):
+                    allowed = True
+                    break
+            
+            # Check if file is explicitly listed
+            if filepath in all_files or os.path.abspath(filepath) in [os.path.abspath(f) for f in all_files]:
+                allowed = True
+            
+            # Check if file belongs to an analyzed module
+            for m in self.axion.analyzed_modules:
+                if m.get('file') == filepath or os.path.abspath(m.get('file', '')) == os.path.abspath(filepath):
+                    allowed = True
+                    break
+            
+            if not allowed:
+                return "Access denied: File not in source paths", 403
+            
+            # Read file content
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except Exception as e:
+                return f"Error reading file: {e}", 500
+            
+            # Determine file type
+            ext = os.path.splitext(filepath)[1].lower()
+            file_type_map = {
+                '.vhd': 'VHDL',
+                '.vhdl': 'VHDL',
+                '.json': 'JSON',
+                '.yaml': 'YAML',
+                '.yml': 'YAML',
+                '.xml': 'XML'
+            }
+            file_type = file_type_map.get(ext, 'Text')
+            filename = os.path.basename(filepath)
+            
+            return render_template('source_viewer.html',
+                                   filepath=filepath,
+                                   filename=filename,
+                                   file_type=file_type,
+                                   content=content)
+
+        @self.app.route('/api/source/save', methods=['POST'])
+        def save_source():
+            """Save edited source file"""
+            try:
+                data = request.json
+                filepath = data.get('filepath', '')
+                content = data.get('content', '')
+                
+                if not filepath:
+                    return jsonify({'success': False, 'error': 'No file specified'})
+                
+                if not os.path.exists(filepath):
+                    return jsonify({'success': False, 'error': 'File not found'})
+                
+                # Security: Same checks as view_source
+                allowed = False
+                all_dirs = (
+                    self.axion.src_dirs + self.axion.xml_src_dirs + 
+                    self.axion.yaml_src_dirs + self.axion.json_src_dirs
+                )
+                all_files = (
+                    self.axion.src_files + self.axion.xml_src_files +
+                    self.axion.yaml_src_files + self.axion.json_src_files
+                )
+                
+                for d in all_dirs:
+                    if filepath.startswith(os.path.abspath(d)):
+                        allowed = True
+                        break
+                
+                if filepath in all_files or os.path.abspath(filepath) in [os.path.abspath(f) for f in all_files]:
+                    allowed = True
+                
+                for m in self.axion.analyzed_modules:
+                    if m.get('file') == filepath or os.path.abspath(m.get('file', '')) == os.path.abspath(filepath):
+                        allowed = True
+                        break
+                
+                if not allowed:
+                    return jsonify({'success': False, 'error': 'Access denied: File not in source paths'})
+                
+                # Write file
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                
+                # Trigger re-analysis to pick up changes
+                try:
+                    self.axion.analyzed_modules = []
+                    self.axion.is_analyzed = False
+                    self.axion.analyze()
+                except:
+                    pass  # Don't fail if analysis has issues
+                
+                return jsonify({'success': True})
+            except Exception as e:
+                import traceback
+                return jsonify({'success': False, 'error': str(e), 'trace': traceback.format_exc()})
+
     def _generate_vhdl_template(self, module_name, registers, properties):
         """Generate VHDL source code for a new module"""
         base_addr = properties.get('base_address', '0000')
