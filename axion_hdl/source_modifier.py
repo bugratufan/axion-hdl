@@ -383,10 +383,15 @@ class SourceModifier:
             if cdc_enabled is not None:
                 cdc_val = 'true' if cdc_enabled else 'false'
                 if re.search(r'cdc_en\s*:', content):
+                    # Robust replacement handling quotes or no quotes
                     content = re.sub(r'(cdc_en\s*:\s*)(\S+)', rf'\g<1>{cdc_val}', content)
                 else:
                     # Try to add cdc_en after config: line
-                    content = re.sub(r'(config:\s*\n)', rf'\1  cdc_en: {cdc_val}\n', content)
+                    if re.search(r'config:\s*\n', content):
+                        content = re.sub(r'(config:\s*\n)', rf'\1  cdc_en: {cdc_val}\n', content)
+                    else:
+                        # Append to end if no config section (fallback)
+                        content += f"\nconfig:\n  cdc_en: {cdc_val}\n"
             
             # Update cdc_stage in config section
             if cdc_stages is not None:
@@ -395,7 +400,14 @@ class SourceModifier:
                     content = re.sub(r'(cdc_stage\s*:\s*)(\d+)', rf'\g<1>{stage_val}', content)
                 else:
                     # Try to add cdc_stage after config: line
-                    content = re.sub(r'(config:\s*\n)', rf'\1  cdc_stage: {stage_val}\n', content)
+                    if re.search(r'config:\s*\n', content):
+                        content = re.sub(r'(config:\s*\n)', rf'\1  cdc_stage: {stage_val}\n', content)
+                    else:
+                         # Append to end if no config section (fallback - but unlikely if cdc_en added config)
+                         if 'config:' not in content:
+                             content += f"\nconfig:\n  cdc_stage: {stage_val}\n"
+                         else:
+                             content = re.sub(r'(config:\s*\n)', rf'\1  cdc_stage: {stage_val}\n', content)
         
         # Build new register name set for deletion detection
         new_reg_names = {r.get('name') for r in new_registers}
@@ -564,6 +576,7 @@ class SourceModifier:
             
             if cdc_enabled is not None:
                 # Check nested config structure first (matches sensor_controller.json)
+                # Check nested config structure first (matches sensor_controller.json)
                 if 'config' in original_data:
                     original_data['config']['cdc_en'] = cdc_enabled
                 elif 'cdc' in original_data:
@@ -572,6 +585,11 @@ class SourceModifier:
                     original_data['cdc_enabled'] = cdc_enabled
                 elif 'cdc_en' in original_data:
                     original_data['cdc_en'] = cdc_enabled
+                else:
+                    # Case: no cdc props exist. Add to config if exists, else create config
+                    if 'config' not in original_data:
+                        original_data['config'] = {}
+                    original_data['config']['cdc_en'] = cdc_enabled
             
             if cdc_stages is not None:
                 stage_val = int(cdc_stages)
@@ -582,6 +600,10 @@ class SourceModifier:
                     original_data['cdc_stages'] = stage_val
                 elif 'cdc_stage' in original_data:
                     original_data['cdc_stage'] = stage_val
+                else:
+                    if 'config' not in original_data:
+                        original_data['config'] = {}
+                    original_data['config']['cdc_stage'] = stage_val
         
         # Update registers in place - only if actually changed
         if 'registers' in original_data:
