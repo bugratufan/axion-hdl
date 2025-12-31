@@ -383,10 +383,15 @@ class SourceModifier:
             if cdc_enabled is not None:
                 cdc_val = 'true' if cdc_enabled else 'false'
                 if re.search(r'cdc_en\s*:', content):
+                    # Robust replacement handling quotes or no quotes
                     content = re.sub(r'(cdc_en\s*:\s*)(\S+)', rf'\g<1>{cdc_val}', content)
                 else:
                     # Try to add cdc_en after config: line
-                    content = re.sub(r'(config:\s*\n)', rf'\1  cdc_en: {cdc_val}\n', content)
+                    if re.search(r'config:\s*\n', content):
+                        content = re.sub(r'(config:\s*\n)', rf'\1  cdc_en: {cdc_val}\n', content)
+                    else:
+                        # Append to end if no config section (fallback)
+                        content += f"\nconfig:\n  cdc_en: {cdc_val}\n"
             
             # Update cdc_stage in config section
             if cdc_stages is not None:
@@ -395,7 +400,14 @@ class SourceModifier:
                     content = re.sub(r'(cdc_stage\s*:\s*)(\d+)', rf'\g<1>{stage_val}', content)
                 else:
                     # Try to add cdc_stage after config: line
-                    content = re.sub(r'(config:\s*\n)', rf'\1  cdc_stage: {stage_val}\n', content)
+                    if re.search(r'config:\s*\n', content):
+                        content = re.sub(r'(config:\s*\n)', rf'\1  cdc_stage: {stage_val}\n', content)
+                    else:
+                         # Append to end if no config section (fallback - but unlikely if cdc_en added config)
+                         if 'config:' not in content:
+                             content += f"\nconfig:\n  cdc_stage: {stage_val}\n"
+                         else:
+                             content = re.sub(r'(config:\s*\n)', rf'\1  cdc_stage: {stage_val}\n', content)
         
         # Build new register name set for deletion detection
         new_reg_names = {r.get('name') for r in new_registers}
@@ -564,6 +576,7 @@ class SourceModifier:
             
             if cdc_enabled is not None:
                 # Check nested config structure first (matches sensor_controller.json)
+                # Check nested config structure first (matches sensor_controller.json)
                 if 'config' in original_data:
                     original_data['config']['cdc_en'] = cdc_enabled
                 elif 'cdc' in original_data:
@@ -572,6 +585,11 @@ class SourceModifier:
                     original_data['cdc_enabled'] = cdc_enabled
                 elif 'cdc_en' in original_data:
                     original_data['cdc_en'] = cdc_enabled
+                else:
+                    # Case: no cdc props exist. Add to config if exists, else create config
+                    if 'config' not in original_data:
+                        original_data['config'] = {}
+                    original_data['config']['cdc_en'] = cdc_enabled
             
             if cdc_stages is not None:
                 stage_val = int(cdc_stages)
@@ -582,6 +600,10 @@ class SourceModifier:
                     original_data['cdc_stages'] = stage_val
                 elif 'cdc_stage' in original_data:
                     original_data['cdc_stage'] = stage_val
+                else:
+                    if 'config' not in original_data:
+                        original_data['config'] = {}
+                    original_data['config']['cdc_stage'] = stage_val
         
         # Update registers in place - only if actually changed
         if 'registers' in original_data:
@@ -888,7 +910,6 @@ class SourceModifier:
 
     def _are_registers_identical(self, old_reg: Dict, new_reg: Dict) -> bool:
         """Compare register properties to check if any change occurred."""
-        # 1. Access Mode
         # 1. Access Mode (normalize key names: parser uses access_mode, source uses access)
         old_access = old_reg.get('access') or old_reg.get('access_mode')
         new_access = new_reg.get('access') or new_reg.get('access_mode')
@@ -917,9 +938,9 @@ class SourceModifier:
         new_r = bool(new_reg.get('r_strobe'))
         if old_r != new_r: return False
         
-        old_w = bool(old_reg.get('write_strobe') or old_reg.get('w_strobe'))
-        new_w = bool(new_reg.get('w_strobe'))
-        if old_w != new_w: return False
+        old_ws = bool(old_reg.get('write_strobe') or old_reg.get('w_strobe'))
+        new_ws = bool(new_reg.get('w_strobe'))
+        if old_ws != new_ws: return False
         
         # 5. Default Value (Smart Compare)
         def parse_val(v):
@@ -930,9 +951,37 @@ class SourceModifier:
                     return int(v)
                 return 0
             except: return 0
+        
+        def parse_hex(v):
+            """Parse hex address value."""
+            try:
+                if v is None: return None
+                if isinstance(v, int): return v
+                if isinstance(v, str):
+                    v = v.strip().upper()
+                    if v.startswith('0X'): return int(v, 16)
+                    return int(v, 16) if v else None
+                return None
+            except: return None
+        
+        def get_address_value(reg):
+            """Get address value from register, handling all possible field names."""
+            # Try all possible address field names
+            for field in ['address', 'addr', 'relative_address', 'relative_address_int']:
+                val = reg.get(field)
+                if val is not None:
+                    return parse_hex(val)
+            return None
             
         if parse_val(old_reg.get('default_value')) != parse_val(new_reg.get('default_value')):
             return False
+        
+        # 6. Address (compare if manual_address is set in new_reg)
+        if new_reg.get('manual_address'):
+            old_addr = get_address_value(old_reg)
+            new_addr = parse_hex(new_reg.get('address'))
+            if old_addr is not None and new_addr is not None and old_addr != new_addr:
+                return False
             
         return True
 
