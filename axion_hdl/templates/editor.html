@@ -6,19 +6,19 @@
 <style>
     /* Enhanced Editor Styles */
     .reg-row:hover {
-        background-color: rgba(37, 99, 235, 0.03) !important;
+        background-color: var(--hover-bg) !important;
     }
 
     .reg-row input:focus,
     .reg-row select:focus {
-        background-color: #fff !important;
+        background-color: var(--card-bg) !important;
         box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
         outline: none;
     }
 
     .input-invalid {
         border: 1px solid #ef4444 !important;
-        background-color: #fef2f2 !important;
+        background-color: rgba(239, 68, 68, 0.15) !important;
     }
 
     .strobe-toggle {
@@ -32,13 +32,18 @@
     }
 
     .strobe-toggle.active {
+        background-color: rgba(59, 130, 246, 0.2);
+        color: #60a5fa;
+    }
+
+    [data-theme="light"] .strobe-toggle.active {
         background-color: #dbeafe;
         color: #1d4ed8;
     }
 
     .strobe-toggle.inactive {
-        background-color: #f1f5f9;
-        color: #94a3b8;
+        background-color: var(--hover-bg);
+        color: var(--text-muted);
     }
 
     .strobe-toggle:hover {
@@ -64,9 +69,54 @@
         font-family: 'Monaco', 'Menlo', monospace;
         font-size: 0.75rem;
         padding: 4px 8px;
-        background-color: #f1f5f9;
+        background-color: var(--hover-bg);
         border-radius: 4px;
-        color: #475569;
+        color: var(--text-muted);
+    }
+
+    /* Address change visual indicators */
+    .addr-cell {
+        position: relative;
+    }
+
+    .addr-original {
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        text-decoration: line-through;
+        margin-right: 4px;
+    }
+
+    .addr-changed {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .addr-conflict {
+        border: 2px solid #ef4444 !important;
+        background-color: rgba(239, 68, 68, 0.15) !important;
+    }
+
+    .addr-conflict-warning {
+        color: #f87171;
+        font-size: 0.8rem;
+        margin-left: 4px;
+    }
+
+    .addr-revert-btn {
+        cursor: pointer;
+        color: var(--text-muted);
+        font-size: 0.7rem;
+        padding: 2px 4px;
+        border-radius: 3px;
+        background: var(--hover-bg);
+        border: none;
+        transition: all 0.15s;
+    }
+
+    .addr-revert-btn:hover {
+        background: var(--border-color);
+        color: var(--text-color);
     }
 
     .strobe-group {
@@ -127,6 +177,106 @@
             opacity: 0.8;
         }
     }
+
+    /* Dark mode Bootstrap overrides for editor */
+    [data-theme="dark"] .bg-white,
+    [data-theme="dark"] .card {
+        background: var(--card-bg) !important;
+    }
+
+    [data-theme="dark"] .bg-light,
+    [data-theme="dark"] .bg-light-subtle {
+        background: var(--hover-bg) !important;
+    }
+
+    [data-theme="dark"] .text-muted,
+    [data-theme="dark"] .text-secondary {
+        color: var(--text-muted) !important;
+    }
+
+    [data-theme="dark"] .text-dark {
+        color: var(--text-color) !important;
+    }
+
+    [data-theme="dark"] .form-control,
+    [data-theme="dark"] .form-select,
+    [data-theme="dark"] .input-group-text {
+        background: var(--input-bg) !important;
+        border-color: var(--border-color) !important;
+        color: var(--text-color) !important;
+    }
+
+    [data-theme="dark"] .border-bottom {
+        border-color: var(--border-color) !important;
+    }
+
+    [data-theme="dark"] .card-header {
+        background: var(--card-bg) !important;
+        border-color: var(--border-color) !important;
+    }
+
+    [data-theme="dark"] .table {
+        color: var(--text-color);
+    }
+
+    [data-theme="dark"] .table thead {
+        background: var(--hover-bg) !important;
+    }
+
+    [data-theme="dark"] .table th {
+        background: var(--hover-bg) !important;
+        color: var(--text-muted) !important;
+    }
+
+    [data-theme="dark"] .breadcrumb-item.active {
+        color: var(--text-muted);
+    }
+
+    [data-theme="dark"] .breadcrumb-item a {
+        color: var(--primary-color);
+    }
+
+    [data-theme="dark"] .btn-light {
+        background: var(--hover-bg);
+        border-color: var(--border-color);
+        color: var(--text-color);
+    }
+
+    [data-theme="dark"] .badge.bg-warning {
+        color: #1e293b !important;
+    }
+
+    /* Card title and h5 headings */
+    [data-theme="dark"] .card-title,
+    [data-theme="dark"] h5.fw-bold,
+    [data-theme="dark"] h5.card-title {
+        color: var(--text-color) !important;
+    }
+
+    /* Improved table styles for dark mode */
+    [data-theme="dark"] .table-hover tbody tr:hover {
+        background-color: var(--hover-bg) !important;
+    }
+
+    [data-theme="dark"] .table> :not(caption)>*>* {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border-bottom-color: var(--border-color);
+    }
+
+    [data-theme="dark"] .table thead tr {
+        background-color: var(--hover-bg) !important;
+    }
+
+    [data-theme="dark"] .table thead th {
+        color: var(--text-muted) !important;
+        background-color: var(--hover-bg) !important;
+        border-bottom-color: var(--border-color) !important;
+    }
+
+    [data-theme="dark"] .border-top {
+        border-color: var(--border-color) !important;
+    }
 </style>
 {% endblock %}
 
@@ -158,8 +308,11 @@
         <small class="text-muted">{{ module.file }}</small>
         {% endif %}
     </div>
-    <div>
-        <button onclick="saveChanges()" class="btn btn-primary px-4 shadow-sm fw-medium">
+    <div class="d-flex align-items-center gap-2">
+        <span id="conflictWarning" class="badge bg-danger d-none"><i class="bi bi-exclamation-triangle me-1"></i>Address
+            Conflicts</span>
+        <button id="saveBtn" onclick="saveChanges()" class="btn btn-primary px-4 shadow-sm fw-medium"
+            title="Review and save changes">
             <i class="bi bi-save2-fill me-2"></i>{% if module.is_new %}Save As...{% else %}Review & Save{% endif %}
         </button>
     </div>
@@ -205,7 +358,14 @@
             <div class="col-auto ms-auto text-end">
                 <label class="form-label text-secondary fw-bold small text-uppercase mb-2">Source</label>
                 <div class="text-muted small font-monospace" style="min-height: 38px; line-height: 38px;">
-                    {{ module.file.split('/')[-1] }}
+                    {% if module.file %}
+                    <a href="/source?file={{ module.file | urlencode }}" class="text-decoration-none"
+                        title="{{ module.file }}" style="color: var(--primary-color);">
+                        <i class="bi bi-file-earmark-code me-1"></i>{{ module.file.split('/')[-1] }}
+                    </a>
+                    {% else %}
+                    <span class="text-muted">No source file</span>
+                    {% endif %}
                 </div>
             </div>
         </form>
@@ -215,9 +375,9 @@
 <!-- Register Map (Full Width) -->
 <div class="card border-0 shadow-sm rounded-4 bg-white">
     <div class="card-header bg-white border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
-        <h5 class="card-title fw-bold mb-0"><i class="bi bi-table me-2 text-primary"></i>Register Map</h5>
+        <h5 class="card-title fw-bold mb-0">Register Map</h5>
         <button onclick="addRegister()" class="btn btn-sm btn-light text-primary fw-bold hover-lift" id="addRegBtn">
-            <i class="bi bi-plus-circle-fill me-1"></i> New Register
+            <i class="bi bi-plus me-1"></i>New Register
         </button>
     </div>
 
@@ -250,14 +410,24 @@
                     {% set width = 1 %}
                     {% endif %}
                     <tr class="reg-row border-bottom-0" data-index="{{ loop.index0 }}">
-                        <td class="ps-4">
+                        <td class="ps-4 addr-cell">
                             <!-- Address Input: Use input for manual editing -->
-                            <input type="text"
-                                class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
-                                value="0x{{ '%02X' % reg.relative_address_int }}" style="width: 70px;"
-                                data-locked="{{ 'true' if reg.manual_address else 'false' }}"
-                                title="{{ 'Manual Address' if reg.manual_address else 'Auto-calculated' }}"
-                                onchange="onAddressChange(this)">
+                            <div class="addr-changed">
+                                <span class="addr-original" style="display: none;"></span>
+                                <input type="text"
+                                    class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
+                                    value="0x{{ '%02X' % reg.relative_address_int }}" style="width: 70px;"
+                                    data-locked="{{ 'true' if reg.manual_address else 'false' }}"
+                                    data-original="0x{{ '%02X' % reg.relative_address_int }}"
+                                    title="{{ 'Manual Address' if reg.manual_address else 'Auto-calculated' }}"
+                                    onchange="onAddressChange(this)" onblur="onAddressBlur(this)">
+                                <button class="addr-revert-btn" style="display: none;" onclick="revertAddress(this)"
+                                    data-action="revert-address" title="Revert to original">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                                <span class="addr-conflict-warning" style="display: none;"><i
+                                        class="bi bi-exclamation-triangle"></i></span>
+                            </div>
                         </td>
                         <td>
                             <input type="text" value="{{ reg.reg_name or reg.signal_name }}"
@@ -448,9 +618,153 @@
         input.classList.add('fw-bold', 'text-dark');
         validateHex(input);
 
-        // Trigger ripple effect for subsequent registers
+        // Show visual change indicator
+        updateAddressVisualIndicator(input);
+
+        // Trigger conflict resolution for subsequent registers
         recalculateAddresses();
+
+        // Check for conflicts
+        detectAddressConflicts();
+
         markAsChanged();
+    }
+
+    function onAddressBlur(input) {
+        // If input is empty, revert to original or auto-calculate
+        if (input.value.trim() === '') {
+            revertAddress(input.closest('.addr-changed').querySelector('.addr-revert-btn'));
+        }
+    }
+
+    // Helper to normalize hex addresses for comparison
+    function normalizeHexAddress(addr) {
+        if (!addr) return '';
+        // Remove 0x prefix, convert to uppercase, parse and format
+        const val = parseInt(addr, 16);
+        if (isNaN(val)) return addr.toUpperCase();
+        return '0x' + val.toString(16).toUpperCase();
+    }
+
+    function updateAddressVisualIndicator(input) {
+        const container = input.closest('.addr-changed');
+        if (!container) {
+            console.log('updateAddressVisualIndicator: No container found');
+            return;
+        }
+
+        const originalSpan = container.querySelector('.addr-original');
+        const revertBtn = container.querySelector('.addr-revert-btn');
+        const originalValue = input.getAttribute('data-original');
+        const currentValue = input.value;
+
+        // Normalize for comparison
+        const normalizedOriginal = normalizeHexAddress(originalValue);
+        const normalizedCurrent = normalizeHexAddress(currentValue);
+
+        console.log('Address change check:', {
+            original: originalValue,
+            current: currentValue,
+            normalizedOriginal,
+            normalizedCurrent,
+            changed: normalizedCurrent !== normalizedOriginal
+        });
+
+        if (normalizedOriginal && normalizedCurrent !== normalizedOriginal) {
+            // Show original with strikethrough
+            originalSpan.textContent = originalValue;
+            originalSpan.style.display = 'inline';
+            if (revertBtn) revertBtn.style.display = 'inline-block';
+        } else {
+            // Hide indicators
+            originalSpan.style.display = 'none';
+            if (revertBtn) revertBtn.style.display = 'none';
+        }
+    }
+
+    function revertAddress(btn) {
+        if (!btn) return;
+        const container = btn.closest('.addr-changed');
+        if (!container) return;
+
+        const input = container.querySelector('.reg-addr-input');
+        const originalValue = input.getAttribute('data-original');
+
+        if (originalValue) {
+            input.value = originalValue;
+        }
+
+        // Unlock and recalculate
+        input.setAttribute('data-locked', 'false');
+        input.title = "Auto-calculated";
+        input.classList.remove('fw-bold', 'text-dark', 'addr-conflict');
+        input.classList.add('text-secondary');
+
+        // Hide visual indicators
+        const originalSpan = container.querySelector('.addr-original');
+        const warningSpan = container.querySelector('.addr-conflict-warning');
+        if (originalSpan) originalSpan.style.display = 'none';
+        if (warningSpan) warningSpan.style.display = 'none';
+        btn.style.display = 'none';
+
+        recalculateAddresses();
+        detectAddressConflicts();
+        markAsChanged();
+    }
+
+    function detectAddressConflicts() {
+        const addressMap = new Map();
+        const inputs = document.querySelectorAll('.reg-addr-input');
+        let hasConflicts = false;
+
+        // First pass: collect all addresses
+        inputs.forEach((input, index) => {
+            const addr = input.value.toUpperCase();
+            if (!addressMap.has(addr)) {
+                addressMap.set(addr, []);
+            }
+            addressMap.set(addr, [...addressMap.get(addr), { input, index }]);
+        });
+
+        // Second pass: mark conflicts
+        inputs.forEach(input => {
+            const container = input.closest('.addr-changed');
+            const warningSpan = container?.querySelector('.addr-conflict-warning');
+            const addr = input.value.toUpperCase();
+            const conflicts = addressMap.get(addr);
+
+            if (conflicts && conflicts.length > 1) {
+                input.classList.add('addr-conflict');
+                if (warningSpan) warningSpan.style.display = 'inline';
+                hasConflicts = true;
+            } else {
+                input.classList.remove('addr-conflict');
+                if (warningSpan) warningSpan.style.display = 'none';
+            }
+        });
+
+        // Update save button state based on conflicts
+        updateSaveButtonState(hasConflicts);
+        return hasConflicts;
+    }
+
+    function updateSaveButtonState(hasConflicts) {
+        const saveBtn = document.getElementById('saveBtn');
+        const conflictWarning = document.getElementById('conflictWarning');
+
+        if (hasConflicts) {
+            saveBtn.disabled = true;
+            saveBtn.classList.remove('btn-primary');
+            saveBtn.classList.add('btn-secondary');
+            saveBtn.title = 'Cannot save: Address conflicts must be resolved first';
+            if (conflictWarning) conflictWarning.classList.remove('d-none');
+        } else {
+            saveBtn.disabled = false;
+            saveBtn.classList.remove('btn-secondary');
+            saveBtn.classList.add('btn-primary');
+            saveBtn.title = 'Review and save changes';
+            if (conflictWarning) conflictWarning.classList.add('d-none');
+        }
     }
 
     // Warn before leaving page with unsaved changes
@@ -514,40 +828,128 @@
     }
 
     function recalculateAddresses() {
-        const baseAddrInput = document.querySelector('input[name="base_address"]');
-        if (!baseAddrInput) return;
+        const rows = [...document.querySelectorAll('.reg-row')];
+        if (rows.length === 0) return;
 
-        // Base addr is only for display context, offset calculation is relative
-        let offset = 0;
+        // Step 1: Identify user-modified addresses (these NEVER change)
+        const userModified = new Map(); // rowIndex -> address
+        rows.forEach((row, idx) => {
+            const input = row.querySelector('.reg-addr-input');
+            if (!input) return;
 
-        document.querySelectorAll('.reg-row').forEach(row => {
-            const widthInput = row.querySelector('.reg-width-input');
-            const addrInput = row.querySelector('.reg-addr-input');
+            const current = normalizeHexAddress(input.value);
+            const original = normalizeHexAddress(input.getAttribute('data-original'));
+            const isLocked = input.getAttribute('data-locked') === 'true';
 
-            if (!widthInput || !addrInput) return;
-
-            const isLocked = addrInput.getAttribute('data-locked') === 'true';
-
-            // If locked, use the manual value as the new offset baseline
-            if (isLocked) {
-                // Parse current manual value
-                const manualVal = parseInt(addrInput.value, 16);
-                if (!isNaN(manualVal)) {
-                    offset = manualVal;
+            // User modified = locked AND different from original
+            if (isLocked && current !== original) {
+                const addr = parseInt(input.value, 16);
+                if (!isNaN(addr)) {
+                    userModified.set(idx, addr);
                 }
-            } else {
-                // If unlocked, update value
-                addrInput.value = '0x' + offset.toString(16).toUpperCase().padStart(2, '0');
             }
-
-            const width = parseInt(widthInput.value) || 32;
-            const numWords = Math.ceil(width / 32);
-
-            // Move to next available address
-            offset += numWords * 4;
         });
 
-        nextAddr = offset;
+        console.log('User modified:', [...userModified.entries()].map(([i, a]) => `Row${i}=0x${a.toString(16)}`));
+
+        // Step 2: Process each row in order
+        // Track used addresses and next available
+        const usedAddresses = new Set([...userModified.values()]);
+
+        rows.forEach((row, idx) => {
+            const input = row.querySelector('.reg-addr-input');
+            const widthInput = row.querySelector('.reg-width-input');
+            if (!input || !widthInput) return;
+
+            const original = input.getAttribute('data-original');
+            const originalInt = parseInt(original, 16) || 0;
+            const width = parseInt(widthInput.value) || 32;
+            const regSize = Math.ceil(width / 32) * 4;
+
+            // If user modified this row, keep it fixed
+            if (userModified.has(idx)) {
+                console.log(`Row ${idx}: User modified, keeping at 0x${userModified.get(idx).toString(16)}`);
+                updateAddressVisualIndicator(input);
+                return;
+            }
+
+            // Check if original address conflicts with any user-modified address
+            // Only check user-modified addresses that are ABOVE this row
+            let needsShift = false;
+            let shiftReason = '';
+
+            // Check direct conflict with user-modified addresses
+            for (const [modIdx, modAddr] of userModified) {
+                if (modIdx < idx && modAddr === originalInt) {
+                    // User above took our exact address
+                    needsShift = true;
+                    shiftReason = `user row ${modIdx} at 0x${modAddr.toString(16)}`;
+                    break;
+                }
+            }
+
+            // Check if previous row (whether shifted or not) overlaps with our original
+            // But ONLY if both addresses are in same general range
+            if (!needsShift && idx > 0) {
+                const prevRow = rows[idx - 1];
+                const prevInput = prevRow.querySelector('.reg-addr-input');
+                const prevOriginal = prevInput.getAttribute('data-original');
+                const prevOriginalInt = parseInt(prevOriginal, 16) || 0;
+                const prevCurrent = parseInt(prevInput.value, 16) || 0;
+                const prevWidthInput = prevRow.querySelector('.reg-width-input');
+                const prevWidth = parseInt(prevWidthInput.value) || 32;
+                const prevSize = Math.ceil(prevWidth / 32) * 4;
+
+                // Only check overlap if previous row was SHIFTED (not just moved to high address)
+                // Previous row shifted means: prevCurrent != prevOriginal AND prevCurrent is close to us
+                const prevWasShifted = prevCurrent !== prevOriginalInt;
+                const prevEnd = prevCurrent + prevSize;
+
+                // Overlap check: our original is within previous row's NEW range
+                // AND our original was AFTER prev's original (they were sequential)
+                if (prevWasShifted && originalInt >= prevCurrent && originalInt < prevEnd) {
+                    needsShift = true;
+                    shiftReason = `prev row shifted to 0x${prevCurrent.toString(16)}`;
+                }
+            }
+
+            if (needsShift) {
+                // Find next available address
+                let newAddr = originalInt;
+
+                // Get the previous row's end address
+                if (idx > 0) {
+                    const prevRow = rows[idx - 1];
+                    const prevInput = prevRow.querySelector('.reg-addr-input');
+                    const prevWidthInput = prevRow.querySelector('.reg-width-input');
+                    if (prevInput && prevWidthInput) {
+                        const prevAddr = parseInt(prevInput.value, 16) || 0;
+                        const prevWidth = parseInt(prevWidthInput.value) || 32;
+                        const prevSize = Math.ceil(prevWidth / 32) * 4;
+                        newAddr = Math.max(newAddr, prevAddr + prevSize);
+                    }
+                }
+
+                // Skip over user-modified addresses
+                while (usedAddresses.has(newAddr)) {
+                    newAddr += 4;
+                }
+
+                input.value = '0x' + newAddr.toString(16).toUpperCase();
+                usedAddresses.add(newAddr);
+                console.log(`Row ${idx}: Shifted from 0x${originalInt.toString(16)} to 0x${newAddr.toString(16)}`);
+            } else {
+                // No conflict, restore to original
+                input.value = original;
+                usedAddresses.add(originalInt);
+                console.log(`Row ${idx}: Keeping original 0x${originalInt.toString(16)}`);
+            }
+
+            updateAddressVisualIndicator(input);
+        });
+
+        // Check for remaining conflicts (user-to-user or above conflicts)
+        detectAddressConflicts();
     }
 
     function addRegister() {
@@ -558,17 +960,27 @@
 
             const tbody = document.getElementById('regsBody');
             const row = document.createElement('tr');
+            const newAddr = '0x' + nextAddr.toString(16).toUpperCase().padStart(2, '0');
             row.className = 'reg-row border-bottom-0 animate__animated animate__fadeIn';
             row.innerHTML = `
-            <td class="ps-4">
-            <input type="text" 
-                class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
-                value="0x` + nextAddr.toString(16).toUpperCase().padStart(2, '0') + `"
-                style="width: 70px;"
-                data-locked="false"
-                title="Auto-calculated"
-                onchange="onAddressChange(this)">
-        </td>
+            <td class="ps-4 addr-cell">
+                <div class="addr-changed">
+                    <span class="addr-original" style="display: none;"></span>
+                    <input type="text" 
+                        class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
+                        value="${newAddr}"
+                        style="width: 70px;"
+                        data-locked="false"
+                        data-original="${newAddr}"
+                        title="Auto-calculated"
+                        onchange="onAddressChange(this)"
+                        onblur="onAddressBlur(this)">
+                    <button class="addr-revert-btn" style="display: none;" onclick="revertAddress(this)" data-action="revert-address" title="Revert to original">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </button>
+                    <span class="addr-conflict-warning" style="display: none;"><i class="bi bi-exclamation-triangle"></i></span>
+                </div>
+            </td>
         <td>
             <input type="text" placeholder="new_reg" class="form-control font-monospace reg-name-input fw-bold bg-light-subtle border-0" oninput="validateName(this)">
         </td>
@@ -764,6 +1176,11 @@
             }
         }).catch(err => alert('Error saving: ' + err));
     }
+
+    // Detect conflicts on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        detectAddressConflicts();
+    });
 </script>
 
 <!-- Save File Modal -->

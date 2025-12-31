@@ -1,0 +1,9 @@
+<register_map module="addr_test_conflict" base_addr="0x0000">
+    <!-- 6 sequential registers for conflict testing -->
+    <register name="first_reg" addr="0x00" width="32" access="RW" />
+    <register name="second_reg" addr="0x04" width="32" access="RW" />
+    <register name="third_reg" addr="0x08" width="32" access="RW" />
+    <register name="fourth_reg" addr="0x0C" width="32" access="RW" />
+    <register name="fifth_reg" addr="0x10" width="32" access="RW" />
+    <register name="sixth_reg" addr="0x14" width="32" access="RW" />
+</register_map>

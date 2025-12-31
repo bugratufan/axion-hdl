@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+
+{% block title %}View Source - {{ filename }}{% endblock %}
+
+{% block head %}
+<!-- CodeMirror CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/monokai.min.css">
+<style>
+    .source-viewer-container {
+        background: var(--card-bg);
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+    }
+
+    .source-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background: linear-gradient(135deg, #1e293b, #334155);
+        color: white;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+
+    .source-header .file-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .source-header .file-info i {
+        font-size: 1.1rem;
+        opacity: 0.8;
+    }
+
+    .source-header .file-path {
+        font-family: 'Monaco', 'Menlo', monospace;
+        font-size: 0.85rem;
+        opacity: 0.9;
+        max-width: 500px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .source-header .file-type {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .source-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .source-actions .btn {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.8rem;
+        border-radius: 6px;
+    }
+
+    .btn-edit {
+        background: rgba(255, 255, 255, 0.15);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-edit:hover {
+        background: rgba(255, 255, 255, 0.25);
+        color: white;
+    }
+
+    .btn-edit.active {
+        background: #f59e0b;
+        border-color: #f59e0b;
+        color: #1e293b;
+    }
+
+    .btn-save {
+        background: #10b981;
+        color: white;
+        border: none;
+    }
+
+    .btn-save:hover {
+        background: #059669;
+        color: white;
+    }
+
+    .btn-save:disabled {
+        background: #6b7280;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
+    .editor-wrapper {
+        position: relative;
+    }
+
+    .CodeMirror {
+        height: auto !important;
+        font-family: 'Monaco', 'Menlo', 'Consolas', 'Liberation Mono', monospace;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .CodeMirror-scroll {
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    .CodeMirror-gutters {
+        border-right: 1px solid #3e3d32;
+    }
+
+    .save-status {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 0.6rem 1rem;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        display: none;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .save-status.success {
+        background: #10b981;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .save-status.error {
+        background: #ef4444;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .save-status.saving {
+        background: #f59e0b;
+        color: #1e293b;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .unsaved-badge {
+        background: #f59e0b;
+        color: #1e293b;
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+        display: none;
+    }
+
+    .unsaved-badge.visible {
+        display: inline-block;
+    }
+
+    /* Breadcrumb styling */
+    .breadcrumb {
+        background: transparent;
+        padding: 0;
+        margin-bottom: 1rem;
+    }
+
+    .breadcrumb-item a {
+        color: var(--primary-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ filename }}</li>
+    </ol>
+</nav>
+
+<div class="source-viewer-container">
+    <div class="source-header">
+        <div class="file-info">
+            <i class="bi bi-file-earmark-code"></i>
+            <span class="file-path" title="{{ filepath }}">{{ filepath }}</span>
+            <span class="file-type">{{ file_type }}</span>
+            <span class="unsaved-badge" id="unsavedBadge">Unsaved</span>
+        </div>
+        <div class="source-actions">
+            <button class="btn btn-edit" id="editBtn" onclick="toggleEdit()">
+                <i class="bi bi-pencil me-1"></i>Edit
+            </button>
+            <button class="btn btn-save" id="saveBtn" onclick="saveFile()" disabled>
+                <i class="bi bi-save me-1"></i>Save
+            </button>
+        </div>
+    </div>
+
+    <div class="editor-wrapper">
+        <textarea id="sourceCode">{{ content }}</textarea>
+    </div>
+</div>
+
+<div class="save-status" id="saveStatus"></div>
+{% endblock %}
+
+{% block scripts %}
+<!-- CodeMirror JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<!-- Language modes -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/vhdl/vhdl.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/yaml/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<!-- Addons -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+
+<script>
+    const filepath = "{{ filepath | safe }}";
+    const fileType = "{{ file_type | lower }}";
+    let isEditing = false;
+    let hasUnsavedChanges = false;
+    let originalContent = "";
+
+    // Determine CodeMirror mode based on file type
+    function getMode() {
+        switch (fileType) {
+            case 'vhdl':
+            case 'vhd':
+                return 'vhdl';
+            case 'json':
+                return { name: 'javascript', json: true };
+            case 'yaml':
+            case 'yml':
+                return 'yaml';
+            case 'xml':
+                return 'xml';
+            default:
+                return 'text/plain';
+        }
+    }
+
+    // Initialize CodeMirror
+    const editor = CodeMirror.fromTextArea(document.getElementById('sourceCode'), {
+        mode: getMode(),
+        theme: 'monokai',
+        lineNumbers: true,
+        matchBrackets: true,
+        styleActiveLine: true,
+        readOnly: true,
+        tabSize: 4,
+        indentUnit: 4,
+        lineWrapping: false,
+        scrollbarStyle: 'native'
+    });
+
+    originalContent = editor.getValue();
+
+    // Refresh editor after render to fix sizing
+    setTimeout(() => editor.refresh(), 100);
+
+    // Track changes
+    editor.on('change', function () {
+        if (isEditing) {
+            hasUnsavedChanges = editor.getValue() !== originalContent;
+            updateUnsavedBadge();
+            document.getElementById('saveBtn').disabled = !hasUnsavedChanges;
+        }
+    });
+
+    function updateUnsavedBadge() {
+        const badge = document.getElementById('unsavedBadge');
+        badge.classList.toggle('visible', hasUnsavedChanges);
+    }
+
+    function toggleEdit() {
+        isEditing = !isEditing;
+        const editBtn = document.getElementById('editBtn');
+
+        if (isEditing) {
+            editor.setOption('readOnly', false);
+            editBtn.classList.add('active');
+            editBtn.innerHTML = '<i class="bi bi-eye me-1"></i>View';
+            editor.focus();
+        } else {
+            editor.setOption('readOnly', true);
+            editBtn.classList.remove('active');
+            editBtn.innerHTML = '<i class="bi bi-pencil me-1"></i>Edit';
+        }
+    }
+
+    async function saveFile() {
+        if (!hasUnsavedChanges) return;
+
+        const saveBtn = document.getElementById('saveBtn');
+        const status = document.getElementById('saveStatus');
+
+        saveBtn.disabled = true;
+        status.className = 'save-status saving';
+        status.innerHTML = '<i class="bi bi-hourglass-split"></i> Saving...';
+
+        try {
+            const response = await fetch('/api/source/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filepath: filepath,
+                    content: editor.getValue()
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                status.className = 'save-status success';
+                status.innerHTML = '<i class="bi bi-check-circle"></i> Saved!';
+                originalContent = editor.getValue();
+                hasUnsavedChanges = false;
+                updateUnsavedBadge();
+                setTimeout(() => { status.className = 'save-status'; }, 2000);
+            } else {
+                throw new Error(result.error || 'Save failed');
+            }
+        } catch (error) {
+            status.className = 'save-status error';
+            status.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + error.message;
+            saveBtn.disabled = false;
+            setTimeout(() => { status.className = 'save-status'; }, 4000);
+        }
+    }
+
+    // Ctrl+S shortcut
+    document.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            if (isEditing && hasUnsavedChanges) saveFile();
+        }
+    });
+
+    // Warn before leaving
+    window.addEventListener('beforeunload', function (e) {
+        if (hasUnsavedChanges) {
+            e.preventDefault();
+            e.returnValue = 'Unsaved changes will be lost.';
+            return e.returnValue;
+        }
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', () => editor.refresh());
+</script>
+{% endblock %}

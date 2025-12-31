@@ -29,17 +29,18 @@
     }
 
     .module-section {
-        background: white;
+        background: var(--card-bg);
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        box-shadow: var(--card-shadow);
         margin-bottom: 16px;
         overflow: hidden;
+        border: 1px solid var(--border-color);
     }
 
     .module-header {
-        background: #f8fafc;
+        background: var(--hover-bg);
         padding: 12px 16px;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid var(--border-color);
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -49,16 +50,21 @@
         margin: 0;
         font-size: 0.95rem;
         font-weight: 600;
-        color: #1e293b;
+        color: var(--text-color);
     }
 
     .module-count {
-        background: #fee2e2;
-        color: #dc2626;
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
         font-size: 0.75rem;
         font-weight: 600;
         padding: 3px 10px;
         border-radius: 12px;
+    }
+
+    [data-theme="light"] .module-count {
+        background: #fee2e2;
+        color: #dc2626;
     }
 
     .issues-table {
@@ -67,21 +73,22 @@
     }
 
     .issues-table th {
-        background: #f1f5f9;
+        background: var(--hover-bg);
         font-weight: 600;
-        color: #64748b;
+        color: var(--text-muted);
         font-size: 0.7rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         padding: 8px 12px;
         text-align: left;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid var(--border-color);
     }
 
     .issues-table td {
         padding: 8px 12px;
-        border-bottom: 1px solid #f1f5f9;
+        border-bottom: 1px solid var(--border-color);
         vertical-align: top;
+        color: var(--text-color);
     }
 
     .issues-table tr:last-child td {
@@ -89,7 +96,7 @@
     }
 
     .issues-table tr:hover td {
-        background: #fafafa;
+        background: var(--hover-bg);
     }
 
     .issue-type-cell {
@@ -98,25 +105,31 @@
     }
 
     .issue-type-badge {
-        background: #fee2e2;
-        color: #dc2626;
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
         font-size: 0.7rem;
         font-weight: 600;
         padding: 3px 8px;
         border-radius: 4px;
     }
 
+    [data-theme="light"] .issue-type-badge {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
     .issue-msg code {
-        background: #e2e8f0;
+        background: var(--code-bg);
         padding: 1px 5px;
         border-radius: 3px;
         font-size: 0.8rem;
+        color: var(--text-color);
     }
 
     .empty-state {
         text-align: center;
         padding: 60px;
-        background: white;
+        background: var(--card-bg);
         border-radius: 12px;
     }
 
@@ -124,12 +137,29 @@
         font-size: 4rem;
         color: #10b981;
     }
+
+    /* Dark mode Bootstrap overrides */
+    [data-theme="dark"] .nav-pills .nav-link {
+        color: var(--text-color);
+    }
+
+    [data-theme="dark"] .nav-pills .nav-link.active {
+        background-color: var(--primary-color);
+    }
+
+    [data-theme="dark"] .card-body {
+        background: var(--card-bg);
+    }
+
+    [data-theme="dark"] .bg-light {
+        background: var(--hover-bg) !important;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-shield-check me-2 text-primary"></i>Design Rule Check</h2>
+    <h2>Design Rule Check</h2>
     <div>
         <button class="btn btn-primary" onclick="runCheck()">
             <i class="bi bi-arrow-clockwise"></i> Refresh
@@ -150,19 +180,9 @@
         </div>
 
         <!-- Activity Log -->
-        <div class="card shadow-sm border-0 bg-dark text-white">
-            <div
-                class="card-header border-secondary border-opacity-25 pt-2 pb-1 px-3 d-flex justify-content-between align-items-center">
-                <small class="fw-bold mb-0 text-white"><i class="bi bi-terminal me-2"></i>Activity Log</small>
-                <small class="text-muted">stdout</small>
-            </div>
-            <div class="card-body p-0">
-                <div id="activity-log" class="p-3 font-monospace small"
-                    style="height: 200px; overflow-y: auto; color: #a0a0a0; background-color: #1e1e1e;">
-                    <div class="text-secondary opacity-50 fst-italic">Ready to check...</div>
-                </div>
-            </div>
-        </div>
+        {% from 'components/activity_log.html' import activity_log %}
+        {{ activity_log(id="activity-log", height="200px", title="Activity Log", subtitle="<span
+            style='color: #8b949e; font-size: 0.75rem;'>stdout</span>", placeholder="Ready to check...") }}
     </div>
 </div>
 
