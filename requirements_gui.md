@@ -70,13 +70,35 @@ Testing is automated via Playwright browser tests mapped back to these requireme
 | GUI-EDIT-017 | Empty State | Shows empty state message when no registers. | Playwright (`gui.test_edit_017`) |
 | GUI-EDIT-018 | Validation Feedback | Invalid inputs show visual error indication. | Playwright (`gui.test_edit_018`) |
 | GUI-EDIT-019 | Duplicate Register | Duplicate button creates copy of register row. | Playwright (`gui.test_edit_019`) |
-| GUI-EDIT-020 | Address Input Editable | Address input field is editable for manual address assignment. | Playwright (`gui.test_edit_020`) |
-| GUI-EDIT-021 | Address Conflict Resolution | When address conflicts occur, non-manual addresses auto-shift to resolve conflicts. | Playwright (`gui.test_edit_021`) |
-| GUI-EDIT-022 | Manual Address Preservation | Manually assigned addresses are preserved unless they conflict with a newly edited address. | Playwright (`gui.test_edit_022`) |
-| GUI-EDIT-023 | Address Change Visual Indicator | When address differs from original, show old address with strikethrough and new address. | Playwright (`gui.test_edit_023`) |
-| GUI-EDIT-024 | Address Revert on Clear | If user clears a manual address or removes conflict, original address is restored. | Playwright (`gui.test_edit_024`) |
-| GUI-EDIT-025 | Real-time Address Update | Address changes appear immediately without page reload. | Playwright (`gui.test_edit_025`) |
-| GUI-EDIT-026 | Address Conflict Warning | Visual warning indicator shown when address conflict is detected. | Playwright (`gui.test_edit_026`) |
+
+### 3.1 Register Address Assignment (GUI-EDIT-020 to GUI-EDIT-040)
+
+The following requirements define the interactive register address assignment behavior in the GUI editor.
+
+**Core Principles:**
+1. User-modified addresses are ALWAYS preserved
+2. Only registers BELOW a changed register may be auto-shifted
+3. Registers ABOVE the changed register are NEVER auto-shifted
+4. Conflicts between user-modified addresses show warning, no auto-resolution
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| GUI-EDIT-020 | Address Input Editable | Each register row has an editable address input field accepting hex values (0x...). | Playwright (`gui.test_edit_020`) |
+| GUI-EDIT-021 | User Address Fixed | When user manually changes a register address, that address remains fixed regardless of other changes. | Playwright (`gui.test_edit_021`) |
+| GUI-EDIT-022 | Unique Address No Shift | When user sets a unique address (no conflict), other registers remain unchanged. | Playwright (`gui.test_edit_022`) |
+| GUI-EDIT-023 | Below Register Shift | When user address conflicts with a register below, that register and subsequent ones shift down. | Playwright (`gui.test_edit_023`) |
+| GUI-EDIT-024 | Chain Shift | When shifting causes further conflicts, chain shift occurs for all affected registers below. | Playwright (`gui.test_edit_024`) |
+| GUI-EDIT-025 | Middle Register Change | When user changes middle register, only registers below it are affected; above registers unchanged. | Playwright (`gui.test_edit_025`) |
+| GUI-EDIT-026 | Multiple User Changes | Multiple user address changes can coexist if they don't conflict with each other. | Playwright (`gui.test_edit_026`) |
+| GUI-EDIT-027 | User Conflict Warning | When two user-modified addresses conflict, visual warning is shown (no auto-resolution). | Playwright (`gui.test_edit_027`) |
+| GUI-EDIT-028 | Above Register Conflict | When user sets address conflicting with register above, warning shown but above register not shifted. | Playwright (`gui.test_edit_028`) |
+| GUI-EDIT-029 | Address Revert | User can revert address to original using revert button; all dependent shifts also revert. | Playwright (`gui.test_edit_029`) |
+| GUI-EDIT-030 | Visual Change Indicator | When address differs from original, show original with strikethrough and new address in bold. | Playwright (`gui.test_edit_030`) |
+| GUI-EDIT-031 | Gap Allowed | User can set address that leaves gaps in address space (e.g., 0x00 → 0x100). | Playwright (`gui.test_edit_031`) |
+| GUI-EDIT-032 | Real-time Update | All address changes and shifts appear immediately without page reload. | Playwright (`gui.test_edit_032`) |
+| GUI-EDIT-033 | Width Change Shift | When register width changes to occupy more space, subsequent registers shift down if needed. | Playwright (`gui.test_edit_033`) |
+| GUI-EDIT-034 | Original Address Tracking | Each address input tracks its original value via data-original attribute for revert functionality. | Playwright (`gui.test_edit_034`) |
+| GUI-EDIT-035 | Locked State Tracking | User-modified addresses are marked with data-locked="true" to distinguish from auto-calculated. | Playwright (`gui.test_edit_035`) |
 
 ---
 
