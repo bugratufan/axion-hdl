@@ -19,11 +19,32 @@
             --primary-dark: #1d4ed8;
             --bg-color: #f8fafc;
             --text-color: #1e293b;
+            --text-muted: #64748b;
             --border-color: #e2e8f0;
             --code-bg: #f1f5f9;
+            --card-bg: #ffffff;
             --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             --success-color: #10b981;
             --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --input-bg: #f8fafc;
+            --hover-bg: #f1f5f9;
+            --table-header-bg: var(--primary-color);
+            --table-hover-bg: #f1f5f9;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #0f172a;
+            --text-color: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --code-bg: #1e293b;
+            --card-bg: #1e293b;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+            --input-bg: #1e293b;
+            --hover-bg: #334155;
+            --table-header-bg: #334155;
+            --table-hover-bg: #334155;
         }
 
         * {
@@ -38,6 +59,7 @@
             margin: 0 auto;
             padding: 2rem;
             background-color: var(--bg-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         /* Hero Section */
@@ -70,10 +92,12 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 2rem;
-            background: white;
+            background: var(--card-bg);
             padding: 1rem 1.5rem;
             border-radius: 12px;
             box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
 
         .navbar-brand {
@@ -103,8 +127,18 @@
         }
 
         .nav-link:hover {
-            background: var(--bg-color);
+            background: var(--hover-bg);
             color: var(--primary-color);
+        }
+
+        .nav-link.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .nav-link.active:hover {
+            background: var(--primary-dark);
+            color: white;
         }
 
         .btn {
@@ -138,18 +172,19 @@
         }
 
         .btn-outline:hover {
-            background: var(--bg-color);
-            border-color: #cbd5e1;
+            background: var(--hover-bg);
+            border-color: var(--border-color);
         }
 
         /* Layout */
         .card {
-            background: white;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: 1.5rem;
             box-shadow: var(--card-shadow);
             border: 1px solid var(--border-color);
             margin-bottom: 1.5rem;
+            transition: background-color 0.3s ease;
         }
 
         h1 {
@@ -169,7 +204,7 @@
 
         h3,
         h4 {
-            color: #475569;
+            color: var(--text-muted);
             margin-top: 1.5rem;
             margin-bottom: 1rem;
         }
@@ -183,12 +218,12 @@
 
         .module-card-large {
             display: flex;
-            background: white;
+            background: var(--card-bg);
             border-radius: 12px;
             box-shadow: var(--card-shadow);
             text-decoration: none;
             color: inherit;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s, background-color 0.3s ease;
             border: 1px solid var(--border-color);
             overflow: hidden;
             position: relative;
@@ -238,7 +273,7 @@
 
         .stat-label {
             font-size: 0.8rem;
-            color: #64748b;
+            color: var(--text-muted);
             text-transform: uppercase;
         }
 
@@ -257,7 +292,7 @@
         .module-info {
             display: flex;
             gap: 1.5rem;
-            color: #64748b;
+            color: var(--text-muted);
             font-size: 0.9rem;
         }
 
@@ -280,7 +315,7 @@
 
         /* Register Preview Sidebar */
         .register-preview {
-            background: #f8fafc;
+            background: var(--hover-bg);
             border-left: 1px solid var(--border-color);
             width: 250px;
             padding: 1rem;
@@ -291,7 +326,7 @@
 
         .preview-title {
             font-weight: 600;
-            color: #64748b;
+            color: var(--text-muted);
             font-size: 0.8rem;
             text-transform: uppercase;
             margin-bottom: 0.5rem;
@@ -302,7 +337,7 @@
             justify-content: space-between;
             font-size: 0.85rem;
             padding: 0.3rem 0;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .reg-item code {
@@ -314,7 +349,7 @@
             width: 100%;
             border-collapse: collapse;
             margin: 1rem 0;
-            background: white;
+            background: var(--card-bg);
             border-radius: 8px;
             overflow: hidden;
         }
@@ -327,13 +362,13 @@
         }
 
         th {
-            background-color: var(--primary-color);
+            background-color: var(--table-header-bg);
             color: white;
             font-weight: 600;
         }
 
         tr:hover {
-            background-color: #f1f5f9;
+            background-color: var(--table-hover-bg);
         }
 
         code {
@@ -356,20 +391,50 @@
                 border-top: 1px solid var(--border-color);
             }
         }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            background: var(--hover-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-color);
+            transition: all 0.2s;
+            margin-left: 0.5rem;
+        }
+
+        .theme-toggle:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .theme-toggle i {
+            font-size: 1rem;
+        }
     </style>
     {% block head %}{% endblock %}
 </head>
 
 <body>
     <nav class="navbar">
-        <a href="/" class="navbar-brand"><i class="bi bi-lightning-charge-fill me-1"></i>Axion-HDL GUI</a>
+        <a href="/" class="navbar-brand">Axion-HDL</a>
         <div class="navbar-nav ms-auto">
-            <a class="nav-link" href="{{ url_for('index') }}"><i class="bi bi-grid-fill me-1"></i> Modules</a>
-            <a class="nav-link" href="{{ url_for('rule_check_page') }}"><i class="bi bi-shield-check me-1"></i> Rule
-                Check</a>
-            <a class="nav-link" href="{{ url_for('generate_page') }}"><i class="bi bi-lightning-fill me-1"></i>
-                Generate</a>
-            <a class="nav-link" href="{{ url_for('config_page') }}"><i class="bi bi-gear-fill me-1"></i> Config</a>
+            <a class="nav-link{% if request.endpoint == 'index' %} active{% endif %}"
+                href="{{ url_for('index') }}">Modules</a>
+            <a class="nav-link{% if request.endpoint == 'rule_check_page' %} active{% endif %}"
+                href="{{ url_for('rule_check_page') }}">Rule Check</a>
+            <a class="nav-link{% if request.endpoint == 'generate_page' %} active{% endif %}"
+                href="{{ url_for('generate_page') }}">Generate</a>
+            <a class="nav-link{% if request.endpoint == 'config_page' %} active{% endif %}"
+                href="{{ url_for('config_page') }}">Config</a>
+            <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle dark mode">
+                <i class="bi bi-moon-fill" id="themeIcon"></i>
+            </button>
         </div>
     </nav>
 
@@ -377,12 +442,61 @@
         {% block content %}{% endblock %}
     </div>
 
-    <footer style="margin-top: 3rem; text-align: center; color: #64748b; font-size: 0.9rem; padding-bottom: 2rem;">
+    <footer
+        style="margin-top: 3rem; text-align: center; color: var(--text-muted); font-size: 0.9rem; padding-bottom: 2rem;">
         Axion HDL GUI Editor &bull; {{ version }}
     </footer>
 
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Theme Management -->
+    <script>
+        // Theme management functions
+        function getSystemTheme() {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+
+        function getStoredTheme() {
+            return localStorage.getItem('axion-theme');
+        }
+
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('axion-theme', theme);
+            updateThemeIcon(theme);
+        }
+
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('themeIcon');
+            if (icon) {
+                icon.className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+            }
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            setTheme(newTheme);
+        }
+
+        // Initialize theme on page load
+        function initTheme() {
+            const storedTheme = getStoredTheme();
+            const theme = storedTheme || getSystemTheme();
+            setTheme(theme);
+        }
+
+        // Run on load
+        initTheme();
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            if (!getStoredTheme()) {
+                setTheme(e.matches ? 'dark' : 'light');
+            }
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 
