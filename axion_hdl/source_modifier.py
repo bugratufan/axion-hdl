@@ -941,15 +941,24 @@ class SourceModifier:
                     return int(v, 16) if v else None
                 return None
             except: return None
+        
+        def get_address_value(reg):
+            """Get address value from register, handling all possible field names."""
+            # Try all possible address field names
+            for field in ['address', 'addr', 'relative_address', 'relative_address_int']:
+                val = reg.get(field)
+                if val is not None:
+                    return parse_hex(val)
+            return None
             
         if parse_val(old_reg.get('default_value')) != parse_val(new_reg.get('default_value')):
             return False
         
         # 6. Address (compare if manual_address is set in new_reg)
         if new_reg.get('manual_address'):
-            old_addr = parse_hex(old_reg.get('address') or old_reg.get('relative_address'))
+            old_addr = get_address_value(old_reg)
             new_addr = parse_hex(new_reg.get('address'))
-            if old_addr != new_addr:
+            if old_addr is not None and new_addr is not None and old_addr != new_addr:
                 return False
             
         return True

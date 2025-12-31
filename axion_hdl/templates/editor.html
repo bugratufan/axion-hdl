@@ -688,91 +688,127 @@
     }
 
     function recalculateAddresses() {
-        const baseAddrInput = document.querySelector('input[name="base_address"]');
-        if (!baseAddrInput) return;
+        const rows = [...document.querySelectorAll('.reg-row')];
+        if (rows.length === 0) return;
 
-        // Active locked = user modified in GUI (current != original)
-        // These addresses have highest priority and never change
-        const activeLocked = new Map(); // addr -> row
+        // Step 1: Identify user-modified addresses (these NEVER change)
+        const userModified = new Map(); // rowIndex -> address
+        rows.forEach((row, idx) => {
+            const input = row.querySelector('.reg-addr-input');
+            if (!input) return;
 
-        // First pass: identify active-locked addresses (user explicitly changed these)
-        document.querySelectorAll('.reg-row').forEach((row, idx) => {
-            const addrInput = row.querySelector('.reg-addr-input');
-            if (!addrInput) return;
+            const current = normalizeHexAddress(input.value);
+            const original = normalizeHexAddress(input.getAttribute('data-original'));
+            const isLocked = input.getAttribute('data-locked') === 'true';
 
-            const currentVal = normalizeHexAddress(addrInput.value);
-            const originalVal = normalizeHexAddress(addrInput.getAttribute('data-original'));
-            const isLocked = addrInput.getAttribute('data-locked') === 'true';
-
-            // Active locked: user changed it (current != original AND locked)
-            if (isLocked && currentVal !== originalVal) {
-                const addr = parseInt(addrInput.value, 16);
+            // User modified = locked AND different from original
+            if (isLocked && current !== original) {
+                const addr = parseInt(input.value, 16);
                 if (!isNaN(addr)) {
-                    activeLocked.set(addr, idx);
+                    userModified.set(idx, addr);
                 }
             }
         });
 
-        console.log('Active locked addresses:', [...activeLocked.keys()].map(a => '0x' + a.toString(16)));
+        console.log('User modified:', [...userModified.entries()].map(([i, a]) => `Row${i}=0x${a.toString(16)}`));
 
-        // Base addr is only for display context, offset calculation is relative
-        let offset = 0;
+        // Step 2: Process each row in order
+        // Track used addresses and next available
+        const usedAddresses = new Set([...userModified.values()]);
 
-        // Second pass: assign addresses
-        document.querySelectorAll('.reg-row').forEach((row, idx) => {
+        rows.forEach((row, idx) => {
+            const input = row.querySelector('.reg-addr-input');
             const widthInput = row.querySelector('.reg-width-input');
-            const addrInput = row.querySelector('.reg-addr-input');
+            if (!input || !widthInput) return;
 
-            if (!widthInput || !addrInput) return;
-
+            const original = input.getAttribute('data-original');
+            const originalInt = parseInt(original, 16) || 0;
             const width = parseInt(widthInput.value) || 32;
-            const numWords = Math.ceil(width / 32);
-            const regSize = numWords * 4;
+            const regSize = Math.ceil(width / 32) * 4;
 
-            const currentVal = normalizeHexAddress(addrInput.value);
-            const originalVal = normalizeHexAddress(addrInput.getAttribute('data-original'));
-            const isLocked = addrInput.getAttribute('data-locked') === 'true';
-
-            // Check if this is active-locked (user changed it)
-            const isActiveLocked = isLocked && currentVal !== originalVal;
-
-            if (isActiveLocked) {
-                // Active locked: user explicitly set this address, keep it fixed
-                const manualVal = parseInt(addrInput.value, 16);
-                if (!isNaN(manualVal)) {
-                    // Update offset to continue from here
-                    offset = Math.max(offset, manualVal + regSize);
-                }
-                console.log(`Row ${idx}: Active locked at ${addrInput.value}, next offset: 0x${offset.toString(16)}`);
-            } else {
-                // Passive locked (from source file) or unlocked: can be auto-calculated
-                // Skip over any active-locked addresses
-                while (activeLocked.has(offset)) {
-                    offset += 4;
-                }
-
-                // Update the address
-                const newAddr = '0x' + offset.toString(16).toUpperCase().padStart(2, '0');
-                addrInput.value = newAddr;
-
-                // If this was passive-locked (from source but user didn't change),
-                // and we're changing it, show visual indicator
-                if (isLocked) {
-                    // It was locked but we're changing it due to conflict
-                    console.log(`Row ${idx}: Passive locked, auto-shifted from ${originalVal} to ${newAddr}`);
-                }
-
-                // Update visual indicator
-                updateAddressVisualIndicator(addrInput);
-
-                // Move to next available address
-                offset += regSize;
+            // If user modified this row, keep it fixed
+            if (userModified.has(idx)) {
+                console.log(`Row ${idx}: User modified, keeping at 0x${userModified.get(idx).toString(16)}`);
+                updateAddressVisualIndicator(input);
+                return;
             }
+
+            // Check if original address conflicts with any user-modified address
+            // Only check user-modified addresses that are ABOVE this row
+            let needsShift = false;
+            let shiftReason = '';
+
+            // Check direct conflict with user-modified addresses
+            for (const [modIdx, modAddr] of userModified) {
+                if (modIdx < idx && modAddr === originalInt) {
+                    // User above took our exact address
+                    needsShift = true;
+                    shiftReason = `user row ${modIdx} at 0x${modAddr.toString(16)}`;
+                    break;
+                }
+            }
+
+            // Check if previous row (whether shifted or not) overlaps with our original
+            // But ONLY if both addresses are in same general range
+            if (!needsShift && idx > 0) {
+                const prevRow = rows[idx - 1];
+                const prevInput = prevRow.querySelector('.reg-addr-input');
+                const prevOriginal = prevInput.getAttribute('data-original');
+                const prevOriginalInt = parseInt(prevOriginal, 16) || 0;
+                const prevCurrent = parseInt(prevInput.value, 16) || 0;
+                const prevWidthInput = prevRow.querySelector('.reg-width-input');
+                const prevWidth = parseInt(prevWidthInput.value) || 32;
+                const prevSize = Math.ceil(prevWidth / 32) * 4;
+
+                // Only check overlap if previous row was SHIFTED (not just moved to high address)
+                // Previous row shifted means: prevCurrent != prevOriginal AND prevCurrent is close to us
+                const prevWasShifted = prevCurrent !== prevOriginalInt;
+                const prevEnd = prevCurrent + prevSize;
+
+                // Overlap check: our original is within previous row's NEW range
+                // AND our original was AFTER prev's original (they were sequential)
+                if (prevWasShifted && originalInt >= prevCurrent && originalInt < prevEnd) {
+                    needsShift = true;
+                    shiftReason = `prev row shifted to 0x${prevCurrent.toString(16)}`;
+                }
+            }
+
+            if (needsShift) {
+                // Find next available address
+                let newAddr = originalInt;
+
+                // Get the previous row's end address
+                if (idx > 0) {
+                    const prevRow = rows[idx - 1];
+                    const prevInput = prevRow.querySelector('.reg-addr-input');
+                    const prevWidthInput = prevRow.querySelector('.reg-width-input');
+                    if (prevInput && prevWidthInput) {
+                        const prevAddr = parseInt(prevInput.value, 16) || 0;
+                        const prevWidth = parseInt(prevWidthInput.value) || 32;
+                        const prevSize = Math.ceil(prevWidth / 32) * 4;
+                        newAddr = Math.max(newAddr, prevAddr + prevSize);
+                    }
+                }
+
+                // Skip over user-modified addresses
+                while (usedAddresses.has(newAddr)) {
+                    newAddr += 4;
+                }
+
+                input.value = '0x' + newAddr.toString(16).toUpperCase();
+                usedAddresses.add(newAddr);
+                console.log(`Row ${idx}: Shifted from 0x${originalInt.toString(16)} to 0x${newAddr.toString(16)}`);
+            } else {
+                // No conflict, restore to original
+                input.value = original;
+                usedAddresses.add(originalInt);
+                console.log(`Row ${idx}: Keeping original 0x${originalInt.toString(16)}`);
+            }
+
+            updateAddressVisualIndicator(input);
         });
 
-        nextAddr = offset;
-
-        // Check for remaining conflicts
+        // Check for remaining conflicts (user-to-user or above conflicts)
         detectAddressConflicts();
     }
 
