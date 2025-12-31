@@ -2,10 +2,76 @@
 
 {% block title %}Generate Outputs{% endblock %}
 
+{% block head %}
+<style>
+    /* Dark mode overrides for Bootstrap classes */
+    [data-theme="dark"] .bg-white,
+    [data-theme="dark"] .card {
+        background: var(--card-bg) !important;
+    }
+
+    [data-theme="dark"] .bg-light {
+        background: var(--hover-bg) !important;
+    }
+
+    [data-theme="dark"] .text-muted {
+        color: var(--text-muted) !important;
+    }
+
+    [data-theme="dark"] .text-secondary {
+        color: var(--text-muted) !important;
+    }
+
+    [data-theme="dark"] .form-control,
+    [data-theme="dark"] .input-group-text {
+        background: var(--card-bg) !important;
+        border-color: var(--border-color) !important;
+        color: var(--text-color) !important;
+    }
+
+    [data-theme="dark"] .form-check-label {
+        color: var(--text-color);
+    }
+
+    [data-theme="dark"] .btn-outline-secondary {
+        color: var(--text-color);
+        border-color: var(--border-color);
+    }
+
+    [data-theme="dark"] .btn-outline-secondary:hover {
+        background: var(--hover-bg);
+        color: var(--text-color);
+    }
+
+    [data-theme="dark"] .card-header {
+        background: var(--card-bg) !important;
+        border-color: var(--border-color) !important;
+    }
+
+    [data-theme="dark"] .form-text {
+        color: var(--text-muted) !important;
+    }
+
+    [data-theme="dark"] h5,
+    [data-theme="dark"] .fw-bold:not(.text-white) {
+        color: var(--text-color) !important;
+    }
+
+    /* Exclude bg-dark cards from dark mode card overrides */
+    [data-theme="dark"] .card:not(.bg-dark) {
+        background: var(--card-bg) !important;
+    }
+
+    [data-theme="dark"] .card-header:not(.bg-dark *) {
+        background: var(--card-bg) !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
-        <h2 class="section-title"><i class="bi bi-lightning-charge-fill me-2 text-warning"></i>Generate Outputs</h2>
+        <h2 class="section-title">Generate Outputs</h2>
         <p class="text-secondary">Produce VHDL modules, documentation, and header files from your design.</p>
     </div>
 </div>
@@ -122,19 +188,10 @@
 
     <!-- Live Output Log -->
     <div class="col-md-5">
-        <div class="card shadow-sm border-0 h-100 bg-dark text-white">
-            <div
-                class="card-header border-secondary border-opacity-25 pt-4 pb-2 px-4 d-flex justify-content-between align-items-center">
-                <h5 class="fw-bold mb-0 text-white"><i class="bi bi-terminal me-2"></i>Activity Log</h5>
-                <span id="statusBadge" class="badge bg-secondary">Idle</span>
-            </div>
-            <div class="card-body p-0 d-flex flex-column">
-                <div id="consoleOutput" class="p-3 font-monospace small"
-                    style="height: 400px; overflow-y: auto; color: #a0a0a0;">
-                    <div class="text-secondary opacity-50 fst-italic">Ready to generate...</div>
-                </div>
-            </div>
-        </div>
+        {% from 'components/activity_log.html' import activity_log %}
+        {{ activity_log(id="consoleOutput", height="400px", title="Activity Log", subtitle="<span id='statusBadge'
+            style='background: rgba(110, 118, 129, 0.4); color: #8b949e; padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 500;'>Idle</span>",
+        placeholder="Ready to generate...") }}
     </div>
 </div>
 

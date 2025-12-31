@@ -5,16 +5,18 @@
 {% block head %}
 <style>
     .config-section {
-        background: white;
+        background: var(--card-bg);
         border-radius: 12px;
         padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        box-shadow: var(--card-shadow);
         margin-bottom: 1.5rem;
+        border: 1px solid var(--border-color);
+        transition: background-color 0.3s ease;
     }
 
     .config-section h4 {
         margin: 0 0 1rem 0;
-        color: #1e293b;
+        color: var(--text-color);
         font-size: 1.1rem;
         font-weight: 600;
         display: flex;
@@ -23,7 +25,7 @@
     }
 
     .config-section h4 i {
-        color: #2563eb;
+        color: var(--primary-color);
     }
 
     .path-list {
@@ -37,11 +39,12 @@
         align-items: center;
         justify-content: space-between;
         padding: 0.75rem 1rem;
-        background: #f8fafc;
+        background: var(--hover-bg);
         border-radius: 8px;
         margin-bottom: 0.5rem;
         font-family: 'Monaco', 'Menlo', monospace;
         font-size: 0.85rem;
+        color: var(--text-color);
     }
 
     .path-item code {
@@ -49,11 +52,12 @@
         padding: 0;
         flex: 1;
         word-break: break-all;
+        color: var(--text-color);
     }
 
     .path-item .remove-btn {
-        background: #fee2e2;
-        color: #dc2626;
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
         border: none;
         border-radius: 4px;
         padding: 4px 8px;
@@ -62,8 +66,13 @@
         margin-left: 0.5rem;
     }
 
+    [data-theme="light"] .path-item .remove-btn {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
     .path-item .remove-btn:hover {
-        background: #fecaca;
+        background: rgba(239, 68, 68, 0.25);
     }
 
     .add-path-form {
@@ -75,14 +84,16 @@
     .add-path-form input {
         flex: 1;
         padding: 0.5rem 1rem;
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--border-color);
         border-radius: 8px;
         font-family: 'Monaco', 'Menlo', monospace;
         font-size: 0.85rem;
+        background: var(--card-bg);
+        color: var(--text-color);
     }
 
     .add-path-form button {
-        background: #2563eb;
+        background: var(--primary-color);
         color: white;
         border: none;
         border-radius: 8px;
@@ -92,7 +103,7 @@
     }
 
     .add-path-form button:hover {
-        background: #1d4ed8;
+        background: var(--primary-dark);
     }
 
     .btn-browse {
@@ -104,11 +115,11 @@
     }
 
     .empty-list {
-        color: #64748b;
+        color: var(--text-muted);
         font-style: italic;
         padding: 1rem;
         text-align: center;
-        background: #f8fafc;
+        background: var(--hover-bg);
         border-radius: 8px;
     }
 
@@ -176,23 +187,60 @@
     }
 
     .type-badge.vhdl {
+        background: rgba(59, 130, 246, 0.2);
+        color: #60a5fa;
+    }
+
+    [data-theme="light"] .type-badge.vhdl {
         background: #dbeafe;
         color: #1d4ed8;
     }
 
     .type-badge.json {
+        background: rgba(245, 158, 11, 0.2);
+        color: #fbbf24;
+    }
+
+    [data-theme="light"] .type-badge.json {
         background: #fef3c7;
         color: #d97706;
     }
 
     .type-badge.yaml {
+        background: rgba(16, 185, 129, 0.2);
+        color: #34d399;
+    }
+
+    [data-theme="light"] .type-badge.yaml {
         background: #d1fae5;
         color: #059669;
     }
 
     .type-badge.xml {
+        background: rgba(236, 72, 153, 0.2);
+        color: #f472b6;
+    }
+
+    [data-theme="light"] .type-badge.xml {
         background: #fce7f3;
         color: #be185d;
+    }
+
+    /* Dark mode text overrides */
+    [data-theme="dark"] .text-dark {
+        color: var(--text-color) !important;
+    }
+
+    [data-theme="dark"] h2.fw-bold {
+        color: var(--text-color) !important;
+    }
+
+    [data-theme="dark"] .border-bottom {
+        border-color: var(--border-color) !important;
+    }
+
+    [data-theme="dark"] small.text-muted {
+        color: var(--text-muted) !important;
     }
 </style>
 {% endblock %}
@@ -201,7 +249,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
     <div>
         <h2 class="mb-0 fw-bold text-dark">
-            <i class="bi bi-gear-fill me-2"></i>Tool Configuration
+            Tool Configuration
             <span id="unsavedBadge" class="badge bg-warning text-dark ms-2"
                 style="display: none; font-size: 0.5em; vertical-align: middle;">Unsaved Changes</span>
         </h2>
