@@ -20,6 +20,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | **STRESS** | Performance | Handling of large modules, wide signals, and massive generation. |
 | **SUB** | Subregisters | Support for packed registers (multiple fields in one 32-bit word). |
 | **DEF** | Default Values | Support for reset values via `DEFAULT` attribute. |
+| **VAL** | Validation | Validation of inputs, error visibility, and diagnostics. |
 | **EQUIV** | Format Equivalence | Cross-format parsing and output equivalence. |
 
 ---
