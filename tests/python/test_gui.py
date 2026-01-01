@@ -677,7 +677,7 @@ class TestGUIGenerationFormats:
         
         checkboxes = [
             "#fmtVhdl", "#fmtJson", "#fmtYaml", "#fmtXml",
-            "#fmtCHeader", "#fmtDocMd", "#fmtDocHtml"
+            "#fmtHeader", "#fmtDocMd", "#fmtDocHtml"
         ]
         
         for checkbox_id in checkboxes:
@@ -983,7 +983,7 @@ class TestGUIGenerationComplete:
         gui_page.goto(f"{gui_server.url}/generate")
         gui_page.wait_for_load_state("networkidle")
         
-        c_checkbox = gui_page.locator("#fmtCHeader")
+        c_checkbox = gui_page.locator("#fmtHeader")
         assert c_checkbox.is_visible(), "C Header checkbox not visible"
 
     def test_gen_006_doc_toggle(self, gui_page, gui_server):
@@ -1010,8 +1010,8 @@ class TestGUIGenerationComplete:
         gui_page.goto(f"{gui_server.url}/generate")
         gui_page.wait_for_load_state("networkidle")
         
-        # Activity log should exist
-        activity_log = gui_page.locator("#activity-log")
+        # Activity log should exist - ID is consoleOutput
+        activity_log = gui_page.locator("#consoleOutput")
         assert activity_log.is_visible(), "Activity log not visible"
 
 
