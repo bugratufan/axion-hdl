@@ -987,10 +987,28 @@ def generate_markdown_report(results: List[TestResult]):
         }),
         "stress": ("🔥 Stress Tests (STRESS-xxx)", {
             "requirements": "STRESS Requirements"
+        }),
+        "sub": ("📦 Subregister Tests (SUB-xxx)", {
+            "requirements": "SUB Requirements"
+        }),
+        "def": ("📝 Default Value Tests (DEF-xxx)", {
+            "requirements": "DEF Requirements"
+        }),
+        "val": ("✅ Validation Tests (VAL-xxx)", {
+            "requirements": "VAL Requirements"
+        }),
+        "yaml-input": ("📄 YAML Input Tests (YAML-INPUT-xxx)", {
+            "requirements": "YAML-INPUT Requirements"
+        }),
+        "json-input": ("📄 JSON Input Tests (JSON-INPUT-xxx)", {
+            "requirements": "JSON-INPUT Requirements"
+        }),
+        "equiv": ("🔀 Format Equivalence Tests (EQUIV-xxx)", {
+            "requirements": "EQUIV Requirements"
         })
     }
     
-    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress"]:
+    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml-input", "json-input", "equiv"]:
         if cat not in categories:
             continue
         
