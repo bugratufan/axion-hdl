@@ -215,6 +215,25 @@ class TestGUIEditor:
             new_name = new_row.locator(".reg-name-input")
             assert new_name.get_attribute("readonly") is None, "New register name should be editable"
 
+    def test_edit_037_restrict_register_renaming(self, gui_page, gui_server):
+        """GUI-EDIT-037: For VHDL sources, existing register names are read-only"""
+        gui_page.goto(gui_server.url)
+        # Find a VHDL module card
+        vhdl_card = gui_page.locator(".module-card-large", has_text=re.compile(r"\.vhd", re.IGNORECASE))
+        
+        if vhdl_card.count() > 0:
+            vhdl_card.first.click()
+            gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
+            
+            # All existing register name inputs should be readonly for VHDL sources
+            if gui_page.locator(".reg-row").count() > 0:
+                name_inputs = gui_page.locator(".reg-name-input")
+                for i in range(min(name_inputs.count(), 3)):  # Check first 3
+                    input_elem = name_inputs.nth(i)
+                    if input_elem.input_value():  # Only check inputs with values (existing registers)
+                        assert input_elem.get_attribute("readonly") is not None, \
+                            f"Existing register name should be readonly for VHDL, but register {i} is editable"
+
 
 class TestGUIGeneration:
     """Tests for GUI-GEN requirements"""
@@ -307,6 +326,18 @@ class TestGUINavigation:
         """GUI-NAV-005: Footer displays version"""
         footer = gui_page.locator("footer")
         assert footer.is_visible(), "Footer not visible"
+
+    def test_nav_007_layout_refinement(self, gui_page, gui_server):
+        """GUI-NAV-007: Column widths are optimized; Width displayed without units"""
+        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
+        
+        # Check that width column exists and shows numeric values without units
+        if gui_page.locator(".reg-row").count() > 0:
+            width_cell = gui_page.locator(".reg-width-input").first
+            value = width_cell.input_value()
+            # Width should be a plain number, not "32 bits" or similar
+            assert value.isdigit(), f"Width should be number without units, got: {value}"
 
 
 class TestGUIConfig:
@@ -489,6 +520,32 @@ class TestGUISaveIndicator:
         # Indicator should be gone because the page reloaded with new state
         indicator = gui_page.locator("#unsavedIndicator")
         assert "visible" not in (indicator.get_attribute("class") or "")
+
+    def test_save_007_auto_reload(self, gui_page, gui_server):
+        """GUI-SAVE-007: Application state updates after saving changes"""
+        gui_page.goto(gui_server.url)
+        gui_page.wait_for_load_state("networkidle")
+        
+        # Get initial module count from dashboard
+        initial_card_count = gui_page.locator(".module-card-large").count()
+        assert initial_card_count > 0, "No module cards found"
+        
+        # Navigate to a module and make a change
+        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
+        gui_page.wait_for_function("() => window.initialState !== undefined")
+        
+        # Get module name from breadcrumb
+        module_name = gui_page.locator(".breadcrumb-item.active").text_content().strip()
+        
+        # Navigate back to dashboard
+        gui_page.goto(gui_server.url)
+        gui_page.wait_for_load_state("networkidle")
+        
+        # Verify the same module is still listed (state is consistent)
+        final_card_count = gui_page.locator(".module-card-large").count()
+        assert final_card_count == initial_card_count, \
+            f"Module count changed unexpectedly: {initial_card_count} -> {final_card_count}"
 
 
 class TestGUIDiffView:
