@@ -168,42 +168,226 @@ generated/
 ├── module_b_axion_reg.vhd
 ├── module_b_regs.h
 ├── module_b_regs.yaml
-├── register_map.md
-└── ...
+---
+
+## CI/CD Integration
+
+Axion-HDL integrates seamlessly with continuous integration pipelines.
+
+### GitHub Actions
+
+Create `.github/workflows/generate-regs.yml`:
+
+```yaml
+name: Generate Register Files
+
+on:
+  push:
+    paths:
+      - 'regs/**'
+      - 'rtl/**/*.vhd'
+  pull_request:
+    paths:
+      - 'regs/**'
+      - 'rtl/**/*.vhd'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Axion-HDL
+        run: pip install axion-hdl
+      
+      - name: Generate Register Files
+        run: |
+          axion-hdl -s ./regs -s ./rtl -o ./generated --all -e "*_tb.vhd"
+      
+      - name: Upload Generated Files
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-registers
+          path: generated/
+      
+      - name: Commit Generated Files (optional)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add generated/
+          git diff --staged --quiet || git commit -m "chore: regenerate register files"
+          git push
 ```
 
-### 3. CI/CD Integration
+### GitLab CI
+
+Create `.gitlab-ci.yml`:
+
+```yaml
+stages:
+  - generate
+  - test
+
+generate-registers:
+  stage: generate
+  image: python:3.11
+  script:
+    - pip install axion-hdl
+    - axion-hdl -s ./regs -o ./generated --all
+  artifacts:
+    paths:
+      - generated/
+    expire_in: 1 week
+  only:
+    changes:
+      - regs/**/*
+      - rtl/**/*.vhd
+
+validate-registers:
+  stage: test
+  image: python:3.11
+  script:
+    - pip install axion-hdl
+    - |
+      python3 << 'EOF'
+      from axion_hdl import AxionHDL
+      from axion_hdl.rule_checker import RuleChecker
+      
+      axion = AxionHDL()
+      axion.add_source("./regs")
+      modules = axion.analyze()
+      
+      checker = RuleChecker()
+      results = checker.run_all_checks(modules)
+      
+      if results["errors"]:
+          for e in results["errors"]:
+              print(f"ERROR: {e['message']}")
+          exit(1)
+      print("✓ Validation passed")
+      EOF
+  only:
+    - merge_requests
+```
+
+### Makefile Integration
+
+Add to your project's `Makefile`:
+
+```makefile
+# Register generation targets
+REGS_SRC := ./regs
+REGS_OUT := ./generated
+AXION := axion-hdl
+
+.PHONY: regs regs-clean regs-check
+
+# Generate all register files
+regs:
+	$(AXION) -s $(REGS_SRC) -o $(REGS_OUT) --all -e "*_tb.vhd"
+	@echo "✓ Register files generated in $(REGS_OUT)"
+
+# Clean generated files
+regs-clean:
+	rm -rf $(REGS_OUT)
+	@echo "✓ Cleaned $(REGS_OUT)"
+
+# Validate without generating
+regs-check:
+	@python3 -c "\
+from axion_hdl import AxionHDL; \
+from axion_hdl.rule_checker import RuleChecker; \
+a = AxionHDL(); a.add_source('$(REGS_SRC)'); m = a.analyze(); \
+r = RuleChecker().run_all_checks(m); \
+exit(1) if r['errors'] else print('✓ Validation passed')"
+
+# Watch for changes and regenerate
+regs-watch:
+	@echo "Watching $(REGS_SRC) for changes..."
+	@while true; do \
+		inotifywait -qr -e modify $(REGS_SRC) && $(MAKE) regs; \
+	done
+```
+
+Usage:
+
+```bash
+make regs          # Generate all
+make regs-clean    # Clean output
+make regs-check    # Validate only
+```
+
+### Shell Script
+
+Create `scripts/generate_regs.sh`:
 
 ```bash
 #!/bin/bash
-# ci_generate.sh
+set -e
 
-# Generate from all YAML definitions
-axion-hdl -s ./regs -o ./generated --all
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+OUTPUT_DIR="${PROJECT_DIR}/generated"
 
-# Check exit code
+echo "=== Axion-HDL Register Generation ==="
+
+# Check if axion-hdl is installed
+if ! command -v axion-hdl &> /dev/null; then
+    echo "ERROR: axion-hdl not found. Install with: pip install axion-hdl"
+    exit 1
+fi
+
+# Create output directory
+mkdir -p "$OUTPUT_DIR"
+
+# Run generation
+echo "Generating from: ${PROJECT_DIR}/regs"
+echo "Output to: ${OUTPUT_DIR}"
+
+axion-hdl \
+    -s "${PROJECT_DIR}/regs" \
+    -s "${PROJECT_DIR}/rtl" \
+    -o "$OUTPUT_DIR" \
+    --all \
+    -e "*_tb.vhd" \
+    -e "deprecated"
+
+# Check result
 if [ $? -eq 0 ]; then
-    echo "Generation successful"
+    echo ""
+    echo "✓ Generation successful!"
+    echo "Generated files:"
+    ls -la "$OUTPUT_DIR"
 else
-    echo "Generation failed"
+    echo ""
+    echo "✗ Generation failed!"
     exit 1
 fi
 ```
 
-### 4. Configuration File
+---
 
-Create `.axion_conf` or use `--config`:
+## Configuration File
+
+Create `.axion_conf` for project-specific settings:
 
 ```json
 {
-    "sources": ["./rtl", "./extra_regs.yaml"],
-    "excludes": ["*_tb.vhd", "deprecated"],
+    "sources": ["./rtl", "./regs"],
+    "excludes": ["*_tb.vhd", "test_*", "deprecated"],
     "output": "./generated"
 }
 ```
 
 ```bash
-# Use config file
+# Use config file explicitly
 axion-hdl --config .axion_conf --all
 
 # Auto-loads .axion_conf if present in current directory
@@ -238,3 +422,5 @@ axion-hdl --all
 2. **Exclude patterns** - great for skipping testbenches and deprecated files
 3. **Config files** - store project-specific settings for consistent generation
 4. **Combine sources** - mix VHDL, YAML, XML, JSON in a single run
+5. **CI/CD artifacts** - upload generated files for downstream jobs
+

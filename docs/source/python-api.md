@@ -443,6 +443,371 @@ except RuntimeError:
 
 ---
 
+## CI/CD Integration
+
+Use the Python API for advanced CI/CD pipelines with validation, conditional generation, and reporting.
+
+### GitHub Actions with Python
+
+Create `.github/workflows/validate-regs.yml`:
+
+```yaml
+name: Validate & Generate Registers
+
+on:
+  push:
+    paths:
+      - 'regs/**'
+  pull_request:
+    paths:
+      - 'regs/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Dependencies
+        run: pip install axion-hdl
+      
+      - name: Validate Register Definitions
+        run: |
+          python3 << 'EOF'
+          from axion_hdl import AxionHDL
+          from axion_hdl.rule_checker import RuleChecker
+          import sys
+          
+          axion = AxionHDL()
+          axion.add_source("./regs")
+          axion.exclude("*_tb.vhd")
+          
+          try:
+              modules = axion.analyze()
+          except Exception as e:
+              print(f"❌ Analysis failed: {e}")
+              sys.exit(1)
+          
+          print(f"📦 Found {len(modules)} modules")
+          
+          checker = RuleChecker()
+          results = checker.run_all_checks(modules)
+          
+          # Report warnings
+          for w in results["warnings"]:
+              print(f"⚠️  {w['message']}")
+          
+          # Report errors
+          for e in results["errors"]:
+              print(f"❌ {e['message']}")
+          
+          if results["errors"]:
+              print(f"\n❌ Validation failed with {len(results['errors'])} errors")
+              sys.exit(1)
+          else:
+              print(f"\n✅ Validation passed!")
+          EOF
+      
+      - name: Generate Files
+        if: success()
+        run: |
+          python3 << 'EOF'
+          from axion_hdl import AxionHDL
+          
+          axion = AxionHDL()
+          axion.add_source("./regs")
+          axion.exclude("*_tb.vhd")
+          axion.analyze()
+          axion.set_output_dir("./generated")
+          axion.generate_all()
+          print("✅ Generation complete")
+          EOF
+      
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-registers
+          path: generated/
+```
+
+### GitLab CI with Python
+
+```yaml
+stages:
+  - validate
+  - generate
+
+variables:
+  REGS_DIR: "./regs"
+  OUTPUT_DIR: "./generated"
+
+validate-registers:
+  stage: validate
+  image: python:3.11
+  script:
+    - pip install axion-hdl
+    - python3 scripts/validate_regs.py
+  only:
+    - merge_requests
+    - main
+
+generate-registers:
+  stage: generate
+  image: python:3.11
+  script:
+    - pip install axion-hdl
+    - python3 scripts/generate_regs.py
+  artifacts:
+    paths:
+      - generated/
+    expire_in: 1 week
+  only:
+    - main
+```
+
+Create `scripts/validate_regs.py`:
+
+```python
+#!/usr/bin/env python3
+"""Validate register definitions for CI."""
+
+import sys
+from axion_hdl import AxionHDL
+from axion_hdl.rule_checker import RuleChecker
+
+def main():
+    axion = AxionHDL()
+    axion.add_source("./regs")
+    axion.exclude("*_tb.vhd")
+    
+    print("🔍 Analyzing register definitions...")
+    modules = axion.analyze()
+    
+    print(f"📦 Found {len(modules)} modules:")
+    for m in modules:
+        print(f"   - {m['name']}: {len(m['registers'])} registers")
+    
+    print("\n🔎 Running validation checks...")
+    checker = RuleChecker()
+    results = checker.run_all_checks(modules)
+    
+    # Print results
+    for w in results["warnings"]:
+        print(f"⚠️  WARNING: {w['message']}")
+    
+    for e in results["errors"]:
+        print(f"❌ ERROR: {e['message']}")
+    
+    # Summary
+    print(f"\n📊 Summary:")
+    print(f"   Modules:  {len(modules)}")
+    print(f"   Warnings: {len(results['warnings'])}")
+    print(f"   Errors:   {len(results['errors'])}")
+    
+    if results["errors"]:
+        print("\n❌ Validation FAILED")
+        return 1
+    else:
+        print("\n✅ Validation PASSED")
+        return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+### Pytest Integration
+
+Create `tests/test_registers.py`:
+
+```python
+"""Test register definitions with pytest."""
+
+import pytest
+from axion_hdl import AxionHDL
+from axion_hdl.rule_checker import RuleChecker
+
+@pytest.fixture
+def axion():
+    """Create AxionHDL instance with sources."""
+    a = AxionHDL()
+    a.add_source("./regs")
+    a.exclude("*_tb.vhd")
+    return a
+
+@pytest.fixture
+def modules(axion):
+    """Analyze and return modules."""
+    return axion.analyze()
+
+def test_modules_found(modules):
+    """Verify at least one module is defined."""
+    assert len(modules) > 0, "No modules found in ./regs"
+
+def test_no_validation_errors(modules):
+    """Verify no validation errors exist."""
+    checker = RuleChecker()
+    results = checker.run_all_checks(modules)
+    
+    error_messages = [e["message"] for e in results["errors"]]
+    assert len(results["errors"]) == 0, f"Validation errors: {error_messages}"
+
+def test_no_address_overlaps(axion, modules):
+    """Verify no address overlaps between modules."""
+    overlaps = axion.check_address_overlaps()
+    assert len(overlaps) == 0, f"Address overlaps detected: {overlaps}"
+
+def test_all_modules_have_registers(modules):
+    """Verify each module has at least one register."""
+    for m in modules:
+        assert len(m["registers"]) > 0, f"Module {m['name']} has no registers"
+
+def test_all_registers_have_descriptions(modules):
+    """Verify all registers have descriptions."""
+    missing = []
+    for m in modules:
+        for r in m["registers"]:
+            if not r.get("description"):
+                missing.append(f"{m['name']}.{r['name']}")
+    
+    assert len(missing) == 0, f"Registers missing descriptions: {missing}"
+```
+
+Run with:
+
+```bash
+pytest tests/test_registers.py -v
+```
+
+### Pre-commit Hook
+
+Create `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: validate-registers
+        name: Validate Register Definitions
+        entry: python scripts/validate_regs.py
+        language: python
+        additional_dependencies: ['axion-hdl']
+        files: ^regs/.*\.(yaml|yml|json|xml|vhd)$
+        pass_filenames: false
+```
+
+Install and run:
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files
+```
+
+### Custom Build Script
+
+Create `scripts/build_all.py`:
+
+```python
+#!/usr/bin/env python3
+"""
+Complete build script with validation, generation, and reporting.
+"""
+
+import sys
+import os
+import json
+from datetime import datetime
+from axion_hdl import AxionHDL
+from axion_hdl.rule_checker import RuleChecker
+
+def main():
+    # Configuration
+    source_dir = os.environ.get("REGS_DIR", "./regs")
+    output_dir = os.environ.get("OUTPUT_DIR", "./generated")
+    
+    print("=" * 60)
+    print("Axion-HDL Build Script")
+    print(f"Time: {datetime.now().isoformat()}")
+    print("=" * 60)
+    
+    # Initialize
+    axion = AxionHDL()
+    axion.add_source(source_dir)
+    axion.exclude("*_tb.vhd")
+    axion.exclude("deprecated")
+    
+    # Analyze
+    print(f"\n📂 Source: {source_dir}")
+    try:
+        modules = axion.analyze()
+    except Exception as e:
+        print(f"❌ Analysis failed: {e}")
+        return 1
+    
+    print(f"📦 Modules: {len(modules)}")
+    total_regs = sum(len(m["registers"]) for m in modules)
+    print(f"📝 Registers: {total_regs}")
+    
+    # Validate
+    print("\n🔎 Validating...")
+    checker = RuleChecker()
+    results = checker.run_all_checks(modules)
+    
+    if results["errors"]:
+        print(f"❌ {len(results['errors'])} errors found:")
+        for e in results["errors"]:
+            print(f"   - {e['message']}")
+        return 1
+    
+    if results["warnings"]:
+        print(f"⚠️  {len(results['warnings'])} warnings:")
+        for w in results["warnings"]:
+            print(f"   - {w['message']}")
+    
+    print("✅ Validation passed")
+    
+    # Generate
+    print(f"\n📁 Output: {output_dir}")
+    os.makedirs(output_dir, exist_ok=True)
+    axion.set_output_dir(output_dir)
+    axion.generate_all()
+    
+    # Report
+    print("\n📋 Generated files:")
+    for m in modules:
+        print(f"   - {m['name']}_axion_reg.vhd")
+        print(f"   - {m['name']}_regs.h")
+    
+    # Write build info
+    build_info = {
+        "timestamp": datetime.now().isoformat(),
+        "modules": len(modules),
+        "registers": total_regs,
+        "warnings": len(results["warnings"]),
+        "source": source_dir
+    }
+    
+    with open(f"{output_dir}/build_info.json", "w") as f:
+        json.dump(build_info, f, indent=2)
+    
+    print("\n" + "=" * 60)
+    print("✅ Build completed successfully!")
+    print("=" * 60)
+    
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+---
+
 ## See Also
 
 - [CLI Usage](cli-usage) - Command-line interface
