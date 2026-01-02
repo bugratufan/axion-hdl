@@ -8,7 +8,7 @@ with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='axion-hdl',
-    version='0.9.0',
+    version='0.10.0',
     author='Bugra Tufan',
     author_email='bugratufan97@gmail.com',
     description='Automated AXI4-Lite Register Interface Generator for VHDL modules',
