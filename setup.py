@@ -17,7 +17,7 @@ setup(
     url='https://github.com/bugratufan/axion-hdl',
     project_urls={
         'Bug Tracker': 'https://github.com/bugratufan/axion-hdl/issues',
-        'Documentation': 'https://github.com/bugratufan/axion-hdl#readme',
+        'Documentation': 'https://github.com/bugratufan/axion-hdl/tree/main/docs',
         'Source Code': 'https://github.com/bugratufan/axion-hdl',
     },
     packages=find_packages(exclude=['tests', 'tests.*', 'examples', 'output', 'waveforms', 'work']),
