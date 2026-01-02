@@ -987,10 +987,28 @@ def generate_markdown_report(results: List[TestResult]):
         }),
         "stress": ("🔥 Stress Tests (STRESS-xxx)", {
             "requirements": "STRESS Requirements"
+        }),
+        "sub": ("📦 Subregister Tests (SUB-xxx)", {
+            "requirements": "SUB Requirements"
+        }),
+        "def": ("📝 Default Value Tests (DEF-xxx)", {
+            "requirements": "DEF Requirements"
+        }),
+        "val": ("✅ Validation Tests (VAL-xxx)", {
+            "requirements": "VAL Requirements"
+        }),
+        "yaml-input": ("📄 YAML Input Tests (YAML-INPUT-xxx)", {
+            "requirements": "YAML-INPUT Requirements"
+        }),
+        "json-input": ("📄 JSON Input Tests (JSON-INPUT-xxx)", {
+            "requirements": "JSON-INPUT Requirements"
+        }),
+        "equiv": ("🔀 Format Equivalence Tests (EQUIV-xxx)", {
+            "requirements": "EQUIV Requirements"
         })
     }
     
-    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress"]:
+    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml-input", "json-input", "equiv"]:
         if cat not in categories:
             continue
         
@@ -1631,6 +1649,112 @@ def run_default_tests() -> List[TestResult]:
     return results
 
 
+def run_validation_tests() -> List[TestResult]:
+    """Run VAL-xxx requirement tests for validation and diagnostics"""
+    results = []
+    
+    try:
+        from tests.python.test_validation import (
+            test_json_missing_module_field,
+            test_yaml_missing_module_field,
+            test_xml_missing_module_attr,
+            test_syntax_error,
+            test_check_documentation_warning,
+            test_val_003_logical_integrity_check
+        )
+        from tests.python.test_val_005_duplicate_module import (
+            test_val_005_duplicate_module_names,
+            test_val_005_unique_module_names
+        )
+        import tempfile
+        from pathlib import Path
+        
+        # VAL-001: Missing module field tests
+        for test_func, fmt in [
+            (test_json_missing_module_field, "JSON"),
+            (test_yaml_missing_module_field, "YAML"),
+            (test_xml_missing_module_attr, "XML")
+        ]:
+            test_id = f"val.val_001_{fmt.lower()}"
+            name = f"VAL-001: Missing 'module' field in {fmt}"
+            start = time.time()
+            try:
+                with tempfile.TemporaryDirectory() as tmp:
+                    test_func(Path(tmp))
+                results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                         category="val", subcategory="requirements"))
+            except Exception as e:
+                results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                         str(e), category="val", subcategory="requirements"))
+        
+        # VAL-002: Syntax error test
+        test_id = "val.val_002"
+        name = "VAL-002: Syntax error reporting"
+        start = time.time()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                test_syntax_error(Path(tmp))
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+        
+        # VAL-003: Logical integrity check
+        test_id = "val.val_003"
+        name = "VAL-003: Logical integrity check"
+        start = time.time()
+        try:
+            test_val_003_logical_integrity_check()
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+        
+        # VAL-004: Documentation warning
+        test_id = "val.val_004"
+        name = "VAL-004: Missing documentation warning"
+        start = time.time()
+        try:
+            test_check_documentation_warning()
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+        
+        # VAL-005: Duplicate module detection
+        test_id = "val.val_005"
+        name = "VAL-005: Duplicate module name detection"
+        start = time.time()
+        try:
+            test_val_005_duplicate_module_names()
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+        
+        # VAL-005 (unique names - no error case)
+        test_id = "val.val_005_unique"
+        name = "VAL-005: Unique module names (no error)"
+        start = time.time()
+        try:
+            test_val_005_unique_module_names()
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+                                     
+    except ImportError as e:
+        results.append(TestResult("val.import", "VAL: Import test module", "failed", 0, str(e),
+                                 category="val", subcategory="setup"))
+    
+    return results
+
+
 def run_yaml_input_tests() -> List[TestResult]:
     """Run YAML-INPUT-xxx requirement tests"""
     results = []
@@ -1786,72 +1910,76 @@ def run_equivalence_tests() -> List[TestResult]:
 
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, YAML-INPUT, JSON-INPUT, EQUIV\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, JSON-INPUT, EQUIV\n")
     
     all_results = []
     
     # Run Python unit tests (core functionality)
-    print(f"  [1/16] Running Python unit tests...", flush=True)
+    print(f"  [1/17] Running Python unit tests...", flush=True)
     all_results.extend(run_python_unit_tests())
     
     # Run address conflict tests (ADDR requirements)
-    print(f"  [2/16] Running address conflict tests...", flush=True)
+    print(f"  [2/17] Running address conflict tests...", flush=True)
     all_results.extend(run_address_conflict_tests())
     
     # Run Parser tests (PARSER requirements)
-    print(f"  [3/16] Running parser tests...", flush=True)
+    print(f"  [3/17] Running parser tests...", flush=True)
     all_results.extend(run_parser_tests())
     
     # Run Generator tests (GEN requirements)
-    print(f"  [4/16] Running generator tests...", flush=True)
+    print(f"  [4/17] Running generator tests...", flush=True)
     all_results.extend(run_generator_tests())
     
     # Run Error handling tests (ERR requirements)
-    print(f"  [5/16] Running error handling tests...", flush=True)
+    print(f"  [5/17] Running error handling tests...", flush=True)
     all_results.extend(run_error_handling_tests())
     
     # Run CLI tests (CLI requirements)
-    print(f"  [6/16] Running CLI tests...", flush=True)
+    print(f"  [6/17] Running CLI tests...", flush=True)
     all_results.extend(run_cli_tests())
     
     # Run CDC tests (CDC requirements)
-    print(f"  [7/16] Running CDC tests...", flush=True)
+    print(f"  [7/17] Running CDC tests...", flush=True)
     all_results.extend(run_cdc_tests())
     
     # Run ADDR tests (ADDR requirements)
-    print(f"  [8/16] Running address management tests...", flush=True)
+    print(f"  [8/17] Running address management tests...", flush=True)
     all_results.extend(run_addr_tests())
     
     # Run STRESS tests (STRESS requirements)
-    print(f"  [9/16] Running stress tests...", flush=True)
+    print(f"  [9/17] Running stress tests...", flush=True)
     all_results.extend(run_stress_tests())
     
     # Run SUB tests (Subregister requirements)
-    print(f"  [10/16] Running subregister tests...", flush=True)
+    print(f"  [10/17] Running subregister tests...", flush=True)
     all_results.extend(run_subregister_tests())
     
     # Run DEF tests (DEFAULT attribute requirements)
-    print(f"  [11/16] Running default attribute tests...", flush=True)
+    print(f"  [11/17] Running default attribute tests...", flush=True)
     all_results.extend(run_default_tests())
     
+    # Run VAL tests (Validation & Diagnostics requirements)
+    print(f"  [12/17] Running validation tests...", flush=True)
+    all_results.extend(run_validation_tests())
+    
     # Run YAML-INPUT tests
-    print(f"  [12/16] Running YAML input parser tests...", flush=True)
+    print(f"  [13/17] Running YAML input parser tests...", flush=True)
     all_results.extend(run_yaml_input_tests())
     
     # Run JSON-INPUT tests
-    print(f"  [13/16] Running JSON input parser tests...", flush=True)
+    print(f"  [14/17] Running JSON input parser tests...", flush=True)
     all_results.extend(run_json_input_tests())
     
     # Run EQUIV tests (format equivalence)
-    print(f"  [14/16] Running format equivalence tests...", flush=True)
+    print(f"  [15/17] Running format equivalence tests...", flush=True)
     all_results.extend(run_equivalence_tests())
     
     # Run VHDL tests (AXION, AXI-LITE requirements)
-    print(f"  [15/16] Running VHDL simulation tests...", flush=True)
+    print(f"  [16/17] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
     
     # Run C tests
-    print(f"  [16/16] Running C header tests...", flush=True)
+    print(f"  [17/17] Running C header tests...", flush=True)
     all_results.extend(run_c_tests())
     
     # Save and generate reports
@@ -1871,7 +1999,7 @@ def print_requirement_coverage(results: List[TestResult]):
     """Print requirement coverage summary"""
     
     # Extract requirement IDs from test results
-    req_pattern = re.compile(r'(AXION-\d+[a-z]?|AXI-LITE-\d+[a-z]?|PARSER-\d+|GEN-\d+|CDC-\d+|ADDR-\d+|ERR-\d+|CLI-\d+|STRESS-\d+|SUB-\d+|DEF-\d+|YAML-INPUT-\d+|JSON-INPUT-\d+|EQUIV-\d+)', re.IGNORECASE)
+    req_pattern = re.compile(r'(AXION-\d+[a-z]?|AXI-LITE-\d+[a-z]?|PARSER-\d+|GEN-\d+|CDC-\d+|ADDR-\d+|ERR-\d+|CLI-\d+|STRESS-\d+|SUB-\d+|DEF-\d+|VAL-\d+|YAML-INPUT-\d+|JSON-INPUT-\d+|EQUIV-\d+)', re.IGNORECASE)
     
     covered = set()
     for r in results:
@@ -1930,6 +2058,7 @@ def print_requirement_coverage(results: List[TestResult]):
         "STRESS": [r for r in covered if r.startswith("STRESS-")],
         "SUB": [r for r in covered if r.startswith("SUB-")],
         "DEF": [r for r in covered if r.startswith("DEF-")],
+        "VAL": [r for r in covered if r.startswith("VAL-")],
         "YAML-INPUT": [r for r in covered if r.startswith("YAML-INPUT-")],
         "JSON-INPUT": [r for r in covered if r.startswith("JSON-INPUT-")],
         "EQUIV": [r for r in covered if r.startswith("EQUIV-")]

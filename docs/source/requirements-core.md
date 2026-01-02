@@ -1,6 +1,6 @@
-# Axion-HDL Requirements
+# Core Requirements
 
-This document tracks all functional and non-functional requirements for the Axion-HDL project.
+This document tracks all functional and non-functional requirements for the Axion-HDL core tool.
 Testing and verification are automated via `make test`, which maps tests back to these requirement IDs.
 
 ## Requirement Categories
@@ -20,6 +20,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | **STRESS** | Performance | Handling of large modules, wide signals, and massive generation. |
 | **SUB** | Subregisters | Support for packed registers (multiple fields in one 32-bit word). |
 | **DEF** | Default Values | Support for reset values via `DEFAULT` attribute. |
+| **VAL** | Validation | Validation of inputs, error visibility, and diagnostics. |
 | **EQUIV** | Format Equivalence | Cross-format parsing and output equivalence. |
 
 ---
@@ -201,23 +202,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | DEF-009 | Combine Subregister Defaults | Packed register default is OR-combination of field defaults. | Python Unit Test (`def.test_def_009`) |
 | DEF-010 | Backward Compatibility | Existing modules unaffected. | Python Unit Test (`def.test_def_010`) |
 
-## 12. Interactive GUI (GUI)
-
-| ID | Definition | Acceptance Criteria | Test Method |
-|----|------------|---------------------|-------------|
-| GUI-001 | Launch Web Server | `axion-hdl --gui` launches local web server. | Manual / Integration Test |
-| GUI-002 | Dashboard View | Web Interface lists all parsed modules. | Manual / Integration Test |
-| GUI-003 | Register Editor | Allows adding/editing registers via form. | Manual / Integration Test |
-| GUI-004 | Source Modification | Can write changes back to source files (JSON/YAML/VHDL*). | Manual / Integration Test |
-| GUI-005 | Diff & Review | Shows visual diff of VHDL/Config changes before saving. | Manual / Integration Test |
-| GUI-006 | Auto-Reload | Application state updates after saving. | Manual / Integration Test |
-| GUI-007 | Restrict Register Renaming | For VHDL sources, existing registers cannot be renamed. | Manual / Integration Test |
-| GUI-008 | Layout Refinement | Column widths optimized; Width displayed without units. | Manual / Integration Test |
-| GUI-009 | CDC Toggle | Editor allows toggling CDC enable state. | Manual / Integration Test |
-
-> GUI-004 VHDL modification is currently experimental and supports mainly appending new signals to identified declaration blocks.
-
-## 13. Validation & Diagnostics (VAL)
+## 12. Validation & Diagnostics (VAL)
 
 | ID | Definition | Acceptance Criteria | Test Method |
 |----|------------|---------------------|-------------|
@@ -226,4 +211,3 @@ Testing and verification are automated via `make test`, which maps tests back to
 | VAL-003 | Logical Integrity Check | Validates integrity of loaded modules (e.g. non-empty register lists). | Python Unit Test (`val.test_val_003`) |
 | VAL-004 | Description Presence | Warns if registers are missing descriptions/documentation. | Python Unit Test (`val.test_val_004`) |
 | VAL-005 | Duplicate Module Name | Error if multiple modules share the same name. | Python Unit Test (`val.test_val_005`) |
-
