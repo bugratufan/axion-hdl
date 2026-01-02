@@ -2,6 +2,8 @@
 
 This reference documents the main Python classes and functions in Axion-HDL.
 
+---
+
 ## Core Classes
 
 ### AxionHDL
@@ -15,14 +17,167 @@ from axion_hdl import AxionHDL
 axion = AxionHDL()
 
 # Add source files or directories
-axion.add_source_path("./rtl")
-axion.add_source_path("registers.yaml")
+axion.add_source("./rtl")           # Auto-detect by extension
+axion.add_source("registers.yaml")
 
 # Analyze all sources
 modules = axion.analyze()
 
 # Generate outputs
-axion.generate(output_dir="./output", formats=["vhdl", "c_header", "md"])
+axion.set_output_dir("./output")
+axion.generate_all()
+```
+
+#### Constructor
+
+```python
+AxionHDL(output_dir="./axion_output")
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `output_dir` | str | `"./axion_output"` | Output directory for generated files |
+
+#### Source Management Methods
+
+| Method | Description |
+|--------|-------------|
+| `add_source(path)` | Add source file/directory (auto-detects type by extension) |
+| `add_src(path)` | Add VHDL source file or directory |
+| `add_yaml_src(path)` | Add YAML source file or directory |
+| `add_json_src(path)` | Add JSON source file or directory |
+| `add_xml_src(path)` | Add XML source file or directory |
+| `list_src()` | List all added source files and directories |
+
+**Example:**
+
+```python
+axion = AxionHDL()
+
+# Unified method (recommended)
+axion.add_source("./rtl")           # Directory with VHDL files
+axion.add_source("config.yaml")     # YAML file
+axion.add_source("extra.json")      # JSON file
+
+# Type-specific methods
+axion.add_src("spi_master.vhd")     # VHDL only
+axion.add_yaml_src("registers.yaml") # YAML only
+
+# List sources
+sources = axion.list_src()
+print(sources)
+```
+
+#### Exclusion Methods
+
+| Method | Description |
+|--------|-------------|
+| `exclude(*patterns)` | Exclude files/directories matching glob patterns |
+| `include(*patterns)` | Remove patterns from exclusion list |
+| `clear_excludes()` | Clear all exclusion patterns |
+| `list_excludes()` | List current exclusion patterns |
+
+**Example:**
+
+```python
+axion = AxionHDL()
+axion.add_source("./rtl")
+
+# Exclude testbenches and deprecated files
+axion.exclude("*_tb.vhd", "test_*.vhd")
+axion.exclude("deprecated")
+
+# Check what's excluded
+print(axion.list_excludes())
+# Output: {'*_tb.vhd', 'test_*.vhd', 'deprecated'}
+
+# Re-include something
+axion.include("test_*.vhd")
+```
+
+#### Analysis Methods
+
+| Method | Description |
+|--------|-------------|
+| `analyze()` | Parse all sources and return list of modules |
+| `get_modules()` | Get list of analyzed modules |
+| `is_analyzed` | Property: True if analyze() has been called |
+
+**Example:**
+
+```python
+axion = AxionHDL()
+axion.add_source("./rtl")
+axion.exclude("*_tb.vhd")
+
+# Analyze
+modules = axion.analyze()
+print(f"Found {len(modules)} modules")
+
+# Access later
+if axion.is_analyzed:
+    modules = axion.get_modules()
+    for m in modules:
+        print(f"  {m['name']}: {len(m['registers'])} registers")
+```
+
+#### Generation Methods
+
+| Method | Description |
+|--------|-------------|
+| `set_output_dir(path)` | Set output directory for generated files |
+| `generate_all(doc_format="md")` | Generate all output formats |
+| `generate_vhdl()` | Generate VHDL register modules |
+| `generate_c_header()` | Generate C header files |
+| `generate_documentation(format="md")` | Generate documentation (md, html, pdf) |
+| `generate_xml()` | Generate XML register maps |
+| `generate_yaml()` | Generate YAML register maps |
+| `generate_json()` | Generate JSON register maps |
+
+**Example:**
+
+```python
+axion = AxionHDL()
+axion.add_source("registers.yaml")
+axion.analyze()
+
+# Set output directory
+axion.set_output_dir("./generated")
+
+# Generate everything
+axion.generate_all()
+
+# Or generate specific formats
+axion.generate_vhdl()
+axion.generate_c_header()
+axion.generate_documentation(format="html")
+```
+
+#### Validation Methods
+
+| Method | Description |
+|--------|-------------|
+| `run_rules(report_file=None)` | Run validation rules and print report |
+| `check_address_overlaps()` | Check for address overlaps between modules |
+
+**Example:**
+
+```python
+axion = AxionHDL()
+axion.add_source("./rtl")
+axion.analyze()
+
+# Run rule checks
+axion.run_rules()
+
+# Or save to file
+axion.run_rules(report_file="validation_report.txt")
+
+# Check address overlaps
+try:
+    errors = axion.check_address_overlaps()
+except AddressConflictError as e:
+    print(f"Overlap: {e}")
 ```
 
 ```{eval-rst}
@@ -34,9 +189,7 @@ axion.generate(output_dir="./output", formats=["vhdl", "c_header", "md"])
 
 ---
 
-## Rule Checker
-
-### RuleChecker
+## RuleChecker
 
 Validates register definitions against design rules.
 
@@ -46,7 +199,7 @@ from axion_hdl import AxionHDL
 
 # Analyze sources
 axion = AxionHDL()
-axion.add_source_path("./rtl")
+axion.add_source("./rtl")
 modules = axion.analyze()
 
 # Run rule checks
@@ -61,6 +214,59 @@ if results["errors"]:
     print(f"Found {len(results['errors'])} errors")
 ```
 
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `run_all_checks(modules)` | Run all validation checks |
+| `generate_report()` | Generate text report |
+| `generate_json()` | Generate JSON report |
+| `check_address_overlaps(modules)` | Check for address overlaps |
+| `check_address_alignment(modules)` | Check 4-byte alignment |
+| `check_default_values(modules)` | Validate default values fit width |
+| `check_naming_conventions(modules)` | Validate VHDL identifiers |
+| `check_duplicate_names(modules)` | Check for duplicate register names |
+| `check_unique_module_names(modules)` | Check for duplicate module names |
+| `check_documentation(modules)` | Check for missing descriptions |
+| `check_logical_integrity(modules)` | Check module/register structure |
+| `check_source_file_formats(dirs)` | Check source file syntax |
+
+### Return Value
+
+`run_all_checks()` returns a dictionary:
+
+```python
+{
+    "errors": [
+        {
+            "rule": "address_overlap",
+            "module": "spi_master",
+            "message": "Registers control and status overlap at 0x00"
+        }
+    ],
+    "warnings": [
+        {
+            "rule": "documentation",
+            "module": "gpio",
+            "message": "Register 'direction' missing description"
+        }
+    ]
+}
+```
+
+### Check Categories
+
+| Category | Rule ID | Description |
+|----------|---------|-------------|
+| Address | `address_overlap` | Registers share same address |
+| Address | `address_alignment` | Not 4-byte aligned |
+| Values | `default_value` | Default exceeds width |
+| Naming | `naming_convention` | Invalid VHDL identifier |
+| Naming | `duplicate_name` | Duplicate register name |
+| Naming | `duplicate_module` | Duplicate module name |
+| Documentation | `missing_description` | No description field |
+| Structure | `empty_module` | Module has no registers |
+
 ```{eval-rst}
 .. autoclass:: axion_hdl.rule_checker.RuleChecker
    :members:
@@ -71,7 +277,9 @@ if results["errors"]:
 
 ## Parsers
 
-### VHDL Parser
+Individual parsers for each input format. Usually you don't need these directly - use `AxionHDL.add_source()` instead.
+
+### VHDLParser
 
 Parses VHDL files with `@axion` annotations.
 
@@ -79,39 +287,39 @@ Parses VHDL files with `@axion` annotations.
 from axion_hdl.parser import VHDLParser
 
 parser = VHDLParser()
-module = parser.parse_file("module.vhd")
+modules = parser.parse_file("module.vhd")
 ```
 
-### YAML Parser
+### YAMLInputParser
 
 Parses YAML register definition files.
 
 ```python
-from axion_hdl.yaml_parser import YAMLParser
+from axion_hdl.yaml_input_parser import YAMLInputParser
 
-parser = YAMLParser()
+parser = YAMLInputParser()
 module = parser.parse_file("registers.yaml")
 ```
 
-### JSON Parser
+### JSONInputParser
 
 Parses JSON register definition files.
 
 ```python
-from axion_hdl.json_parser import JSONParser
+from axion_hdl.json_input_parser import JSONInputParser
 
-parser = JSONParser()
+parser = JSONInputParser()
 module = parser.parse_file("registers.json")
 ```
 
-### XML Parser
+### XMLInputParser
 
 Parses XML register definition files.
 
 ```python
-from axion_hdl.xml_parser import XMLParser
+from axion_hdl.xml_input_parser import XMLInputParser
 
-parser = XMLParser()
+parser = XMLInputParser()
 module = parser.parse_file("registers.xml")
 ```
 
@@ -119,89 +327,148 @@ module = parser.parse_file("registers.xml")
 
 ## Generators
 
-### VHDL Generator
+Individual generators for each output format. Usually accessed via `AxionHDL.generate_*()` methods.
+
+### VHDLGenerator
 
 Generates AXI4-Lite slave VHDL modules.
 
 ```python
-from axion_hdl.generators.vhdl_generator import VHDLGenerator
+from axion_hdl.generator import VHDLGenerator
 
-generator = VHDLGenerator()
-vhdl_code = generator.generate(module)
-generator.write_file(module, output_dir="./output")
+generator = VHDLGenerator(output_dir="./output")
+output_path = generator.generate(module)
 ```
 
-### C Header Generator
+### DocGenerator
 
-Generates C header files with register macros.
+Generates documentation (Markdown, HTML, PDF).
 
 ```python
-from axion_hdl.generators.c_header_generator import CHeaderGenerator
+from axion_hdl.doc_generators import DocGenerator
 
-generator = CHeaderGenerator()
-header_code = generator.generate(module)
-generator.write_file(module, output_dir="./output")
+generator = DocGenerator(output_dir="./output")
+output_path = generator.generate_doc(modules, format="md")  # or "html"
 ```
 
-### Documentation Generator
+### CHeaderGenerator
 
-Generates Markdown/HTML documentation.
+Generates C header files.
 
 ```python
-from axion_hdl.generators.doc_generator import DocGenerator
+from axion_hdl.doc_generators import CHeaderGenerator
 
-generator = DocGenerator(format="md")  # or "html"
-doc = generator.generate(modules)
-generator.write_file(modules, output_dir="./output")
+generator = CHeaderGenerator(output_dir="./output")
+output_path = generator.generate_header(module)
+```
+
+### XMLGenerator
+
+Generates XML register maps.
+
+```python
+from axion_hdl.doc_generators import XMLGenerator
+
+generator = XMLGenerator(output_dir="./output")
+output_path = generator.generate_xml(module)
+```
+
+### YAMLGenerator
+
+Generates YAML register maps.
+
+```python
+from axion_hdl.doc_generators import YAMLGenerator
+
+generator = YAMLGenerator(output_dir="./output")
+output_path = generator.generate_yaml(module)
+```
+
+### JSONGenerator
+
+Generates JSON register maps.
+
+```python
+from axion_hdl.doc_generators import JSONGenerator
+
+generator = JSONGenerator(output_dir="./output")
+output_path = generator.generate_json(module)
 ```
 
 ---
 
 ## Data Structures
 
-### Module
+### Module Dictionary
 
-Represents a parsed module with registers.
+Returned by `analyze()` and `get_modules()`:
 
 ```python
 module = {
     "name": "spi_master",
-    "base_addr": "0x1000",
-    "source_file": "spi_master.vhd",
-    "config": {
-        "cdc_en": True,
-        "cdc_stage": 2
-    },
+    "entity_name": "spi_master",
+    "source_file": "/path/to/spi_master.vhd",
+    "base_address": 4096,           # Integer (0x1000)
+    "base_addr": "0x1000",          # String representation
+    "cdc_enabled": True,
+    "cdc_stages": 2,
     "registers": [
-        {
-            "name": "control",
-            "addr": "0x00",
-            "access": "RW",
-            "width": 32,
-            "default": 0,
-            "description": "Control register",
-            "r_strobe": False,
-            "w_strobe": True
-        }
+        # List of Register dictionaries
     ]
 }
 ```
 
-### Register
+### Register Dictionary
 
-Individual register definition:
+Each register in a module:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | str | Register/signal name |
-| `addr` | str | Hex address (e.g., "0x04") |
-| `access` | str | "RO", "WO", or "RW" |
-| `width` | int | Bit width (1-1024) |
-| `default` | int/str | Reset value |
-| `description` | str | Documentation |
-| `r_strobe` | bool | Generate read strobe |
-| `w_strobe` | bool | Generate write strobe |
-| `fields` | list | Subregister fields (optional) |
+```python
+register = {
+    "name": "control",
+    "addr": "0x00",
+    "offset": 0,
+    "access": "RW",              # "RO", "WO", or "RW"
+    "width": 32,
+    "default": 0,
+    "description": "Control register",
+    "r_strobe": False,
+    "w_strobe": True,
+    "fields": []                 # Optional subregisters
+}
+```
+
+### Register Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | str | ✓ | Register/signal name |
+| `addr` | str | ✓ | Hex address (e.g., "0x04") |
+| `offset` | int | | Integer offset from base |
+| `access` | str | ✓ | "RO", "WO", or "RW" |
+| `width` | int | | Bit width (default: 32) |
+| `default` | int/str | | Reset value (default: 0) |
+| `description` | str | | Documentation |
+| `r_strobe` | bool | | Generate read strobe (default: False) |
+| `w_strobe` | bool | | Generate write strobe (default: False) |
+| `fields` | list | | Subregister bit fields |
+
+---
+
+## Exceptions
+
+### AddressConflictError
+
+Raised when address conflicts are detected.
+
+```python
+from axion_hdl.address_manager import AddressConflictError
+
+try:
+    axion.check_address_overlaps()
+except AddressConflictError as e:
+    print(f"Conflict at address {e.address}")
+    print(f"Between: {e.existing_signal} and {e.new_signal}")
+```
 
 ---
 
@@ -213,3 +480,11 @@ Individual register definition:
    :undoc-members:
    :show-inheritance:
 ```
+
+---
+
+## See Also
+
+- [Python API Usage](python-api) - Practical examples and workflows
+- [CLI Usage](cli-usage) - Command-line interface
+- [Interactive GUI](gui) - Web-based interface
