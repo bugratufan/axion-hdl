@@ -100,6 +100,7 @@ The following requirements define the interactive register address assignment be
 | GUI-EDIT-034 | Original Address Tracking | Each address input tracks its original value via data-original attribute for revert functionality. | Playwright (`gui.test_edit_034`) |
 | GUI-EDIT-035 | Locked State Tracking | User-modified addresses are marked with data-locked="true" to distinguish from auto-calculated. | Playwright (`gui.test_edit_035`) |
 | GUI-EDIT-036 | Save Blocked on Conflict | "Review & Save" button is disabled and shows warning tooltip when address conflicts exist. Save is only allowed when all conflicts are resolved. | Playwright (`gui.test_edit_036`) |
+| GUI-EDIT-037 | Restrict Register Renaming | For VHDL sources, existing register names are read-only and cannot be renamed. | Playwright (`gui.test_edit_037`) |
 
 ---
 
@@ -113,6 +114,7 @@ The following requirements define the interactive register address assignment be
 | GUI-SAVE-004 | Navigation Warning | Navigation to other pages prompts for unsaved changes. | Playwright (`gui.test_save_004`) |
 | GUI-SAVE-005 | Diff Return Preservation | Changes preserved when returning from diff page without confirming. | Playwright (`gui.test_save_005`) |
 | GUI-SAVE-006 | Clear Indicator on Save | Unsaved changes indicator clears after successful save. | Playwright (`gui.test_save_006`) |
+| GUI-SAVE-007 | Auto-Reload | Application state updates after saving changes to ensure dashboard and editor reflect current data. | Playwright (`gui.test_save_007`) |
 
 ---
 
@@ -194,3 +196,4 @@ The following requirements define the interactive register address assignment be
 | GUI-NAV-004 | Generate Link | Generate link navigates to generation page. | Playwright (`gui.test_nav_004`) |
 | GUI-NAV-005 | Footer Version | Footer displays version from .version file. | Playwright (`gui.test_nav_005`) |
 | GUI-NAV-006 | Responsive Design | Layout adapts to different screen widths. | Playwright (`gui.test_nav_006`) |
+| GUI-NAV-007 | Layout Refinement | Column widths are optimized; Width displayed without units for cleaner presentation. | Playwright (`gui.test_nav_007`) |
