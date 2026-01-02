@@ -2,13 +2,22 @@
 
 Axion-HDL follows a requirements-driven development approach. All features are tracked with requirement IDs and mapped to automated tests.
 
-## Core Requirements
+## Requirements Documents
 
-The core tool requirements are documented in the project repository:
+The requirements are organized into two main categories:
 
-**📄 [requirements.md](https://github.com/bugratufan/axion-hdl/blob/develop/requirements.md)**
+```{toctree}
+:maxdepth: 1
 
-This document covers:
+requirements-core
+requirements-gui
+```
+
+---
+
+## Core Requirements Overview
+
+The [Core Requirements](requirements-core) document covers the fundamental tool functionality:
 
 | Category | Prefix | Description |
 |----------|--------|-------------|
@@ -30,13 +39,9 @@ This document covers:
 
 ---
 
-## GUI Requirements
+## GUI Requirements Overview
 
-The GUI-specific requirements are documented separately:
-
-**📄 [requirements_gui.md](https://github.com/bugratufan/axion-hdl/blob/develop/requirements_gui.md)**
-
-This document covers:
+The [GUI Requirements](requirements-gui) document covers the web-based interface:
 
 | Category | Prefix | Description |
 |----------|--------|-------------|
@@ -121,14 +126,3 @@ When adding new features:
 6. **Reference test method** - How it will be verified
 7. **Implement feature** - Code the functionality
 8. **Write tests** - Map to requirement ID
-
----
-
-## Viewing Full Requirements
-
-For the complete requirements documentation with all details:
-
-- **Core Requirements:** See [requirements.md](https://github.com/bugratufan/axion-hdl/blob/develop/requirements.md) in the repository
-- **GUI Requirements:** See [requirements_gui.md](https://github.com/bugratufan/axion-hdl/blob/develop/requirements_gui.md) in the repository
-
-These files are the authoritative source and are updated alongside the codebase.
