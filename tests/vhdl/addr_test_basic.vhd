@@ -5,23 +5,20 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
+-- @axion_def BASE_ADDR=0x0000
+
 entity addr_test_basic is
     port (
         clk : in std_logic;
-        -- @axion BASE_ADDR=0x0000
-        -- @axion RW ADDR=0x00
-        reg_a : inout std_logic_vector(31 downto 0);
-        -- @axion RW ADDR=0x04
-        reg_b : inout std_logic_vector(31 downto 0);
-        -- @axion RW ADDR=0x08
-        reg_c : inout std_logic_vector(31 downto 0);
-        -- @axion RW ADDR=0x0C
-        reg_d : inout std_logic_vector(31 downto 0);
-        -- @axion RW ADDR=0x10
-        reg_e : inout std_logic_vector(31 downto 0)
+        rst_n : in std_logic
     );
 end entity addr_test_basic;
 
 architecture rtl of addr_test_basic is
+    signal reg_a : std_logic_vector(31 downto 0); -- @axion: RW ADDR=0x00
+    signal reg_b : std_logic_vector(31 downto 0); -- @axion: RW ADDR=0x04
+    signal reg_c : std_logic_vector(31 downto 0); -- @axion: RW ADDR=0x08
+    signal reg_d : std_logic_vector(31 downto 0); -- @axion: RW ADDR=0x0C
+    signal reg_e : std_logic_vector(31 downto 0); -- @axion: RW ADDR=0x10
 begin
 end architecture rtl;
