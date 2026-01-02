@@ -88,4 +88,4 @@ led_blinker_regs : entity work.led_blinker_axion_reg
 
 - [Data Formats](data-formats) - Learn about all input formats
 - [CLI Reference](cli-reference) - Master the command-line
-- [Advanced Features](advanced-features) - CDC, subregisters, strobes
+- [GUI](gui) - Interactive web-based register management
