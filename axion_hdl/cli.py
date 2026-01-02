@@ -292,7 +292,7 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     if args.gui:
         try:
             from axion_hdl import gui
-            gui.start_gui(axion)
+            gui.start_gui(axion, port=args.port)
             sys.exit(0)
         except ImportError as e:
             print(f"Error launching GUI: {e}", file=sys.stderr)

@@ -995,17 +995,18 @@ class AxionGUI:
         lines.append('</register_map>')
         return '\n'.join(lines)
 
-    def run(self, port=5050):
+    def run(self, port=None):
         self.setup_app()
-        self.port = port
-        url = f"http://127.0.0.1:{port}"
+        if port is not None:
+            self.port = port
+        url = f"http://127.0.0.1:{self.port}"
         print(f"Starting Axion GUI at {url}")
         
         # Open browser automatically
         webbrowser.open(url)
         
         # Run Flask app
-        self.app.run(port=port, debug=True, use_reloader=False)
+        self.app.run(port=self.port, debug=True, use_reloader=False)
 
     def _read_version(self):
         """Read version from .version file."""
