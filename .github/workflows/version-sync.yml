@@ -97,33 +97,29 @@ jobs:
           # These represent the branches that were merged into develop
           git fetch origin main develop
           
-          # Get commit messages from develop that are not in main
-          # This helps identify the original branch types
-          COMMITS=$(git log origin/main..HEAD --oneline --merges 2>/dev/null || echo "")
+          # Get merge commit messages from develop that are not in main
+          MERGE_COMMITS=$(git log origin/main..HEAD --oneline --merges 2>/dev/null || echo "")
           
           echo "Merge commits found:"
-          echo "$COMMITS"
+          echo "$MERGE_COMMITS"
           
           # Also check the current branch name (useful if merging directly)
           CURRENT_BRANCH="${{ github.head_ref }}"
           echo "Current branch: $CURRENT_BRANCH"
           
-          # Look for feature branches in merge commit messages
+          # Look for feature branches ONLY in merge commit messages (branch names)
           # Pattern: "Merge pull request #XX from user/feature/..."
           # Or: "Merge branch 'feature/...' into develop"
+          # 
+          # IMPORTANT: We do NOT check commit message prefixes like "feat:" or "feature:"
+          # because those can appear in any branch type (fix/, refactor/, etc.)
+          # and would cause false positive minor version bumps.
           HAS_FEATURE=false
           
-          # Check merge commit messages
-          if echo "$COMMITS" | grep -qiE "(feature/|feat/)"; then
+          # Check merge commit messages for feature branch names
+          if echo "$MERGE_COMMITS" | grep -qiE "(feature/|feat/)"; then
             HAS_FEATURE=true
-            echo "✅ Found feature branch merges"
-          fi
-          
-          # Also check if any non-merge commits reference feature branches
-          ALL_COMMIT_MSGS=$(git log origin/main..HEAD --oneline 2>/dev/null || echo "")
-          if echo "$ALL_COMMIT_MSGS" | grep -qiE "(feat:|feature:)"; then
-            HAS_FEATURE=true
-            echo "✅ Found feature commits"
+            echo "✅ Found feature branch merges in merge commits"
           fi
           
           # Check the PR branch name itself
@@ -132,16 +128,19 @@ jobs:
             echo "✅ Current branch is a feature branch"
           fi
           
+          # Get all commit messages for checking if there are any changes
+          ALL_COMMIT_MSGS=$(git log origin/main..HEAD --oneline 2>/dev/null || echo "")
+          
           if [ "$HAS_FEATURE" = true ]; then
             echo "bump_type=minor" >> $GITHUB_OUTPUT
             echo "should_bump=true" >> $GITHUB_OUTPUT
-            echo "📦 Will bump MINOR version (feature changes detected)"
+            echo "📦 Will bump MINOR version (feature branch detected)"
           else
-            # Check if there are any commits at all (bugfix/wip/fix)
+            # Check if there are any commits at all (bugfix/wip/fix/docs/refactor)
             if [ -n "$ALL_COMMIT_MSGS" ]; then
               echo "bump_type=patch" >> $GITHUB_OUTPUT
               echo "should_bump=true" >> $GITHUB_OUTPUT
-              echo "🔧 Will bump PATCH version (bugfix/fix/wip changes only)"
+              echo "🔧 Will bump PATCH version (non-feature changes)"
             else
               echo "should_bump=false" >> $GITHUB_OUTPUT
               echo "⏭️ No significant changes detected - skipping bump"
