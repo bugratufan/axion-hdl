@@ -368,6 +368,13 @@ class AxionHDL:
         
         self.analyzed_modules = []
         self.parse_errors = []  # Clear previous errors
+        
+        # Auto-exclude output directory to prevent parsing generated files
+        output_dir_name = os.path.basename(self.output_dir)
+        if output_dir_name and output_dir_name not in self._exclude_patterns:
+            self._exclude_patterns.add(output_dir_name)
+            # Also add the full path for absolute matching
+            self._exclude_patterns.add(self.output_dir)
             
         # Parse VHDL files if any
         if has_vhdl_sources:
