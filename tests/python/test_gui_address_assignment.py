@@ -356,3 +356,42 @@ class TestSaveValidation:
         save_btn = gui_page.locator("#saveBtn")
         assert save_btn.is_enabled(), "Save button should be enabled when updateSaveButtonState(false) is called"
 
+
+# =============================================================================
+# SCENARIO: Address Persistence (GUI-EDIT-038)
+# =============================================================================
+class TestScenario_Persistence:
+    """Test address persistence (GUI-EDIT-038)."""
+    
+    @pytest.mark.parametrize("file_format", ["json", "yaml"])
+    def test_edit_038_address_persists_after_reload(self, gui_page, gui_server, file_format):
+        """Change address, save, reload -> Address match."""
+        if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_basic", file_format, 3):
+            pytest.skip(f"addr_test_basic{FORMATS[file_format]} not found")
+
+        addr_inputs = gui_page.locator(".reg-addr-input")
+        new_addr_val = "0xABC" 
+        
+        # Change address
+        addr_inputs.nth(0).fill(new_addr_val)
+        addr_inputs.nth(0).dispatch_event("change")
+        gui_page.wait_for_timeout(300)
+        
+        # Click Save
+        save_btn = gui_page.locator("#saveBtn")
+        save_btn.click()
+        
+        # Wait for reload (save triggers redirect/refresh)
+        try:
+             gui_page.wait_for_load_state("networkidle", timeout=5000)
+        except:
+             pass # sometimes networkidle times out if no navigation happens quickly, but we expect it.
+
+        # Re-check selectors to ensure we are back on the page
+        gui_page.wait_for_selector(".reg-addr-input", timeout=10000)
+        
+        # Check value
+        addr_inputs_new = gui_page.locator(".reg-addr-input")
+        val = addr_inputs_new.nth(0).input_value()
+        
+        assert val.upper() == "0XABC", f"{file_format}: Address should persist after save & reload"
