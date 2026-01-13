@@ -90,11 +90,5 @@ def test_save_new_module_persists_auto_address(test_client):
     assert 'addr' in r1
     assert r1['addr'] == '0x4' or r1['addr'] == '0x04'
 
-def test_save_new_module_vhdl_persists_addresses(test_client):
-    """Test VHDL generation includes @axion ADDR tags."""
-    # This involves mocking the SourceModifier or AxionHDL's generate logic
-    # But save_new_module calls internal logic.
-    # Actually save_new_module for VHDL format isn't fully implemented in the snippet I saw?
-    # Let me check gui.py save_new_module again to see how it handles formats.
-    pass
+
 
