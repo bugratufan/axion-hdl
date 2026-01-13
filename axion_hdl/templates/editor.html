@@ -621,10 +621,8 @@
         // Show visual change indicator
         updateAddressVisualIndicator(input);
 
-        // Trigger conflict resolution for subsequent registers
+        // Check for conflicts (no automatic shifting - just detect and show warnings)
         recalculateAddresses();
-
-        // Check for conflicts
         detectAddressConflicts();
 
         markAsChanged();
@@ -828,127 +826,20 @@
     }
 
     function recalculateAddresses() {
+        // This function now ONLY detects conflicts - no automatic shifting
+        // Address shifting has been removed per user request
         const rows = [...document.querySelectorAll('.reg-row')];
         if (rows.length === 0) return;
 
-        // Step 1: Identify user-modified addresses (these NEVER change)
-        const userModified = new Map(); // rowIndex -> address
+        // Update visual indicators for all rows
         rows.forEach((row, idx) => {
             const input = row.querySelector('.reg-addr-input');
-            if (!input) return;
-
-            const current = normalizeHexAddress(input.value);
-            const original = normalizeHexAddress(input.getAttribute('data-original'));
-            const isLocked = input.getAttribute('data-locked') === 'true';
-
-            // User modified = locked AND different from original
-            if (isLocked && current !== original) {
-                const addr = parseInt(input.value, 16);
-                if (!isNaN(addr)) {
-                    userModified.set(idx, addr);
-                }
-            }
-        });
-
-        console.log('User modified:', [...userModified.entries()].map(([i, a]) => `Row${i}=0x${a.toString(16)}`));
-
-        // Step 2: Process each row in order
-        // Track used addresses and next available
-        const usedAddresses = new Set([...userModified.values()]);
-
-        rows.forEach((row, idx) => {
-            const input = row.querySelector('.reg-addr-input');
-            const widthInput = row.querySelector('.reg-width-input');
-            if (!input || !widthInput) return;
-
-            const original = input.getAttribute('data-original');
-            const originalInt = parseInt(original, 16) || 0;
-            const width = parseInt(widthInput.value) || 32;
-            const regSize = Math.ceil(width / 32) * 4;
-
-            // If user modified this row, keep it fixed
-            if (userModified.has(idx)) {
-                console.log(`Row ${idx}: User modified, keeping at 0x${userModified.get(idx).toString(16)}`);
+            if (input) {
                 updateAddressVisualIndicator(input);
-                return;
             }
-
-            // Check if original address conflicts with any user-modified address
-            // Only check user-modified addresses that are ABOVE this row
-            let needsShift = false;
-            let shiftReason = '';
-
-            // Check direct conflict with user-modified addresses
-            for (const [modIdx, modAddr] of userModified) {
-                if (modIdx < idx && modAddr === originalInt) {
-                    // User above took our exact address
-                    needsShift = true;
-                    shiftReason = `user row ${modIdx} at 0x${modAddr.toString(16)}`;
-                    break;
-                }
-            }
-
-            // Check if previous row (whether shifted or not) overlaps with our original
-            // But ONLY if both addresses are in same general range
-            if (!needsShift && idx > 0) {
-                const prevRow = rows[idx - 1];
-                const prevInput = prevRow.querySelector('.reg-addr-input');
-                const prevOriginal = prevInput.getAttribute('data-original');
-                const prevOriginalInt = parseInt(prevOriginal, 16) || 0;
-                const prevCurrent = parseInt(prevInput.value, 16) || 0;
-                const prevWidthInput = prevRow.querySelector('.reg-width-input');
-                const prevWidth = parseInt(prevWidthInput.value) || 32;
-                const prevSize = Math.ceil(prevWidth / 32) * 4;
-
-                // Only check overlap if previous row was SHIFTED (not just moved to high address)
-                // Previous row shifted means: prevCurrent != prevOriginal AND prevCurrent is close to us
-                const prevWasShifted = prevCurrent !== prevOriginalInt;
-                const prevEnd = prevCurrent + prevSize;
-
-                // Overlap check: our original is within previous row's NEW range
-                // AND our original was AFTER prev's original (they were sequential)
-                if (prevWasShifted && originalInt >= prevCurrent && originalInt < prevEnd) {
-                    needsShift = true;
-                    shiftReason = `prev row shifted to 0x${prevCurrent.toString(16)}`;
-                }
-            }
-
-            if (needsShift) {
-                // Find next available address
-                let newAddr = originalInt;
-
-                // Get the previous row's end address
-                if (idx > 0) {
-                    const prevRow = rows[idx - 1];
-                    const prevInput = prevRow.querySelector('.reg-addr-input');
-                    const prevWidthInput = prevRow.querySelector('.reg-width-input');
-                    if (prevInput && prevWidthInput) {
-                        const prevAddr = parseInt(prevInput.value, 16) || 0;
-                        const prevWidth = parseInt(prevWidthInput.value) || 32;
-                        const prevSize = Math.ceil(prevWidth / 32) * 4;
-                        newAddr = Math.max(newAddr, prevAddr + prevSize);
-                    }
-                }
-
-                // Skip over user-modified addresses
-                while (usedAddresses.has(newAddr)) {
-                    newAddr += 4;
-                }
-
-                input.value = '0x' + newAddr.toString(16).toUpperCase();
-                usedAddresses.add(newAddr);
-                console.log(`Row ${idx}: Shifted from 0x${originalInt.toString(16)} to 0x${newAddr.toString(16)}`);
-            } else {
-                // No conflict, restore to original
-                input.value = original;
-                usedAddresses.add(originalInt);
-                console.log(`Row ${idx}: Keeping original 0x${originalInt.toString(16)}`);
-            }
-
-            updateAddressVisualIndicator(input);
         });
 
-        // Check for remaining conflicts (user-to-user or above conflicts)
+        // Check for conflicts and update UI accordingly
         detectAddressConflicts();
     }
 

@@ -197,7 +197,9 @@ class AxionGUI:
                         'width': width,
                         'access': reg.get('access', 'RW'),
                         'default': reg.get('default_value', '0x0'),
-                        'description': reg.get('description', '')
+                        'description': reg.get('description', ''),
+                        # Always include address - persist auto-assigned addresses
+                        'addr': reg.get('address', '0x0')
                     }
                     if reg.get('r_strobe'):
                         reg_data['r_strobe'] = True
