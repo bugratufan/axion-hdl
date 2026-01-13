@@ -213,30 +213,34 @@ class DocGenerator:
         Generate multi-page HTML documentation with embedded CSS styling.
         
         Creates:
-        - index.html: Main page with module list and links
-        - {module_name}.html: Separate page for each module
-        - about.html: About Axion-HDL page with project info
+        - index.html: Main page with module list and links (in output root)
+        - html/{module_name}.html: Separate page for each module (in html/ subdir)
+        - html/about.html: About Axion-HDL page with project info
         
         Returns:
             Path to index.html
         """
-        # Create index page
+        # Create html subdirectory for module pages
+        html_dir = os.path.join(self.output_dir, "html")
+        os.makedirs(html_dir, exist_ok=True)
+        
+        # Create index page in ROOT output dir
         index_path = os.path.join(self.output_dir, "index.html")
         index_content = self._generate_index_page(modules)
         
         with open(index_path, 'w', encoding='utf-8') as f:
             f.write(index_content)
         
-        # Create individual module pages
+        # Create individual module pages in html/ subdir
         for module in modules:
-            module_path = os.path.join(self.output_dir, f"{module['name']}.html")
+            module_path = os.path.join(html_dir, f"{module['name']}.html")
             module_content = self._generate_module_page(module, modules)
             
             with open(module_path, 'w', encoding='utf-8') as f:
                 f.write(module_content)
         
-        # Create about page
-        about_path = os.path.join(self.output_dir, "about.html")
+        # Create about page in html/ subdir
+        about_path = os.path.join(html_dir, "about.html")
         about_content = self._generate_about_page()
         with open(about_path, 'w', encoding='utf-8') as f:
             f.write(about_content)
@@ -279,7 +283,7 @@ class DocGenerator:
         
         content = f'''
 <div class="top-nav">
-    <a href="about.html" class="about-link">ℹ️ About Axion-HDL</a>
+    <a href="html/about.html" class="about-link">ℹ️ About Axion-HDL</a>
 </div>
 <div class="hero">
     <h1>🔌 AXI Register Map Documentation</h1>
@@ -352,7 +356,7 @@ class DocGenerator:
                 reg_preview += f'<div class="reg-more">+{reg_count - 5} more registers...</div>'
             
             content += f'''
-    <a href="{module['name']}.html" class="module-card-large">
+    <a href="html/{module['name']}.html" class="module-card-large">
         <div class="module-main">
             <div class="module-header">
                 <h3>{module['name']}</h3>
@@ -416,7 +420,7 @@ class DocGenerator:
         
         return f'''
 <nav class="breadcrumb">
-    <a href="index.html">🏠 All Modules</a>
+    <a href="../index.html">🏠 All Modules</a>
     <span class="separator">›</span>
     <span class="current">{current_module['name']}</span>
 </nav>
@@ -458,7 +462,7 @@ class DocGenerator:
         
         content = f'''
 <nav class="breadcrumb">
-    <a href="index.html">🏠 All Modules</a>
+    <a href="../index.html">🏠 All Modules</a>
     <span class="separator">›</span>
     <span class="current">About Axion-HDL</span>
 </nav>
