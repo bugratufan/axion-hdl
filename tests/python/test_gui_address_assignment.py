@@ -2,7 +2,7 @@
 GUI Address Assignment Tests - Comprehensive Multi-Format Testing
 
 Tests for register address assignment functionality in the editor.
-Based on requirements GUI-EDIT-020 to GUI-EDIT-035.
+Based on requirements GUI-EDIT-020 to GUI-EDIT-038.
 
 Test Fixtures (each in VHDL, JSON, XML, YAML):
 - addr_test_basic: 5 sequential registers (0x00-0x10)
@@ -11,14 +11,11 @@ Test Fixtures (each in VHDL, JSON, XML, YAML):
 
 Scenarios Tested:
 1. Unique address (no conflict) - others unchanged
-2. Below register shift on conflict
-3. Chain shift for sequential registers
-4. Middle register change - only below affected
-5. Multiple user changes coexist
-6. User conflict warning (same address)
-7. Above register never auto-shifts
-8. Gap preservation
-9. Revert restores all
+2. Multiple user changes coexist
+3. User conflict warning (same address)
+4. Conflict causes NO shifting (above or below)
+5. Gap preservation
+6. Revert restores single address
 """
 import pytest
 from playwright.sync_api import expect
@@ -97,99 +94,10 @@ class TestScenario1_UniqueAddress:
 
 
 # =============================================================================
-# SCENARIO 2: Below Register Shift
+# SCENARIO 2: Multiple User Changes Coexist
 # =============================================================================
-class TestScenario2_BelowShift:
-    """Scenario 2: Conflict shifts register below."""
-
-    @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
-    def test_below_register_shifts(self, gui_page, gui_server, file_format):
-        """Set first to second's address - second shifts."""
-        if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_basic", file_format, 3):
-            pytest.skip(f"addr_test_basic{FORMATS[file_format]} not found")
-
-        addr_inputs = gui_page.locator(".reg-addr-input")
-        
-        second_orig = addr_inputs.nth(1).input_value()
-        second_orig_int = int(second_orig, 16)
-        
-        # Set first to second's address
-        addr_inputs.nth(0).fill(second_orig)
-        addr_inputs.nth(0).dispatch_event("change")
-        gui_page.wait_for_timeout(300)
-        
-        # Second should shift
-        second_new = int(addr_inputs.nth(1).input_value(), 16)
-        assert second_new > second_orig_int, f"{file_format}: second should shift"
-
-
-# =============================================================================
-# SCENARIO 3: Chain Shift
-# =============================================================================
-class TestScenario3_ChainShift:
-    """Scenario 3: Multiple sequential registers shift in chain."""
-
-    @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
-    def test_chain_shift(self, gui_page, gui_server, file_format):
-        """Set first to second's address - all below shift in chain."""
-        if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_chain", file_format, 5):
-            pytest.skip(f"addr_test_chain{FORMATS[file_format]} not found")
-
-        addr_inputs = gui_page.locator(".reg-addr-input")
-        
-        orig_1 = int(addr_inputs.nth(1).input_value(), 16)
-        orig_3 = int(addr_inputs.nth(3).input_value(), 16)
-        
-        # Set first to second's address
-        addr_inputs.nth(0).fill(addr_inputs.nth(1).input_value())
-        addr_inputs.nth(0).dispatch_event("change")
-        gui_page.wait_for_timeout(300)
-        
-        # Chain: all shifted
-        new_1 = int(addr_inputs.nth(1).input_value(), 16)
-        new_3 = int(addr_inputs.nth(3).input_value(), 16)
-        
-        assert new_1 > orig_1, f"{file_format}: reg_1 should shift"
-        assert new_3 > orig_3, f"{file_format}: reg_3 should shift"
-
-
-# =============================================================================
-# SCENARIO 4: Middle Register Change
-# =============================================================================
-class TestScenario4_MiddleChange:
-    """Scenario 4: Middle register change - only below affected."""
-
-    @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
-    def test_middle_change_only_affects_below(self, gui_page, gui_server, file_format):
-        """Change reg_2 to reg_3's address - reg_0,1 unchanged."""
-        if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_chain", file_format, 5):
-            pytest.skip(f"addr_test_chain{FORMATS[file_format]} not found")
-
-        addr_inputs = gui_page.locator(".reg-addr-input")
-        
-        orig_0 = addr_inputs.nth(0).input_value()
-        orig_1 = addr_inputs.nth(1).input_value()
-        orig_3 = int(addr_inputs.nth(3).input_value(), 16)
-        
-        # Change reg_2 to reg_3's address
-        addr_inputs.nth(2).fill(addr_inputs.nth(3).input_value())
-        addr_inputs.nth(2).dispatch_event("change")
-        gui_page.wait_for_timeout(300)
-        
-        # Above unchanged
-        assert addr_inputs.nth(0).input_value() == orig_0, f"{file_format}: reg_0 unchanged"
-        assert addr_inputs.nth(1).input_value() == orig_1, f"{file_format}: reg_1 unchanged"
-        
-        # Below shifted
-        new_3 = int(addr_inputs.nth(3).input_value(), 16)
-        assert new_3 > orig_3, f"{file_format}: reg_3 should shift"
-
-
-# =============================================================================
-# SCENARIO 5: Multiple User Changes Coexist
-# =============================================================================
-class TestScenario5_MultipleUserChanges:
-    """Scenario 5: Multiple user changes to different addresses coexist."""
+class TestScenario2_MultipleUserChanges:
+    """Scenario 2: Multiple user changes to different addresses coexist."""
 
     @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
     def test_multiple_unique_changes(self, gui_page, gui_server, file_format):
@@ -212,10 +120,10 @@ class TestScenario5_MultipleUserChanges:
 
 
 # =============================================================================
-# SCENARIO 6: User Conflict Warning
+# SCENARIO 3: User Conflict Warning
 # =============================================================================
-class TestScenario6_UserConflictWarning:
-    """Scenario 6: Two user changes to SAME address - warning shown."""
+class TestScenario3_UserConflictWarning:
+    """Scenario 3: Two user changes to SAME address - warning shown."""
 
     @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
     def test_user_conflict_shows_warning(self, gui_page, gui_server, file_format):
@@ -238,40 +146,46 @@ class TestScenario6_UserConflictWarning:
 
 
 # =============================================================================
-# SCENARIO 7: Above Register Never Shifts
+# SCENARIO 4: Conflict Causes No Shifting
 # =============================================================================
-class TestScenario7_AboveNeverShifts:
-    """Scenario 7: Above register NEVER auto-shifts."""
+class TestScenario4_ConflictNoShift:
+    """Scenario 4: Setting a conflicting address causes NO shifting of any register."""
 
     @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
-    def test_above_register_static(self, gui_page, gui_server, file_format):
-        """Set reg_2 to reg_0's address - reg_0 unchanged, warning shown."""
+    def test_conflict_no_shift(self, gui_page, gui_server, file_format):
+        """Set reg_0 to match reg_1. reg_1 should NOT shift."""
         if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_basic", file_format, 3):
             pytest.skip(f"addr_test_basic{FORMATS[file_format]} not found")
 
         addr_inputs = gui_page.locator(".reg-addr-input")
         
-        first_orig = addr_inputs.nth(0).input_value()
+        # Get original value of reg_1
+        reg_1_orig = addr_inputs.nth(1).input_value()
+        reg_2_orig = addr_inputs.nth(2).input_value()
         
-        # Set third to first's address
-        addr_inputs.nth(2).fill(first_orig)
-        addr_inputs.nth(2).dispatch_event("change")
+        # Set reg_0 to reg_1's address (causing conflict)
+        addr_inputs.nth(0).fill(reg_1_orig)
+        addr_inputs.nth(0).dispatch_event("change")
         gui_page.wait_for_timeout(300)
         
-        # First should NOT change
-        assert addr_inputs.nth(0).input_value() == first_orig, \
-            f"{file_format}: above register never shifts"
+        # Verify reg_1 did NOT shift
+        assert addr_inputs.nth(1).input_value() == reg_1_orig, \
+            f"{file_format}: reg_1 should NOT shift on conflict"
+            
+        # Verify reg_2 did NOT shift
+        assert addr_inputs.nth(2).input_value() == reg_2_orig, \
+            f"{file_format}: reg_2 should NOT shift on conflict"
         
-        # Warning should appear
+        # Verify warnings appear
         conflicts = gui_page.locator(".addr-conflict")
         assert conflicts.count() > 0, f"{file_format}: conflict warning expected"
 
 
 # =============================================================================
-# SCENARIO 8: Gap Preservation
+# SCENARIO 5: Gap Preservation
 # =============================================================================
-class TestScenario8_GapPreservation:
-    """Scenario 8: Gaps in address space are preserved."""
+class TestScenario5_GapPreservation:
+    """Scenario 5: Gaps in address space are preserved."""
 
     @pytest.mark.parametrize("file_format", ["json", "yaml", "xml", "vhdl"])
     def test_gaps_preserved(self, gui_page, gui_server, file_format):
@@ -295,29 +209,28 @@ class TestScenario8_GapPreservation:
 
 
 # =============================================================================
-# SCENARIO 9: Revert Restores All
+# SCENARIO 6: Revert Restores Address
 # =============================================================================
-class TestScenario9_Revert:
-    """Scenario 9: Revert restores all to original."""
+class TestScenario6_Revert:
+    """Scenario 6: Revert restores register to original address."""
 
     @pytest.mark.parametrize("file_format", ["json", "yaml"])  # Subset for speed
-    def test_revert_restores_all(self, gui_page, gui_server, file_format):
-        """After shift, revert returns everything to original."""
+    def test_revert_restores_single(self, gui_page, gui_server, file_format):
+        """After change, revert returns to original."""
         if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_basic", file_format, 3):
             pytest.skip(f"addr_test_basic{FORMATS[file_format]} not found")
 
         addr_inputs = gui_page.locator(".reg-addr-input")
         
         orig_0 = addr_inputs.nth(0).input_value()
-        orig_1 = addr_inputs.nth(1).input_value()
         
-        # Cause shift
-        addr_inputs.nth(0).fill(orig_1)
+        # Change address
+        addr_inputs.nth(0).fill("0x999")
         addr_inputs.nth(0).dispatch_event("change")
         gui_page.wait_for_timeout(300)
         
-        # Verify shifted
-        assert addr_inputs.nth(1).input_value() != orig_1
+        # Verify changed
+        assert addr_inputs.nth(0).input_value() != orig_0
         
         # Revert
         revert_btn = gui_page.locator(".addr-revert-btn").first
@@ -326,7 +239,6 @@ class TestScenario9_Revert:
             gui_page.wait_for_timeout(300)
             
             assert addr_inputs.nth(0).input_value() == orig_0, f"{file_format}: reverted"
-            assert addr_inputs.nth(1).input_value() == orig_1, f"{file_format}: dependent reverted"
 
 
 # =============================================================================
@@ -366,12 +278,7 @@ class TestVisualIndicators:
 
 
 class TestSaveValidation:
-    """Tests for save validation when address conflicts exist (GUI-EDIT-036).
-    
-    NOTE: Full conflict simulation is limited by Playwright's event triggering.
-    These tests verify the UI elements and JS functions are present.
-    Manual testing recommended for full validation.
-    """
+    """Tests for save validation when address conflicts exist (GUI-EDIT-036)."""
 
     def test_save_button_has_id(self, gui_page, gui_server):
         """Save button has correct ID for JS manipulation."""
