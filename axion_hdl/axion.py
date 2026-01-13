@@ -368,6 +368,13 @@ class AxionHDL:
         
         self.analyzed_modules = []
         self.parse_errors = []  # Clear previous errors
+        
+        # Auto-exclude output directory to prevent parsing generated files
+        output_dir_name = os.path.basename(self.output_dir)
+        if output_dir_name and output_dir_name not in self._exclude_patterns:
+            self._exclude_patterns.add(output_dir_name)
+            # Also add the full path for absolute matching
+            self._exclude_patterns.add(self.output_dir)
             
         # Parse VHDL files if any
         if has_vhdl_sources:
@@ -734,12 +741,12 @@ class AxionHDL:
         print(f"\nC header files generated in: {self.output_dir}")
         return True
         
-    def generate_all(self, doc_format="md"):
+    def generate_all(self, doc_format="html"):
         """
         Generate all outputs: VHDL, documentation, XML, YAML, JSON, and C headers.
         
         Args:
-            doc_format: Documentation format - "md", "html", or "pdf"
+            doc_format: Documentation format - "html" (default), "md", or "pdf"
         """
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")
