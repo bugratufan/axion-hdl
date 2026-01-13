@@ -322,7 +322,7 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(output_dir, "equiv_test_axion_reg.vhd")))
         self.assertTrue(os.path.exists(os.path.join(output_dir, "equiv_test_regs.h")))
         self.assertTrue(os.path.exists(os.path.join(output_dir, "equiv_test_regs.xml")))
-        self.assertTrue(os.path.exists(os.path.join(output_dir, "register_map.md")))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, "index.html")))  # HTML is now default
     
     # =========================================================================
     # AXION-XML-013: XML Generator Compatibility

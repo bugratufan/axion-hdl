@@ -143,6 +143,7 @@ class VHDLParser:
         filename = os.path.basename(filepath)
         dirname = os.path.dirname(filepath)
         dir_basename = os.path.basename(dirname)
+        abs_filepath = os.path.abspath(filepath)
         
         for pattern in self.exclude_patterns:
             # Check filename match
@@ -151,12 +152,19 @@ class VHDLParser:
             # Check if pattern matches directory name
             if fnmatch.fnmatch(dir_basename, pattern):
                 return True
-            # Check if pattern is in the full path
-            if pattern in filepath:
+            # Check if pattern is in the full path (exact substring)
+            if pattern in filepath or pattern in abs_filepath:
                 return True
-            # Check full path glob match
-            if fnmatch.fnmatch(filepath, f"*{pattern}*"):
-                return True
+            # Check if any directory component matches the pattern
+            path_parts = abs_filepath.split(os.sep)
+            for part in path_parts:
+                if fnmatch.fnmatch(part, pattern):
+                    return True
+            # For patterns with wildcards, match against full path
+            # Only wrap with * if pattern doesn't already have wildcards at edges
+            if '*' in pattern or '?' in pattern:
+                if fnmatch.fnmatch(filepath, pattern) or fnmatch.fnmatch(abs_filepath, pattern):
+                    return True
                 
         return False
         
