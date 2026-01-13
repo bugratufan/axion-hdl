@@ -134,9 +134,9 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     gen_group.add_argument(
         '--doc-format',
         choices=['md', 'html', 'pdf'],
-        default='md',
+        default='html',
         metavar='FORMAT',
-        help='Documentation format: md (default), html, or pdf'
+        help='Documentation format: html (default), md, or pdf'
     )
     
     gen_group.add_argument(
