@@ -19,7 +19,7 @@ def test_generate_axion_tag_smart_persistence():
     tag_manual = modifier._generate_axion_tag(reg_manual)
     assert "ADDR=0x14" in tag_manual
     
-    # Case 2: Auto Address (No manual flag) -> Should NOT write ADDR (assuming new)
+    # Case 2: Auto Address (No manual flag) -> Should write ADDR now (Persistence Change)
     reg_auto = {
         'name': 'status_reg',
         'access': 'RO',
@@ -27,7 +27,7 @@ def test_generate_axion_tag_smart_persistence():
         'manual_address': False
     }
     tag_auto = modifier._generate_axion_tag(reg_auto)
-    assert "ADDR=" not in tag_auto
+    assert "ADDR=0x18" in tag_auto
     
     # Case 3: Auto Address but Existing Tag had ADDR -> Should Preserve
     reg_preserve = {
