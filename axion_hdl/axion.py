@@ -734,12 +734,12 @@ class AxionHDL:
         print(f"\nC header files generated in: {self.output_dir}")
         return True
         
-    def generate_all(self, doc_format="md"):
+    def generate_all(self, doc_format="html"):
         """
         Generate all outputs: VHDL, documentation, XML, YAML, JSON, and C headers.
         
         Args:
-            doc_format: Documentation format - "md", "html", or "pdf"
+            doc_format: Documentation format - "html" (default), "md", or "pdf"
         """
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")
