@@ -86,6 +86,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | PARSER-006 | Parse Descriptions | Extracts description string from comments, handling quotes. | Python Unit Test (`parser.test_parser_006`) |
 | PARSER-007 | Exclude directories | Skips directories specified in exclude list. | Python Unit Test (`parser.test_parser_007`) |
 | PARSER-008 | Recursive scanning | Recursively finds `.vhd` files in subfolders. | Python Unit Test (`parser.test_parser_008`) |
+| PARSER-009 | Case-insensitive Attributes | Attribute names (ADDR, REG_NAME, BIT_OFFSET, etc.) must be parsed case-insensitively but written in UPPERCASE. | Python Unit Test (`parser.test_parser_009`) |
 
 ## 4. Code Generation (GEN)
 
