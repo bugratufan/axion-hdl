@@ -9,7 +9,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
--- @axion_def CDC_EN=false BASE_ADDR=0x00
+-- @axion_def CDC_EN=false BASE_ADDR=0x100
 
 entity subregister_test is
     port (
@@ -32,14 +32,15 @@ architecture rtl of subregister_test is
     
     -- Another packed register (status at 0x08)
     signal stat_busy     : std_logic;                         -- @axion RO ADDR=0x08 REG_NAME=status BIT_OFFSET=0 DEFAULT=0 DESC="Busy flag"
-    signal stat_error    : std_logic;                         -- @axion RO ADDR=0x08 REG_NAME=status BIT_OFFSET=1 DEFAULT=0 DESC="Error flag"
-    signal stat_count    : std_logic_vector(7 downto 0);      -- @axion RO ADDR=0x08 REG_NAME=status BIT_OFFSET=8 DEFAULT=0 DESC="Operation count"
+    signal stat_error    : std_logic;                         -- @axion RO ADDR=0x08 W_STROBE R_STROBE REG_NAME=status BIT_OFFSET=1 DEFAULT=0 DESC="Error flag"
+    signal stat_count    : std_logic_vector(7 downto 0);      -- @axion RO ADDR=0x08 R_STROBE REG_NAME=status BIT_OFFSET=8 DEFAULT=0 DESC="Operation count"
     
     -- Standard register with hex default
-    signal config_reg : std_logic_vector(31 downto 0);  -- @axion RW ADDR=0x0C DEFAULT=0xDEADBEEF DESC="Configuration register"
+    signal config_reg : std_logic_vector(31 downto 0);  -- @axion W_STROBE RW ADDR=0x0C DEFAULT=0xDEADBEEF DESC="Configuration register"
     
     -- Single bit with default 
     signal irq_enable : std_logic;  -- @axion RW ADDR=0x10 DEFAULT=0 DESC="IRQ enable"
+    signal irq_enable_64 : std_logic_vector(63 downto 0);  -- @axion RW W_STROBE R_STROBE ADDR=0x20 DEFAULT=0 DESC="IRQ enable"
     
 begin
     -- Simple logic for simulation
