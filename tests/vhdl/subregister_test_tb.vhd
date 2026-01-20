@@ -26,23 +26,23 @@ architecture testbench of subregister_test_tb is
     constant C_CLK_PERIOD : time := 10 ns;
 
     -- AXI Signals
-    signal s_axi_awaddr  : std_logic_vector(31 downto 0);
-    signal s_axi_awvalid : std_logic;
+    signal s_axi_awaddr  : std_logic_vector(31 downto 0) := (others => '0');
+    signal s_axi_awvalid : std_logic := '0';
     signal s_axi_awready : std_logic;
-    signal s_axi_wdata   : std_logic_vector(31 downto 0);
-    signal s_axi_wstrb   : std_logic_vector(3 downto 0);
-    signal s_axi_wvalid  : std_logic;
+    signal s_axi_wdata   : std_logic_vector(31 downto 0) := (others => '0');
+    signal s_axi_wstrb   : std_logic_vector(3 downto 0) := (others => '0');
+    signal s_axi_wvalid  : std_logic := '0';
     signal s_axi_wready  : std_logic;
     signal s_axi_bresp   : std_logic_vector(1 downto 0);
     signal s_axi_bvalid  : std_logic;
-    signal s_axi_bready  : std_logic;
-    signal s_axi_araddr  : std_logic_vector(31 downto 0);
-    signal s_axi_arvalid : std_logic;
+    signal s_axi_bready  : std_logic := '0';
+    signal s_axi_araddr  : std_logic_vector(31 downto 0) := (others => '0');
+    signal s_axi_arvalid : std_logic := '0';
     signal s_axi_arready : std_logic;
     signal s_axi_rdata   : std_logic_vector(31 downto 0);
     signal s_axi_rresp   : std_logic_vector(1 downto 0);
     signal s_axi_rvalid  : std_logic;
-    signal s_axi_rready  : std_logic;
+    signal s_axi_rready  : std_logic := '0';
 
     -- DUT Signals (from subregister_test.vhd entity)
     signal version_reg    : std_logic_vector(31 downto 0);
@@ -65,6 +65,9 @@ begin
 
     -- DUT Instantiation (The Generated Register Shell)
     dut : entity work.subregister_test_axion_reg
+        generic map (
+            BASE_ADDR => (others => '0')
+        )
         port map (
             axi_aclk    => axi_aclk,
             axi_aresetn => axi_aresetn,
@@ -94,15 +97,15 @@ begin
             
             -- Packed Registers (Subregisters)
             -- Control (RW outputs)
-            ctrl_enable => ctrl_enable,
-            ctrl_mode => ctrl_mode,
-            ctrl_prescaler => ctrl_prescaler,
-            ctrl_reserved => ctrl_reserved,
+            control_ctrl_enable => ctrl_enable,
+            control_ctrl_mode => ctrl_mode,
+            control_ctrl_prescaler => ctrl_prescaler,
+            control_ctrl_reserved => ctrl_reserved,
             
             -- Status (RO inputs)
-            stat_busy => stat_busy,
-            stat_error => stat_error,
-            stat_count => stat_count
+            status_stat_busy => stat_busy,
+            status_stat_error => stat_error,
+            status_stat_count => stat_count
         );
 
     -- Test Process

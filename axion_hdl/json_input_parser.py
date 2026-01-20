@@ -209,14 +209,19 @@ class JSONInputParser:
                         bit_offset=bit_offset,
                         description=reg_data.get('description', ''),
                         source_file=filepath,
-                        default_value=default_val
+                        default_value=default_val,
+                        read_strobe=reg_data.get('r_strobe', False),
+                        write_strobe=reg_data.get('w_strobe', False),
+                        allow_overlap=True  # Allow overlaps, RuleChecker will validate
                     )
                     
                     if addr >= next_auto_addr:
                         next_auto_addr = addr + 4
                         
                 except Exception as e:
-                    print(f"  Error processing packed register {reg_name}: {e}")
+                    msg = f"Error processing packed register {reg_name}: {e}"
+                    print(f"  {msg}")
+                    self.errors.append({'file': filepath, 'msg': msg})
                 
                 continue
             
@@ -282,10 +287,10 @@ class JSONInputParser:
                 'relative_address_int': packed.address,
                 'width': 32,
                 'signal_type': "std_logic_vector(31 downto 0)",
-                'r_strobe': False,
-                'w_strobe': False,
-                'read_strobe': False,
-                'write_strobe': False,
+                'r_strobe': any(f.read_strobe for f in packed.fields),
+                'w_strobe': any(f.write_strobe for f in packed.fields),
+                'read_strobe': any(f.read_strobe for f in packed.fields),
+                'write_strobe': any(f.write_strobe for f in packed.fields),
                 'description': f"Packed register: {packed.name}",
                 'default_value': combined_default,
                 'default_value_hex': f"0x{combined_default:X}",
@@ -298,7 +303,10 @@ class JSONInputParser:
                         'width': f.width,
                         'access_mode': f.access_mode,
                         'signal_type': f.signal_type,
-                        'default_value': f.default_value
+                        'default_value': f.default_value,
+                        'read_strobe': f.read_strobe,
+                        'write_strobe': f.write_strobe,
+                        'description': f.description
                     } for f in packed.fields
                 ]
             }
