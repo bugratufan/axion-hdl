@@ -536,6 +536,84 @@ begin end architecture;
         self.assertIn('level1_module', module_names)
         self.assertIn('level2_module', module_names)
 
+    # =========================================================================
+    # PARSER-009: Case-insensitive Attribute Parsing
+    # =========================================================================
+    def test_parser_009_lowercase_attributes(self):
+        """PARSER-009: Parse lowercase attribute names"""
+        vhdl = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def base_addr=0x0000
+entity lowercase_test is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of lowercase_test is
+    signal my_reg : std_logic_vector(31 downto 0); -- @axion rw addr=0x10 default=0xFF desc="Lowercase test"
+begin
+end architecture;
+'''
+        filepath = self._write_temp_vhdl("lowercase_test.vhd", vhdl)
+        result = self.parser.parse_file(filepath)
+        self.assertIsNotNone(result)
+        signals = result.get('signals', [])
+        self.assertTrue(len(signals) > 0)
+        sig = self._get_signal_by_name(signals, 'my_reg')
+        self.assertIsNotNone(sig)
+        self.assertEqual(sig.get('access'), 'RW')
+        self.assertEqual(sig.get('address'), 0x10)
+    
+    def test_parser_009_mixed_case_attributes(self):
+        """PARSER-009: Parse mixed case attribute names"""
+        vhdl = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def Base_Addr=0x0000
+entity mixed_case_test is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of mixed_case_test is
+    signal field1 : std_logic;                        -- @axion Rw Addr=0x04 Reg_Name=control Bit_Offset=0 Default=1
+    signal field2 : std_logic_vector(7 downto 0);     -- @axion RW ADDR=0x04 REG_NAME=control BIT_OFFSET=1 DEFAULT=0xAB
+begin
+end architecture;
+'''
+        filepath = self._write_temp_vhdl("mixed_case_test.vhd", vhdl)
+        result = self.parser.parse_file(filepath)
+        self.assertIsNotNone(result)
+        # Should parse without errors - verify registers exist
+        regs = result.get('registers', [])
+        # Find packed register
+        packed = [r for r in regs if r.get('is_packed')]
+        self.assertTrue(len(packed) > 0, "Should find packed register 'control'")
+    
+    def test_parser_009_subregister_attributes_case(self):
+        """PARSER-009: Subregister attributes parsed case-insensitively"""
+        vhdl = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x0000
+entity subreg_case_test is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of subreg_case_test is
+    signal enable : std_logic;                        -- @axion rw addr=0x00 reg_name=control bit_offset=0 default=1
+    signal mode   : std_logic_vector(1 downto 0);     -- @axion RW ADDR=0x00 REG_NAME=control BIT_OFFSET=1 DEFAULT=2
+begin
+end architecture;
+'''
+        filepath = self._write_temp_vhdl("subreg_case_test.vhd", vhdl)
+        result = self.parser.parse_file(filepath)
+        self.assertIsNotNone(result)
+        regs = result.get('registers', [])
+        packed = [r for r in regs if r.get('is_packed')]
+        self.assertTrue(len(packed) > 0)
+        # Verify fields are grouped under 'control'
+        control_reg = packed[0]
+        self.assertEqual(control_reg.get('reg_name'), 'control')
+        fields = control_reg.get('fields', [])
+        self.assertEqual(len(fields), 2)
+
 
 def run_parser_tests():
     """Run all parser tests and return results"""
