@@ -132,7 +132,7 @@ class AxionGUI:
                     'file': '',
                     'is_new': True
                 }
-                return render_template('editor.html', module=new_module)
+                return render_template('editor.html', module=new_module, server_mode=self.axion.output_dir is None)
             
             # Find existing module - use file query param if provided for disambiguation
             file_path = request.args.get('file')
@@ -148,7 +148,7 @@ class AxionGUI:
                 return "Module not found", 404
             module['is_new'] = False
             is_vhdl = module.get('file', '').lower().endswith(('.vhd', '.vhdl'))
-            return render_template('editor.html', module=module, is_vhdl=is_vhdl)
+            return render_template('editor.html', module=module, is_vhdl=is_vhdl, server_mode=self.axion.output_dir is None)
 
         @self.app.route('/rule-check')
         def rule_check_page():
@@ -197,7 +197,9 @@ class AxionGUI:
                         'width': width,
                         'access': reg.get('access', 'RW'),
                         'default': reg.get('default_value', '0x0'),
-                        'description': reg.get('description', '')
+                        'description': reg.get('description', ''),
+                        # Always include address - persist auto-assigned addresses
+                        'addr': reg.get('address', '0x0')
                     }
                     if reg.get('r_strobe'):
                         reg_data['r_strobe'] = True
@@ -231,8 +233,11 @@ class AxionGUI:
 
         @self.app.route('/generate')
         def generate_page():
-            # default to current output dir
-            return render_template('generate.html', default_dir=self.axion.output_dir)
+            # default to current output dir, pass no_output_dir flag for UI
+            no_output_dir = self.axion.output_dir is None
+            return render_template('generate.html', 
+                                   default_dir=self.axion.output_dir or '',
+                                   no_output_dir=no_output_dir)
 
         @self.app.route('/api/select_folder')
         def select_folder():
@@ -293,25 +298,50 @@ class AxionGUI:
         @self.app.route('/api/generate', methods=['POST'])
         def run_generate():
             import io
+            import tempfile
             from contextlib import redirect_stdout
             
             data = request.json
-            output_dir = data.get('output_dir')
+            output_dir = data.get('output_dir') or None  # Treat empty string as None
             formats = data.get('formats', {})
+            modules_filter = data.get('modules')  # Optional list of module names to generate
             
             log_capture = io.StringIO()
             success = False
+            temp_dir_path = None  # For temp+ZIP mode
+            used_output_dir = None
             
             try:
                 with redirect_stdout(log_capture):
+                    # Determine effective output directory
                     if output_dir:
                         self.axion.set_output_dir(output_dir)
+                        used_output_dir = output_dir
+                    elif self.axion.output_dir:
+                        used_output_dir = self.axion.output_dir
+                    else:
+                        # Temp+ZIP mode: create temporary directory
+                        temp_dir = tempfile.mkdtemp(prefix='axion_gen_')
+                        self.axion.set_output_dir(temp_dir)
+                        temp_dir_path = temp_dir
+                        used_output_dir = temp_dir
+                        print(f"Using temporary directory: {temp_dir}")
                     
                     # Need to verify analysis first just in case
                     if not self.axion.is_analyzed:
                         print("Re-running analysis...")
                         self.axion.analyze()
-                        
+                    
+                    # Filter modules if specified
+                    original_modules = None
+                    if modules_filter:
+                        original_modules = self.axion.analyzed_modules
+                        self.axion.analyzed_modules = [
+                            m for m in self.axion.analyzed_modules 
+                            if m.get('name') in modules_filter
+                        ]
+                        print(f"Generating for {len(self.axion.analyzed_modules)} selected module(s): {', '.join(modules_filter)}")
+                    
                     res = True
                     if formats.get('vhdl'): res &= self.axion.generate_vhdl()
                     if formats.get('xml'): res &= self.axion.generate_xml()
@@ -323,6 +353,10 @@ class AxionGUI:
                     # Legacy support for old 'doc' format
                     if formats.get('doc') and not formats.get('doc_md') and not formats.get('doc_html'):
                         res &= self.axion.generate_documentation()
+                    
+                    # Restore original modules list if filtered
+                    if original_modules is not None:
+                        self.axion.analyzed_modules = original_modules
                     
                     success = res
                     if success:
@@ -338,8 +372,54 @@ class AxionGUI:
             return jsonify({
                 'success': success,
                 'logs': log_capture.getvalue().splitlines(),
-                'error': log_capture.getvalue() if not success else ''
+                'error': log_capture.getvalue() if not success else '',
+                'temp_dir': temp_dir_path,  # Non-null if using temp mode
+                'output_dir': used_output_dir
             })
+
+        @self.app.route('/api/download_generated_zip')
+        def download_generated_zip():
+            """Download generated files as a ZIP archive."""
+            import zipfile
+            import io
+            import shutil
+            from flask import send_file
+            
+            source_dir = request.args.get('source_dir')
+            
+            if not source_dir or not os.path.isdir(source_dir):
+                return jsonify({'error': 'Invalid source directory'}), 400
+            
+            # Security check: only allow temp directories
+            if not source_dir.startswith(os.path.join(os.sep, 'tmp')) and '/tmp' not in source_dir:
+                return jsonify({'error': 'Only temporary directories can be downloaded'}), 403
+            
+            try:
+                # Create ZIP in memory
+                memory_file = io.BytesIO()
+                with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    for root, dirs, files in os.walk(source_dir):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            arcname = os.path.relpath(file_path, source_dir)
+                            zf.write(file_path, arcname)
+                
+                memory_file.seek(0)
+                
+                # Cleanup temp directory after zipping
+                try:
+                    shutil.rmtree(source_dir)
+                except Exception:
+                    pass  # Ignore cleanup errors
+                
+                return send_file(
+                    memory_file,
+                    mimetype='application/zip',
+                    as_attachment=True,
+                    download_name='axion_generated.zip'
+                )
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
 
         @self.app.route('/api/run_check')
         def run_gui_check():

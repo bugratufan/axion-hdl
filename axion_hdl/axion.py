@@ -53,7 +53,8 @@ class AxionHDL:
         Initialize Axion HDL generator.
         
         Args:
-            output_dir: Output directory for generated files (default: ./axion_output)
+            output_dir: Output directory for generated files (default: ./axion_output).
+                        Set to None to enable temp+ZIP mode (no persistent output).
         """
         self.src_dirs = []
         self.src_files = []  # Individual VHDL files
@@ -63,7 +64,8 @@ class AxionHDL:
         self.yaml_src_files = []  # Individual YAML files
         self.json_src_dirs = []  # JSON source directories
         self.json_src_files = []  # Individual JSON files
-        self.output_dir = os.path.abspath(output_dir)
+        # Handle None output_dir (temp+ZIP mode)
+        self.output_dir = os.path.abspath(output_dir) if output_dir else None
         self.analyzed_modules = []
         self.is_analyzed = False
         self._exclude_patterns = set()
@@ -74,10 +76,14 @@ class AxionHDL:
         Set the output directory for generated files.
         
         Args:
-            dir_path: Path to output directory
+            dir_path: Path to output directory. Set to None to clear.
         """
-        self.output_dir = os.path.abspath(dir_path)
-        print(f"Output directory set to: {self.output_dir}")
+        if dir_path:
+            self.output_dir = os.path.abspath(dir_path)
+            print(f"Output directory set to: {self.output_dir}")
+        else:
+            self.output_dir = None
+            print("Output directory cleared (temp+ZIP mode).")
     
     def exclude(self, *patterns):
         """
@@ -368,6 +374,14 @@ class AxionHDL:
         
         self.analyzed_modules = []
         self.parse_errors = []  # Clear previous errors
+        
+        # Auto-exclude output directory to prevent parsing generated files
+        if self.output_dir:
+            output_dir_name = os.path.basename(self.output_dir)
+            if output_dir_name and output_dir_name not in self._exclude_patterns:
+                self._exclude_patterns.add(output_dir_name)
+                # Also add the full path for absolute matching
+                self._exclude_patterns.add(self.output_dir)
             
         # Parse VHDL files if any
         if has_vhdl_sources:
@@ -560,7 +574,8 @@ class AxionHDL:
             # Print each register
             for reg in module['registers']:
                 signal_name = reg['signal_name']
-                signal_type = reg['signal_type']
+                # Hide type for packed registers as requested
+                signal_type = "" if reg.get('is_packed') else reg['signal_type']
                 address = reg.get('address', 'Auto')
                 offset = reg.get('relative_address', address)
                 access_mode = reg['access_mode']
@@ -583,6 +598,33 @@ class AxionHDL:
                 ports_str = ', '.join(ports)
                 
                 print(f"{signal_name:<25} {signal_type:<8} {address:<10} {offset:<10} {access_mode:<8} {strobe_str:<15} {ports_str}")
+
+                # Print subregisters if packed
+                if reg.get('is_packed') and reg.get('fields'):
+                    # Sort fields high-to-low for display
+                    sorted_fields = sorted(reg['fields'], key=lambda f: f.get('bit_low', 0), reverse=True)
+                    
+                    for field in sorted_fields:
+                        fname = f"  └─ {field['name']}"
+                        
+                        # Format type as bit range
+                        bit_hi = field.get('bit_high', 0)
+                        bit_lo = field.get('bit_low', 0)
+                        ftype = f"[{bit_hi}:{bit_lo}]"
+                        
+                        faccess = field.get('access_mode', 'RW')
+                        
+                        # Field/Subregister specific strobes
+                        fstrobes = []
+                        if field.get('read_strobe'): fstrobes.append('RD')
+                        if field.get('write_strobe'): fstrobes.append('WR')
+                        fstrobe_str = ', '.join(fstrobes) if fstrobes else '-'
+                        
+                        # Field ports ? (Maybe just name)
+                        # Usually subreg ports are just mapped to the field name (or parent_field)
+                        fports = f"{reg['signal_name']}_{field['name']}"
+                        
+                        print(f"{fname:<25} {ftype:<8} {'':<10} {'':<10} {faccess:<8} {fstrobe_str:<15} {fports}")
             
             print(f"\nTotal Registers: {len(module['registers'])}")
         
@@ -601,6 +643,17 @@ class AxionHDL:
              return False
              
         checker = RuleChecker()
+        
+        # Inject parsing errors captured during analysis
+        for err in self.parse_errors:
+            filename = os.path.basename(err['file']) if 'file' in err else 'Unknown'
+            # Manually add to errors list to ensure they are reported
+            checker.errors.append({
+                'category': 'Parsing Error',
+                'module': filename,
+                'msg': err['msg']
+            })
+            
         checker.run_all_checks(self.analyzed_modules)
         text_report = checker.generate_report()
         
@@ -734,12 +787,12 @@ class AxionHDL:
         print(f"\nC header files generated in: {self.output_dir}")
         return True
         
-    def generate_all(self, doc_format="md"):
+    def generate_all(self, doc_format="html"):
         """
         Generate all outputs: VHDL, documentation, XML, YAML, JSON, and C headers.
         
         Args:
-            doc_format: Documentation format - "md", "html", or "pdf"
+            doc_format: Documentation format - "html" (default), "md", or "pdf"
         """
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")

@@ -8,7 +8,7 @@ with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='axion-hdl',
-    version='0.10.0',
+    version='0.11.0',
     author='Bugra Tufan',
     author_email='bugratufan97@gmail.com',
     description='Automated AXI4-Lite Register Interface Generator for VHDL modules',
@@ -17,7 +17,7 @@ setup(
     url='https://github.com/bugratufan/axion-hdl',
     project_urls={
         'Bug Tracker': 'https://github.com/bugratufan/axion-hdl/issues',
-        'Documentation': 'https://github.com/bugratufan/axion-hdl#readme',
+        'Documentation': 'https://github.com/bugratufan/axion-hdl/tree/main/docs',
         'Source Code': 'https://github.com/bugratufan/axion-hdl',
     },
     packages=find_packages(exclude=['tests', 'tests.*', 'examples', 'output', 'waveforms', 'work']),

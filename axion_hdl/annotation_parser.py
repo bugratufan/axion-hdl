@@ -131,16 +131,17 @@ class AnnotationParser:
                 if not token:
                     continue
                 
-                # Check for access modes
-                if token in ['RO', 'RW', 'WO']:
-                    attrs['access_mode'] = token
-                # Check for strobe flags
-                elif token == 'R_STROBE':
+                # Check for access modes (case-insensitive)
+                token_upper = token.upper()
+                if token_upper in ['RO', 'RW', 'WO']:
+                    attrs['access_mode'] = token_upper
+                # Check for strobe flags (case-insensitive)
+                elif token_upper == 'R_STROBE':
                     attrs['read_strobe'] = True
-                elif token == 'W_STROBE':
+                elif token_upper == 'W_STROBE':
                     attrs['write_strobe'] = True
-                # Check for CDC enable
-                elif token == 'CDC_EN':
+                # Check for CDC enable (case-insensitive)
+                elif token_upper == 'CDC_EN':
                     attrs['cdc_enabled'] = True
                 # Generic boolean flag
                 else:

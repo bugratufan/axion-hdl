@@ -261,6 +261,41 @@ Invalid XML: not well-formed (invalid token)
 
 ---
 
+### Subregister Overlap
+
+**Type:** `Subregister Overlap`  
+**Severity:** Error
+
+Detects overlapping bit ranges within a packed register.
+
+**Example Error:**
+```
+In register 'control': Field 'enable' [0:0] overlaps with 'mode' [1:0]
+```
+
+**Resolution:**
+- Adjust `BIT_OFFSET` values to ensure fields do not overlap.
+- Check signal widths.
+
+---
+
+### Logical Integrity
+
+**Type:** `Logical Integrity`  
+**Severity:** Warning
+
+Checks for structural issues, such as modules with no registers.
+
+**Example Warning:**
+```
+Module has no registers defined.
+```
+
+**Resolution:**
+- Ensure the module file contains valid register definitions or annotations.
+
+---
+
 ## Report Formats
 
 ### Text Report

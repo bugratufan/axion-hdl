@@ -277,6 +277,171 @@
     [data-theme="dark"] .border-top {
         border-color: var(--border-color) !important;
     }
+
+    /* Subregister styles */
+    .subreg-row {
+        background-color: var(--card-bg);
+        border-left: 3px solid var(--primary-color);
+    }
+
+    .subreg-table th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+    }
+
+    .subreg-table td {
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+
+    .toggle-subregs {
+        cursor: pointer;
+        transition: transform 0.2s;
+        display: inline-block;
+        padding: 2px;
+        color: var(--primary-color);
+    }
+
+    .toggle-subregs.expanded {
+        transform: rotate(90deg);
+    }
+
+    /* ===== RESPONSIVE DESIGN ===== */
+
+    /* Tablet and smaller (< 992px) */
+    @media (max-width: 991.98px) {
+
+        /* Stack module config form */
+        #moduleForm.row {
+            flex-direction: column;
+            align-items: stretch !important;
+        }
+
+        #moduleForm .col-auto {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Reduce table font size */
+        #regsTable {
+            font-size: 0.85rem;
+        }
+
+        /* Hide description column on tablet */
+        #regsTable th:nth-child(7),
+        #regsTable td:nth-child(7) {
+            display: none;
+        }
+
+        /* Reduce padding */
+        #regsTable th,
+        #regsTable td {
+            padding: 0.4rem 0.3rem !important;
+        }
+
+        /* Make inputs smaller */
+        #regsTable input,
+        #regsTable select {
+            font-size: 0.8rem !important;
+            padding: 0.25rem 0.4rem !important;
+        }
+    }
+
+    /* Mobile (< 768px) */
+    @media (max-width: 767.98px) {
+
+        /* Header adjustments */
+        .d-flex.justify-content-between {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* Make buttons full width */
+        #saveBtn,
+        #generateBtn {
+            width: 100%;
+        }
+
+        /* Further reduce table */
+        #regsTable {
+            font-size: 0.75rem;
+        }
+
+        /* Hide more columns on mobile: Description, Strobes, Default */
+        #regsTable th:nth-child(5),
+        #regsTable td:nth-child(5),
+        #regsTable th:nth-child(6),
+        #regsTable td:nth-child(6) {
+            display: none;
+        }
+
+        /* Minimum table width for horizontal scroll */
+        #regsTable {
+            min-width: 500px;
+        }
+
+        /* Compact address input */
+        .reg-addr-input {
+            width: 50px !important;
+            font-size: 0.7rem !important;
+        }
+
+        /* Compact name input */
+        .reg-name-input {
+            max-width: 100px;
+        }
+
+        /* Reduce action button size */
+        .action-btn {
+            width: 24px;
+            height: 24px;
+            font-size: 0.7rem;
+        }
+
+        /* Unsaved indicator smaller */
+        .unsaved-indicator {
+            font-size: 0.75rem;
+            padding: 6px 12px;
+            bottom: 10px;
+            right: 10px;
+        }
+    }
+
+    /* Small mobile (< 576px) */
+    @media (max-width: 575.98px) {
+
+        /* Very compact table */
+        #regsTable th:nth-child(3),
+        #regsTable td:nth-child(3),
+        #regsTable th:nth-child(4),
+        #regsTable td:nth-child(4) {
+            display: none;
+        }
+
+        /* Show only: Addr, Name, Actions */
+        #regsTable {
+            min-width: 300px;
+        }
+
+        /* Larger touch targets for mobile */
+        .action-btn {
+            width: 32px;
+            height: 32px;
+        }
+
+        /* Card padding reduction */
+        .card-body {
+            padding: 0.75rem !important;
+        }
+
+        /* Page padding */
+        .container-fluid {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -305,12 +470,20 @@
         </div>
         {% else %}
         <h2 class="mb-0 fw-bold text-dark">{{ module.name }}</h2>
+        {% if not server_mode %}
         <small class="text-muted">{{ module.file }}</small>
+        {% endif %}
         {% endif %}
     </div>
     <div class="d-flex align-items-center gap-2">
         <span id="conflictWarning" class="badge bg-danger d-none"><i class="bi bi-exclamation-triangle me-1"></i>Address
             Conflicts</span>
+        {% if not module.is_new %}
+        <button id="generateBtn" onclick="openGenerateModal()" class="btn btn-success px-4 shadow-sm fw-medium"
+            title="Generate code for this module">
+            <i class="bi bi-gear-fill me-2"></i>Generate
+        </button>
+        {% endif %}
         <button id="saveBtn" onclick="saveChanges()" class="btn btn-primary px-4 shadow-sm fw-medium"
             title="Review and save changes">
             <i class="bi bi-save2-fill me-2"></i>{% if module.is_new %}Save As...{% else %}Review & Save{% endif %}
@@ -411,38 +584,52 @@
                     {% endif %}
                     <tr class="reg-row border-bottom-0" data-index="{{ loop.index0 }}">
                         <td class="ps-4 addr-cell">
-                            <!-- Address Input: Use input for manual editing -->
-                            <div class="addr-changed">
-                                <span class="addr-original" style="display: none;"></span>
-                                <input type="text"
-                                    class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
-                                    value="0x{{ '%02X' % reg.relative_address_int }}" style="width: 70px;"
-                                    data-locked="{{ 'true' if reg.manual_address else 'false' }}"
-                                    data-original="0x{{ '%02X' % reg.relative_address_int }}"
-                                    title="{{ 'Manual Address' if reg.manual_address else 'Auto-calculated' }}"
-                                    onchange="onAddressChange(this)" onblur="onAddressBlur(this)">
-                                <button class="addr-revert-btn" style="display: none;" onclick="revertAddress(this)"
-                                    data-action="revert-address" title="Revert to original">
-                                    <i class="bi bi-arrow-counterclockwise"></i>
-                                </button>
-                                <span class="addr-conflict-warning" style="display: none;"><i
-                                        class="bi bi-exclamation-triangle"></i></span>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if reg.is_packed %}
+                                <i class="bi bi-chevron-right toggle-subregs expanded"
+                                    onclick="toggleSubregisters(this, '{{ loop.index0 }}')" title="Show fields"></i>
+                                {% else %}
+                                <span style="width: 16px;"></span>
+                                {% endif %}
+
+                                <!-- Address Input: Use input for manual editing -->
+                                <div class="addr-changed">
+                                    <span class="addr-original" style="display: none;"></span>
+                                    <input type="text"
+                                        class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent p-0"
+                                        value="0x{{ '%02X' % reg.relative_address_int }}" style="width: 70px;"
+                                        data-locked="{{ 'true' if reg.manual_address else 'false' }}"
+                                        data-original="0x{{ '%02X' % reg.relative_address_int }}"
+                                        title="{{ 'Manual Address' if reg.manual_address else 'Auto-calculated' }}"
+                                        onchange="onAddressChange(this)" onblur="onAddressBlur(this)">
+                                    <button class="addr-revert-btn" style="display: none;" onclick="revertAddress(this)"
+                                        data-action="revert-address" title="Revert to original">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                    <span class="addr-conflict-warning" style="display: none;"><i
+                                            class="bi bi-exclamation-triangle"></i></span>
+                                </div>
                             </div>
                         </td>
                         <td>
                             <input type="text" value="{{ reg.reg_name or reg.signal_name }}"
-                                class="form-control font-monospace reg-name-input fw-bold bg-light-subtle border-0"
-                                placeholder="reg_name" oninput="validateName(this)" {% if is_vhdl %}readonly
-                                title="Renaming allowed only for new registers" {% endif %}>
+                                class="form-control font-monospace reg-name-input fw-bold border-0 {% if reg.is_packed %}bg-transparent text-secondary{% else %}bg-light-subtle{% endif %}"
+                                placeholder="reg_name" oninput="validateName(this)" {% if is_vhdl or reg.is_packed
+                                %}readonly
+                                title="{{ 'Field defined by subregisters' if reg.is_packed else 'Renaming allowed only for new registers' }}"
+                                {% endif %}>
                         </td>
                         <td>
+                            {% if not reg.is_packed %}
                             <div class="input-group input-group-sm">
                                 <input type="number" value="{{ width }}"
                                     class="form-control reg-width-input border-0 bg-light-subtle" min="1" max="1024"
                                     style="width: 50px;" onchange="recalculateAddresses()">
                             </div>
+                            {% endif %}
                         </td>
                         <td>
+                            {% if not reg.is_packed %}
                             <select
                                 class="form-select form-select-sm reg-access-input fw-bold border-0 bg-light-subtle
                                         {% if reg.access_mode=='RW' %}text-primary{% elif reg.access_mode=='RO' %}text-success{% else %}text-danger{% endif %}"
@@ -454,11 +641,16 @@
                                 <option value="WO" class="text-danger" {% if reg.access_mode=='WO' %}selected{% endif
                                     %}>WO</option>
                             </select>
+                            {% endif %}
                         </td>
                         <td>
-                            <input type="text" value="{{ reg.default_value or '0x0' }}"
+                            {% if not reg.is_packed %}
+                            <input type="text"
+                                value="0x{{ '%X' % ((reg.default_value | int) if reg.default_value is number else (reg.default_value | string | replace('0x', '') | int(base=16) if reg.default_value and reg.default_value|string|lower|replace('0x','')|length > 0 and reg.default_value|string|lower|replace('0x','')|string|int(base=16, default=None) is not none else 0)) }}"
                                 class="form-control form-control-sm font-monospace reg-default-input border-0 bg-light-subtle text-secondary"
-                                style="width: 70px;" oninput="validateHex(this)">
+                                style="width: 100px;"
+                                oninput="validateHex(this); {% if reg.is_packed %}updateSubregsFromParent(this, '{{ loop.index0 }}'){% endif %}">
+                            {% endif %}
                         </td>
                         <td>
                             <div class="strobe-group">
@@ -490,21 +682,122 @@
                             </button>
                         </td>
                     </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
 
-        {% if not module.registers %}
-        <div class="text-center py-5 text-muted" id="emptyState">
-            <div class="mb-3 p-3 bg-light rounded-circle d-inline-block">
-                <i class="bi bi-layers fs-1 text-secondary"></i>
-            </div>
-            <h5 class="fw-bold text-dark">Empty Register Map</h5>
-            <p class="small">Start building your register interface via the button above.</p>
-            {% endif %}
+                    {% if reg.is_packed %}
+                    <tr class="subreg-details" id="subregs-{{ loop.index0 }}" style="display: table-row;">
+                        <td colspan="8" class="p-0 bg-light-subtle">
+                            <div class="position-relative ps-4 py-2 pe-3">
+                                <!-- Connecting line for hierarchy -->
+                                <div class="position-absolute"
+                                    style="left: 28px; top: 0; bottom: 0; width: 2px; bg-color: var(--bs-border-color);">
+                                </div>
+
+                                <div class="table-responsive rounded-3 overflow-hidden border bg-white">
+                                    <table class="table table-sm mb-0 subreg-table align-middle">
+                                        <thead class="bg-light text-secondary text-uppercase"
+                                            style="font-size: 0.75rem;">
+                                            <tr>
+                                                <th class="ps-3 py-2 border-bottom" style="width: 20%">Field Name</th>
+                                                <th class="py-2 border-bottom" style="width: 10%">Offset</th>
+                                                <th class="py-2 border-bottom" style="width: 10%">Width</th>
+                                                <th class="py-2 border-bottom" style="width: 12%">Range</th>
+                                                <th class="py-2 border-bottom" style="width: 10%">Access</th>
+                                                <th class="py-2 border-bottom" style="width: 15%">Default</th>
+                                                <th class="py-2 border-bottom" style="width: 23%">Description</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for field in reg.fields %}
+                                            <tr class="subreg-field-row hover-bg-light {% if field.has_error %}bg-danger-subtle border-danger{% endif %}"
+                                                data-parent="{{ reg.signal_name }}" {% if field.has_error
+                                                %}data-error-message="{{ field.error_message }}"
+                                                title="⚠️ {{ field.error_message }}" {% endif %}>
+                                                <td class="ps-3">
+                                                    <div class="d-flex align-items-center">
+                                                        {% if field.has_error %}
+                                                        <i class="bi bi-exclamation-triangle-fill text-danger me-2 small"
+                                                            data-bs-toggle="tooltip"
+                                                            title="{{ field.error_message }}"></i>
+                                                        {% else %}
+                                                        <i class="bi bi-diagram-2 text-muted me-2 small"></i>
+                                                        {% endif %}
+                                                        <input type="text" value="{{ field.name }}"
+                                                            class="form-control form-control-sm font-monospace subreg-name-input fw-bold bg-transparent border-0 shadow-none p-0"
+                                                            placeholder="field_name">
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <input type="number" value="{{ field.bit_low }}"
+                                                        class="form-control form-control-sm subreg-offset-input border-0 bg-light-subtle text-center"
+                                                        min="0" max="31" style="width: 50px;"
+                                                        oninput="updateBitRange(this)">
+                                                </td>
+                                                <td>
+                                                    <input type="number" value="{{ field.width }}"
+                                                        class="form-control form-control-sm subreg-width-input border-0 bg-light-subtle text-center"
+                                                        min="1" max="32" style="width: 50px;"
+                                                        oninput="updateBitRange(this)">
+                                                </td>
+                                                <td class="font-monospace small text-muted">
+                                                    <span
+                                                        class="badge bg-secondary-subtle text-secondary rounded-pill border bit-range-display">
+                                                        [{{ field.bit_high }}:{{ field.bit_low }}]
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <select
+                                                        class="form-select form-select-sm subreg-access-input fw-bold border-0 bg-light-subtle 
+                                                        {% if field.access_mode=='RW' %}text-primary{% elif field.access_mode=='RO' %}text-success{% else %}text-danger{% endif %}"
+                                                        onchange="updateAccessColor(this)">
+                                                        <option value="RW"
+                                                            class="{{ 'text-primary' if field.access_mode == 'RW' else '' }}"
+                                                            {% if field.access_mode=='RW' %}selected{% endif %}>RW
+                                                        </option>
+                                                        <option value="RO"
+                                                            class="{{ 'text-success' if field.access_mode == 'RO' else '' }}"
+                                                            {% if field.access_mode=='RO' %}selected{% endif %}>RO
+                                                        </option>
+                                                        <option value="WO"
+                                                            class="{{ 'text-danger' if field.access_mode == 'WO' else '' }}"
+                                                            {% if field.access_mode=='WO' %}selected{% endif %}>WO
+                                                        </option>
+                                                    </select>
+                                                </td>
+                                                <td>
+                                                    <input type="text" value="0x{{ '%X' % field.default_value }}"
+                                                        class="form-control form-control-sm font-monospace subreg-default-input border-0 bg-light-subtle text-secondary"
+                                                        oninput="validateHex(this); updateParentDefault(this)">
+                                                </td>
+                                                <td>
+                                                    <input type="text" value="{{ field.description }}"
+                                                        class="form-control form-control-sm subreg-desc-input border-0 bg-transparent ps-0"
+                                                        placeholder="Description...">
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
         </div>
+        </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+        </tbody>
+        </table>
     </div>
+
+    {% if not module.registers %}
+    <div class="text-center py-5 text-muted" id="emptyState">
+        <div class="mb-3 p-3 bg-light rounded-circle d-inline-block">
+            <i class="bi bi-layers fs-1 text-secondary"></i>
+        </div>
+        <h5 class="fw-bold text-dark">Empty Register Map</h5>
+        <p class="small">Start building your register interface via the button above.</p>
+        {% endif %}
+    </div>
+</div>
 </div>
 
 
@@ -519,22 +812,51 @@
     function getFormState() {
         try {
             const regs = [];
-            document.querySelectorAll('.reg-row').forEach(row => {
-                const strobes = row.querySelectorAll('.strobe-toggle');
-                regs.push({
-                    name: row.querySelector('.reg-name-input')?.value || '',
-                    width: row.querySelector('.reg-width-input')?.value || '',
-                    access: row.querySelector('.reg-access-input')?.value || '',
-                    default: row.querySelector('.reg-default-input')?.value || '',
-                    description: row.querySelector('.reg-desc-input')?.value || '',
-                    rStrobe: strobes[0]?.classList.contains('active') || false,
-                    wStrobe: strobes[1]?.classList.contains('active') || false
-                });
+            document.querySelectorAll('.reg-row').forEach((row, index) => {
+                const isPacked = row.querySelector('.toggle-subregs') !== null;
+                const nameInput = row.querySelector('.reg-name-input');
+                const name = nameInput?.value || '';
+                const addr = row.querySelector('.reg-addr-input')?.value || '0x0';
+
+                if (isPacked) {
+                    // Collect sub-fields instead of the container
+                    const subregRow = document.getElementById('subregs-' + row.getAttribute('data-index'));
+                    if (subregRow) {
+                        subregRow.querySelectorAll('.subreg-field-row').forEach(fieldRow => {
+                            regs.push({
+                                name: fieldRow.querySelector('.subreg-name-input')?.value || '',
+                                reg_name: name, // Link to parent container name
+                                address: addr,  // Share parent address
+                                width: fieldRow.querySelector('.subreg-width-input')?.value || '',
+                                access: fieldRow.querySelector('.subreg-access-input')?.value || '',
+                                default_value: fieldRow.querySelector('.subreg-default-input')?.value || '',
+                                description: fieldRow.querySelector('.subreg-desc-input')?.value || '',
+                                bit_offset: fieldRow.querySelector('.subreg-offset-input')?.value || null,
+                                is_packed_field: true
+                            });
+                        });
+                    }
+                } else {
+                    // Standard register
+                    const strobes = row.querySelectorAll('.strobe-toggle');
+                    regs.push({
+                        name: name,
+                        width: row.querySelector('.reg-width-input')?.value || '',
+                        access: row.querySelector('.reg-access-input')?.value || '',
+                        default_value: row.querySelector('.reg-default-input')?.value || '',
+                        description: row.querySelector('.reg-desc-input')?.value || '',
+                        r_strobe: strobes[0]?.classList.contains('active') || false,
+                        w_strobe: strobes[1]?.classList.contains('active') || false,
+                        address: addr,
+                        manual_address: row.querySelector('.reg-addr-input').getAttribute('data-locked') === 'true'
+                    });
+                }
             });
+
             return JSON.stringify({
-                baseAddr: document.querySelector('input[name="base_address"]')?.value || '',
-                cdcEnabled: document.getElementById('cdcEnable')?.checked || false,
-                cdcStages: document.getElementById('cdcStages')?.value || '',
+                base_address: document.querySelector('input[name="base_address"]')?.value || '',
+                cdc_enabled: document.getElementById('cdcEnable')?.checked || false,
+                cdc_stages: document.getElementById('cdcStages')?.value || '',
                 registers: regs
             });
         } catch (e) {
@@ -603,8 +925,7 @@
         // Ensure manual address fields from server are locked correctly if needed
         document.querySelectorAll('.reg-addr-input').forEach(input => {
             if (input.getAttribute('data-locked') === 'true') {
-                input.classList.add('fw-bold', 'text-dark');
-                input.classList.remove('text-secondary');
+                // Style standardized
             }
         });
         window.initialState = getFormState();
@@ -614,17 +935,13 @@
     function onAddressChange(input) {
         input.setAttribute('data-locked', 'true');
         input.title = "Manual Address";
-        input.classList.remove('text-secondary');
-        input.classList.add('fw-bold', 'text-dark');
         validateHex(input);
 
         // Show visual change indicator
         updateAddressVisualIndicator(input);
 
-        // Trigger conflict resolution for subsequent registers
+        // Check for conflicts (no automatic shifting - just detect and show warnings)
         recalculateAddresses();
-
-        // Check for conflicts
         detectAddressConflicts();
 
         markAsChanged();
@@ -697,8 +1014,7 @@
         // Unlock and recalculate
         input.setAttribute('data-locked', 'false');
         input.title = "Auto-calculated";
-        input.classList.remove('fw-bold', 'text-dark', 'addr-conflict');
-        input.classList.add('text-secondary');
+        input.classList.remove('addr-conflict');
 
         // Hide visual indicators
         const originalSpan = container.querySelector('.addr-original');
@@ -799,12 +1115,94 @@
     }
 
     function updateAccessColor(select) {
-        select.className = 'form-select form-select-sm reg-access-input fw-bold border-0 bg-light-subtle';
+        // Determine base class (reg vs subreg) to preserve it
+        const isSubreg = select.classList.contains('subreg-access-input');
+        const baseClass = isSubreg ? 'subreg-access-input' : 'reg-access-input';
+
+        select.className = `form-select form-select-sm ${baseClass} fw-bold border-0 bg-light-subtle`;
         if (select.value === 'RW') select.classList.add('text-primary');
         else if (select.value === 'RO') select.classList.add('text-success');
-        else select.classList.add('text-danger');
+        else if (select.value === 'WO') select.classList.add('text-danger');
+    }
+
+    function toggleSubregisters(btn, index) {
+        const row = document.getElementById('subregs-' + index);
+        if (row) {
+            if (row.style.display === 'none') {
+                row.style.display = 'table-row';
+                btn.classList.add('expanded');
+            } else {
+                row.style.display = 'none';
+                btn.classList.remove('expanded');
+            }
+        }
+    }
+
+    function updateParentDefault(subInput) {
+        const subregRow = subInput.closest('.subreg-details');
+        if (!subregRow) return;
+        const index = subregRow.id.replace('subregs-', '');
+        const parentRow = document.querySelector(`.reg-row[data-index="${index}"]`);
+
+        if (!parentRow) return;
+
+        let totalValue = 0n;
+
+        subregRow.querySelectorAll('.subreg-field-row').forEach(row => {
+            const defaultInput = row.querySelector('.subreg-default-input');
+            const offsetInput = row.querySelector('.subreg-offset-input');
+
+            let valStr = defaultInput.value.trim();
+            if (valStr.toLowerCase().startsWith('0x')) valStr = valStr.substring(2);
+            let val = 0n;
+            try {
+                if (valStr) val = BigInt('0x' + valStr);
+            } catch (e) { }
+
+            const lowBit = parseInt(offsetInput?.value || '0');
+
+            // Shift value to its position and OR it into total
+            totalValue |= (val << BigInt(lowBit));
+        });
+
+        // Update parent input
+        const parentInput = parentRow.querySelector('.reg-default-input');
+        if (parentInput) {
+            parentInput.value = '0x' + totalValue.toString(16).toUpperCase();
+            markAsChanged();
+        }
+    }
+
+    function updateSubregsFromParent(input, index) {
+        const subregRow = document.getElementById('subregs-' + index);
+        if (!subregRow) return;
+
+        let valStr = input.value.trim();
+        if (valStr.toLowerCase().startsWith('0x')) valStr = valStr.substring(2);
+        let parentVal = 0n;
+        try {
+            if (valStr) parentVal = BigInt('0x' + valStr);
+        } catch (e) { }
+
+        subregRow.querySelectorAll('.subreg-field-row').forEach(row => {
+            const defaultInput = row.querySelector('.subreg-default-input');
+            const offsetInput = row.querySelector('.subreg-offset-input');
+            const widthInput = row.querySelector('.subreg-width-input');
+
+            const lowBit = parseInt(offsetInput?.value || '0');
+            const width = parseInt(widthInput.value || '1');
+
+            // Create mask for this field
+            const mask = (1n << BigInt(width)) - 1n;
+
+            // Extract value: (parent >> low) & mask
+            const fieldVal = (parentVal >> BigInt(lowBit)) & mask;
+
+            defaultInput.value = '0x' + fieldVal.toString(16).toUpperCase();
+        });
         markAsChanged();
     }
+
 
     function toggleStrobe(elem, type) {
         const isActive = elem.classList.contains('active');
@@ -828,127 +1226,20 @@
     }
 
     function recalculateAddresses() {
+        // This function now ONLY detects conflicts - no automatic shifting
+        // Address shifting has been removed per user request
         const rows = [...document.querySelectorAll('.reg-row')];
         if (rows.length === 0) return;
 
-        // Step 1: Identify user-modified addresses (these NEVER change)
-        const userModified = new Map(); // rowIndex -> address
+        // Update visual indicators for all rows
         rows.forEach((row, idx) => {
             const input = row.querySelector('.reg-addr-input');
-            if (!input) return;
-
-            const current = normalizeHexAddress(input.value);
-            const original = normalizeHexAddress(input.getAttribute('data-original'));
-            const isLocked = input.getAttribute('data-locked') === 'true';
-
-            // User modified = locked AND different from original
-            if (isLocked && current !== original) {
-                const addr = parseInt(input.value, 16);
-                if (!isNaN(addr)) {
-                    userModified.set(idx, addr);
-                }
-            }
-        });
-
-        console.log('User modified:', [...userModified.entries()].map(([i, a]) => `Row${i}=0x${a.toString(16)}`));
-
-        // Step 2: Process each row in order
-        // Track used addresses and next available
-        const usedAddresses = new Set([...userModified.values()]);
-
-        rows.forEach((row, idx) => {
-            const input = row.querySelector('.reg-addr-input');
-            const widthInput = row.querySelector('.reg-width-input');
-            if (!input || !widthInput) return;
-
-            const original = input.getAttribute('data-original');
-            const originalInt = parseInt(original, 16) || 0;
-            const width = parseInt(widthInput.value) || 32;
-            const regSize = Math.ceil(width / 32) * 4;
-
-            // If user modified this row, keep it fixed
-            if (userModified.has(idx)) {
-                console.log(`Row ${idx}: User modified, keeping at 0x${userModified.get(idx).toString(16)}`);
+            if (input) {
                 updateAddressVisualIndicator(input);
-                return;
             }
-
-            // Check if original address conflicts with any user-modified address
-            // Only check user-modified addresses that are ABOVE this row
-            let needsShift = false;
-            let shiftReason = '';
-
-            // Check direct conflict with user-modified addresses
-            for (const [modIdx, modAddr] of userModified) {
-                if (modIdx < idx && modAddr === originalInt) {
-                    // User above took our exact address
-                    needsShift = true;
-                    shiftReason = `user row ${modIdx} at 0x${modAddr.toString(16)}`;
-                    break;
-                }
-            }
-
-            // Check if previous row (whether shifted or not) overlaps with our original
-            // But ONLY if both addresses are in same general range
-            if (!needsShift && idx > 0) {
-                const prevRow = rows[idx - 1];
-                const prevInput = prevRow.querySelector('.reg-addr-input');
-                const prevOriginal = prevInput.getAttribute('data-original');
-                const prevOriginalInt = parseInt(prevOriginal, 16) || 0;
-                const prevCurrent = parseInt(prevInput.value, 16) || 0;
-                const prevWidthInput = prevRow.querySelector('.reg-width-input');
-                const prevWidth = parseInt(prevWidthInput.value) || 32;
-                const prevSize = Math.ceil(prevWidth / 32) * 4;
-
-                // Only check overlap if previous row was SHIFTED (not just moved to high address)
-                // Previous row shifted means: prevCurrent != prevOriginal AND prevCurrent is close to us
-                const prevWasShifted = prevCurrent !== prevOriginalInt;
-                const prevEnd = prevCurrent + prevSize;
-
-                // Overlap check: our original is within previous row's NEW range
-                // AND our original was AFTER prev's original (they were sequential)
-                if (prevWasShifted && originalInt >= prevCurrent && originalInt < prevEnd) {
-                    needsShift = true;
-                    shiftReason = `prev row shifted to 0x${prevCurrent.toString(16)}`;
-                }
-            }
-
-            if (needsShift) {
-                // Find next available address
-                let newAddr = originalInt;
-
-                // Get the previous row's end address
-                if (idx > 0) {
-                    const prevRow = rows[idx - 1];
-                    const prevInput = prevRow.querySelector('.reg-addr-input');
-                    const prevWidthInput = prevRow.querySelector('.reg-width-input');
-                    if (prevInput && prevWidthInput) {
-                        const prevAddr = parseInt(prevInput.value, 16) || 0;
-                        const prevWidth = parseInt(prevWidthInput.value) || 32;
-                        const prevSize = Math.ceil(prevWidth / 32) * 4;
-                        newAddr = Math.max(newAddr, prevAddr + prevSize);
-                    }
-                }
-
-                // Skip over user-modified addresses
-                while (usedAddresses.has(newAddr)) {
-                    newAddr += 4;
-                }
-
-                input.value = '0x' + newAddr.toString(16).toUpperCase();
-                usedAddresses.add(newAddr);
-                console.log(`Row ${idx}: Shifted from 0x${originalInt.toString(16)} to 0x${newAddr.toString(16)}`);
-            } else {
-                // No conflict, restore to original
-                input.value = original;
-                usedAddresses.add(originalInt);
-                console.log(`Row ${idx}: Keeping original 0x${originalInt.toString(16)}`);
-            }
-
-            updateAddressVisualIndicator(input);
         });
 
-        // Check for remaining conflicts (user-to-user or above conflicts)
+        // Check for conflicts and update UI accordingly
         detectAddressConflicts();
     }
 
@@ -967,7 +1258,7 @@
                 <div class="addr-changed">
                     <span class="addr-original" style="display: none;"></span>
                     <input type="text" 
-                        class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
+                        class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent p-0"
                         value="${newAddr}"
                         style="width: 70px;"
                         data-locked="false"
@@ -1074,22 +1365,48 @@
     const baseAddress = document.querySelector('input[name="base_address"]').value;
     const moduleName = isNew ? document.getElementById('moduleName').value : '{{ module.name }}';
 
-    // Gather Registers
+    // Gather Registers (same logic as getFormState for consistency)
     const regs = [];
     document.querySelectorAll('.reg-row').forEach(row => {
-        const strobes = row.querySelectorAll('.strobe-toggle');
-        regs.push({
-            name: row.querySelector('.reg-name-input').value,
-            width: row.querySelector('.reg-width-input').value,
-            access: row.querySelector('.reg-access-input').value,
-            default_value: row.querySelector('.reg-default-input').value,
-            description: row.querySelector('.reg-desc-input').value,
-            r_strobe: strobes[0].classList.contains('active'),
-            w_strobe: strobes[1].classList.contains('active'),
-            // Capture address if manually set
-            address: row.querySelector('.reg-addr-input').value,
-            manual_address: row.querySelector('.reg-addr-input').getAttribute('data-locked') === 'true'
-        });
+        const isPacked = row.querySelector('.toggle-subregs') !== null;
+        const name = row.querySelector('.reg-name-input')?.value || '';
+        const addr = row.querySelector('.reg-addr-input')?.value || '0x0';
+        const manualAddr = row.querySelector('.reg-addr-input')?.getAttribute('data-locked') === 'true';
+
+        if (isPacked) {
+            // Collect sub-fields instead of the container
+            const subregRow = document.getElementById('subregs-' + row.getAttribute('data-index'));
+            if (subregRow) {
+                subregRow.querySelectorAll('.subreg-field-row').forEach(fieldRow => {
+                    regs.push({
+                        name: fieldRow.querySelector('.subreg-name-input')?.value || '',
+                        reg_name: name, // Link to parent container name
+                        address: addr,  // Share parent address
+                        width: fieldRow.querySelector('.subreg-width-input')?.value || '',
+                        access: fieldRow.querySelector('.subreg-access-input')?.value || '',
+                        default_value: fieldRow.querySelector('.subreg-default-input')?.value || '',
+                        description: fieldRow.querySelector('.subreg-desc-input')?.value || '',
+                        bit_offset: fieldRow.querySelector('.subreg-offset-input')?.value || null,
+                        is_packed_field: true,
+                        manual_address: manualAddr
+                    });
+                });
+            }
+        } else {
+            // Standard register
+            const strobes = row.querySelectorAll('.strobe-toggle');
+            regs.push({
+                name: name,
+                width: row.querySelector('.reg-width-input')?.value || '',
+                access: row.querySelector('.reg-access-input')?.value || '',
+                default_value: row.querySelector('.reg-default-input')?.value || '',
+                description: row.querySelector('.reg-desc-input')?.value || '',
+                r_strobe: strobes[0]?.classList.contains('active') || false,
+                w_strobe: strobes[1]?.classList.contains('active') || false,
+                address: addr,
+                manual_address: manualAddr
+            });
+        }
     });
 
     console.log("Saving regs:", regs); // Debug 
@@ -1180,7 +1497,83 @@
     // Detect conflicts on page load
     document.addEventListener('DOMContentLoaded', function () {
         detectAddressConflicts();
+        // Initial subregister validation
+        document.querySelectorAll('.subreg-table').forEach(table => {
+            validateSubregisterOverlaps(table);
+        });
     });
+
+    function updateBitRange(input) {
+        const row = input.closest('.subreg-field-row');
+        const offsetInput = row.querySelector('.subreg-offset-input');
+        const widthInput = row.querySelector('.subreg-width-input');
+        const display = row.querySelector('.bit-range-display');
+
+        const offset = parseInt(offsetInput.value || 0);
+        const width = parseInt(widthInput.value || 1);
+        const high = offset + width - 1;
+
+        display.textContent = `[${high}:${offset}]`;
+
+        // Trigger default value recalc if width/offset changed
+        updateParentDefault(input);
+
+        // Validate
+        const table = row.closest('.subreg-table');
+        validateSubregisterOverlaps(table);
+        markAsChanged();
+    }
+
+    function validateSubregisterOverlaps(tableOrElement) {
+        if (!tableOrElement) return;
+
+        // Handle input element passed directly
+        const table = tableOrElement.tagName === 'TABLE' ? tableOrElement : tableOrElement.closest('.subreg-table');
+        if (!table) return;
+
+        const rows = table.querySelectorAll('.subreg-field-row');
+        const ranges = [];
+        let hasOverlap = false;
+
+        // Reset previous validation state
+        rows.forEach(row => {
+            row.querySelector('.subreg-offset-input').classList.remove('input-invalid');
+            row.querySelector('.subreg-width-input').classList.remove('input-invalid');
+            row.title = "";
+        });
+
+        // Collect ranges
+        rows.forEach((row, index) => {
+            const offset = parseInt(row.querySelector('.subreg-offset-input').value || 0);
+            const width = parseInt(row.querySelector('.subreg-width-input').value || 1);
+            ranges.push({ index, start: offset, end: offset + width - 1, row });
+        });
+
+        // Check intersections
+        for (let i = 0; i < ranges.length; i++) {
+            for (let j = i + 1; j < ranges.length; j++) {
+                const r1 = ranges[i];
+                const r2 = ranges[j];
+
+                // Check overlap: max(start1, start2) <= min(end1, end2)
+                if (Math.max(r1.start, r2.start) <= Math.min(r1.end, r2.end)) {
+                    hasOverlap = true;
+                    // Mark both
+                    r1.row.querySelector('.subreg-offset-input').classList.add('input-invalid');
+                    r1.row.querySelector('.subreg-width-input').classList.add('input-invalid');
+                    r2.row.querySelector('.subreg-offset-input').classList.add('input-invalid');
+                    r2.row.querySelector('.subreg-width-input').classList.add('input-invalid');
+
+                    r1.row.title = `Overlaps with field at index ${j}`;
+                    r2.row.title = `Overlaps with field at index ${i}`;
+                }
+            }
+        }
+
+        // Show/hide parent warning icon?
+        const parentRowId = table.closest('.subreg-details').id; // subregs-X
+        // Could find parent row and add warning badge... for now, red inputs are good.
+    }
 </script>
 
 <!-- Save File Modal -->
@@ -1216,4 +1609,189 @@
         </div>
     </div>
 </div>
+
+<!-- Generate Modal -->
+<div class="modal fade" id="generateModal" tabindex="-1" aria-labelledby="generateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="generateModalLabel">
+                    <i class="bi bi-gear-fill me-2"></i>Generate for {{ module.name }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Format Selection -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-secondary small text-uppercase">Select Formats</label>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input gen-format" type="checkbox" id="genVhdl" checked>
+                                <label class="form-check-label" for="genVhdl">VHDL Modules</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input gen-format" type="checkbox" id="genXml" checked>
+                                <label class="form-check-label" for="genXml">XML Map</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input gen-format" type="checkbox" id="genYaml" checked>
+                                <label class="form-check-label" for="genYaml">YAML Map</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input gen-format" type="checkbox" id="genJson" checked>
+                                <label class="form-check-label" for="genJson">JSON Map</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input gen-format" type="checkbox" id="genHeader" checked>
+                                <label class="form-check-label" for="genHeader">C Headers</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input gen-format" type="checkbox" id="genDocMd">
+                                <label class="form-check-label" for="genDocMd">Markdown Docs</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Output Log -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-secondary small text-uppercase">Output Log</label>
+                    <div id="genLog" class="bg-dark text-light p-3 rounded font-monospace small"
+                        style="height: 200px; overflow-y: auto;">
+                        Ready to generate...
+                    </div>
+                </div>
+
+                <!-- Download Section (hidden initially) -->
+                <div id="genDownloadSection" class="alert alert-success d-none">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-check-circle-fill me-2"></i>Generation complete!</span>
+                        <button id="genDownloadBtn" class="btn btn-success btn-sm" onclick="downloadGeneratedZip()">
+                            <i class="bi bi-download me-2"></i>Download ZIP
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" id="genRunBtn" onclick="runDirectGenerate()">
+                    <i class="bi bi-play-fill me-2"></i>Generate
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Generation modal state
+    let genTempDir = null;
+    const currentModuleName = '{{ module.name }}';
+
+    function openGenerateModal() {
+        genTempDir = null;
+        document.getElementById('genDownloadSection').classList.add('d-none');
+        document.getElementById('genLog').innerHTML = 'Ready to generate...';
+        const modal = new bootstrap.Modal(document.getElementById('generateModal'));
+        modal.show();
+    }
+
+    function genLogAdd(text, className = '') {
+        const log = document.getElementById('genLog');
+        const div = document.createElement('div');
+        if (className) div.className = className;
+        div.innerText = text;
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function runDirectGenerate() {
+        const log = document.getElementById('genLog');
+        const downloadSection = document.getElementById('genDownloadSection');
+        const runBtn = document.getElementById('genRunBtn');
+
+        log.innerHTML = '';
+        downloadSection.classList.add('d-none');
+        genTempDir = null;
+        runBtn.disabled = true;
+        runBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
+
+        genLogAdd('Starting generation for ' + currentModuleName + '...', 'text-info');
+
+        const payload = {
+            modules: [currentModuleName],
+            formats: {
+                vhdl: document.getElementById('genVhdl').checked,
+                xml: document.getElementById('genXml').checked,
+                yaml: document.getElementById('genYaml').checked,
+                json: document.getElementById('genJson').checked,
+                header: document.getElementById('genHeader').checked,
+                doc_md: document.getElementById('genDocMd').checked,
+                doc_html: false
+            }
+        };
+
+        fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+            .then(res => res.json())
+            .then(data => {
+                runBtn.disabled = false;
+                runBtn.innerHTML = '<i class="bi bi-play-fill me-2"></i>Generate';
+
+                if (data.success) {
+                    data.logs.forEach(line => genLogAdd(line));
+                    genLogAdd('Generation completed successfully!', 'text-success fw-bold');
+
+                    if (data.temp_dir) {
+                        genTempDir = data.temp_dir;
+                        downloadSection.classList.remove('d-none');
+                        genLogAdd('Click "Download ZIP" to save files.', 'text-info');
+                    } else {
+                        genLogAdd('Files saved to: ' + data.output_dir, 'text-info');
+                    }
+                } else {
+                    genLogAdd('Generation failed:', 'text-danger fw-bold');
+                    genLogAdd(data.error, 'text-danger');
+                }
+            })
+            .catch(err => {
+                runBtn.disabled = false;
+                runBtn.innerHTML = '<i class="bi bi-play-fill me-2"></i>Generate';
+                genLogAdd('Network error: ' + err, 'text-danger');
+            });
+    }
+
+    function downloadGeneratedZip() {
+        if (!genTempDir) {
+            alert('No files to download.');
+            return;
+        }
+        window.location.href = '/api/download_generated_zip?source_dir=' + encodeURIComponent(genTempDir);
+
+        // Disable button and hide section to enforce regeneration
+        const btn = document.getElementById('genDownloadBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Downloading...';
+
+        // Hide after short delay
+        setTimeout(() => {
+            document.getElementById('genDownloadSection').classList.add('d-none');
+            genLogAdd('Download started. Re-generate to download again.', 'text-warning');
+            genTempDir = null;
+        }, 1500);
+    }
+</script>
 {% endblock %}
