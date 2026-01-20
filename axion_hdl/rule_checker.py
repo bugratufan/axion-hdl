@@ -42,6 +42,35 @@ class RuleChecker:
             'msg': message
         })
 
+    def check_subregister_overlaps(self, modules: List[Dict]) -> None:
+        """Check for overlapping bit fields within packed registers."""
+        for module in modules:
+            for reg in module.get('registers', []):
+                fields = reg.get('fields', [])
+                if not fields or len(fields) < 2:
+                    continue
+
+                # Sort fields by bit_low for cleaner comparison
+                # Fields handles are dicts: {'name':..., 'bit_low':..., 'bit_high':...}
+                sorted_fields = sorted(fields, key=lambda f: f.get('bit_low', 0))
+
+                for i, f1 in enumerate(sorted_fields):
+                    for f2 in sorted_fields[i+1:]:
+                        start1, end1 = f1.get('bit_low', 0), f1.get('bit_high', 0)
+                        start2, end2 = f2.get('bit_low', 0), f2.get('bit_high', 0)
+
+                        # Check overlap
+                        overlap_start = max(start1, start2)
+                        overlap_end = min(end1, end2)
+
+                        if overlap_start <= overlap_end:
+                            rname = reg.get('reg_name', reg.get('signal_name', 'unknown'))
+                            self._add_error(
+                                "Subregister Overlap",
+                                module['name'],
+                                f"In register '{rname}': Field '{f1['name']}' [{end1}:{start1}] overlaps with '{f2['name']}' [{end2}:{start2}]"
+                            )
+
     def check_address_overlaps(self, modules: List[Dict]) -> None:
         """Check for overlapping address ranges between modules."""
         module_ranges = []
@@ -422,13 +451,31 @@ class RuleChecker:
                     "Module has no registers defined."
                 )
 
+    def check_parsing_errors(self, modules: List[Dict]) -> None:
+        """Collect errors that occurred during parsing phase."""
+        for module in modules:
+            p_errors = module.get('parsing_errors', [])
+            for error in p_errors:
+                msg = error.get('msg', str(error))
+                # Add location info if available
+                if error.get('line'):
+                    msg = f"Line {error['line']}: {msg}"
+                
+                self._add_error(
+                    "Parsing Error",
+                    module.get('name', 'Unknown'),
+                    msg
+                )
+
     def run_all_checks(self, modules: List[Dict]) -> Dict[str, List]:
         self.errors = []
         self.warnings = []
         
+        self.check_parsing_errors(modules) # Check pre-existing parsing errors first
         self.check_logical_integrity(modules)
         self.check_documentation(modules)
         self.check_address_overlaps(modules)
+        self.check_subregister_overlaps(modules)
         self.check_default_values(modules)
         self.check_naming_conventions(modules)
         self.check_address_alignment(modules)
