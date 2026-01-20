@@ -567,7 +567,8 @@ class AxionHDL:
             # Print each register
             for reg in module['registers']:
                 signal_name = reg['signal_name']
-                signal_type = reg['signal_type']
+                # Hide type for packed registers as requested
+                signal_type = "" if reg.get('is_packed') else reg['signal_type']
                 address = reg.get('address', 'Auto')
                 offset = reg.get('relative_address', address)
                 access_mode = reg['access_mode']
@@ -590,6 +591,33 @@ class AxionHDL:
                 ports_str = ', '.join(ports)
                 
                 print(f"{signal_name:<25} {signal_type:<8} {address:<10} {offset:<10} {access_mode:<8} {strobe_str:<15} {ports_str}")
+
+                # Print subregisters if packed
+                if reg.get('is_packed') and reg.get('fields'):
+                    # Sort fields high-to-low for display
+                    sorted_fields = sorted(reg['fields'], key=lambda f: f.get('bit_low', 0), reverse=True)
+                    
+                    for field in sorted_fields:
+                        fname = f"  └─ {field['name']}"
+                        
+                        # Format type as bit range
+                        bit_hi = field.get('bit_high', 0)
+                        bit_lo = field.get('bit_low', 0)
+                        ftype = f"[{bit_hi}:{bit_lo}]"
+                        
+                        faccess = field.get('access_mode', 'RW')
+                        
+                        # Field/Subregister specific strobes
+                        fstrobes = []
+                        if field.get('read_strobe'): fstrobes.append('RD')
+                        if field.get('write_strobe'): fstrobes.append('WR')
+                        fstrobe_str = ', '.join(fstrobes) if fstrobes else '-'
+                        
+                        # Field ports ? (Maybe just name)
+                        # Usually subreg ports are just mapped to the field name (or parent_field)
+                        fports = f"{reg['signal_name']}_{field['name']}"
+                        
+                        print(f"{fname:<25} {ftype:<8} {'':<10} {'':<10} {faccess:<8} {fstrobe_str:<15} {fports}")
             
             print(f"\nTotal Registers: {len(module['registers'])}")
         
@@ -608,6 +636,17 @@ class AxionHDL:
              return False
              
         checker = RuleChecker()
+        
+        # Inject parsing errors captured during analysis
+        for err in self.parse_errors:
+            filename = os.path.basename(err['file']) if 'file' in err else 'Unknown'
+            # Manually add to errors list to ensure they are reported
+            checker.errors.append({
+                'category': 'Parsing Error',
+                'module': filename,
+                'msg': err['msg']
+            })
+            
         checker.run_all_checks(self.analyzed_modules)
         text_report = checker.generate_report()
         

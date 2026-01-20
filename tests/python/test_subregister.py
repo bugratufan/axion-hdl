@@ -112,8 +112,12 @@ end architecture;
         
         # One packed register (control) and one regular register (status)
         self.assertEqual(len(result['packed_registers']), 1)
-        self.assertEqual(len(result['registers']), 1)
-        self.assertEqual(result['registers'][0]['signal_name'], 'status')
+        self.assertEqual(len(result['registers']), 2)  # 1 regular + 1 packed register merged
+        
+        # Verify both registers are present
+        reg_names = [r['signal_name'] for r in result['registers']]
+        self.assertIn('status', reg_names)
+        self.assertIn('control', reg_names)
         
         # control should have 3 fields
         control = result['packed_registers'][0]

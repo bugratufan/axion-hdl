@@ -277,6 +277,36 @@
     [data-theme="dark"] .border-top {
         border-color: var(--border-color) !important;
     }
+
+    /* Subregister styles */
+    .subreg-row {
+        background-color: var(--card-bg);
+        border-left: 3px solid var(--primary-color);
+    }
+
+    .subreg-table th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+    }
+
+    .subreg-table td {
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+
+    .toggle-subregs {
+        cursor: pointer;
+        transition: transform 0.2s;
+        display: inline-block;
+        padding: 2px;
+        color: var(--primary-color);
+    }
+
+    .toggle-subregs.expanded {
+        transform: rotate(90deg);
+    }
 </style>
 {% endblock %}
 
@@ -411,38 +441,52 @@
                     {% endif %}
                     <tr class="reg-row border-bottom-0" data-index="{{ loop.index0 }}">
                         <td class="ps-4 addr-cell">
-                            <!-- Address Input: Use input for manual editing -->
-                            <div class="addr-changed">
-                                <span class="addr-original" style="display: none;"></span>
-                                <input type="text"
-                                    class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
-                                    value="0x{{ '%02X' % reg.relative_address_int }}" style="width: 70px;"
-                                    data-locked="{{ 'true' if reg.manual_address else 'false' }}"
-                                    data-original="0x{{ '%02X' % reg.relative_address_int }}"
-                                    title="{{ 'Manual Address' if reg.manual_address else 'Auto-calculated' }}"
-                                    onchange="onAddressChange(this)" onblur="onAddressBlur(this)">
-                                <button class="addr-revert-btn" style="display: none;" onclick="revertAddress(this)"
-                                    data-action="revert-address" title="Revert to original">
-                                    <i class="bi bi-arrow-counterclockwise"></i>
-                                </button>
-                                <span class="addr-conflict-warning" style="display: none;"><i
-                                        class="bi bi-exclamation-triangle"></i></span>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if reg.is_packed %}
+                                <i class="bi bi-chevron-right toggle-subregs expanded"
+                                    onclick="toggleSubregisters(this, '{{ loop.index0 }}')" title="Show fields"></i>
+                                {% else %}
+                                <span style="width: 16px;"></span>
+                                {% endif %}
+
+                                <!-- Address Input: Use input for manual editing -->
+                                <div class="addr-changed">
+                                    <span class="addr-original" style="display: none;"></span>
+                                    <input type="text"
+                                        class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent p-0"
+                                        value="0x{{ '%02X' % reg.relative_address_int }}" style="width: 70px;"
+                                        data-locked="{{ 'true' if reg.manual_address else 'false' }}"
+                                        data-original="0x{{ '%02X' % reg.relative_address_int }}"
+                                        title="{{ 'Manual Address' if reg.manual_address else 'Auto-calculated' }}"
+                                        onchange="onAddressChange(this)" onblur="onAddressBlur(this)">
+                                    <button class="addr-revert-btn" style="display: none;" onclick="revertAddress(this)"
+                                        data-action="revert-address" title="Revert to original">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                    <span class="addr-conflict-warning" style="display: none;"><i
+                                            class="bi bi-exclamation-triangle"></i></span>
+                                </div>
                             </div>
                         </td>
                         <td>
                             <input type="text" value="{{ reg.reg_name or reg.signal_name }}"
-                                class="form-control font-monospace reg-name-input fw-bold bg-light-subtle border-0"
-                                placeholder="reg_name" oninput="validateName(this)" {% if is_vhdl %}readonly
-                                title="Renaming allowed only for new registers" {% endif %}>
+                                class="form-control font-monospace reg-name-input fw-bold border-0 {% if reg.is_packed %}bg-transparent text-secondary{% else %}bg-light-subtle{% endif %}"
+                                placeholder="reg_name" oninput="validateName(this)" {% if is_vhdl or reg.is_packed
+                                %}readonly
+                                title="{{ 'Field defined by subregisters' if reg.is_packed else 'Renaming allowed only for new registers' }}"
+                                {% endif %}>
                         </td>
                         <td>
+                            {% if not reg.is_packed %}
                             <div class="input-group input-group-sm">
                                 <input type="number" value="{{ width }}"
                                     class="form-control reg-width-input border-0 bg-light-subtle" min="1" max="1024"
                                     style="width: 50px;" onchange="recalculateAddresses()">
                             </div>
+                            {% endif %}
                         </td>
                         <td>
+                            {% if not reg.is_packed %}
                             <select
                                 class="form-select form-select-sm reg-access-input fw-bold border-0 bg-light-subtle
                                         {% if reg.access_mode=='RW' %}text-primary{% elif reg.access_mode=='RO' %}text-success{% else %}text-danger{% endif %}"
@@ -454,11 +498,16 @@
                                 <option value="WO" class="text-danger" {% if reg.access_mode=='WO' %}selected{% endif
                                     %}>WO</option>
                             </select>
+                            {% endif %}
                         </td>
                         <td>
-                            <input type="text" value="{{ reg.default_value or '0x0' }}"
+                            {% if not reg.is_packed %}
+                            <input type="text"
+                                value="0x{{ '%X' % ((reg.default_value | int) if reg.default_value is number else (reg.default_value | string | replace('0x', '') | int(base=16) if reg.default_value and reg.default_value|string|lower|replace('0x','')|length > 0 and reg.default_value|string|lower|replace('0x','')|string|int(base=16, default=None) is not none else 0)) }}"
                                 class="form-control form-control-sm font-monospace reg-default-input border-0 bg-light-subtle text-secondary"
-                                style="width: 70px;" oninput="validateHex(this)">
+                                style="width: 100px;"
+                                oninput="validateHex(this); {% if reg.is_packed %}updateSubregsFromParent(this, '{{ loop.index0 }}'){% endif %}">
+                            {% endif %}
                         </td>
                         <td>
                             <div class="strobe-group">
@@ -490,21 +539,122 @@
                             </button>
                         </td>
                     </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
 
-        {% if not module.registers %}
-        <div class="text-center py-5 text-muted" id="emptyState">
-            <div class="mb-3 p-3 bg-light rounded-circle d-inline-block">
-                <i class="bi bi-layers fs-1 text-secondary"></i>
-            </div>
-            <h5 class="fw-bold text-dark">Empty Register Map</h5>
-            <p class="small">Start building your register interface via the button above.</p>
-            {% endif %}
+                    {% if reg.is_packed %}
+                    <tr class="subreg-details" id="subregs-{{ loop.index0 }}" style="display: table-row;">
+                        <td colspan="8" class="p-0 bg-light-subtle">
+                            <div class="position-relative ps-4 py-2 pe-3">
+                                <!-- Connecting line for hierarchy -->
+                                <div class="position-absolute"
+                                    style="left: 28px; top: 0; bottom: 0; width: 2px; bg-color: var(--bs-border-color);">
+                                </div>
+
+                                <div class="table-responsive rounded-3 overflow-hidden border bg-white">
+                                    <table class="table table-sm mb-0 subreg-table align-middle">
+                                        <thead class="bg-light text-secondary text-uppercase"
+                                            style="font-size: 0.75rem;">
+                                            <tr>
+                                                <th class="ps-3 py-2 border-bottom" style="width: 20%">Field Name</th>
+                                                <th class="py-2 border-bottom" style="width: 10%">Offset</th>
+                                                <th class="py-2 border-bottom" style="width: 10%">Width</th>
+                                                <th class="py-2 border-bottom" style="width: 12%">Range</th>
+                                                <th class="py-2 border-bottom" style="width: 10%">Access</th>
+                                                <th class="py-2 border-bottom" style="width: 15%">Default</th>
+                                                <th class="py-2 border-bottom" style="width: 23%">Description</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for field in reg.fields %}
+                                            <tr class="subreg-field-row hover-bg-light {% if field.has_error %}bg-danger-subtle border-danger{% endif %}"
+                                                data-parent="{{ reg.signal_name }}" {% if field.has_error
+                                                %}data-error-message="{{ field.error_message }}"
+                                                title="⚠️ {{ field.error_message }}" {% endif %}>
+                                                <td class="ps-3">
+                                                    <div class="d-flex align-items-center">
+                                                        {% if field.has_error %}
+                                                        <i class="bi bi-exclamation-triangle-fill text-danger me-2 small"
+                                                            data-bs-toggle="tooltip"
+                                                            title="{{ field.error_message }}"></i>
+                                                        {% else %}
+                                                        <i class="bi bi-diagram-2 text-muted me-2 small"></i>
+                                                        {% endif %}
+                                                        <input type="text" value="{{ field.name }}"
+                                                            class="form-control form-control-sm font-monospace subreg-name-input fw-bold bg-transparent border-0 shadow-none p-0"
+                                                            placeholder="field_name">
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <input type="number" value="{{ field.bit_low }}"
+                                                        class="form-control form-control-sm subreg-offset-input border-0 bg-light-subtle text-center"
+                                                        min="0" max="31" style="width: 50px;"
+                                                        oninput="updateBitRange(this)">
+                                                </td>
+                                                <td>
+                                                    <input type="number" value="{{ field.width }}"
+                                                        class="form-control form-control-sm subreg-width-input border-0 bg-light-subtle text-center"
+                                                        min="1" max="32" style="width: 50px;"
+                                                        oninput="updateBitRange(this)">
+                                                </td>
+                                                <td class="font-monospace small text-muted">
+                                                    <span
+                                                        class="badge bg-secondary-subtle text-secondary rounded-pill border bit-range-display">
+                                                        [{{ field.bit_high }}:{{ field.bit_low }}]
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <select
+                                                        class="form-select form-select-sm subreg-access-input fw-bold border-0 bg-light-subtle 
+                                                        {% if field.access_mode=='RW' %}text-primary{% elif field.access_mode=='RO' %}text-success{% else %}text-danger{% endif %}"
+                                                        onchange="updateAccessColor(this)">
+                                                        <option value="RW"
+                                                            class="{{ 'text-primary' if field.access_mode == 'RW' else '' }}"
+                                                            {% if field.access_mode=='RW' %}selected{% endif %}>RW
+                                                        </option>
+                                                        <option value="RO"
+                                                            class="{{ 'text-success' if field.access_mode == 'RO' else '' }}"
+                                                            {% if field.access_mode=='RO' %}selected{% endif %}>RO
+                                                        </option>
+                                                        <option value="WO"
+                                                            class="{{ 'text-danger' if field.access_mode == 'WO' else '' }}"
+                                                            {% if field.access_mode=='WO' %}selected{% endif %}>WO
+                                                        </option>
+                                                    </select>
+                                                </td>
+                                                <td>
+                                                    <input type="text" value="0x{{ '%X' % field.default_value }}"
+                                                        class="form-control form-control-sm font-monospace subreg-default-input border-0 bg-light-subtle text-secondary"
+                                                        oninput="validateHex(this); updateParentDefault(this)">
+                                                </td>
+                                                <td>
+                                                    <input type="text" value="{{ field.description }}"
+                                                        class="form-control form-control-sm subreg-desc-input border-0 bg-transparent ps-0"
+                                                        placeholder="Description...">
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
         </div>
+        </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+        </tbody>
+        </table>
     </div>
+
+    {% if not module.registers %}
+    <div class="text-center py-5 text-muted" id="emptyState">
+        <div class="mb-3 p-3 bg-light rounded-circle d-inline-block">
+            <i class="bi bi-layers fs-1 text-secondary"></i>
+        </div>
+        <h5 class="fw-bold text-dark">Empty Register Map</h5>
+        <p class="small">Start building your register interface via the button above.</p>
+        {% endif %}
+    </div>
+</div>
 </div>
 
 
@@ -519,22 +669,51 @@
     function getFormState() {
         try {
             const regs = [];
-            document.querySelectorAll('.reg-row').forEach(row => {
-                const strobes = row.querySelectorAll('.strobe-toggle');
-                regs.push({
-                    name: row.querySelector('.reg-name-input')?.value || '',
-                    width: row.querySelector('.reg-width-input')?.value || '',
-                    access: row.querySelector('.reg-access-input')?.value || '',
-                    default: row.querySelector('.reg-default-input')?.value || '',
-                    description: row.querySelector('.reg-desc-input')?.value || '',
-                    rStrobe: strobes[0]?.classList.contains('active') || false,
-                    wStrobe: strobes[1]?.classList.contains('active') || false
-                });
+            document.querySelectorAll('.reg-row').forEach((row, index) => {
+                const isPacked = row.querySelector('.toggle-subregs') !== null;
+                const nameInput = row.querySelector('.reg-name-input');
+                const name = nameInput?.value || '';
+                const addr = row.querySelector('.reg-addr-input')?.value || '0x0';
+
+                if (isPacked) {
+                    // Collect sub-fields instead of the container
+                    const subregRow = document.getElementById('subregs-' + row.getAttribute('data-index'));
+                    if (subregRow) {
+                        subregRow.querySelectorAll('.subreg-field-row').forEach(fieldRow => {
+                            regs.push({
+                                name: fieldRow.querySelector('.subreg-name-input')?.value || '',
+                                reg_name: name, // Link to parent container name
+                                address: addr,  // Share parent address
+                                width: fieldRow.querySelector('.subreg-width-input')?.value || '',
+                                access: fieldRow.querySelector('.subreg-access-input')?.value || '',
+                                default_value: fieldRow.querySelector('.subreg-default-input')?.value || '',
+                                description: fieldRow.querySelector('.subreg-desc-input')?.value || '',
+                                bit_offset: fieldRow.querySelector('.subreg-offset-input')?.value || null,
+                                is_packed_field: true
+                            });
+                        });
+                    }
+                } else {
+                    // Standard register
+                    const strobes = row.querySelectorAll('.strobe-toggle');
+                    regs.push({
+                        name: name,
+                        width: row.querySelector('.reg-width-input')?.value || '',
+                        access: row.querySelector('.reg-access-input')?.value || '',
+                        default_value: row.querySelector('.reg-default-input')?.value || '',
+                        description: row.querySelector('.reg-desc-input')?.value || '',
+                        r_strobe: strobes[0]?.classList.contains('active') || false,
+                        w_strobe: strobes[1]?.classList.contains('active') || false,
+                        address: addr,
+                        manual_address: row.querySelector('.reg-addr-input').getAttribute('data-locked') === 'true'
+                    });
+                }
             });
+
             return JSON.stringify({
-                baseAddr: document.querySelector('input[name="base_address"]')?.value || '',
-                cdcEnabled: document.getElementById('cdcEnable')?.checked || false,
-                cdcStages: document.getElementById('cdcStages')?.value || '',
+                base_address: document.querySelector('input[name="base_address"]')?.value || '',
+                cdc_enabled: document.getElementById('cdcEnable')?.checked || false,
+                cdc_stages: document.getElementById('cdcStages')?.value || '',
                 registers: regs
             });
         } catch (e) {
@@ -603,8 +782,7 @@
         // Ensure manual address fields from server are locked correctly if needed
         document.querySelectorAll('.reg-addr-input').forEach(input => {
             if (input.getAttribute('data-locked') === 'true') {
-                input.classList.add('fw-bold', 'text-dark');
-                input.classList.remove('text-secondary');
+                // Style standardized
             }
         });
         window.initialState = getFormState();
@@ -614,8 +792,6 @@
     function onAddressChange(input) {
         input.setAttribute('data-locked', 'true');
         input.title = "Manual Address";
-        input.classList.remove('text-secondary');
-        input.classList.add('fw-bold', 'text-dark');
         validateHex(input);
 
         // Show visual change indicator
@@ -695,8 +871,7 @@
         // Unlock and recalculate
         input.setAttribute('data-locked', 'false');
         input.title = "Auto-calculated";
-        input.classList.remove('fw-bold', 'text-dark', 'addr-conflict');
-        input.classList.add('text-secondary');
+        input.classList.remove('addr-conflict');
 
         // Hide visual indicators
         const originalSpan = container.querySelector('.addr-original');
@@ -797,12 +972,94 @@
     }
 
     function updateAccessColor(select) {
-        select.className = 'form-select form-select-sm reg-access-input fw-bold border-0 bg-light-subtle';
+        // Determine base class (reg vs subreg) to preserve it
+        const isSubreg = select.classList.contains('subreg-access-input');
+        const baseClass = isSubreg ? 'subreg-access-input' : 'reg-access-input';
+
+        select.className = `form-select form-select-sm ${baseClass} fw-bold border-0 bg-light-subtle`;
         if (select.value === 'RW') select.classList.add('text-primary');
         else if (select.value === 'RO') select.classList.add('text-success');
-        else select.classList.add('text-danger');
+        else if (select.value === 'WO') select.classList.add('text-danger');
+    }
+
+    function toggleSubregisters(btn, index) {
+        const row = document.getElementById('subregs-' + index);
+        if (row) {
+            if (row.style.display === 'none') {
+                row.style.display = 'table-row';
+                btn.classList.add('expanded');
+            } else {
+                row.style.display = 'none';
+                btn.classList.remove('expanded');
+            }
+        }
+    }
+
+    function updateParentDefault(subInput) {
+        const subregRow = subInput.closest('.subreg-details');
+        if (!subregRow) return;
+        const index = subregRow.id.replace('subregs-', '');
+        const parentRow = document.querySelector(`.reg-row[data-index="${index}"]`);
+
+        if (!parentRow) return;
+
+        let totalValue = 0n;
+
+        subregRow.querySelectorAll('.subreg-field-row').forEach(row => {
+            const defaultInput = row.querySelector('.subreg-default-input');
+            const offsetInput = row.querySelector('.subreg-offset-input');
+
+            let valStr = defaultInput.value.trim();
+            if (valStr.toLowerCase().startsWith('0x')) valStr = valStr.substring(2);
+            let val = 0n;
+            try {
+                if (valStr) val = BigInt('0x' + valStr);
+            } catch (e) { }
+
+            const lowBit = parseInt(offsetInput?.value || '0');
+
+            // Shift value to its position and OR it into total
+            totalValue |= (val << BigInt(lowBit));
+        });
+
+        // Update parent input
+        const parentInput = parentRow.querySelector('.reg-default-input');
+        if (parentInput) {
+            parentInput.value = '0x' + totalValue.toString(16).toUpperCase();
+            markAsChanged();
+        }
+    }
+
+    function updateSubregsFromParent(input, index) {
+        const subregRow = document.getElementById('subregs-' + index);
+        if (!subregRow) return;
+
+        let valStr = input.value.trim();
+        if (valStr.toLowerCase().startsWith('0x')) valStr = valStr.substring(2);
+        let parentVal = 0n;
+        try {
+            if (valStr) parentVal = BigInt('0x' + valStr);
+        } catch (e) { }
+
+        subregRow.querySelectorAll('.subreg-field-row').forEach(row => {
+            const defaultInput = row.querySelector('.subreg-default-input');
+            const offsetInput = row.querySelector('.subreg-offset-input');
+            const widthInput = row.querySelector('.subreg-width-input');
+
+            const lowBit = parseInt(offsetInput?.value || '0');
+            const width = parseInt(widthInput.value || '1');
+
+            // Create mask for this field
+            const mask = (1n << BigInt(width)) - 1n;
+
+            // Extract value: (parent >> low) & mask
+            const fieldVal = (parentVal >> BigInt(lowBit)) & mask;
+
+            defaultInput.value = '0x' + fieldVal.toString(16).toUpperCase();
+        });
         markAsChanged();
     }
+
 
     function toggleStrobe(elem, type) {
         const isActive = elem.classList.contains('active');
@@ -858,7 +1115,7 @@
                 <div class="addr-changed">
                     <span class="addr-original" style="display: none;"></span>
                     <input type="text" 
-                        class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent text-secondary p-0"
+                        class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent p-0"
                         value="${newAddr}"
                         style="width: 70px;"
                         data-locked="false"
@@ -965,22 +1222,48 @@
     const baseAddress = document.querySelector('input[name="base_address"]').value;
     const moduleName = isNew ? document.getElementById('moduleName').value : '{{ module.name }}';
 
-    // Gather Registers
+    // Gather Registers (same logic as getFormState for consistency)
     const regs = [];
     document.querySelectorAll('.reg-row').forEach(row => {
-        const strobes = row.querySelectorAll('.strobe-toggle');
-        regs.push({
-            name: row.querySelector('.reg-name-input').value,
-            width: row.querySelector('.reg-width-input').value,
-            access: row.querySelector('.reg-access-input').value,
-            default_value: row.querySelector('.reg-default-input').value,
-            description: row.querySelector('.reg-desc-input').value,
-            r_strobe: strobes[0].classList.contains('active'),
-            w_strobe: strobes[1].classList.contains('active'),
-            // Capture address if manually set
-            address: row.querySelector('.reg-addr-input').value,
-            manual_address: row.querySelector('.reg-addr-input').getAttribute('data-locked') === 'true'
-        });
+        const isPacked = row.querySelector('.toggle-subregs') !== null;
+        const name = row.querySelector('.reg-name-input')?.value || '';
+        const addr = row.querySelector('.reg-addr-input')?.value || '0x0';
+        const manualAddr = row.querySelector('.reg-addr-input')?.getAttribute('data-locked') === 'true';
+
+        if (isPacked) {
+            // Collect sub-fields instead of the container
+            const subregRow = document.getElementById('subregs-' + row.getAttribute('data-index'));
+            if (subregRow) {
+                subregRow.querySelectorAll('.subreg-field-row').forEach(fieldRow => {
+                    regs.push({
+                        name: fieldRow.querySelector('.subreg-name-input')?.value || '',
+                        reg_name: name, // Link to parent container name
+                        address: addr,  // Share parent address
+                        width: fieldRow.querySelector('.subreg-width-input')?.value || '',
+                        access: fieldRow.querySelector('.subreg-access-input')?.value || '',
+                        default_value: fieldRow.querySelector('.subreg-default-input')?.value || '',
+                        description: fieldRow.querySelector('.subreg-desc-input')?.value || '',
+                        bit_offset: fieldRow.querySelector('.subreg-offset-input')?.value || null,
+                        is_packed_field: true,
+                        manual_address: manualAddr
+                    });
+                });
+            }
+        } else {
+            // Standard register
+            const strobes = row.querySelectorAll('.strobe-toggle');
+            regs.push({
+                name: name,
+                width: row.querySelector('.reg-width-input')?.value || '',
+                access: row.querySelector('.reg-access-input')?.value || '',
+                default_value: row.querySelector('.reg-default-input')?.value || '',
+                description: row.querySelector('.reg-desc-input')?.value || '',
+                r_strobe: strobes[0]?.classList.contains('active') || false,
+                w_strobe: strobes[1]?.classList.contains('active') || false,
+                address: addr,
+                manual_address: manualAddr
+            });
+        }
     });
 
     console.log("Saving regs:", regs); // Debug 
@@ -1071,7 +1354,83 @@
     // Detect conflicts on page load
     document.addEventListener('DOMContentLoaded', function () {
         detectAddressConflicts();
+        // Initial subregister validation
+        document.querySelectorAll('.subreg-table').forEach(table => {
+            validateSubregisterOverlaps(table);
+        });
     });
+
+    function updateBitRange(input) {
+        const row = input.closest('.subreg-field-row');
+        const offsetInput = row.querySelector('.subreg-offset-input');
+        const widthInput = row.querySelector('.subreg-width-input');
+        const display = row.querySelector('.bit-range-display');
+
+        const offset = parseInt(offsetInput.value || 0);
+        const width = parseInt(widthInput.value || 1);
+        const high = offset + width - 1;
+
+        display.textContent = `[${high}:${offset}]`;
+
+        // Trigger default value recalc if width/offset changed
+        updateParentDefault(input);
+
+        // Validate
+        const table = row.closest('.subreg-table');
+        validateSubregisterOverlaps(table);
+        markAsChanged();
+    }
+
+    function validateSubregisterOverlaps(tableOrElement) {
+        if (!tableOrElement) return;
+
+        // Handle input element passed directly
+        const table = tableOrElement.tagName === 'TABLE' ? tableOrElement : tableOrElement.closest('.subreg-table');
+        if (!table) return;
+
+        const rows = table.querySelectorAll('.subreg-field-row');
+        const ranges = [];
+        let hasOverlap = false;
+
+        // Reset previous validation state
+        rows.forEach(row => {
+            row.querySelector('.subreg-offset-input').classList.remove('input-invalid');
+            row.querySelector('.subreg-width-input').classList.remove('input-invalid');
+            row.title = "";
+        });
+
+        // Collect ranges
+        rows.forEach((row, index) => {
+            const offset = parseInt(row.querySelector('.subreg-offset-input').value || 0);
+            const width = parseInt(row.querySelector('.subreg-width-input').value || 1);
+            ranges.push({ index, start: offset, end: offset + width - 1, row });
+        });
+
+        // Check intersections
+        for (let i = 0; i < ranges.length; i++) {
+            for (let j = i + 1; j < ranges.length; j++) {
+                const r1 = ranges[i];
+                const r2 = ranges[j];
+
+                // Check overlap: max(start1, start2) <= min(end1, end2)
+                if (Math.max(r1.start, r2.start) <= Math.min(r1.end, r2.end)) {
+                    hasOverlap = true;
+                    // Mark both
+                    r1.row.querySelector('.subreg-offset-input').classList.add('input-invalid');
+                    r1.row.querySelector('.subreg-width-input').classList.add('input-invalid');
+                    r2.row.querySelector('.subreg-offset-input').classList.add('input-invalid');
+                    r2.row.querySelector('.subreg-width-input').classList.add('input-invalid');
+
+                    r1.row.title = `Overlaps with field at index ${j}`;
+                    r2.row.title = `Overlaps with field at index ${i}`;
+                }
+            }
+        }
+
+        // Show/hide parent warning icon?
+        const parentRowId = table.closest('.subreg-details').id; // subregs-X
+        // Could find parent row and add warning badge... for now, red inputs are good.
+    }
 </script>
 
 <!-- Save File Modal -->

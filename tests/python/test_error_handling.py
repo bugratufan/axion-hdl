@@ -1,4 +1,3 @@
-import pytest
 import os
 import unittest
 from axion_hdl.parser import VHDLParser
