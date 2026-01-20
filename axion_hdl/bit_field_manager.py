@@ -156,7 +156,8 @@ class BitFieldManager:
         source_line: int = 0,
         read_strobe: bool = False,
         write_strobe: bool = False,
-        default_value: int = 0
+        default_value: int = 0,
+        allow_overlap: bool = False
     ) -> BitField:
         """
         Add a bit field to a register.
@@ -179,7 +180,7 @@ class BitFieldManager:
             Created BitField object
             
         Raises:
-            BitOverlapError: If field overlaps with existing field
+            BitOverlapError: If field overlaps with existing field (unless allow_overlap=True)
             ValueError: If access modes don't match
         """
         # Get or create register
@@ -193,6 +194,14 @@ class BitFieldManager:
             self._next_offset[reg_name] = 0
         
         reg = self._registers[reg_name]
+        
+        # Validate address consistency
+        if reg.address != address:
+            raise ValueError(
+                f"Address mismatch for register '{reg_name}'. "
+                f"Existing address: 0x{reg.address:X}, "
+                f"New field '{field_name}' address: 0x{address:X}"
+            )
         
         # Validate access mode consistency
         if reg.fields and reg.access_mode != access_mode:
@@ -234,13 +243,14 @@ class BitFieldManager:
         for existing in reg.fields:
             overlap = field.overlaps_with(existing)
             if overlap:
-                raise BitOverlapError(
-                    register_name=reg_name,
-                    address=address,
-                    field1=existing,
-                    field2=field,
-                    overlap_bits=overlap
-                )
+                if not allow_overlap:
+                    raise BitOverlapError(
+                        register_name=reg_name,
+                        address=address,
+                        field1=existing,
+                        field2=field,
+                        overlap_bits=overlap
+                    )
         
         # Add field
         reg.fields.append(field)
@@ -282,6 +292,17 @@ class BitFieldManager:
         warnings = []
         
         for reg in self._registers.values():
+            # Check for overlaps
+            for i, f1 in enumerate(reg.fields):
+                for f2 in reg.fields[i+1:]:
+                    overlap = f1.overlaps_with(f2)
+                    if overlap:
+                        warnings.append(
+                            f"Overlapping fields in register '{reg.name}': "
+                            f"{f1.name} [{f1.bit_high}:{f1.bit_low}] and "
+                            f"{f2.name} [{f2.bit_high}:{f2.bit_low}]"
+                        )
+
             # Check for gaps in bit allocation
             used_bits = set()
             for field in reg.fields:
