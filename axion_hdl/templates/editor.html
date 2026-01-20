@@ -307,6 +307,141 @@
     .toggle-subregs.expanded {
         transform: rotate(90deg);
     }
+
+    /* ===== RESPONSIVE DESIGN ===== */
+
+    /* Tablet and smaller (< 992px) */
+    @media (max-width: 991.98px) {
+
+        /* Stack module config form */
+        #moduleForm.row {
+            flex-direction: column;
+            align-items: stretch !important;
+        }
+
+        #moduleForm .col-auto {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Reduce table font size */
+        #regsTable {
+            font-size: 0.85rem;
+        }
+
+        /* Hide description column on tablet */
+        #regsTable th:nth-child(7),
+        #regsTable td:nth-child(7) {
+            display: none;
+        }
+
+        /* Reduce padding */
+        #regsTable th,
+        #regsTable td {
+            padding: 0.4rem 0.3rem !important;
+        }
+
+        /* Make inputs smaller */
+        #regsTable input,
+        #regsTable select {
+            font-size: 0.8rem !important;
+            padding: 0.25rem 0.4rem !important;
+        }
+    }
+
+    /* Mobile (< 768px) */
+    @media (max-width: 767.98px) {
+
+        /* Header adjustments */
+        .d-flex.justify-content-between {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* Make buttons full width */
+        #saveBtn,
+        #generateBtn {
+            width: 100%;
+        }
+
+        /* Further reduce table */
+        #regsTable {
+            font-size: 0.75rem;
+        }
+
+        /* Hide more columns on mobile: Description, Strobes, Default */
+        #regsTable th:nth-child(5),
+        #regsTable td:nth-child(5),
+        #regsTable th:nth-child(6),
+        #regsTable td:nth-child(6) {
+            display: none;
+        }
+
+        /* Minimum table width for horizontal scroll */
+        #regsTable {
+            min-width: 500px;
+        }
+
+        /* Compact address input */
+        .reg-addr-input {
+            width: 50px !important;
+            font-size: 0.7rem !important;
+        }
+
+        /* Compact name input */
+        .reg-name-input {
+            max-width: 100px;
+        }
+
+        /* Reduce action button size */
+        .action-btn {
+            width: 24px;
+            height: 24px;
+            font-size: 0.7rem;
+        }
+
+        /* Unsaved indicator smaller */
+        .unsaved-indicator {
+            font-size: 0.75rem;
+            padding: 6px 12px;
+            bottom: 10px;
+            right: 10px;
+        }
+    }
+
+    /* Small mobile (< 576px) */
+    @media (max-width: 575.98px) {
+
+        /* Very compact table */
+        #regsTable th:nth-child(3),
+        #regsTable td:nth-child(3),
+        #regsTable th:nth-child(4),
+        #regsTable td:nth-child(4) {
+            display: none;
+        }
+
+        /* Show only: Addr, Name, Actions */
+        #regsTable {
+            min-width: 300px;
+        }
+
+        /* Larger touch targets for mobile */
+        .action-btn {
+            width: 32px;
+            height: 32px;
+        }
+
+        /* Card padding reduction */
+        .card-body {
+            padding: 0.75rem !important;
+        }
+
+        /* Page padding */
+        .container-fluid {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -335,12 +470,20 @@
         </div>
         {% else %}
         <h2 class="mb-0 fw-bold text-dark">{{ module.name }}</h2>
+        {% if not server_mode %}
         <small class="text-muted">{{ module.file }}</small>
+        {% endif %}
         {% endif %}
     </div>
     <div class="d-flex align-items-center gap-2">
         <span id="conflictWarning" class="badge bg-danger d-none"><i class="bi bi-exclamation-triangle me-1"></i>Address
             Conflicts</span>
+        {% if not module.is_new %}
+        <button id="generateBtn" onclick="openGenerateModal()" class="btn btn-success px-4 shadow-sm fw-medium"
+            title="Generate code for this module">
+            <i class="bi bi-gear-fill me-2"></i>Generate
+        </button>
+        {% endif %}
         <button id="saveBtn" onclick="saveChanges()" class="btn btn-primary px-4 shadow-sm fw-medium"
             title="Review and save changes">
             <i class="bi bi-save2-fill me-2"></i>{% if module.is_new %}Save As...{% else %}Review & Save{% endif %}
@@ -1466,4 +1609,189 @@
         </div>
     </div>
 </div>
+
+<!-- Generate Modal -->
+<div class="modal fade" id="generateModal" tabindex="-1" aria-labelledby="generateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="generateModalLabel">
+                    <i class="bi bi-gear-fill me-2"></i>Generate for {{ module.name }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Format Selection -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-secondary small text-uppercase">Select Formats</label>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input gen-format" type="checkbox" id="genVhdl" checked>
+                                <label class="form-check-label" for="genVhdl">VHDL Modules</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input gen-format" type="checkbox" id="genXml" checked>
+                                <label class="form-check-label" for="genXml">XML Map</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input gen-format" type="checkbox" id="genYaml" checked>
+                                <label class="form-check-label" for="genYaml">YAML Map</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input gen-format" type="checkbox" id="genJson" checked>
+                                <label class="form-check-label" for="genJson">JSON Map</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input gen-format" type="checkbox" id="genHeader" checked>
+                                <label class="form-check-label" for="genHeader">C Headers</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input gen-format" type="checkbox" id="genDocMd">
+                                <label class="form-check-label" for="genDocMd">Markdown Docs</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Output Log -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-secondary small text-uppercase">Output Log</label>
+                    <div id="genLog" class="bg-dark text-light p-3 rounded font-monospace small"
+                        style="height: 200px; overflow-y: auto;">
+                        Ready to generate...
+                    </div>
+                </div>
+
+                <!-- Download Section (hidden initially) -->
+                <div id="genDownloadSection" class="alert alert-success d-none">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-check-circle-fill me-2"></i>Generation complete!</span>
+                        <button id="genDownloadBtn" class="btn btn-success btn-sm" onclick="downloadGeneratedZip()">
+                            <i class="bi bi-download me-2"></i>Download ZIP
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" id="genRunBtn" onclick="runDirectGenerate()">
+                    <i class="bi bi-play-fill me-2"></i>Generate
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Generation modal state
+    let genTempDir = null;
+    const currentModuleName = '{{ module.name }}';
+
+    function openGenerateModal() {
+        genTempDir = null;
+        document.getElementById('genDownloadSection').classList.add('d-none');
+        document.getElementById('genLog').innerHTML = 'Ready to generate...';
+        const modal = new bootstrap.Modal(document.getElementById('generateModal'));
+        modal.show();
+    }
+
+    function genLogAdd(text, className = '') {
+        const log = document.getElementById('genLog');
+        const div = document.createElement('div');
+        if (className) div.className = className;
+        div.innerText = text;
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function runDirectGenerate() {
+        const log = document.getElementById('genLog');
+        const downloadSection = document.getElementById('genDownloadSection');
+        const runBtn = document.getElementById('genRunBtn');
+
+        log.innerHTML = '';
+        downloadSection.classList.add('d-none');
+        genTempDir = null;
+        runBtn.disabled = true;
+        runBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
+
+        genLogAdd('Starting generation for ' + currentModuleName + '...', 'text-info');
+
+        const payload = {
+            modules: [currentModuleName],
+            formats: {
+                vhdl: document.getElementById('genVhdl').checked,
+                xml: document.getElementById('genXml').checked,
+                yaml: document.getElementById('genYaml').checked,
+                json: document.getElementById('genJson').checked,
+                header: document.getElementById('genHeader').checked,
+                doc_md: document.getElementById('genDocMd').checked,
+                doc_html: false
+            }
+        };
+
+        fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+            .then(res => res.json())
+            .then(data => {
+                runBtn.disabled = false;
+                runBtn.innerHTML = '<i class="bi bi-play-fill me-2"></i>Generate';
+
+                if (data.success) {
+                    data.logs.forEach(line => genLogAdd(line));
+                    genLogAdd('Generation completed successfully!', 'text-success fw-bold');
+
+                    if (data.temp_dir) {
+                        genTempDir = data.temp_dir;
+                        downloadSection.classList.remove('d-none');
+                        genLogAdd('Click "Download ZIP" to save files.', 'text-info');
+                    } else {
+                        genLogAdd('Files saved to: ' + data.output_dir, 'text-info');
+                    }
+                } else {
+                    genLogAdd('Generation failed:', 'text-danger fw-bold');
+                    genLogAdd(data.error, 'text-danger');
+                }
+            })
+            .catch(err => {
+                runBtn.disabled = false;
+                runBtn.innerHTML = '<i class="bi bi-play-fill me-2"></i>Generate';
+                genLogAdd('Network error: ' + err, 'text-danger');
+            });
+    }
+
+    function downloadGeneratedZip() {
+        if (!genTempDir) {
+            alert('No files to download.');
+            return;
+        }
+        window.location.href = '/api/download_generated_zip?source_dir=' + encodeURIComponent(genTempDir);
+
+        // Disable button and hide section to enforce regeneration
+        const btn = document.getElementById('genDownloadBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Downloading...';
+
+        // Hide after short delay
+        setTimeout(() => {
+            document.getElementById('genDownloadSection').classList.add('d-none');
+            genLogAdd('Download started. Re-generate to download again.', 'text-warning');
+            genTempDir = null;
+        }, 1500);
+    }
+</script>
 {% endblock %}

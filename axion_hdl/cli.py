@@ -92,6 +92,13 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     )
     
     parser.add_argument(
+        '--server-mode',
+        action='store_true',
+        dest='server_mode',
+        help='Run in server mode without a persistent output directory. Files will be generated to a temporary location and offered as ZIP download in GUI.'
+    )
+    
+    parser.add_argument(
         '-e', '--exclude',
         action='append',
         dest='excludes',
@@ -249,8 +256,17 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     if not any([args.all, args.vhdl, args.doc, args.xml, args.yaml, args.json, args.c_header, args.gui, args.rule_check]):
         args.all = True
     
+    # Validate --server-mode requires --gui
+    # Note: server_mode defaults to False if not present (handled by argparse)
+    if hasattr(args, 'server_mode') and args.server_mode and not args.gui:
+        print("Error: --server-mode can only be used with --gui mode.", file=sys.stderr)
+        print("Without GUI, files must be written to disk. Use -o DIR to specify output directory.", file=sys.stderr)
+        sys.exit(1)
+    
     # Initialize Axion-HDL
-    axion = AxionHDL(output_dir=args.output_dir)
+    # Handle --server-mode: set output_dir to None to trigger temp+ZIP mode
+    effective_output_dir = None if (hasattr(args, 'server_mode') and args.server_mode) else args.output_dir
+    axion = AxionHDL(output_dir=effective_output_dir)
     
     # Add sources using unified add_source() method
     for src in args.sources:
