@@ -53,7 +53,8 @@ class AxionHDL:
         Initialize Axion HDL generator.
         
         Args:
-            output_dir: Output directory for generated files (default: ./axion_output)
+            output_dir: Output directory for generated files (default: ./axion_output).
+                        Set to None to enable temp+ZIP mode (no persistent output).
         """
         self.src_dirs = []
         self.src_files = []  # Individual VHDL files
@@ -63,7 +64,8 @@ class AxionHDL:
         self.yaml_src_files = []  # Individual YAML files
         self.json_src_dirs = []  # JSON source directories
         self.json_src_files = []  # Individual JSON files
-        self.output_dir = os.path.abspath(output_dir)
+        # Handle None output_dir (temp+ZIP mode)
+        self.output_dir = os.path.abspath(output_dir) if output_dir else None
         self.analyzed_modules = []
         self.is_analyzed = False
         self._exclude_patterns = set()
@@ -74,10 +76,14 @@ class AxionHDL:
         Set the output directory for generated files.
         
         Args:
-            dir_path: Path to output directory
+            dir_path: Path to output directory. Set to None to clear.
         """
-        self.output_dir = os.path.abspath(dir_path)
-        print(f"Output directory set to: {self.output_dir}")
+        if dir_path:
+            self.output_dir = os.path.abspath(dir_path)
+            print(f"Output directory set to: {self.output_dir}")
+        else:
+            self.output_dir = None
+            print("Output directory cleared (temp+ZIP mode).")
     
     def exclude(self, *patterns):
         """
@@ -370,11 +376,12 @@ class AxionHDL:
         self.parse_errors = []  # Clear previous errors
         
         # Auto-exclude output directory to prevent parsing generated files
-        output_dir_name = os.path.basename(self.output_dir)
-        if output_dir_name and output_dir_name not in self._exclude_patterns:
-            self._exclude_patterns.add(output_dir_name)
-            # Also add the full path for absolute matching
-            self._exclude_patterns.add(self.output_dir)
+        if self.output_dir:
+            output_dir_name = os.path.basename(self.output_dir)
+            if output_dir_name and output_dir_name not in self._exclude_patterns:
+                self._exclude_patterns.add(output_dir_name)
+                # Also add the full path for absolute matching
+                self._exclude_patterns.add(self.output_dir)
             
         # Parse VHDL files if any
         if has_vhdl_sources:
