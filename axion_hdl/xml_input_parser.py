@@ -220,7 +220,10 @@ class XMLInputParser:
                         bit_offset=bit_offset,
                         description=reg_elem.get('description', ''),
                         source_file=filepath,
-                        default_value=default_val
+                        default_value=default_val,
+                        read_strobe=reg_elem.get('r_strobe', '').lower() == 'true',
+                        write_strobe=reg_elem.get('w_strobe', '').lower() == 'true',
+                        allow_overlap=True  # Allow overlaps, RuleChecker will validate
                     )
                     
                     # Update next address only if this is a new register at a higher address
@@ -228,7 +231,9 @@ class XMLInputParser:
                         next_auto_addr = addr + 4
                         
                 except Exception as e:
-                     print(f"  Error processing packed register {reg_name}: {e}")
+                     msg = f"Error processing packed register {reg_name}: {e}"
+                     print(f"  {msg}")
+                     self.errors.append({'file': filepath, 'msg': msg})
                 
                 continue  # Skip adding to standard registers list
             
@@ -295,10 +300,10 @@ class XMLInputParser:
                 'relative_address_int': packed.address,
                 'width': 32, # Packed registers are always 32-bit
                 'signal_type': "std_logic_vector(31 downto 0)",
-                'r_strobe': False, # Strobe not supported on packed container yet
-                'w_strobe': False,
-                'read_strobe': False,
-                'write_strobe': False,
+                'r_strobe': any(f.read_strobe for f in packed.fields),
+                'w_strobe': any(f.write_strobe for f in packed.fields),
+                'read_strobe': any(f.read_strobe for f in packed.fields),
+                'write_strobe': any(f.write_strobe for f in packed.fields),
                 'description': f"Packed register: {packed.name}",
                 'default_value': combined_default,
                 'default_value_hex': f"0x{combined_default:X}",
@@ -311,7 +316,10 @@ class XMLInputParser:
                         'width': f.width,
                         'access_mode': f.access_mode,
                         'signal_type': f.signal_type,
-                        'default_value': f.default_value
+                        'default_value': f.default_value,
+                        'read_strobe': f.read_strobe,
+                        'write_strobe': f.write_strobe,
+                        'description': f.description
                     } for f in packed.fields
                 ]
             }
