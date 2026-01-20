@@ -124,7 +124,7 @@ class DocGenerator:
             if group['type'] == 'packed':
                 # Show main register row
                 lines.append(
-                    f"| {info['address']} | {offset} | `{display_name}` | [31:0] | 32 | "
+                    f"| {info['address']} | {offset} | `{display_name}` | | 32 | "
                     f"{access} | {default_val} | **Packed Register** (see below) |"
                 )
             else:
