@@ -296,6 +296,37 @@ signal speed  : std_logic_vector(7 downto 0);     -- @axion RW REG_NAME=control 
 
 This creates individual signals for each field while sharing one address.
 
+### Advanced Subregister Features
+
+#### Auto-Packing
+If `BIT_OFFSET` is not specified, Axion-HDL automatically packs fields sequentially.
+
+```vhdl
+signal field_a : std_logic_vector(7 downto 0);  -- @axion RW REG_NAME=ctrl
+signal field_b : std_logic_vector(7 downto 0);  -- @axion RW REG_NAME=ctrl
+-- field_a becomes bits [7:0]
+-- field_b becomes bits [15:8]
+```
+
+#### Default Value Aggregation
+Individual field default values are combined into the 32-bit register reset value.
+
+```vhdl
+signal enable : std_logic; -- @axion RW REG_NAME=cfg DEFAULT=1
+signal mode   : std_logic; -- @axion RW REG_NAME=cfg BIT_OFFSET=1 DEFAULT=1
+-- Register reset value = 0x00000003
+```
+
+#### Strobe Aggregation
+If *any* field in a packed register has `R_STROBE` or `W_STROBE` enabled, the entire 32-bit register will be generated with that strobe signal.
+
+#### Mixed Access Modes
+A packed register can contain fields with different access modes (e.g., one `RO` field and one `RW` field). In this case, the parent register is treated as `RW` to allow writing to the writable fields, while strict read-only behavior is enforced for `RO` fields at the logic level.
+
+#### Overlap Handling
+Overlapping bit ranges trigger a validation warning but are strictly allowed. This can be useful for aliasing fields, but ensure you understand the implications for your specific design.
+
+
 ---
 
 ### Wide Signals (>32 bits)

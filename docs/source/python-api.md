@@ -111,17 +111,31 @@ for module in modules:
 # Set output directory
 axion.set_output_dir("./output")
 
-# Generate all outputs
+# Generate all outputs (default: HTML documentation)
 axion.generate_all()
 
-# Generate specific formats
+# Generate all outputs with specific documentation format
+axion.generate_all(doc_format="md")   # Use Markdown instead of HTML
+axion.generate_all(doc_format="pdf")  # Use PDF (requires weasyprint)
+
+# Generate specific formats only
 axion.generate_vhdl()
 axion.generate_c_header()
-axion.generate_documentation()  # Markdown
+axion.generate_documentation(format="html")  # HTML (default)
+axion.generate_documentation(format="md")    # Markdown
+axion.generate_documentation(format="pdf")   # PDF
 axion.generate_xml()
 axion.generate_yaml()
 axion.generate_json()
 ```
+
+**Documentation Output Formats:**
+
+| Format | Output Files | Notes |
+|--------|-------------|-------|
+| **HTML** (default) | `index.html` + `html/*.html` | Multi-page interactive docs |
+| **Markdown** | `register_map.md` | Single file, GitHub-compatible |
+| **PDF** | `register_map.pdf` | Requires `weasyprint` package |
 
 ---
 

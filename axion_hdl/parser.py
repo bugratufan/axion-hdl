@@ -24,7 +24,8 @@ class VHDLParser:
         self.annotation_parser = AnnotationParser(annotation_prefix='@axion')
         self.vhdl_utils = VHDLUtils()
         self.axion_signal_pattern = re.compile(
-            r'signal\s+(\w+)\s*:\s*([^;]+);\s*--\s*@axion(?::?)\s+(.+)'
+            r'signal\s+(\w+)\s*:\s*([^;]+);\s*--\s*@axion(?::?)\s+(.+)',
+            re.IGNORECASE
         )
         # Exclusion patterns (files, directories, or glob patterns)
         self.exclude_patterns: Set[str] = set()
@@ -69,16 +70,19 @@ class VHDLParser:
                 'address': reg.get('relative_address_int', 0),
                 'r_strobe': reg.get('read_strobe', False),
                 'w_strobe': reg.get('write_strobe', False),
-                'description': reg.get('description', '')
+                'description': reg.get('description', ''),
+                'is_packed': reg.get('is_packed', False)
             }
             signals.append(sig)
         
         return {
             'entity_name': result.get('name'),
             'signals': signals,
+            'registers': result.get('registers', []),  # Keep for compatibility with older tests
             'base_addr': result.get('base_address', 0),
             'cdc_en': result.get('cdc_enabled', False),
-            'cdc_stage': result.get('cdc_stages', 2)
+            'cdc_stage': result.get('cdc_stages', 2),
+            'packed_registers': result.get('packed_registers', [])
         }
     
     def _extract_width(self, signal_type: str) -> int:
@@ -143,6 +147,7 @@ class VHDLParser:
         filename = os.path.basename(filepath)
         dirname = os.path.dirname(filepath)
         dir_basename = os.path.basename(dirname)
+        abs_filepath = os.path.abspath(filepath)
         
         for pattern in self.exclude_patterns:
             # Check filename match
@@ -151,12 +156,19 @@ class VHDLParser:
             # Check if pattern matches directory name
             if fnmatch.fnmatch(dir_basename, pattern):
                 return True
-            # Check if pattern is in the full path
-            if pattern in filepath:
+            # Check if pattern is in the full path (exact substring)
+            if pattern in filepath or pattern in abs_filepath:
                 return True
-            # Check full path glob match
-            if fnmatch.fnmatch(filepath, f"*{pattern}*"):
-                return True
+            # Check if any directory component matches the pattern
+            path_parts = abs_filepath.split(os.sep)
+            for part in path_parts:
+                if fnmatch.fnmatch(part, pattern):
+                    return True
+            # For patterns with wildcards, match against full path
+            # Only wrap with * if pattern doesn't already have wildcards at edges
+            if '*' in pattern or '?' in pattern:
+                if fnmatch.fnmatch(filepath, pattern) or fnmatch.fnmatch(abs_filepath, pattern):
+                    return True
                 
         return False
         
@@ -231,6 +243,36 @@ class VHDLParser:
         
         if not registers and not packed_registers:
             return None
+        
+        # Merge packed registers into main registers list (consistent with XML/YAML/JSON parsers)
+        # This ensures RuleChecker can validate subregister overlaps
+        all_registers = list(registers)
+        for packed in packed_registers:
+            # Convert packed register to full register format
+            packed_reg_entry = {
+                'signal_name': packed['reg_name'],
+                'name': packed['reg_name'],
+                'reg_name': packed['reg_name'],
+                'address': packed.get('address', '0x00'),
+                'address_int': packed.get('address_int', 0),
+                'relative_address': packed.get('relative_address', '0x00'),
+                'relative_address_int': packed.get('relative_address_int', 0),
+                'access_mode': packed.get('access_mode', 'RW'),
+                'signal_type': 'std_logic_vector(31 downto 0)',
+                'width': 32,
+                'is_packed': True,
+                'fields': packed.get('fields', []),
+                'default_value': packed.get('default_value', 0),
+                'r_strobe': packed.get('read_strobe', False),
+                'w_strobe': packed.get('write_strobe', False),
+                'read_strobe': packed.get('read_strobe', False),
+                'write_strobe': packed.get('write_strobe', False),
+                'description': f"Packed register: {packed['reg_name']}"
+            }
+            all_registers.append(packed_reg_entry)
+        
+        # Sort all registers by address
+        all_registers.sort(key=lambda x: x.get('relative_address_int', 0))
             
         return {
             'name': entity_name,
@@ -238,9 +280,9 @@ class VHDLParser:
             'cdc_enabled': cdc_enabled,
             'cdc_stages': cdc_stages,
             'base_address': base_address,
-            'registers': registers,
+            'registers': all_registers,
 
-            'packed_registers': packed_registers,  # New: subregister groups
+            'packed_registers': packed_registers,  # Keep for backward compatibility
             'parsing_errors': self.errors  # Pass accumulated errors to module
         }
     
@@ -453,6 +495,25 @@ class VHDLParser:
                 field_default = sig_info['attrs'].get('default_value', 0)
                 
                 try:
+                    # Check for address consistency within group
+                    sig_addr_str = sig_info['attrs'].get('address')
+                    if sig_addr_str is not None:
+                         if isinstance(sig_addr_str, str):
+                             if sig_addr_str.startswith('0x'): sig_addr_int = int(sig_addr_str, 16)
+                             else: sig_addr_int = int(sig_addr_str)
+                         else:
+                             sig_addr_int = sig_addr_str
+                             
+                         # Re-calculate mapped address for this signal
+                         if sig_addr_int >= base_address and base_address > 0:
+                             sig_mapped = sig_addr_int - base_address
+                         else:
+                             sig_mapped = sig_addr_int
+                             
+                         # Compare with group's relative_addr
+                         if sig_mapped != relative_addr:
+                             raise ValueError(f"Address mismatch: Group=0x{relative_addr:X}, Signal=0x{sig_mapped:X}")
+
                     field = bit_field_mgr.add_field(
                         reg_name=reg_name,
                         address=absolute_addr,
@@ -466,7 +527,8 @@ class VHDLParser:
                         source_line=sig_info['line_num'],
                         read_strobe=sig_info['attrs'].get('read_strobe', False),
                         write_strobe=sig_info['attrs'].get('write_strobe', False),
-                        default_value=field_default
+                        default_value=field_default,
+                        allow_overlap=True
                     )
                     
                     fields.append({
@@ -484,12 +546,87 @@ class VHDLParser:
                     })
                     
                     # Use first field's access mode for register
+                    # Update collective access mode for the register
+                    current_mode = field.access_mode
                     if access_mode is None:
-                        access_mode = field.access_mode
+                        access_mode = current_mode
+                    elif access_mode != current_mode:
+                        if 'RW' in [access_mode, current_mode] or \
+                           ('RO' in [access_mode, current_mode] and 'WO' in [access_mode, current_mode]):
+                            access_mode = 'RW'
+                        elif 'WO' in [access_mode, current_mode]:
+                            access_mode = 'WO'
+                        # if RO and current is None, it stays RO
+
                         
                 except BitOverlapError as e:
-                    # Re-raise with context
-                    raise e
+                    # Log error but also add field so it's visible in GUI
+                    print(f"Warning: {e}")
+                    self.errors.append({'file': filepath, 'msg': str(e)})
+                    
+                    # Create error field entry
+                    bit_offset = sig_info['attrs'].get('bit_offset', 0)
+                    error_field = {
+                        'name': sig_info['signal_name'],
+                        'bit_low': bit_offset if bit_offset else 0,
+                        'bit_high': (bit_offset or 0) + sig_info['signal_width'] - 1,
+                        'width': sig_info['signal_width'],
+                        'access_mode': sig_info['attrs'].get('access_mode', 'RW'),
+                        'signal_type': sig_info['signal_type'],
+                        'description': sig_info['attrs'].get('description', ''),
+                        'read_strobe': sig_info['attrs'].get('read_strobe', False),
+                        'write_strobe': sig_info['attrs'].get('write_strobe', False),
+                        'mask': 0,
+                        'default_value': sig_info['attrs'].get('default_value', 0),
+                        'has_error': True,
+                        'error_message': str(e)
+                    }
+                    fields.append(error_field)
+
+                    current_mode = error_field['access_mode']
+                    if access_mode is None:
+                        access_mode = current_mode
+                    elif access_mode != current_mode:
+                        if 'RW' in [access_mode, current_mode] or \
+                           ('RO' in [access_mode, current_mode] and 'WO' in [access_mode, current_mode]):
+                            access_mode = 'RW'
+                        elif 'WO' in [access_mode, current_mode]:
+                            access_mode = 'WO'
+
+                except ValueError as e:
+                    # Log error (e.g. 32-bit boundary exceeded) but add field with error flag
+                    print(f"Warning: {e}")
+                    self.errors.append({'file': filepath, 'msg': str(e)})
+                    
+                    # Create error field entry so GUI can display it with warning
+                    bit_offset = sig_info['attrs'].get('bit_offset', 0)
+                    error_field = {
+                        'name': sig_info['signal_name'],
+                        'bit_low': bit_offset if bit_offset else 0,
+                        'bit_high': (bit_offset or 0) + sig_info['signal_width'] - 1,
+                        'width': sig_info['signal_width'],
+                        'access_mode': sig_info['attrs'].get('access_mode', 'RW'),
+                        'signal_type': sig_info['signal_type'],
+                        'description': sig_info['attrs'].get('description', ''),
+                        'read_strobe': sig_info['attrs'].get('read_strobe', False),
+                        'write_strobe': sig_info['attrs'].get('write_strobe', False),
+                        'mask': 0,
+                        'default_value': sig_info['attrs'].get('default_value', 0),
+                        'has_error': True,
+                        'error_message': str(e)
+                    }
+                    fields.append(error_field)
+                    
+                    current_mode = error_field['access_mode']
+                    if access_mode is None:
+                        access_mode = current_mode
+                    elif access_mode != current_mode:
+                        if 'RW' in [access_mode, current_mode] or \
+                           ('RO' in [access_mode, current_mode] and 'WO' in [access_mode, current_mode]):
+                            access_mode = 'RW'
+                        elif 'WO' in [access_mode, current_mode]:
+                            access_mode = 'WO'
+
             
             # Sort fields by bit position
             fields.sort(key=lambda f: f['bit_low'])
@@ -513,7 +650,10 @@ class VHDLParser:
                 'fields': fields,
                 'is_packed': True,
                 'default_value': combined_default,
-                'signal_width': 32
+                'signal_width': 32,
+                # Aggregate strobes from fields: enable if ANY field has it
+                'read_strobe': any(f.get('read_strobe') for f in fields),
+                'write_strobe': any(f.get('write_strobe') for f in fields)
             }
             
             packed_registers.append(packed_reg)

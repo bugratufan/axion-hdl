@@ -63,3 +63,4 @@ instructions/*
 *.backup
 *_backup.py
 *_fixed.py.axion_conf
+None/

@@ -95,16 +95,16 @@ begin
             config_reg => config_reg,
             
             -- Subregisters
-            ready      => ready,
-            err_flag   => err_flag,
-            busy       => busy,
-            state      => state,
-            count      => count,
+            status_reg_ready      => ready,
+            status_reg_err_flag   => err_flag,
+            status_reg_busy       => busy,
+            status_reg_state      => state,
+            status_reg_count      => count,
             
-            enable     => enable,
-            mode       => mode,
-            irq_mask   => irq_mask,
-            timeout    => timeout
+            control_reg_enable     => enable,
+            control_reg_mode       => mode,
+            control_reg_irq_mask   => irq_mask,
+            control_reg_timeout    => timeout
         );
 
     -- Test Process

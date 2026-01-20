@@ -380,9 +380,11 @@ Create `.axion_conf` for project-specific settings:
 
 ```json
 {
-    "sources": ["./rtl", "./regs"],
-    "excludes": ["*_tb.vhd", "test_*", "deprecated"],
-    "output": "./generated"
+    "src_dirs": ["./rtl"],
+    "src_files": ["./top.vhd"],
+    "yaml_src_dirs": ["./regs"],
+    "exclude_patterns": ["*_tb.vhd", "test_*", "deprecated"],
+    "output_dir": "./generated"
 }
 ```
 

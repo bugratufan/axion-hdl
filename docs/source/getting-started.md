@@ -59,7 +59,8 @@ The `output/` directory will contain:
 |------|-------------|
 | `led_blinker_axion_reg.vhd` | AXI4-Lite slave module |
 | `led_blinker_regs.h` | C header with macros |
-| `register_map.md` | Documentation |
+| `index.html` | Register documentation (main page) |
+| `html/` | Module documentation pages |
 | `led_blinker_regs.xml` | IP-XACT description |
 | `led_blinker_regs.yaml` | YAML register map |
 | `led_blinker_regs.json` | JSON register map |
