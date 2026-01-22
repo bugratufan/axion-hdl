@@ -197,6 +197,86 @@ class RuleChecker:
                     self._add_error("Duplicate Name", module['name'], f"Register '{name}' defined multiple times")
                 seen.add(name)
 
+    def check_intra_module_address_conflicts(self, modules: List[Dict]) -> None:
+        """
+        Check for address conflicts within each module.
+        
+        Detects two types of conflicts:
+        1. Exact duplicate: Two registers with the same address
+        2. Wide register overlap: A wide register (>32 bits) occupies multiple
+           address slots, and another register uses one of those slots.
+           
+        For example, a 64-bit register at 0x04 occupies both 0x04-0x07 and 0x08-0x0B.
+        If another register is placed at 0x08, it conflicts with the wide register.
+        """
+        for module in modules:
+            # Build address range map: each register occupies [start_addr, end_addr)
+            # Format: [(start, end, reg_name, width)]
+            address_ranges = []
+            
+            for reg in module.get('registers', []):
+                reg_name = reg.get('reg_name', reg.get('signal_name', 'unknown'))
+                
+                # Get address
+                addr = reg.get('address_int')
+                if addr is None:
+                    addr_raw = reg.get('address', 0)
+                    if isinstance(addr_raw, str):
+                        if addr_raw.startswith(('0x', '0X')):
+                            addr = int(addr_raw, 16)
+                        else:
+                            try:
+                                addr = int(addr_raw)
+                            except ValueError:
+                                continue
+                    else:
+                        addr = int(addr_raw) if addr_raw else 0
+                
+                # Get width and calculate byte size
+                width = int(reg.get('width', 32)) if reg.get('width') else 32
+                byte_size = max(4, (width + 7) // 8)  # At least 4 bytes (32-bit aligned)
+                # Round up to next 4-byte boundary
+                byte_size = ((byte_size + 3) // 4) * 4
+                
+                start_addr = addr
+                end_addr = addr + byte_size
+                
+                address_ranges.append((start_addr, end_addr, reg_name, width))
+            
+            # Check for overlaps between all pairs of registers
+            for i, (start1, end1, name1, width1) in enumerate(address_ranges):
+                for start2, end2, name2, width2 in address_ranges[i+1:]:
+                    # Check if ranges overlap: [start1, end1) intersects [start2, end2)
+                    if start1 < end2 and start2 < end1:
+                        # Determine the nature of the conflict
+                        if start1 == start2:
+                            # Exact duplicate address
+                            self._add_error(
+                                "Duplicate Address",
+                                module['name'],
+                                f"Address 0x{start1:04X} is assigned to both '{name1}' and '{name2}'"
+                            )
+                        else:
+                            # Wide register overlap
+                            # Determine which register is the wide one
+                            if width1 > 32:
+                                wide_name, wide_start, wide_end = name1, start1, end1
+                                other_name, other_addr = name2, start2
+                            elif width2 > 32:
+                                wide_name, wide_start, wide_end = name2, start2, end2
+                                other_name, other_addr = name1, start1
+                            else:
+                                # Both are 32-bit or less but still overlap
+                                wide_name, wide_start, wide_end = name1, start1, end1
+                                other_name, other_addr = name2, start2
+                            
+                            self._add_error(
+                                "Address Overlap",
+                                module['name'],
+                                f"Register '{other_name}' at 0x{other_addr:04X} conflicts with "
+                                f"'{wide_name}' which occupies 0x{wide_start:04X}-0x{wide_end-1:04X}"
+                            )
+
     def check_unique_module_names(self, modules: List[Dict]) -> None:
         """Check for duplicate module names across the project."""
         seen = set()
@@ -475,6 +555,7 @@ class RuleChecker:
         self.check_logical_integrity(modules)
         self.check_documentation(modules)
         self.check_address_overlaps(modules)
+        self.check_intra_module_address_conflicts(modules)  # New: check within each module
         self.check_subregister_overlaps(modules)
         self.check_default_values(modules)
         self.check_naming_conventions(modules)
