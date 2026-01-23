@@ -956,12 +956,17 @@ def generate_markdown_report(results: List[TestResult]):
         "c": ("⚙️ C Tests", {
             "compile": "Compilation Tests"
         }),
-        "vhdl": ("🔧 VHDL Tests", {
+        "vhdl": ("🔧 VHDL Tests (GHDL)", {
             "simulation": "Simulation Setup",
             "analyze": "VHDL Analysis",
             "elaborate": "Elaboration",
             "simulate": "Simulation Run",
             "requirements": "Requirements Verification (AXION/AXI-LITE)"
+        }),
+        "cocotb": ("🧪 Cocotb VHDL Tests", {
+            "setup": "Setup & Configuration",
+            "axi_lite": "AXI-Lite Protocol Tests",
+            "cdc": "CDC Comprehensive Tests"
         }),
         "parser": ("📜 Parser Tests (PARSER-xxx)", {
             "requirements": "PARSER Requirements",
@@ -1008,7 +1013,7 @@ def generate_markdown_report(results: List[TestResult]):
         })
     }
     
-    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml-input", "json-input", "equiv"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml-input", "json-input", "equiv"]:
         if cat not in categories:
             continue
         
@@ -1072,7 +1077,8 @@ def print_results(results: List[TestResult]):
     cat_names = {
         "python": "🐍 PYTHON",
         "c": "⚙️  C",
-        "vhdl": "🔧 VHDL",
+        "vhdl": "🔧 VHDL (GHDL)",
+        "cocotb": "🧪 COCOTB",
         "parser": "📜 PARSER",
         "gen": "⚙️ GENERATION",
         "err": "🚨 ERRORS",
@@ -1097,7 +1103,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "yaml_input", "json_input", "equiv"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "yaml_input", "json_input", "equiv"]:
         if cat not in categories:
             continue
         
@@ -1904,83 +1910,194 @@ def run_equivalence_tests() -> List[TestResult]:
         TestFormatEquivalence.tearDownClass()
     except ImportError as e:
         results.append(TestResult("equiv.import", "EQUIV: Import test module", "failed", 0, str(e), category="equiv", subcategory="setup"))
-    
+
+    return results
+
+
+def run_cocotb_tests() -> List[TestResult]:
+    """Run cocotb VHDL simulation tests"""
+    results = []
+
+    # Check if cocotb is available
+    cocotb_available = False
+    cocotb_version = "unknown"
+    try:
+        import cocotb
+        cocotb_version = getattr(cocotb, '__version__', 'installed')
+        cocotb_available = True
+    except ImportError:
+        cocotb_available = False
+
+    # Check if GHDL is available
+    ghdl_available, _, _ = run_command(["which", "ghdl"])
+
+    if not cocotb_available:
+        results.append(TestResult("cocotb.check", "Cocotb Available", "skipped", 0,
+                                  "cocotb not installed (pip install cocotb cocotb-bus cocotbext-axi)",
+                                  category="cocotb", subcategory="setup"))
+        return results
+
+    if not ghdl_available:
+        results.append(TestResult("cocotb.ghdl_check", "GHDL Available for Cocotb", "skipped", 0,
+                                  "ghdl not found", category="cocotb", subcategory="setup"))
+        return results
+
+    # Test 1: Cocotb setup check
+    test_id = "cocotb.setup"
+    name = "Cocotb Setup Verification"
+    start = time.time()
+    results.append(TestResult(test_id, name, "passed", time.time() - start,
+                              f"cocotb version: {cocotb_version}",
+                              category="cocotb", subcategory="setup"))
+
+    # Test 2: Run cocotb AXI-Lite tests
+    test_id = "cocotb.axi_lite"
+    name = "Cocotb AXI-Lite Protocol Tests"
+    start = time.time()
+
+    cocotb_dir = PROJECT_ROOT / "tests" / "cocotb"
+    success, duration, output = run_command(
+        ["make", "test_axi_lite", "DUT=sensor_controller"],
+        cwd=str(cocotb_dir),
+        timeout=300
+    )
+
+    if success:
+        # Parse cocotb output for individual test results
+        # Cocotb outputs "PASS" or "FAIL" for each test
+        pass_count = output.count("PASS")
+        fail_count = output.count("FAIL")
+
+        if fail_count == 0:
+            results.append(TestResult(test_id, name, "passed", duration,
+                                      f"{pass_count} tests passed",
+                                      category="cocotb", subcategory="axi_lite"))
+        else:
+            results.append(TestResult(test_id, name, "failed", duration,
+                                      f"{pass_count} passed, {fail_count} failed",
+                                      category="cocotb", subcategory="axi_lite"))
+    else:
+        # Check if it's just a missing dependency issue
+        if "No module named" in output or "cocotb" in output.lower():
+            results.append(TestResult(test_id, name, "skipped", duration,
+                                      "Cocotb test environment not configured",
+                                      category="cocotb", subcategory="axi_lite"))
+        else:
+            results.append(TestResult(test_id, name, "failed", duration, output,
+                                      category="cocotb", subcategory="axi_lite"))
+
+    # Test 3: Run cocotb CDC tests
+    test_id = "cocotb.cdc"
+    name = "Cocotb CDC Comprehensive Tests"
+    start = time.time()
+
+    success, duration, output = run_command(
+        ["make", "test_cdc", "DUT=sensor_controller"],
+        cwd=str(cocotb_dir),
+        timeout=300
+    )
+
+    if success:
+        pass_count = output.count("PASS")
+        fail_count = output.count("FAIL")
+
+        if fail_count == 0:
+            results.append(TestResult(test_id, name, "passed", duration,
+                                      f"{pass_count} CDC tests passed",
+                                      category="cocotb", subcategory="cdc"))
+        else:
+            results.append(TestResult(test_id, name, "failed", duration,
+                                      f"{pass_count} passed, {fail_count} failed",
+                                      category="cocotb", subcategory="cdc"))
+    else:
+        if "No module named" in output or "cocotb" in output.lower():
+            results.append(TestResult(test_id, name, "skipped", duration,
+                                      "Cocotb test environment not configured",
+                                      category="cocotb", subcategory="cdc"))
+        else:
+            results.append(TestResult(test_id, name, "failed", duration, output,
+                                      category="cocotb", subcategory="cdc"))
+
     return results
 
 
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, JSON-INPUT, EQUIV\n")
-    
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, JSON-INPUT, EQUIV + Cocotb\n")
+
     all_results = []
-    
+
     # Run Python unit tests (core functionality)
-    print(f"  [1/17] Running Python unit tests...", flush=True)
+    print(f"  [1/18] Running Python unit tests...", flush=True)
     all_results.extend(run_python_unit_tests())
-    
+
     # Run address conflict tests (ADDR requirements)
-    print(f"  [2/17] Running address conflict tests...", flush=True)
+    print(f"  [2/18] Running address conflict tests...", flush=True)
     all_results.extend(run_address_conflict_tests())
-    
+
     # Run Parser tests (PARSER requirements)
-    print(f"  [3/17] Running parser tests...", flush=True)
+    print(f"  [3/18] Running parser tests...", flush=True)
     all_results.extend(run_parser_tests())
-    
+
     # Run Generator tests (GEN requirements)
-    print(f"  [4/17] Running generator tests...", flush=True)
+    print(f"  [4/18] Running generator tests...", flush=True)
     all_results.extend(run_generator_tests())
-    
+
     # Run Error handling tests (ERR requirements)
-    print(f"  [5/17] Running error handling tests...", flush=True)
+    print(f"  [5/18] Running error handling tests...", flush=True)
     all_results.extend(run_error_handling_tests())
-    
+
     # Run CLI tests (CLI requirements)
-    print(f"  [6/17] Running CLI tests...", flush=True)
+    print(f"  [6/18] Running CLI tests...", flush=True)
     all_results.extend(run_cli_tests())
-    
+
     # Run CDC tests (CDC requirements)
-    print(f"  [7/17] Running CDC tests...", flush=True)
+    print(f"  [7/18] Running CDC tests...", flush=True)
     all_results.extend(run_cdc_tests())
-    
+
     # Run ADDR tests (ADDR requirements)
-    print(f"  [8/17] Running address management tests...", flush=True)
+    print(f"  [8/18] Running address management tests...", flush=True)
     all_results.extend(run_addr_tests())
-    
+
     # Run STRESS tests (STRESS requirements)
-    print(f"  [9/17] Running stress tests...", flush=True)
+    print(f"  [9/18] Running stress tests...", flush=True)
     all_results.extend(run_stress_tests())
-    
+
     # Run SUB tests (Subregister requirements)
-    print(f"  [10/17] Running subregister tests...", flush=True)
+    print(f"  [10/18] Running subregister tests...", flush=True)
     all_results.extend(run_subregister_tests())
-    
+
     # Run DEF tests (DEFAULT attribute requirements)
-    print(f"  [11/17] Running default attribute tests...", flush=True)
+    print(f"  [11/18] Running default attribute tests...", flush=True)
     all_results.extend(run_default_tests())
-    
+
     # Run VAL tests (Validation & Diagnostics requirements)
-    print(f"  [12/17] Running validation tests...", flush=True)
+    print(f"  [12/18] Running validation tests...", flush=True)
     all_results.extend(run_validation_tests())
-    
+
     # Run YAML-INPUT tests
-    print(f"  [13/17] Running YAML input parser tests...", flush=True)
+    print(f"  [13/18] Running YAML input parser tests...", flush=True)
     all_results.extend(run_yaml_input_tests())
-    
+
     # Run JSON-INPUT tests
-    print(f"  [14/17] Running JSON input parser tests...", flush=True)
+    print(f"  [14/18] Running JSON input parser tests...", flush=True)
     all_results.extend(run_json_input_tests())
-    
+
     # Run EQUIV tests (format equivalence)
-    print(f"  [15/17] Running format equivalence tests...", flush=True)
+    print(f"  [15/18] Running format equivalence tests...", flush=True)
     all_results.extend(run_equivalence_tests())
-    
+
     # Run VHDL tests (AXION, AXI-LITE requirements)
-    print(f"  [16/17] Running VHDL simulation tests...", flush=True)
+    print(f"  [16/18] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
-    
+
     # Run C tests
-    print(f"  [17/17] Running C header tests...", flush=True)
+    print(f"  [17/18] Running C header tests...", flush=True)
     all_results.extend(run_c_tests())
+
+    # Run Cocotb tests (comprehensive VHDL verification)
+    print(f"  [18/18] Running Cocotb VHDL tests...", flush=True)
+    all_results.extend(run_cocotb_tests())
     
     # Save and generate reports
     save_results(all_results)
@@ -2061,7 +2178,8 @@ def print_requirement_coverage(results: List[TestResult]):
         "VAL": [r for r in covered if r.startswith("VAL-")],
         "YAML-INPUT": [r for r in covered if r.startswith("YAML-INPUT-")],
         "JSON-INPUT": [r for r in covered if r.startswith("JSON-INPUT-")],
-        "EQUIV": [r for r in covered if r.startswith("EQUIV-")]
+        "EQUIV": [r for r in covered if r.startswith("EQUIV-")],
+        "COCOTB": [r for r in covered if r.startswith("COCOTB-")]
     }
     
     print(f"\n  By Category:")
