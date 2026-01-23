@@ -6,6 +6,22 @@ Comprehensive testbench covering:
 - AXI-LITE-001 to AXI-LITE-017 (Bus Protocol)
 
 Uses cocotbext-axi for AXI-Lite transactions.
+
+Register Map for sensor_controller_axion_reg:
+  0x00 (0)   status_reg          RO
+  0x04 (4)   temperature_reg     RO  (with R_STROBE)
+  0x08 (8)   pressure_reg        RO  (with R_STROBE)
+  0x0C (12)  humidity_reg        RO
+  0x10 (16)  error_count_reg     RO
+  0x14 (20)  control_reg         WO  (with W_STROBE)
+  0x18 (24)  threshold_high_reg  WO
+  0x1C (28)  threshold_low_reg   WO
+  0x20 (32)  config_reg          RW
+  0x24 (36)  calibration_reg     RW  (with R_STROBE, W_STROBE)
+  0x28 (40)  mode_reg            RW
+  0x2C (44)  debug_reg           RW
+  0x30 (48)  timestamp_reg       RO
+  0x34 (52)  interrupt_status_reg RW (with R_STROBE, W_STROBE)
 """
 
 import cocotb
@@ -19,6 +35,24 @@ except ImportError:
     AxiLiteBus = None
 
 import random
+
+# ============================================================================
+# Register Address Constants (from sensor_controller_axion_reg.vhd)
+# ============================================================================
+REG_STATUS           = 0x00  # RO - status_reg
+REG_TEMPERATURE      = 0x04  # RO - temperature_reg (with R_STROBE)
+REG_PRESSURE         = 0x08  # RO - pressure_reg (with R_STROBE)
+REG_HUMIDITY         = 0x0C  # RO - humidity_reg
+REG_ERROR_COUNT      = 0x10  # RO - error_count_reg
+REG_CONTROL          = 0x14  # WO - control_reg (with W_STROBE)
+REG_THRESHOLD_HIGH   = 0x18  # WO - threshold_high_reg
+REG_THRESHOLD_LOW    = 0x1C  # WO - threshold_low_reg
+REG_CONFIG           = 0x20  # RW - config_reg
+REG_CALIBRATION      = 0x24  # RW - calibration_reg (with R_STROBE, W_STROBE)
+REG_MODE             = 0x28  # RW - mode_reg
+REG_DEBUG            = 0x2C  # RW - debug_reg
+REG_TIMESTAMP        = 0x30  # RO - timestamp_reg
+REG_INTERRUPT_STATUS = 0x34  # RW - interrupt_status_reg (with R_STROBE, W_STROBE)
 
 
 class AxiLiteTestHelper:
@@ -168,9 +202,9 @@ async def test_axion_003_wo_write(dut):
     await reset_dut(dut, clk)
     helper = AxiLiteTestHelper(dut)
 
-    # Write to WO register
+    # Write to WO register (control_reg at 0x14)
     test_value = 0xCAFEBABE
-    resp = await helper.write(0x08, test_value)  # Assuming WO at 0x08
+    resp = await helper.write(REG_CONTROL, test_value)
 
     assert resp == 0, f"AXION-003: Expected OKAY response, got {resp}"
     dut._log.info("AXION-003 PASSED: WO register write accepted")
@@ -185,12 +219,17 @@ async def test_axion_004_wo_read_protection(dut):
     await reset_dut(dut, clk)
     helper = AxiLiteTestHelper(dut)
 
-    # Read from WO register - should return 0 or SLVERR
-    data, resp = await helper.read(0x08)
+    # Write a known value to WO register first
+    await helper.write(REG_CONTROL, 0x12345678)
 
-    # WO reads typically return 0 or error
-    assert data == 0 or resp != 0, f"AXION-004: WO read returned non-zero data without error"
-    dut._log.info(f"AXION-004 PASSED: WO register read returned 0x{data:08X}, resp={resp}")
+    # Read from WO register (control_reg at 0x14) - should return SLVERR
+    # because WO registers are not readable
+    data, resp = await helper.read(REG_CONTROL)
+
+    # WO reads should return error response (SLVERR = 2)
+    # Note: The generated VHDL treats reads from WO addresses as invalid
+    assert resp == 2, f"AXION-004: Expected SLVERR (2), got resp={resp}"
+    dut._log.info(f"AXION-004 PASSED: WO register read returned SLVERR as expected")
 
 
 @cocotb.test()
@@ -202,15 +241,14 @@ async def test_axion_005_rw_full_access(dut):
     await reset_dut(dut, clk)
     helper = AxiLiteTestHelper(dut)
 
-    # Write test pattern
+    # Write test pattern to RW register (config_reg at 0x20)
     test_value = 0xA5A5A5A5
-    rw_addr = 0x04  # Assuming RW at 0x04
 
-    resp = await helper.write(rw_addr, test_value)
+    resp = await helper.write(REG_CONFIG, test_value)
     assert resp == 0, f"AXION-005: Write failed with resp={resp}"
 
-    # Read back
-    data, resp = await helper.read(rw_addr)
+    # Read back - should get same value
+    data, resp = await helper.read(REG_CONFIG)
     assert resp == 0, f"AXION-005: Read failed with resp={resp}"
     assert data == test_value, f"AXION-005: Read 0x{data:08X}, expected 0x{test_value:08X}"
 
@@ -225,31 +263,37 @@ async def test_axion_011_write_handshake(dut):
 
     await reset_dut(dut, clk)
 
-    # Detailed handshake verification
+    # Detailed handshake verification using RW register (config_reg at 0x20)
+    # Per AXI-Lite spec, address and data can be accepted simultaneously
     await RisingEdge(clk)
-    dut.axi_awaddr.value = 0x04
+    dut.axi_awaddr.value = REG_CONFIG
     dut.axi_awvalid.value = 1
     dut.axi_wdata.value = 0x12345678
     dut.axi_wstrb.value = 0xF
     dut.axi_wvalid.value = 1
     dut.axi_bready.value = 0  # Not ready for response yet
 
-    # Wait for AWREADY
+    # Wait for both AWREADY and WREADY (they may come simultaneously or separately)
     timeout = 100
-    for _ in range(timeout):
-        await RisingEdge(clk)
-        if dut.axi_awready.value == 1:
-            break
-    assert dut.axi_awready.value == 1, "AXION-011: AWREADY timeout"
-    dut.axi_awvalid.value = 0
+    aw_done = False
+    w_done = False
 
-    # Wait for WREADY
     for _ in range(timeout):
         await RisingEdge(clk)
-        if dut.axi_wready.value == 1:
+        # Check and capture AWREADY
+        if dut.axi_awready.value == 1 and not aw_done:
+            aw_done = True
+            dut.axi_awvalid.value = 0
+        # Check and capture WREADY
+        if dut.axi_wready.value == 1 and not w_done:
+            w_done = True
+            dut.axi_wvalid.value = 0
+        # Exit when both are done
+        if aw_done and w_done:
             break
-    assert dut.axi_wready.value == 1, "AXION-011: WREADY timeout"
-    dut.axi_wvalid.value = 0
+
+    assert aw_done, "AXION-011: AWREADY timeout"
+    assert w_done, "AXION-011: WREADY timeout"
 
     # Wait for BVALID
     for _ in range(timeout):
@@ -258,7 +302,7 @@ async def test_axion_011_write_handshake(dut):
             break
     assert dut.axi_bvalid.value == 1, "AXION-011: BVALID timeout"
 
-    # Now assert BREADY
+    # Now assert BREADY to complete the transaction
     dut.axi_bready.value = 1
     await RisingEdge(clk)
     dut.axi_bready.value = 0
@@ -313,36 +357,48 @@ async def test_axion_016_byte_strobe(dut):
     await reset_dut(dut, clk)
     helper = AxiLiteTestHelper(dut)
 
-    rw_addr = 0x04
+    # Use RW register (config_reg at 0x20) for byte strobe testing
+    rw_addr = REG_CONFIG
 
-    # Write full word first
+    # Write full word first to clear
     await helper.write(rw_addr, 0x00000000, strb=0xF)
 
     # Write only byte 0 (bits 7:0)
     await helper.write(rw_addr, 0x000000AA, strb=0x1)
     data, _ = await helper.read(rw_addr)
-    assert (data & 0xFF) == 0xAA, f"AXION-016: Byte 0 not written correctly"
+    assert (data & 0xFF) == 0xAA, f"AXION-016: Byte 0 not written correctly, got 0x{data:08X}"
 
-    # Write only byte 1 (bits 15:8)
+    # Write only byte 1 (bits 15:8) - byte 0 should remain 0xAA
     await helper.write(rw_addr, 0x0000BB00, strb=0x2)
     data, _ = await helper.read(rw_addr)
-    assert (data & 0xFF00) == 0xBB00, f"AXION-016: Byte 1 not written correctly"
+    assert (data & 0xFF) == 0xAA, f"AXION-016: Byte 0 was corrupted, got 0x{data:08X}"
+    assert (data & 0xFF00) == 0xBB00, f"AXION-016: Byte 1 not written correctly, got 0x{data:08X}"
+
+    # Write byte 2 and 3 together
+    await helper.write(rw_addr, 0xCCDD0000, strb=0xC)
+    data, _ = await helper.read(rw_addr)
+    assert data == 0xCCDDBBAA, f"AXION-016: Expected 0xCCDDBBAA, got 0x{data:08X}"
 
     dut._log.info("AXION-016 PASSED: Byte strobes working correctly")
 
 
 @cocotb.test()
 async def test_axion_017_sync_reset(dut):
-    """AXION-017: Synchronous Reset"""
+    """AXION-017: Synchronous Reset Behavior"""
     clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
     helper = AxiLiteTestHelper(dut)
 
-    # Write a value
-    rw_addr = 0x04
-    await helper.write(rw_addr, 0xFFFFFFFF)
+    # Write a non-zero value to RW register (config_reg at 0x20)
+    rw_addr = REG_CONFIG
+    test_value = 0xDEADBEEF
+    await helper.write(rw_addr, test_value)
+
+    # Verify the write succeeded
+    data, _ = await helper.read(rw_addr)
+    assert data == test_value, f"AXION-017: Pre-reset write failed, got 0x{data:08X}"
 
     # Assert reset
     dut.axi_aresetn.value = 0
@@ -352,10 +408,11 @@ async def test_axion_017_sync_reset(dut):
     dut.axi_aresetn.value = 1
     await ClockCycles(clk, 5)
 
-    # Read - should be default value (typically 0)
+    # Read - should be default value (0)
     data, _ = await helper.read(rw_addr)
+    assert data == 0, f"AXION-017: After reset, register should be 0, got 0x{data:08X}"
 
-    dut._log.info(f"AXION-017 PASSED: After reset, register = 0x{data:08X}")
+    dut._log.info(f"AXION-017 PASSED: After reset, register correctly reset to 0x{data:08X}")
 
 
 @cocotb.test()
@@ -378,7 +435,7 @@ async def test_axion_021_out_of_range(dut):
 
 @cocotb.test()
 async def test_axion_023_default_values(dut):
-    """AXION-023: Default Register Values"""
+    """AXION-023: Default Register Values After Reset"""
     clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
@@ -386,12 +443,21 @@ async def test_axion_023_default_values(dut):
     await reset_dut(dut, clk)
     helper = AxiLiteTestHelper(dut)
 
-    # Read RW register after reset - should have default value
-    rw_addr = 0x04
-    data, resp = await helper.read(rw_addr)
+    # Read multiple RW registers after reset - all should have default value 0
+    rw_registers = [
+        (REG_CONFIG, "config_reg"),
+        (REG_CALIBRATION, "calibration_reg"),
+        (REG_MODE, "mode_reg"),
+        (REG_DEBUG, "debug_reg"),
+        (REG_INTERRUPT_STATUS, "interrupt_status_reg"),
+    ]
 
-    assert resp == 0, f"AXION-023: Read failed with resp={resp}"
-    dut._log.info(f"AXION-023 PASSED: Default value after reset = 0x{data:08X}")
+    for addr, name in rw_registers:
+        data, resp = await helper.read(addr)
+        assert resp == 0, f"AXION-023: Read of {name} failed with resp={resp}"
+        assert data == 0, f"AXION-023: {name} should be 0 after reset, got 0x{data:08X}"
+
+    dut._log.info(f"AXION-023 PASSED: All RW registers correctly initialized to 0 after reset")
 
 
 # =============================================================================
@@ -511,10 +577,11 @@ async def test_axi_lite_005_write_independence(dut):
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
+    helper = AxiLiteTestHelper(dut)
 
-    # Test 1: Address first, then data
+    # Test 1: Address first, then data (using RW register config_reg at 0x20)
     await RisingEdge(clk)
-    dut.axi_awaddr.value = 0x04
+    dut.axi_awaddr.value = REG_CONFIG
     dut.axi_awvalid.value = 1
     dut.axi_wvalid.value = 0
     dut.axi_bready.value = 1
@@ -542,7 +609,11 @@ async def test_axi_lite_005_write_independence(dut):
 
     assert resp1 == 0, f"AXI-LITE-005: Address-first write failed with resp={resp1}"
 
-    # Test 2: Data first, then address
+    # Verify the write worked
+    data, _ = await helper.read(REG_CONFIG)
+    assert data == 0x11111111, f"AXI-LITE-005: Address-first write data mismatch, got 0x{data:08X}"
+
+    # Test 2: Data first, then address (using mode_reg at 0x28)
     await ClockCycles(clk, 5)
     await RisingEdge(clk)
     dut.axi_wdata.value = 0x22222222
@@ -557,7 +628,7 @@ async def test_axi_lite_005_write_independence(dut):
 
     # Now send address
     await RisingEdge(clk)
-    dut.axi_awaddr.value = 0x04
+    dut.axi_awaddr.value = REG_MODE
     dut.axi_awvalid.value = 1
 
     while dut.axi_awready.value != 1:
@@ -572,6 +643,10 @@ async def test_axi_lite_005_write_independence(dut):
 
     assert resp2 == 0, f"AXI-LITE-005: Data-first write failed with resp={resp2}"
 
+    # Verify the write worked
+    data, _ = await helper.read(REG_MODE)
+    assert data == 0x22222222, f"AXI-LITE-005: Data-first write data mismatch, got 0x{data:08X}"
+
     dut._log.info("AXI-LITE-005 PASSED: Address/Data order independence verified")
 
 
@@ -584,12 +659,12 @@ async def test_axi_lite_006_back_to_back(dut):
     await reset_dut(dut, clk)
     helper = AxiLiteTestHelper(dut)
 
-    # Perform rapid sequential transactions
+    # Perform rapid sequential write/read transactions on RW register (config_reg)
     for i in range(5):
         test_val = 0x10000000 + i
-        await helper.write(0x04, test_val)
-        data, _ = await helper.read(0x04)
-        assert data == test_val, f"AXI-LITE-006: Transaction {i} mismatch"
+        await helper.write(REG_CONFIG, test_val)
+        data, _ = await helper.read(REG_CONFIG)
+        assert data == test_val, f"AXI-LITE-006: Transaction {i} mismatch, wrote 0x{test_val:08X}, read 0x{data:08X}"
 
     dut._log.info("AXI-LITE-006 PASSED: Back-to-back transactions work")
 
@@ -667,44 +742,50 @@ async def test_axi_lite_017_early_ready(dut):
 
 @cocotb.test()
 async def test_stress_random_access(dut):
-    """STRESS: Random register access pattern"""
+    """STRESS: Random Register Access Pattern"""
     clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
     helper = AxiLiteTestHelper(dut)
 
-    # Random access pattern
+    # Random access pattern across multiple RW registers
     random.seed(42)
-    rw_addr = 0x04
+    rw_registers = [REG_CONFIG, REG_CALIBRATION, REG_MODE, REG_DEBUG]
+    last_written = {addr: 0 for addr in rw_registers}
 
-    for _ in range(20):
+    for i in range(20):
+        addr = random.choice(rw_registers)
         if random.random() > 0.5:
-            # Write
+            # Write random value
             val = random.randint(0, 0xFFFFFFFF)
-            await helper.write(rw_addr, val)
+            await helper.write(addr, val)
+            last_written[addr] = val
         else:
-            # Read
-            await helper.read(rw_addr)
+            # Read and verify
+            data, resp = await helper.read(addr)
+            assert resp == 0, f"STRESS: Read failed at iteration {i}"
+            assert data == last_written[addr], f"STRESS: Mismatch at iteration {i}, expected 0x{last_written[addr]:08X}, got 0x{data:08X}"
 
-    dut._log.info("STRESS PASSED: Random access pattern completed")
+    dut._log.info("STRESS PASSED: Random access pattern completed with verification")
 
 
 @cocotb.test()
 async def test_stress_rapid_writes(dut):
-    """STRESS: Rapid consecutive writes"""
+    """STRESS: Rapid Consecutive Writes"""
     clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
     helper = AxiLiteTestHelper(dut)
 
-    # Rapid writes
+    # Rapid writes to RW register (config_reg at 0x20)
     for i in range(50):
-        await helper.write(0x04, i)
+        await helper.write(REG_CONFIG, i)
 
-    # Verify last value
-    data, _ = await helper.read(0x04)
+    # Verify last value persisted
+    data, resp = await helper.read(REG_CONFIG)
+    assert resp == 0, f"STRESS: Final read failed with resp={resp}"
     assert data == 49, f"STRESS: Expected 49, got {data}"
 
     dut._log.info("STRESS PASSED: Rapid writes completed")

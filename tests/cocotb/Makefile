@@ -95,8 +95,16 @@ test_axi_lite:
 test_cdc:
 	$(MAKE) MODULE=test_cdc DUT=sensor_controller
 
+# Run Subregister tests
+test_sub:
+	$(MAKE) MODULE=test_subregisters DUT=sensor_controller
+
+# Run Extended Stress tests
+test_stress_extended:
+	$(MAKE) MODULE=test_stress_extended DUT=sensor_controller
+
 # Run all test modules
-test_all: test_axi_lite test_cdc
+test_all: test_axi_lite test_cdc test_sub test_stress_extended
 
 # Generate VHDL before testing
 generate:
