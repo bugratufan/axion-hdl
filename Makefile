@@ -3,9 +3,15 @@
 
 .PHONY: all build install dev-install test test-vhdl test-c test-python clean dist upload-test upload help
 
-# Python interpreter
-PYTHON := python3
-PIP := pip3
+# Python interpreter (use venv if available)
+VENV_DIR := $(PROJECT_ROOT)/venv
+ifneq ($(wildcard $(VENV_DIR)/bin/python3),)
+    PYTHON := $(VENV_DIR)/bin/python3
+    PIP := $(VENV_DIR)/bin/pip3
+else
+    PYTHON := python3
+    PIP := pip3
+endif
 
 # Directories
 PROJECT_ROOT := $(shell pwd)
@@ -116,6 +122,40 @@ test-vhdl: generate
 		fi \
 	else \
 		echo "Warning: ghdl not found, skipping VHDL tests"; \
+	fi
+
+## Run cocotb AXI-Lite protocol tests (requires cocotb, ghdl)
+test-cocotb: generate
+	@echo "Running cocotb VHDL simulation tests..."
+	@if $(PYTHON) -c "import cocotb" 2>/dev/null && command -v $(GHDL) &> /dev/null; then \
+		cd $(TESTS_DIR)/cocotb && $(MAKE) test_all DUT=sensor_controller 2>&1 | tee $(OUTPUT_DIR)/cocotb_run.log; \
+		if [ $${PIPESTATUS[0]} -eq 0 ]; then \
+			echo "Cocotb tests passed!"; \
+		else \
+			echo "Cocotb tests FAILED. See $(OUTPUT_DIR)/cocotb_run.log"; \
+			exit 1; \
+		fi \
+	else \
+		echo "Warning: cocotb or ghdl not found, skipping cocotb tests"; \
+		echo "Install with: pip install cocotb cocotb-bus cocotbext-axi"; \
+	fi
+
+## Run cocotb CDC tests only
+test-cocotb-cdc: generate
+	@echo "Running cocotb CDC tests..."
+	@if $(PYTHON) -c "import cocotb" 2>/dev/null && command -v $(GHDL) &> /dev/null; then \
+		cd $(TESTS_DIR)/cocotb && $(MAKE) test_cdc DUT=sensor_controller WAVES=1; \
+	else \
+		echo "Warning: cocotb or ghdl not found, skipping CDC tests"; \
+	fi
+
+## Run cocotb AXI-Lite tests only
+test-cocotb-axi: generate
+	@echo "Running cocotb AXI-Lite tests..."
+	@if $(PYTHON) -c "import cocotb" 2>/dev/null && command -v $(GHDL) &> /dev/null; then \
+		cd $(TESTS_DIR)/cocotb && $(MAKE) test_axi_lite DUT=sensor_controller; \
+	else \
+		echo "Warning: cocotb or ghdl not found, skipping AXI-Lite tests"; \
 	fi
 
 ## Run full test script (legacy)
@@ -294,12 +334,15 @@ help:
 	@echo "  uninstall     Uninstall the package"
 	@echo ""
 	@echo "Testing:"
-	@echo "  test          Run all tests (Python + C + VHDL)"
-	@echo "  test-python   Run Python tests only"
-	@echo "  test-c        Run C header tests only"
-	@echo "  test-vhdl     Run VHDL simulation tests only"
-	@echo "  test-gui      Run GUI tests (requires playwright)"
-	@echo "  test-full     Run full test script (legacy)"
+	@echo "  test              Run all tests (Python + C + VHDL + cocotb)"
+	@echo "  test-python       Run Python tests only"
+	@echo "  test-c            Run C header tests only"
+	@echo "  test-vhdl         Run VHDL simulation tests only (GHDL)"
+	@echo "  test-cocotb       Run cocotb VHDL tests (requires cocotb)"
+	@echo "  test-cocotb-cdc   Run cocotb CDC tests only"
+	@echo "  test-cocotb-axi   Run cocotb AXI-Lite tests only"
+	@echo "  test-gui          Run GUI tests (requires playwright)"
+	@echo "  test-full         Run full test script (legacy)"
 	@echo ""
 	@echo "Code Generation:"
 	@echo "  generate      Generate all outputs from examples"
