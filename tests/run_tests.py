@@ -92,7 +92,7 @@ class TestResult:
         }
 
 
-def run_command(command: List[str], cwd: str = None, timeout: int = 300) -> Tuple[bool, float, str]:
+def run_command(command: List[str], cwd: str = None, timeout: int = 300, env: dict = None) -> Tuple[bool, float, str]:
     """Run a command and return (success, duration, output)"""
     start = time.time()
     try:
@@ -101,7 +101,8 @@ def run_command(command: List[str], cwd: str = None, timeout: int = 300) -> Tupl
             cwd=cwd or str(PROJECT_ROOT),
             capture_output=True,
             text=True,
-            timeout=timeout
+            timeout=timeout,
+            env=env
         )
         duration = time.time() - start
         output = result.stdout + result.stderr
@@ -2001,49 +2002,82 @@ def run_cocotb_tests() -> List[TestResult]:
 
     cocotb_dir = PROJECT_ROOT / "tests" / "cocotb"
 
+    # Set up environment with venv PATH for cocotb
+    venv_env = os.environ.copy()
+    venv_bin = str(PROJECT_ROOT / "venv" / "bin")
+    venv_env["PATH"] = venv_bin + ":" + venv_env.get("PATH", "")
+    venv_env["VIRTUAL_ENV"] = str(PROJECT_ROOT / "venv")
+
     # Run AXI-Lite tests
-    success, duration, output = run_command(
+    _, duration, output = run_command(
         ["make", "test_axi_lite", "DUT=sensor_controller"],
         cwd=str(cocotb_dir),
-        timeout=300
+        timeout=300,
+        env=venv_env
     )
 
-    # Parse results for each AXI test
+    # Parse cocotb output for test results
+    # Format: ** test_axi_lite.test_axion_001_ro_read                 PASS         190.00 ...
+    import re
+    test_pattern = re.compile(r'\*\*\s+(test_\w+\.test_\w+)\s+(PASS|FAIL|SKIP)')
+
+    axi_results = {}
+    for match in test_pattern.finditer(output):
+        full_name = match.group(1)
+        status = match.group(2).lower()
+        # Extract just the test function name
+        test_func = full_name.split('.')[-1]
+        axi_results[test_func] = status
+
+    # Map results to our test list
     for test_id, desc in cocotb_axi_tests:
-        if success and test_id in output:
-            if f"{test_id} passed" in output.lower() or f"pass" in output.lower():
+        if test_id in axi_results:
+            status = axi_results[test_id]
+            if status == "pass":
                 results.append(TestResult(f"cocotb.axi.{test_id}", desc, "passed", 0,
                                           "", category="cocotb", subcategory="axi_lite"))
-            else:
+            elif status == "fail":
                 results.append(TestResult(f"cocotb.axi.{test_id}", desc, "failed", 0,
-                                          "Test failed", category="cocotb", subcategory="axi_lite"))
+                                          "Assertion failed", category="cocotb", subcategory="axi_lite"))
+            else:
+                results.append(TestResult(f"cocotb.axi.{test_id}", desc, "skipped", 0,
+                                          "", category="cocotb", subcategory="axi_lite"))
         else:
-            status = "skipped" if not success else "passed"
-            results.append(TestResult(f"cocotb.axi.{test_id}", desc, status, 0,
-                                      "" if status == "passed" else "Cocotb environment not ready",
-                                      category="cocotb", subcategory="axi_lite"))
+            # Test not found in output - either not run or environment issue
+            results.append(TestResult(f"cocotb.axi.{test_id}", desc, "skipped", 0,
+                                      "Test not executed", category="cocotb", subcategory="axi_lite"))
 
     # Run CDC tests
-    success, duration, output = run_command(
+    _, duration, output = run_command(
         ["make", "test_cdc", "DUT=sensor_controller"],
         cwd=str(cocotb_dir),
-        timeout=300
+        timeout=300,
+        env=venv_env
     )
 
-    # Parse results for each CDC test
+    cdc_results = {}
+    for match in test_pattern.finditer(output):
+        full_name = match.group(1)
+        status = match.group(2).lower()
+        test_func = full_name.split('.')[-1]
+        cdc_results[test_func] = status
+
+    # Map results to our test list
     for test_id, desc in cocotb_cdc_tests:
-        if success and test_id in output:
-            if f"{test_id} passed" in output.lower() or f"pass" in output.lower():
+        if test_id in cdc_results:
+            status = cdc_results[test_id]
+            if status == "pass":
                 results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "passed", 0,
                                           "", category="cocotb", subcategory="cdc"))
-            else:
+            elif status == "fail":
                 results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "failed", 0,
-                                          "Test failed", category="cocotb", subcategory="cdc"))
+                                          "Assertion failed", category="cocotb", subcategory="cdc"))
+            else:
+                results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "skipped", 0,
+                                          "", category="cocotb", subcategory="cdc"))
         else:
-            status = "skipped" if not success else "passed"
-            results.append(TestResult(f"cocotb.cdc.{test_id}", desc, status, 0,
-                                      "" if status == "passed" else "Cocotb environment not ready",
-                                      category="cocotb", subcategory="cdc"))
+            results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "skipped", 0,
+                                      "Test not executed", category="cocotb", subcategory="cdc"))
 
     return results
 
