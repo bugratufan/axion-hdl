@@ -1961,8 +1961,14 @@ def run_cocotb_tests() -> List[TestResult]:
         ("test_cdc_fast_to_slow", "CDC: Fast to Slow Clock Domain Transfer"),
     ]
 
-    # Check if cocotb-config is available (definitive check for cocotb installation)
-    cocotb_config_available, _, _ = run_command(["which", "cocotb-config"])
+    # Check if cocotb-config is available (check venv first, then system)
+    venv_cocotb_config = PROJECT_ROOT / "venv" / "bin" / "cocotb-config"
+    if venv_cocotb_config.exists():
+        cocotb_config_path = str(venv_cocotb_config)
+        cocotb_config_available = True
+    else:
+        cocotb_config_available, _, _ = run_command(["which", "cocotb-config"])
+        cocotb_config_path = "cocotb-config"
 
     # Check if GHDL is available
     ghdl_available, _, _ = run_command(["which", "ghdl"])
@@ -1985,7 +1991,7 @@ def run_cocotb_tests() -> List[TestResult]:
         return results
 
     # Get cocotb version
-    _, _, cocotb_version = run_command(["cocotb-config", "--version"])
+    _, _, cocotb_version = run_command([cocotb_config_path, "--version"])
     cocotb_version = cocotb_version.strip() if cocotb_version else "unknown"
 
     # Setup check

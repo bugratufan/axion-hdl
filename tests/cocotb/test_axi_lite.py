@@ -11,8 +11,6 @@ Uses cocotbext-axi for AXI-Lite transactions.
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer, ClockCycles, FallingEdge
-from cocotb.result import TestFailure
-from cocotb.handle import SimHandleBase
 
 try:
     from cocotbext.axi import AxiLiteMaster, AxiLiteBus
@@ -26,7 +24,7 @@ import random
 class AxiLiteTestHelper:
     """Helper class for AXI-Lite testing without cocotbext-axi"""
 
-    def __init__(self, dut, clk_name="s_axi_aclk", rst_name="s_axi_aresetn"):
+    def __init__(self, dut, clk_name="axi_aclk", rst_name="axi_aresetn"):
         self.dut = dut
         self.clk = getattr(dut, clk_name)
         self.rst = getattr(dut, rst_name)
@@ -37,32 +35,32 @@ class AxiLiteTestHelper:
 
         # Start write transaction
         await RisingEdge(self.clk)
-        dut.s_axi_awaddr.value = addr
-        dut.s_axi_awvalid.value = 1
-        dut.s_axi_wdata.value = data
-        dut.s_axi_wstrb.value = strb
-        dut.s_axi_wvalid.value = 1
-        dut.s_axi_bready.value = 1
+        dut.axi_awaddr.value = addr
+        dut.axi_awvalid.value = 1
+        dut.axi_wdata.value = data
+        dut.axi_wstrb.value = strb
+        dut.axi_wvalid.value = 1
+        dut.axi_bready.value = 1
 
         # Wait for address ready
         while True:
             await RisingEdge(self.clk)
-            if dut.s_axi_awready.value == 1:
+            if dut.axi_awready.value == 1:
                 break
-        dut.s_axi_awvalid.value = 0
+        dut.axi_awvalid.value = 0
 
         # Wait for write ready
-        while dut.s_axi_wready.value != 1:
+        while dut.axi_wready.value != 1:
             await RisingEdge(self.clk)
-        dut.s_axi_wvalid.value = 0
+        dut.axi_wvalid.value = 0
 
         # Wait for response
-        while dut.s_axi_bvalid.value != 1:
+        while dut.axi_bvalid.value != 1:
             await RisingEdge(self.clk)
 
-        resp = int(dut.s_axi_bresp.value)
+        resp = int(dut.axi_bresp.value)
         await RisingEdge(self.clk)
-        dut.s_axi_bready.value = 0
+        dut.axi_bready.value = 0
 
         return resp
 
@@ -72,46 +70,46 @@ class AxiLiteTestHelper:
 
         # Start read transaction
         await RisingEdge(self.clk)
-        dut.s_axi_araddr.value = addr
-        dut.s_axi_arvalid.value = 1
-        dut.s_axi_rready.value = 1
+        dut.axi_araddr.value = addr
+        dut.axi_arvalid.value = 1
+        dut.axi_rready.value = 1
 
         # Wait for address ready
         while True:
             await RisingEdge(self.clk)
-            if dut.s_axi_arready.value == 1:
+            if dut.axi_arready.value == 1:
                 break
-        dut.s_axi_arvalid.value = 0
+        dut.axi_arvalid.value = 0
 
         # Wait for data valid
-        while dut.s_axi_rvalid.value != 1:
+        while dut.axi_rvalid.value != 1:
             await RisingEdge(self.clk)
 
-        data = int(dut.s_axi_rdata.value)
-        resp = int(dut.s_axi_rresp.value)
+        data = int(dut.axi_rdata.value)
+        resp = int(dut.axi_rresp.value)
         await RisingEdge(self.clk)
-        dut.s_axi_rready.value = 0
+        dut.axi_rready.value = 0
 
         return data, resp
 
 
 async def reset_dut(dut, clk, cycles=10):
     """Reset the DUT"""
-    dut.s_axi_aresetn.value = 0
+    dut.axi_aresetn.value = 0
 
     # Initialize all AXI signals
-    dut.s_axi_awaddr.value = 0
-    dut.s_axi_awvalid.value = 0
-    dut.s_axi_wdata.value = 0
-    dut.s_axi_wstrb.value = 0
-    dut.s_axi_wvalid.value = 0
-    dut.s_axi_bready.value = 0
-    dut.s_axi_araddr.value = 0
-    dut.s_axi_arvalid.value = 0
-    dut.s_axi_rready.value = 0
+    dut.axi_awaddr.value = 0
+    dut.axi_awvalid.value = 0
+    dut.axi_wdata.value = 0
+    dut.axi_wstrb.value = 0
+    dut.axi_wvalid.value = 0
+    dut.axi_bready.value = 0
+    dut.axi_araddr.value = 0
+    dut.axi_arvalid.value = 0
+    dut.axi_rready.value = 0
 
     await ClockCycles(clk, cycles)
-    dut.s_axi_aresetn.value = 1
+    dut.axi_aresetn.value = 1
     await ClockCycles(clk, 5)
 
 
@@ -122,7 +120,7 @@ async def reset_dut(dut, clk, cycles=10):
 @cocotb.test()
 async def test_axion_001_ro_read(dut):
     """AXION-001: Read-Only Register Read Access"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
@@ -142,7 +140,7 @@ async def test_axion_001_ro_read(dut):
 @cocotb.test()
 async def test_axion_002_ro_write_protection(dut):
     """AXION-002: Read-Only Register Write Protection"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
@@ -164,7 +162,7 @@ async def test_axion_002_ro_write_protection(dut):
 @cocotb.test()
 async def test_axion_003_wo_write(dut):
     """AXION-003: Write-Only Register Write Access"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
@@ -181,7 +179,7 @@ async def test_axion_003_wo_write(dut):
 @cocotb.test()
 async def test_axion_004_wo_read_protection(dut):
     """AXION-004: Write-Only Register Read Protection"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
@@ -198,7 +196,7 @@ async def test_axion_004_wo_read_protection(dut):
 @cocotb.test()
 async def test_axion_005_rw_full_access(dut):
     """AXION-005: Read-Write Register Full Access"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
@@ -222,48 +220,48 @@ async def test_axion_005_rw_full_access(dut):
 @cocotb.test()
 async def test_axion_011_write_handshake(dut):
     """AXION-011: AXI Write Transaction Handshake"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
 
     # Detailed handshake verification
     await RisingEdge(clk)
-    dut.s_axi_awaddr.value = 0x04
-    dut.s_axi_awvalid.value = 1
-    dut.s_axi_wdata.value = 0x12345678
-    dut.s_axi_wstrb.value = 0xF
-    dut.s_axi_wvalid.value = 1
-    dut.s_axi_bready.value = 0  # Not ready for response yet
+    dut.axi_awaddr.value = 0x04
+    dut.axi_awvalid.value = 1
+    dut.axi_wdata.value = 0x12345678
+    dut.axi_wstrb.value = 0xF
+    dut.axi_wvalid.value = 1
+    dut.axi_bready.value = 0  # Not ready for response yet
 
     # Wait for AWREADY
     timeout = 100
     for _ in range(timeout):
         await RisingEdge(clk)
-        if dut.s_axi_awready.value == 1:
+        if dut.axi_awready.value == 1:
             break
-    assert dut.s_axi_awready.value == 1, "AXION-011: AWREADY timeout"
-    dut.s_axi_awvalid.value = 0
+    assert dut.axi_awready.value == 1, "AXION-011: AWREADY timeout"
+    dut.axi_awvalid.value = 0
 
     # Wait for WREADY
     for _ in range(timeout):
         await RisingEdge(clk)
-        if dut.s_axi_wready.value == 1:
+        if dut.axi_wready.value == 1:
             break
-    assert dut.s_axi_wready.value == 1, "AXION-011: WREADY timeout"
-    dut.s_axi_wvalid.value = 0
+    assert dut.axi_wready.value == 1, "AXION-011: WREADY timeout"
+    dut.axi_wvalid.value = 0
 
     # Wait for BVALID
     for _ in range(timeout):
         await RisingEdge(clk)
-        if dut.s_axi_bvalid.value == 1:
+        if dut.axi_bvalid.value == 1:
             break
-    assert dut.s_axi_bvalid.value == 1, "AXION-011: BVALID timeout"
+    assert dut.axi_bvalid.value == 1, "AXION-011: BVALID timeout"
 
     # Now assert BREADY
-    dut.s_axi_bready.value = 1
+    dut.axi_bready.value = 1
     await RisingEdge(clk)
-    dut.s_axi_bready.value = 0
+    dut.axi_bready.value = 0
 
     dut._log.info("AXION-011 PASSED: Write handshake completed correctly")
 
@@ -271,37 +269,37 @@ async def test_axion_011_write_handshake(dut):
 @cocotb.test()
 async def test_axion_012_read_handshake(dut):
     """AXION-012: AXI Read Transaction Handshake"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
 
     # Detailed read handshake
     await RisingEdge(clk)
-    dut.s_axi_araddr.value = 0x00
-    dut.s_axi_arvalid.value = 1
-    dut.s_axi_rready.value = 0  # Not ready yet
+    dut.axi_araddr.value = 0x00
+    dut.axi_arvalid.value = 1
+    dut.axi_rready.value = 0  # Not ready yet
 
     # Wait for ARREADY
     timeout = 100
     for _ in range(timeout):
         await RisingEdge(clk)
-        if dut.s_axi_arready.value == 1:
+        if dut.axi_arready.value == 1:
             break
-    assert dut.s_axi_arready.value == 1, "AXION-012: ARREADY timeout"
-    dut.s_axi_arvalid.value = 0
+    assert dut.axi_arready.value == 1, "AXION-012: ARREADY timeout"
+    dut.axi_arvalid.value = 0
 
     # Wait for RVALID
     for _ in range(timeout):
         await RisingEdge(clk)
-        if dut.s_axi_rvalid.value == 1:
+        if dut.axi_rvalid.value == 1:
             break
-    assert dut.s_axi_rvalid.value == 1, "AXION-012: RVALID timeout"
+    assert dut.axi_rvalid.value == 1, "AXION-012: RVALID timeout"
 
     # Assert RREADY
-    dut.s_axi_rready.value = 1
+    dut.axi_rready.value = 1
     await RisingEdge(clk)
-    dut.s_axi_rready.value = 0
+    dut.axi_rready.value = 0
 
     dut._log.info("AXION-012 PASSED: Read handshake completed correctly")
 
@@ -309,7 +307,7 @@ async def test_axion_012_read_handshake(dut):
 @cocotb.test()
 async def test_axion_016_byte_strobe(dut):
     """AXION-016: Byte-Level Write Strobe Support"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
@@ -336,7 +334,7 @@ async def test_axion_016_byte_strobe(dut):
 @cocotb.test()
 async def test_axion_017_sync_reset(dut):
     """AXION-017: Synchronous Reset"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
@@ -347,11 +345,11 @@ async def test_axion_017_sync_reset(dut):
     await helper.write(rw_addr, 0xFFFFFFFF)
 
     # Assert reset
-    dut.s_axi_aresetn.value = 0
+    dut.axi_aresetn.value = 0
     await ClockCycles(clk, 5)
 
     # Release reset
-    dut.s_axi_aresetn.value = 1
+    dut.axi_aresetn.value = 1
     await ClockCycles(clk, 5)
 
     # Read - should be default value (typically 0)
@@ -363,7 +361,7 @@ async def test_axion_017_sync_reset(dut):
 @cocotb.test()
 async def test_axion_021_out_of_range(dut):
     """AXION-021: Out-of-Range Address Access"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
@@ -381,7 +379,7 @@ async def test_axion_021_out_of_range(dut):
 @cocotb.test()
 async def test_axion_023_default_values(dut):
     """AXION-023: Default Register Values"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     # Fresh reset
@@ -403,23 +401,23 @@ async def test_axion_023_default_values(dut):
 @cocotb.test()
 async def test_axi_lite_001_reset_state(dut):
     """AXI-LITE-001: Reset State Requirements"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     # Assert reset
-    dut.s_axi_aresetn.value = 0
+    dut.axi_aresetn.value = 0
     await ClockCycles(clk, 5)
 
     # Check all VALID signals are deasserted during reset
     # Note: Some implementations may not have all these
     checks_passed = True
 
-    if hasattr(dut, 's_axi_awready'):
+    if hasattr(dut, 'axi_awready'):
         # READY signals behavior varies by implementation
         pass
 
     await ClockCycles(clk, 2)
-    dut.s_axi_aresetn.value = 1
+    dut.axi_aresetn.value = 1
 
     dut._log.info("AXI-LITE-001 PASSED: Reset state verified")
 
@@ -427,31 +425,31 @@ async def test_axi_lite_001_reset_state(dut):
 @cocotb.test()
 async def test_axi_lite_003_valid_before_ready(dut):
     """AXI-LITE-003: VALID Before READY Dependency"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
 
     # Master asserts VALID without waiting for READY
     await RisingEdge(clk)
-    dut.s_axi_araddr.value = 0x00
-    dut.s_axi_arvalid.value = 1
+    dut.axi_araddr.value = 0x00
+    dut.axi_arvalid.value = 1
 
     # VALID should remain stable
     for _ in range(5):
         await RisingEdge(clk)
-        assert dut.s_axi_arvalid.value == 1, "AXI-LITE-003: ARVALID dropped before ARREADY"
-        if dut.s_axi_arready.value == 1:
+        assert dut.axi_arvalid.value == 1, "AXI-LITE-003: ARVALID dropped before ARREADY"
+        if dut.axi_arready.value == 1:
             break
 
-    dut.s_axi_arvalid.value = 0
-    dut.s_axi_rready.value = 1
+    dut.axi_arvalid.value = 0
+    dut.axi_rready.value = 1
 
     # Complete transaction
-    while dut.s_axi_rvalid.value != 1:
+    while dut.axi_rvalid.value != 1:
         await RisingEdge(clk)
     await RisingEdge(clk)
-    dut.s_axi_rready.value = 0
+    dut.axi_rready.value = 0
 
     dut._log.info("AXI-LITE-003 PASSED: VALID stable until READY")
 
@@ -459,19 +457,19 @@ async def test_axi_lite_003_valid_before_ready(dut):
 @cocotb.test()
 async def test_axi_lite_004_valid_stability(dut):
     """AXI-LITE-004: VALID Stability Rule"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
 
     # Start write with address
     await RisingEdge(clk)
-    dut.s_axi_awaddr.value = 0x04
-    dut.s_axi_awvalid.value = 1
-    dut.s_axi_wdata.value = 0xDEADBEEF
-    dut.s_axi_wstrb.value = 0xF
-    dut.s_axi_wvalid.value = 1
-    dut.s_axi_bready.value = 1
+    dut.axi_awaddr.value = 0x04
+    dut.axi_awvalid.value = 1
+    dut.axi_wdata.value = 0xDEADBEEF
+    dut.axi_wstrb.value = 0xF
+    dut.axi_wvalid.value = 1
+    dut.axi_bready.value = 1
 
     # Track VALID signals - they must remain high until READY
     aw_done = False
@@ -481,27 +479,27 @@ async def test_axi_lite_004_valid_stability(dut):
         await RisingEdge(clk)
 
         if not aw_done:
-            if dut.s_axi_awready.value == 1:
+            if dut.axi_awready.value == 1:
                 aw_done = True
-                dut.s_axi_awvalid.value = 0
+                dut.axi_awvalid.value = 0
             else:
-                assert dut.s_axi_awvalid.value == 1, "AXI-LITE-004: AWVALID dropped early"
+                assert dut.axi_awvalid.value == 1, "AXI-LITE-004: AWVALID dropped early"
 
         if not w_done:
-            if dut.s_axi_wready.value == 1:
+            if dut.axi_wready.value == 1:
                 w_done = True
-                dut.s_axi_wvalid.value = 0
+                dut.axi_wvalid.value = 0
             else:
-                assert dut.s_axi_wvalid.value == 1, "AXI-LITE-004: WVALID dropped early"
+                assert dut.axi_wvalid.value == 1, "AXI-LITE-004: WVALID dropped early"
 
         if aw_done and w_done:
             break
 
     # Wait for response
-    while dut.s_axi_bvalid.value != 1:
+    while dut.axi_bvalid.value != 1:
         await RisingEdge(clk)
     await RisingEdge(clk)
-    dut.s_axi_bready.value = 0
+    dut.axi_bready.value = 0
 
     dut._log.info("AXI-LITE-004 PASSED: VALID signals stable until handshake")
 
@@ -509,68 +507,68 @@ async def test_axi_lite_004_valid_stability(dut):
 @cocotb.test()
 async def test_axi_lite_005_write_independence(dut):
     """AXI-LITE-005: Write Address/Data Independence"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
 
     # Test 1: Address first, then data
     await RisingEdge(clk)
-    dut.s_axi_awaddr.value = 0x04
-    dut.s_axi_awvalid.value = 1
-    dut.s_axi_wvalid.value = 0
-    dut.s_axi_bready.value = 1
+    dut.axi_awaddr.value = 0x04
+    dut.axi_awvalid.value = 1
+    dut.axi_wvalid.value = 0
+    dut.axi_bready.value = 1
 
     # Wait for AWREADY
-    while dut.s_axi_awready.value != 1:
+    while dut.axi_awready.value != 1:
         await RisingEdge(clk)
-    dut.s_axi_awvalid.value = 0
+    dut.axi_awvalid.value = 0
 
     # Now send data
     await RisingEdge(clk)
-    dut.s_axi_wdata.value = 0x11111111
-    dut.s_axi_wstrb.value = 0xF
-    dut.s_axi_wvalid.value = 1
+    dut.axi_wdata.value = 0x11111111
+    dut.axi_wstrb.value = 0xF
+    dut.axi_wvalid.value = 1
 
-    while dut.s_axi_wready.value != 1:
+    while dut.axi_wready.value != 1:
         await RisingEdge(clk)
-    dut.s_axi_wvalid.value = 0
+    dut.axi_wvalid.value = 0
 
-    while dut.s_axi_bvalid.value != 1:
+    while dut.axi_bvalid.value != 1:
         await RisingEdge(clk)
-    resp1 = int(dut.s_axi_bresp.value)
+    resp1 = int(dut.axi_bresp.value)
     await RisingEdge(clk)
-    dut.s_axi_bready.value = 0
+    dut.axi_bready.value = 0
 
     assert resp1 == 0, f"AXI-LITE-005: Address-first write failed with resp={resp1}"
 
     # Test 2: Data first, then address
     await ClockCycles(clk, 5)
     await RisingEdge(clk)
-    dut.s_axi_wdata.value = 0x22222222
-    dut.s_axi_wstrb.value = 0xF
-    dut.s_axi_wvalid.value = 1
-    dut.s_axi_awvalid.value = 0
-    dut.s_axi_bready.value = 1
+    dut.axi_wdata.value = 0x22222222
+    dut.axi_wstrb.value = 0xF
+    dut.axi_wvalid.value = 1
+    dut.axi_awvalid.value = 0
+    dut.axi_bready.value = 1
 
-    while dut.s_axi_wready.value != 1:
+    while dut.axi_wready.value != 1:
         await RisingEdge(clk)
-    dut.s_axi_wvalid.value = 0
+    dut.axi_wvalid.value = 0
 
     # Now send address
     await RisingEdge(clk)
-    dut.s_axi_awaddr.value = 0x04
-    dut.s_axi_awvalid.value = 1
+    dut.axi_awaddr.value = 0x04
+    dut.axi_awvalid.value = 1
 
-    while dut.s_axi_awready.value != 1:
+    while dut.axi_awready.value != 1:
         await RisingEdge(clk)
-    dut.s_axi_awvalid.value = 0
+    dut.axi_awvalid.value = 0
 
-    while dut.s_axi_bvalid.value != 1:
+    while dut.axi_bvalid.value != 1:
         await RisingEdge(clk)
-    resp2 = int(dut.s_axi_bresp.value)
+    resp2 = int(dut.axi_bresp.value)
     await RisingEdge(clk)
-    dut.s_axi_bready.value = 0
+    dut.axi_bready.value = 0
 
     assert resp2 == 0, f"AXI-LITE-005: Data-first write failed with resp={resp2}"
 
@@ -580,7 +578,7 @@ async def test_axi_lite_005_write_independence(dut):
 @cocotb.test()
 async def test_axi_lite_006_back_to_back(dut):
     """AXI-LITE-006: Back-to-Back Transaction Support"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
@@ -599,34 +597,34 @@ async def test_axi_lite_006_back_to_back(dut):
 @cocotb.test()
 async def test_axi_lite_016_delayed_ready(dut):
     """AXI-LITE-016: Delayed READY Handling"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
 
     # Start read, but delay RREADY
     await RisingEdge(clk)
-    dut.s_axi_araddr.value = 0x00
-    dut.s_axi_arvalid.value = 1
-    dut.s_axi_rready.value = 0  # Not ready
+    dut.axi_araddr.value = 0x00
+    dut.axi_arvalid.value = 1
+    dut.axi_rready.value = 0  # Not ready
 
-    while dut.s_axi_arready.value != 1:
+    while dut.axi_arready.value != 1:
         await RisingEdge(clk)
-    dut.s_axi_arvalid.value = 0
+    dut.axi_arvalid.value = 0
 
     # Wait for RVALID but don't assert RREADY yet
-    while dut.s_axi_rvalid.value != 1:
+    while dut.axi_rvalid.value != 1:
         await RisingEdge(clk)
 
     # RVALID should stay high while we wait
     for _ in range(5):
         await RisingEdge(clk)
-        assert dut.s_axi_rvalid.value == 1, "AXI-LITE-016: RVALID dropped while waiting for RREADY"
+        assert dut.axi_rvalid.value == 1, "AXI-LITE-016: RVALID dropped while waiting for RREADY"
 
     # Now accept
-    dut.s_axi_rready.value = 1
+    dut.axi_rready.value = 1
     await RisingEdge(clk)
-    dut.s_axi_rready.value = 0
+    dut.axi_rready.value = 0
 
     dut._log.info("AXI-LITE-016 PASSED: Delayed READY handled correctly")
 
@@ -634,31 +632,31 @@ async def test_axi_lite_016_delayed_ready(dut):
 @cocotb.test()
 async def test_axi_lite_017_early_ready(dut):
     """AXI-LITE-017: Early READY Handling"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
 
     # Assert RREADY before starting transaction
     await RisingEdge(clk)
-    dut.s_axi_rready.value = 1
+    dut.axi_rready.value = 1
 
     # Now start read
     await RisingEdge(clk)
-    dut.s_axi_araddr.value = 0x00
-    dut.s_axi_arvalid.value = 1
+    dut.axi_araddr.value = 0x00
+    dut.axi_arvalid.value = 1
 
-    while dut.s_axi_arready.value != 1:
+    while dut.axi_arready.value != 1:
         await RisingEdge(clk)
-    dut.s_axi_arvalid.value = 0
+    dut.axi_arvalid.value = 0
 
     # Should complete immediately when RVALID arrives
-    while dut.s_axi_rvalid.value != 1:
+    while dut.axi_rvalid.value != 1:
         await RisingEdge(clk)
 
-    data = int(dut.s_axi_rdata.value)
+    data = int(dut.axi_rdata.value)
     await RisingEdge(clk)
-    dut.s_axi_rready.value = 0
+    dut.axi_rready.value = 0
 
     dut._log.info(f"AXI-LITE-017 PASSED: Early READY worked, data=0x{data:08X}")
 
@@ -670,7 +668,7 @@ async def test_axi_lite_017_early_ready(dut):
 @cocotb.test()
 async def test_stress_random_access(dut):
     """STRESS: Random register access pattern"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
@@ -695,7 +693,7 @@ async def test_stress_random_access(dut):
 @cocotb.test()
 async def test_stress_rapid_writes(dut):
     """STRESS: Rapid consecutive writes"""
-    clk = dut.s_axi_aclk
+    clk = dut.axi_aclk
     cocotb.start_soon(Clock(clk, 10, units="ns").start())
 
     await reset_dut(dut, clk)
