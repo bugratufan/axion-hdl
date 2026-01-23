@@ -13,14 +13,13 @@ This module provides thorough verification of CDC functionality including:
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, FallingEdge, Timer, ClockCycles, First, Edge
-from cocotb.result import TestFailure
 
 import random
 
 
 async def start_clocks(dut, axi_period_ns=10, mod_period_ns=17):
     """Start asynchronous clocks with different frequencies"""
-    axi_clk = getattr(dut, 's_axi_aclk', None) or getattr(dut, 'axi_clk', None)
+    axi_clk = getattr(dut, 'axi_aclk', None) or getattr(dut, 'axi_clk', None)
     mod_clk = getattr(dut, 'module_clk', None) or getattr(dut, 'mod_clk', None)
 
     if axi_clk:
@@ -34,15 +33,15 @@ async def start_clocks(dut, axi_period_ns=10, mod_period_ns=17):
 async def reset_cdc_dut(dut, axi_clk, mod_clk, cycles=10):
     """Reset DUT with proper CDC-aware sequencing"""
     # Assert both resets
-    if hasattr(dut, 's_axi_aresetn'):
-        dut.s_axi_aresetn.value = 0
+    if hasattr(dut, 'axi_aresetn'):
+        dut.axi_aresetn.value = 0
     if hasattr(dut, 'module_resetn'):
         dut.module_resetn.value = 0
 
     # Initialize AXI signals if present
-    for sig in ['s_axi_awaddr', 's_axi_awvalid', 's_axi_wdata', 's_axi_wstrb',
-                's_axi_wvalid', 's_axi_bready', 's_axi_araddr', 's_axi_arvalid',
-                's_axi_rready']:
+    for sig in ['axi_awaddr', 'axi_awvalid', 'axi_wdata', 'axi_wstrb',
+                'axi_wvalid', 'axi_bready', 'axi_araddr', 'axi_arvalid',
+                'axi_rready']:
         if hasattr(dut, sig):
             getattr(dut, sig).value = 0
 
@@ -53,8 +52,8 @@ async def reset_cdc_dut(dut, axi_clk, mod_clk, cycles=10):
         await ClockCycles(mod_clk, cycles)
 
     # Release resets
-    if hasattr(dut, 's_axi_aresetn'):
-        dut.s_axi_aresetn.value = 1
+    if hasattr(dut, 'axi_aresetn'):
+        dut.axi_aresetn.value = 1
     if hasattr(dut, 'module_resetn'):
         dut.module_resetn.value = 1
 
@@ -240,11 +239,11 @@ async def test_cdc_async_reset(dut):
     await reset_cdc_dut(dut, axi_clk, mod_clk)
 
     # Test reset in AXI domain only
-    if hasattr(dut, 's_axi_aresetn'):
+    if hasattr(dut, 'axi_aresetn'):
         await RisingEdge(axi_clk)
-        dut.s_axi_aresetn.value = 0
+        dut.axi_aresetn.value = 0
         await ClockCycles(axi_clk, 5)
-        dut.s_axi_aresetn.value = 1
+        dut.axi_aresetn.value = 1
         await ClockCycles(axi_clk, 5)
 
     # Test reset in module domain only

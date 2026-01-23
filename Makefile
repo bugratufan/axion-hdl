@@ -3,9 +3,15 @@
 
 .PHONY: all build install dev-install test test-vhdl test-c test-python clean dist upload-test upload help
 
-# Python interpreter
-PYTHON := python3
-PIP := pip3
+# Python interpreter (use venv if available)
+VENV_DIR := $(PROJECT_ROOT)/venv
+ifneq ($(wildcard $(VENV_DIR)/bin/python3),)
+    PYTHON := $(VENV_DIR)/bin/python3
+    PIP := $(VENV_DIR)/bin/pip3
+else
+    PYTHON := python3
+    PIP := pip3
+endif
 
 # Directories
 PROJECT_ROOT := $(shell pwd)

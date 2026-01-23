@@ -9,8 +9,18 @@
 #   make WAVES=1            - Generate waveforms
 #   make GUI=1              - Open waveform viewer after test
 
-# Check if cocotb is installed
-COCOTB_CONFIG := $(shell which cocotb-config 2>/dev/null)
+# Project paths
+PROJECT_ROOT := $(shell cd ../.. && pwd)
+VENV_DIR := $(PROJECT_ROOT)/venv
+
+# Check if cocotb is installed (check venv first, then system)
+ifneq ($(wildcard $(VENV_DIR)/bin/cocotb-config),)
+    COCOTB_CONFIG := $(VENV_DIR)/bin/cocotb-config
+    PYTHON := $(VENV_DIR)/bin/python3
+else
+    COCOTB_CONFIG := $(shell which cocotb-config 2>/dev/null)
+    PYTHON := python3
+endif
 
 ifeq ($(COCOTB_CONFIG),)
 $(warning cocotb not installed. Install with: pip install cocotb cocotb-bus cocotbext-axi)
