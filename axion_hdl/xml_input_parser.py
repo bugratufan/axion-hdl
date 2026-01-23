@@ -19,11 +19,6 @@ from pathlib import Path
 from axion_hdl.address_manager import AddressManager
 from axion_hdl.yaml_input_parser import YAMLInputParser
 
-try:
-    import yaml
-except ImportError:
-    yaml = None
-
 
 class XMLInputParser:
     """Parser for XML register definition files.
@@ -46,9 +41,10 @@ class XMLInputParser:
         self.address_manager = AddressManager()
         self._exclude_patterns: Set[str] = set()
         self.errors = []
-        self.yaml_parser = YAMLInputParser()
         
-        if yaml is None:
+        try:
+            self.yaml_parser = YAMLInputParser()
+        except ImportError:
             raise ImportError("PyYAML is required for XML input support. Install with: pip install PyYAML")
     
     def add_exclude(self, pattern: str):
@@ -107,13 +103,13 @@ class XMLInputParser:
             if not yaml_data:
                 return None
             
-            # Use YAML parser for processing
-            result = self.yaml_parser._parse_yaml_data(yaml_data, filepath)
+            # Use YAML parser for processing via public API
+            result = self.yaml_parser.parse_data(yaml_data, filepath)
             
             # Merge errors from YAML parser
             if self.yaml_parser.errors:
                 self.errors.extend(self.yaml_parser.errors)
-                self.yaml_parser.errors = []
+                self.yaml_parser.errors.clear()
             
             return result
                 

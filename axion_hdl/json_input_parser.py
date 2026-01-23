@@ -14,11 +14,6 @@ from typing import Dict, List, Optional, Set
 from axion_hdl.address_manager import AddressManager
 from axion_hdl.yaml_input_parser import YAMLInputParser
 
-try:
-    import yaml
-except ImportError:
-    yaml = None
-
 
 class JSONInputParser:
     """Parser for JSON register definition files.
@@ -49,9 +44,10 @@ class JSONInputParser:
         self.address_manager = AddressManager()
         self._exclude_patterns: Set[str] = set()
         self.errors = []
-        self.yaml_parser = YAMLInputParser()
         
-        if yaml is None:
+        try:
+            self.yaml_parser = YAMLInputParser()
+        except ImportError:
             raise ImportError("PyYAML is required for JSON input support. Install with: pip install PyYAML")
     
     def add_exclude(self, pattern: str):
@@ -109,13 +105,13 @@ class JSONInputParser:
                 return None
             
             # JSON data is already a dict, directly compatible with YAML structure
-            # Use YAML parser for processing
-            result = self.yaml_parser._parse_yaml_data(data, filepath)
+            # Use YAML parser for processing via public API
+            result = self.yaml_parser.parse_data(data, filepath)
             
             # Merge errors from YAML parser
             if self.yaml_parser.errors:
                 self.errors.extend(self.yaml_parser.errors)
-                self.yaml_parser.errors = []
+                self.yaml_parser.errors.clear()
             
             return result
             
