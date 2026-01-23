@@ -1,47 +1,53 @@
 <testsuites name="results">
   <testsuite name="all" package="all">
-    <property name="random_seed" value="1769172939" />
-    <testcase name="test_axion_001_ro_read" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="120" time="0.0019047260284423828" sim_time_ns="190.0" ratio_time="99751.87883339592" />
-    <testcase name="test_axion_002_ro_write_protection" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="140" time="0.0009098052978515625" sim_time_ns="300.0" ratio_time="329740.88050314464" />
-    <testcase name="test_axion_003_wo_write" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="162" time="0.0017251968383789062" sim_time_ns="199.99999999999994" ratio_time="115928.80044223325">
-      <failure error_type="AssertionError" error_msg="AXION-003: Expected OKAY response, got 2&#10;assert 2 == 0" />
+    <property name="random_seed" value="1769173214" />
+    <testcase name="test_cdc_001_stage_count" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="83" time="0.0007874965667724609" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
     </testcase>
-    <testcase name="test_axion_004_wo_read_protection" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="179" time="0.0013594627380371094" sim_time_ns="190.0" ratio_time="139761.09435285864">
-      <failure error_type="ValueError" error_msg="Can't convert LogicArray to int: it contains non-0/1 values" />
+    <testcase name="test_cdc_004_module_clock_port" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="110" time="0.0003712177276611328" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
     </testcase>
-    <testcase name="test_axion_005_rw_full_access" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="196" time="0.0008871555328369141" sim_time_ns="199.9999999999999" ratio_time="225439.61300725598">
-      <failure error_type="AssertionError" error_msg="AXION-005: Write failed with resp=2&#10;assert 2 == 0" />
+    <testcase name="test_cdc_006_ro_path_sync" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="127" time="0.00031495094299316406" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
     </testcase>
-    <testcase name="test_axion_011_write_handshake" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="220" time="0.0029087066650390625" sim_time_ns="1180.0" ratio_time="405678.5836065574">
-      <failure error_type="AssertionError" error_msg="AXION-011: WREADY timeout&#10;assert Logic('0') == 1&#10; +  where Logic('0') = LogicObject(sensor_controller_axion_reg.axi_wready).value&#10; +    where LogicObject(sensor_controller_axion_reg.axi_wready) = HierarchyObject(sensor_controller_axion_reg).axi_wready" />
+    <testcase name="test_cdc_007_rw_path_sync" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="154" time="0.0003085136413574219" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
     </testcase>
-    <testcase name="test_axion_012_read_handshake" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="269" time="0.0006582736968994141" sim_time_ns="200.0" ratio_time="303824.9909453097" />
-    <testcase name="test_axion_016_byte_strobe" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="307" time="0.0013315677642822266" sim_time_ns="290.0" ratio_time="217788.39033124442">
-      <failure error_type="ValueError" error_msg="Can't convert LogicArray to int: it contains non-0/1 values" />
+    <testcase name="test_cdc_gray_code_counter" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="176" time="0.00035572052001953125" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
     </testcase>
-    <testcase name="test_axion_017_sync_reset" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="334" time="0.0014617443084716797" sim_time_ns="340.0" ratio_time="232598.81911596804">
-      <failure error_type="ValueError" error_msg="Can't convert LogicArray to int: it contains non-0/1 values" />
+    <testcase name="test_cdc_handshake_protocol" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="210" time="0.00030350685119628906" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
     </testcase>
-    <testcase name="test_axion_021_out_of_range" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="361" time="0.0007283687591552734" sim_time_ns="200.0" ratio_time="274586.1865793781" />
-    <testcase name="test_axion_023_default_values" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="379" time="0.0010883808135986328" sim_time_ns="190.0" ratio_time="174571.2508214677">
-      <failure error_type="ValueError" error_msg="Can't convert LogicArray to int: it contains non-0/1 values" />
+    <testcase name="test_cdc_async_reset" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="230" time="0.0002887248992919922" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
     </testcase>
-    <testcase name="test_axi_lite_001_reset_state" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="401" time="0.0002846717834472656" sim_time_ns="70.0" ratio_time="245897.21943048577" />
-    <testcase name="test_axi_lite_003_valid_before_ready" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="425" time="0.0005941390991210938" sim_time_ns="200.0" ratio_time="336621.5088282504" />
-    <testcase name="test_axi_lite_004_valid_stability" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="457" time="0.0006034374237060547" sim_time_ns="200.0" ratio_time="331434.53180561046" />
-    <testcase name="test_axi_lite_005_write_independence" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="507" time="0.0008947849273681641" sim_time_ns="230.0" ratio_time="257045.00932587264">
-      <failure error_type="AssertionError" error_msg="AXI-LITE-005: Address-first write failed with resp=2&#10;assert 2 == 0" />
+    <testcase name="test_cdc_metastability_stress" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="260" time="0.00030303001403808594" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
     </testcase>
-    <testcase name="test_axi_lite_006_back_to_back" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="578" time="0.0013468265533447266" sim_time_ns="240.0" ratio_time="178196.66489644186">
-      <failure error_type="ValueError" error_msg="Can't convert LogicArray to int: it contains non-0/1 values" />
+    <testcase name="test_cdc_clock_ratio_2x" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="285" time="0.00028395652770996094" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
     </testcase>
-    <testcase name="test_axi_lite_016_delayed_ready" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="597" time="0.0007548332214355469" sim_time_ns="250.0" ratio_time="331198.98926089704" />
-    <testcase name="test_axi_lite_017_early_ready" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="632" time="0.0006108283996582031" sim_time_ns="210.0" ratio_time="343795.40983606555" />
-    <testcase name="test_stress_random_access" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="668" time="0.0012333393096923828" sim_time_ns="240.0" ratio_time="194593.65165281267">
-      <failure error_type="ValueError" error_msg="Can't convert LogicArray to int: it contains non-0/1 values" />
+    <testcase name="test_cdc_clock_ratio_prime" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="309" time="0.0002791881561279297" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
     </testcase>
-    <testcase name="test_stress_rapid_writes" classname="test_axi_lite" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_axi_lite.py" lineno="693" time="0.006632566452026367" sim_time_ns="2690.0" ratio_time="405574.52676228475">
-      <failure error_type="ValueError" error_msg="Can't convert LogicArray to int: it contains non-0/1 values" />
+    <testcase name="test_cdc_data_coherency" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="336" time="0.00026106834411621094" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
+    </testcase>
+    <testcase name="test_cdc_pulse_sync" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="366" time="0.0002956390380859375" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
+    </testcase>
+    <testcase name="test_cdc_burst_transfer" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="392" time="0.0002856254577636719" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
+    </testcase>
+    <testcase name="test_cdc_simultaneous_edges" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="420" time="0.0002849102020263672" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
+    </testcase>
+    <testcase name="test_cdc_slow_to_fast" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="443" time="0.0002949237823486328" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
+    </testcase>
+    <testcase name="test_cdc_fast_to_slow" classname="test_cdc" file="/home/bugra/Desktop/git/axion-hdl/tests/cocotb/test_cdc.py" lineno="468" time="0.0002772808074951172" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="TypeError" error_msg="This object cannot be cast to bool or used in conditionals. Use `obj is not None` check in conditionals." />
     </testcase>
   </testsuite>
 </testsuites>
