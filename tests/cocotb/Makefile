@@ -9,6 +9,21 @@
 #   make WAVES=1            - Generate waveforms
 #   make GUI=1              - Open waveform viewer after test
 
+# Check if cocotb is installed
+COCOTB_CONFIG := $(shell which cocotb-config 2>/dev/null)
+
+ifeq ($(COCOTB_CONFIG),)
+$(warning cocotb not installed. Install with: pip install cocotb cocotb-bus cocotbext-axi)
+
+.PHONY: all test_axi_lite test_cdc test_all
+all test_axi_lite test_cdc test_all:
+	@echo "ERROR: cocotb is not installed."
+	@echo "Install with: pip install cocotb cocotb-bus cocotbext-axi"
+	@exit 1
+
+else
+# cocotb is installed - proceed with normal setup
+
 # Simulator selection
 SIM ?= ghdl
 TOPLEVEL_LANG ?= vhdl
@@ -88,7 +103,10 @@ axion.generate_vhdl()"
 clean_cocotb:
 	rm -rf __pycache__ *.vcd *.xml sim_build results.xml
 
-# Help
+endif
+
+# Help (always available)
+.PHONY: help
 help:
 	@echo "Cocotb Test Targets:"
 	@echo "  make                 - Run default test module"
