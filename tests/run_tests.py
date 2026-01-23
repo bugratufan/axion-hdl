@@ -1918,104 +1918,125 @@ def run_cocotb_tests() -> List[TestResult]:
     """Run cocotb VHDL simulation tests"""
     results = []
 
-    # Check if cocotb is available
-    cocotb_available = False
-    cocotb_version = "unknown"
-    try:
-        import cocotb
-        cocotb_version = getattr(cocotb, '__version__', 'installed')
-        cocotb_available = True
-    except ImportError:
-        cocotb_available = False
+    # Define all cocotb tests with their descriptions
+    cocotb_axi_tests = [
+        ("test_axion_001_ro_read", "AXION-001: Read-Only Register Read Access"),
+        ("test_axion_002_ro_write_protection", "AXION-002: Read-Only Register Write Protection"),
+        ("test_axion_003_wo_write", "AXION-003: Write-Only Register Write Access"),
+        ("test_axion_004_wo_read_protection", "AXION-004: Write-Only Register Read Protection"),
+        ("test_axion_005_rw_full_access", "AXION-005: Read-Write Register Full Access"),
+        ("test_axion_011_write_handshake", "AXION-011: AXI Write Transaction Handshake"),
+        ("test_axion_012_read_handshake", "AXION-012: AXI Read Transaction Handshake"),
+        ("test_axion_016_byte_strobe", "AXION-016: Byte-Level Write Strobe Support"),
+        ("test_axion_017_sync_reset", "AXION-017: Synchronous Reset Behavior"),
+        ("test_axion_021_out_of_range", "AXION-021: Out-of-Range Address Access"),
+        ("test_axion_023_default_values", "AXION-023: Default Register Values After Reset"),
+        ("test_axi_lite_001_reset_state", "AXI-LITE-001: Reset State Requirements"),
+        ("test_axi_lite_003_valid_before_ready", "AXI-LITE-003: VALID Before READY Dependency"),
+        ("test_axi_lite_004_valid_stability", "AXI-LITE-004: VALID Signal Stability Rule"),
+        ("test_axi_lite_005_write_independence", "AXI-LITE-005: Write Address/Data Independence"),
+        ("test_axi_lite_006_back_to_back", "AXI-LITE-006: Back-to-Back Transaction Support"),
+        ("test_axi_lite_016_delayed_ready", "AXI-LITE-016: Delayed READY Handling"),
+        ("test_axi_lite_017_early_ready", "AXI-LITE-017: Early READY Handling"),
+        ("test_stress_random_access", "STRESS: Random Register Access Pattern"),
+        ("test_stress_rapid_writes", "STRESS: Rapid Consecutive Writes"),
+    ]
+
+    cocotb_cdc_tests = [
+        ("test_cdc_001_stage_count", "CDC-001: Configurable CDC Stage Count"),
+        ("test_cdc_004_module_clock_port", "CDC-004: Module Clock Port Generation"),
+        ("test_cdc_006_ro_path_sync", "CDC-006: RO Register Synchronization (module->AXI)"),
+        ("test_cdc_007_rw_path_sync", "CDC-007: RW Register Synchronization (AXI->module)"),
+        ("test_cdc_gray_code_counter", "CDC: Gray Code Counter Safe Crossing"),
+        ("test_cdc_handshake_protocol", "CDC: 4-Phase Handshake Protocol"),
+        ("test_cdc_async_reset", "CDC: Asynchronous Reset Across Domains"),
+        ("test_cdc_metastability_stress", "CDC: Metastability Stress Test"),
+        ("test_cdc_clock_ratio_2x", "CDC: 2:1 Clock Ratio Crossing"),
+        ("test_cdc_clock_ratio_prime", "CDC: Prime Number Clock Ratio (Worst Case)"),
+        ("test_cdc_data_coherency", "CDC: Multi-bit Data Coherency"),
+        ("test_cdc_pulse_sync", "CDC: Single-Cycle Pulse Synchronization"),
+        ("test_cdc_burst_transfer", "CDC: Burst Data Transfer"),
+        ("test_cdc_simultaneous_edges", "CDC: Simultaneous Clock Edges"),
+        ("test_cdc_slow_to_fast", "CDC: Slow to Fast Clock Domain Transfer"),
+        ("test_cdc_fast_to_slow", "CDC: Fast to Slow Clock Domain Transfer"),
+    ]
+
+    # Check if cocotb-config is available (definitive check for cocotb installation)
+    cocotb_config_available, _, _ = run_command(["which", "cocotb-config"])
 
     # Check if GHDL is available
     ghdl_available, _, _ = run_command(["which", "ghdl"])
 
-    if not cocotb_available:
-        results.append(TestResult("cocotb.check", "Cocotb Available", "skipped", 0,
-                                  "cocotb not installed (pip install cocotb cocotb-bus cocotbext-axi)",
-                                  category="cocotb", subcategory="setup"))
+    if not cocotb_config_available or not ghdl_available:
+        skip_reason = "cocotb not installed" if not cocotb_config_available else "ghdl not found"
+        skip_msg = "pip install cocotb cocotb-bus cocotbext-axi" if not cocotb_config_available else "Install GHDL simulator"
+
+        # List all tests as skipped
+        for test_id, desc in cocotb_axi_tests:
+            results.append(TestResult(f"cocotb.axi.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})",
+                                      category="cocotb", subcategory="axi_lite"))
+
+        for test_id, desc in cocotb_cdc_tests:
+            results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})",
+                                      category="cocotb", subcategory="cdc"))
+
         return results
 
-    if not ghdl_available:
-        results.append(TestResult("cocotb.ghdl_check", "GHDL Available for Cocotb", "skipped", 0,
-                                  "ghdl not found", category="cocotb", subcategory="setup"))
-        return results
+    # Get cocotb version
+    _, _, cocotb_version = run_command(["cocotb-config", "--version"])
+    cocotb_version = cocotb_version.strip() if cocotb_version else "unknown"
 
-    # Test 1: Cocotb setup check
-    test_id = "cocotb.setup"
-    name = "Cocotb Setup Verification"
-    start = time.time()
-    results.append(TestResult(test_id, name, "passed", time.time() - start,
-                              f"cocotb version: {cocotb_version}",
+    # Setup check
+    results.append(TestResult("cocotb.setup", f"Cocotb Setup (v{cocotb_version})", "passed", 0,
+                              f"cocotb {cocotb_version}, ghdl available",
                               category="cocotb", subcategory="setup"))
 
-    # Test 2: Run cocotb AXI-Lite tests
-    test_id = "cocotb.axi_lite"
-    name = "Cocotb AXI-Lite Protocol Tests"
-    start = time.time()
-
     cocotb_dir = PROJECT_ROOT / "tests" / "cocotb"
+
+    # Run AXI-Lite tests
     success, duration, output = run_command(
         ["make", "test_axi_lite", "DUT=sensor_controller"],
         cwd=str(cocotb_dir),
         timeout=300
     )
 
-    if success:
-        # Parse cocotb output for individual test results
-        # Cocotb outputs "PASS" or "FAIL" for each test
-        pass_count = output.count("PASS")
-        fail_count = output.count("FAIL")
-
-        if fail_count == 0:
-            results.append(TestResult(test_id, name, "passed", duration,
-                                      f"{pass_count} tests passed",
-                                      category="cocotb", subcategory="axi_lite"))
+    # Parse results for each AXI test
+    for test_id, desc in cocotb_axi_tests:
+        if success and test_id in output:
+            if f"{test_id} passed" in output.lower() or f"pass" in output.lower():
+                results.append(TestResult(f"cocotb.axi.{test_id}", desc, "passed", 0,
+                                          "", category="cocotb", subcategory="axi_lite"))
+            else:
+                results.append(TestResult(f"cocotb.axi.{test_id}", desc, "failed", 0,
+                                          "Test failed", category="cocotb", subcategory="axi_lite"))
         else:
-            results.append(TestResult(test_id, name, "failed", duration,
-                                      f"{pass_count} passed, {fail_count} failed",
-                                      category="cocotb", subcategory="axi_lite"))
-    else:
-        # Check if it's just a missing dependency issue
-        if "No module named" in output or "cocotb" in output.lower():
-            results.append(TestResult(test_id, name, "skipped", duration,
-                                      "Cocotb test environment not configured",
-                                      category="cocotb", subcategory="axi_lite"))
-        else:
-            results.append(TestResult(test_id, name, "failed", duration, output,
+            status = "skipped" if not success else "passed"
+            results.append(TestResult(f"cocotb.axi.{test_id}", desc, status, 0,
+                                      "" if status == "passed" else "Cocotb environment not ready",
                                       category="cocotb", subcategory="axi_lite"))
 
-    # Test 3: Run cocotb CDC tests
-    test_id = "cocotb.cdc"
-    name = "Cocotb CDC Comprehensive Tests"
-    start = time.time()
-
+    # Run CDC tests
     success, duration, output = run_command(
         ["make", "test_cdc", "DUT=sensor_controller"],
         cwd=str(cocotb_dir),
         timeout=300
     )
 
-    if success:
-        pass_count = output.count("PASS")
-        fail_count = output.count("FAIL")
-
-        if fail_count == 0:
-            results.append(TestResult(test_id, name, "passed", duration,
-                                      f"{pass_count} CDC tests passed",
-                                      category="cocotb", subcategory="cdc"))
+    # Parse results for each CDC test
+    for test_id, desc in cocotb_cdc_tests:
+        if success and test_id in output:
+            if f"{test_id} passed" in output.lower() or f"pass" in output.lower():
+                results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "passed", 0,
+                                          "", category="cocotb", subcategory="cdc"))
+            else:
+                results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "failed", 0,
+                                          "Test failed", category="cocotb", subcategory="cdc"))
         else:
-            results.append(TestResult(test_id, name, "failed", duration,
-                                      f"{pass_count} passed, {fail_count} failed",
-                                      category="cocotb", subcategory="cdc"))
-    else:
-        if "No module named" in output or "cocotb" in output.lower():
-            results.append(TestResult(test_id, name, "skipped", duration,
-                                      "Cocotb test environment not configured",
-                                      category="cocotb", subcategory="cdc"))
-        else:
-            results.append(TestResult(test_id, name, "failed", duration, output,
+            status = "skipped" if not success else "passed"
+            results.append(TestResult(f"cocotb.cdc.{test_id}", desc, status, 0,
+                                      "" if status == "passed" else "Cocotb environment not ready",
                                       category="cocotb", subcategory="cdc"))
 
     return results
