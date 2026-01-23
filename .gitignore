@@ -64,3 +64,6 @@ instructions/*
 *_backup.py
 *_fixed.py.axion_conf
 None/
+tests/cocotb/results.xml
+tests/cocotb/sim_build/
+tests/cocotb/*.vcd
