@@ -2,7 +2,7 @@
 """
 test_xml_input.py - XML Input Parser Requirements Tests
 
-Tests for AXION-XML-001 through AXION-XML-015 requirements.
+Tests for XML-INPUT-001 through XML-INPUT-015 requirements.
 Verifies the XML input parser functionality for register definition parsing,
 format compatibility, and round-trip testing.
 """
@@ -23,7 +23,7 @@ from axion_hdl import AxionHDL
 
 
 class TestXMLInputRequirements(unittest.TestCase):
-    """Test cases for AXION-XML-xxx requirements"""
+    """Test cases for XML-INPUT-xxx requirements"""
     
     def setUp(self):
         """Set up test fixtures"""
@@ -43,10 +43,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         return filepath
     
     # =========================================================================
-    # AXION-XML-001: XML File Detection and Loading
+    # XML-INPUT-001: XML File Detection and Loading
     # =========================================================================
-    def test_axion_xml_001_file_detection(self):
-        """AXION-XML-001: XML file detection and loading"""
+    def test_xml_input_001_file_detection(self):
+        """XML-INPUT-001: XML file detection and loading"""
         # Create test XML files
         xml1 = '''<?xml version="1.0"?>
 <register_map module="test1" base_addr="0x0000">
@@ -76,10 +76,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertIn('test2', module_names)
     
     # =========================================================================
-    # AXION-XML-002: Module Name Extraction
+    # XML-INPUT-002: Module Name Extraction
     # =========================================================================
-    def test_axion_xml_002_module_name(self):
-        """AXION-XML-002: Module name extraction"""
+    def test_xml_input_002_module_name(self):
+        """XML-INPUT-002: Module name extraction"""
         xml = '''<?xml version="1.0"?>
 <register_map module="my_test_module_123" base_addr="0x0000">
     <register name="reg" access="RO" addr="0x00"/>
@@ -90,8 +90,8 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertEqual(result['name'], 'my_test_module_123')
         self.assertEqual(result['entity_name'], 'my_test_module_123')
     
-    def test_axion_xml_002_missing_module_name(self):
-        """AXION-XML-002: Missing module name should return None"""
+    def test_xml_input_002_missing_module_name(self):
+        """XML-INPUT-002: Missing module name should return None"""
         xml = '''<?xml version="1.0"?>
 <register_map base_addr="0x0000">
     <register name="reg" access="RO" addr="0x00"/>
@@ -101,10 +101,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertIsNone(result)
     
     # =========================================================================
-    # AXION-XML-003: Base Address Parsing
+    # XML-INPUT-003: Base Address Parsing
     # =========================================================================
-    def test_axion_xml_003_hex_address(self):
-        """AXION-XML-003: Parse hex base address"""
+    def test_xml_input_003_hex_address(self):
+        """XML-INPUT-003: Parse hex base address"""
         xml = '''<?xml version="1.0"?>
 <register_map module="test" base_addr="0x1000">
     <register name="reg" access="RO" addr="0x00"/>
@@ -113,8 +113,8 @@ class TestXMLInputRequirements(unittest.TestCase):
         result = self.parser.parse_file(filepath)
         self.assertEqual(result['base_address'], 0x1000)
     
-    def test_axion_xml_003_decimal_address(self):
-        """AXION-XML-003: Parse decimal base address"""
+    def test_xml_input_003_decimal_address(self):
+        """XML-INPUT-003: Parse decimal base address"""
         xml = '''<?xml version="1.0"?>
 <register_map module="test" base_addr="4096">
     <register name="reg" access="RO" addr="0x00"/>
@@ -123,8 +123,8 @@ class TestXMLInputRequirements(unittest.TestCase):
         result = self.parser.parse_file(filepath)
         self.assertEqual(result['base_address'], 4096)
     
-    def test_axion_xml_003_default_address(self):
-        """AXION-XML-003: Default base address when omitted"""
+    def test_xml_input_003_default_address(self):
+        """XML-INPUT-003: Default base address when omitted"""
         xml = '''<?xml version="1.0"?>
 <register_map module="test">
     <register name="reg" access="RO" addr="0x00"/>
@@ -134,10 +134,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertEqual(result['base_address'], 0)
     
     # =========================================================================
-    # AXION-XML-004: Register Definition Parsing
+    # XML-INPUT-004: Register Definition Parsing
     # =========================================================================
-    def test_axion_xml_004_register_parsing(self):
-        """AXION-XML-004: Parse register definitions"""
+    def test_xml_input_004_register_parsing(self):
+        """XML-INPUT-004: Parse register definitions"""
         xml = '''<?xml version="1.0"?>
 <register_map module="test">
     <register name="reg_a" access="RO" addr="0x00" width="32"/>
@@ -154,10 +154,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertEqual(result['registers'][2]['name'], 'reg_c')
     
     # =========================================================================
-    # AXION-XML-005: Access Mode Support
+    # XML-INPUT-005: Access Mode Support
     # =========================================================================
-    def test_axion_xml_005_access_modes(self):
-        """AXION-XML-005: Access mode support (RO, RW, WO)"""
+    def test_xml_input_005_access_modes(self):
+        """XML-INPUT-005: Access mode support (RO, RW, WO)"""
         xml = '''<?xml version="1.0"?>
 <register_map module="test">
     <register name="ro_reg" access="RO" addr="0x00"/>
@@ -172,8 +172,8 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertEqual(access_map['rw_reg'], 'RW')
         self.assertEqual(access_map['wo_reg'], 'WO')
     
-    def test_axion_xml_005_case_insensitive(self):
-        """AXION-XML-005: Case-insensitive access mode parsing"""
+    def test_xml_input_005_case_insensitive(self):
+        """XML-INPUT-005: Case-insensitive access mode parsing"""
         xml = '''<?xml version="1.0"?>
 <register_map module="test">
     <register name="reg" access="ro" addr="0x00"/>
@@ -183,10 +183,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertEqual(result['registers'][0]['access_mode'], 'RO')
     
     # =========================================================================
-    # AXION-XML-006: Strobe Signal Support
+    # XML-INPUT-006: Strobe Signal Support
     # =========================================================================
-    def test_axion_xml_006_strobe_signals(self):
-        """AXION-XML-006: Strobe signal support"""
+    def test_xml_input_006_strobe_signals(self):
+        """XML-INPUT-006: Strobe signal support"""
         xml = '''<?xml version="1.0"?>
 <register_map module="test">
     <register name="r_strobe_reg" access="RO" addr="0x00" r_strobe="true"/>
@@ -204,10 +204,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertEqual(strobe_map['no_strobe'], (False, False))
     
     # =========================================================================
-    # AXION-XML-007: CDC Configuration Parsing
+    # XML-INPUT-007: CDC Configuration Parsing
     # =========================================================================
-    def test_axion_xml_007_cdc_config(self):
-        """AXION-XML-007: CDC configuration parsing"""
+    def test_xml_input_007_cdc_config(self):
+        """XML-INPUT-007: CDC configuration parsing"""
         xml = '''<?xml version="1.0"?>
 <register_map module="test">
     <config cdc_en="true" cdc_stage="3"/>
@@ -218,8 +218,8 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertTrue(result['cdc_enabled'])
         self.assertEqual(result['cdc_stages'], 3)
     
-    def test_axion_xml_007_cdc_default(self):
-        """AXION-XML-007: CDC default when omitted"""
+    def test_xml_input_007_cdc_default(self):
+        """XML-INPUT-007: CDC default when omitted"""
         xml = '''<?xml version="1.0"?>
 <register_map module="test">
     <register name="reg" access="RO" addr="0x00"/>
@@ -229,10 +229,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertFalse(result['cdc_enabled'])
     
     # =========================================================================
-    # AXION-XML-008: Register Description Support
+    # XML-INPUT-008: Register Description Support
     # =========================================================================
-    def test_axion_xml_008_descriptions(self):
-        """AXION-XML-008: Register description support"""
+    def test_xml_input_008_descriptions(self):
+        """XML-INPUT-008: Register description support"""
         xml = '''<?xml version="1.0"?>
 <register_map module="test">
     <register name="reg" access="RO" addr="0x00" description="Test register description"/>
@@ -242,10 +242,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertEqual(result['registers'][0]['description'], 'Test register description')
     
     # =========================================================================
-    # AXION-XML-009: Address Auto-Assignment
+    # XML-INPUT-009: Address Auto-Assignment
     # =========================================================================
-    def test_axion_xml_009_auto_address(self):
-        """AXION-XML-009: Address auto-assignment"""
+    def test_xml_input_009_auto_address(self):
+        """XML-INPUT-009: Address auto-assignment"""
         xml = '''<?xml version="1.0"?>
 <register_map module="test">
     <register name="reg_a" access="RO"/>
@@ -260,10 +260,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertEqual(addresses, [0, 4, 8])
     
     # =========================================================================
-    # AXION-XML-010: Error Handling
+    # XML-INPUT-010: Error Handling
     # =========================================================================
-    def test_axion_xml_010_invalid_xml(self):
-        """AXION-XML-010: Invalid XML syntax handling"""
+    def test_xml_input_010_invalid_xml(self):
+        """XML-INPUT-010: Invalid XML syntax handling"""
         invalid_xml = '''<?xml version="1.0"?>
 <register_map module="test">
     <register name="reg" access="RO" addr="0x00"
@@ -272,16 +272,16 @@ class TestXMLInputRequirements(unittest.TestCase):
         result = self.parser.parse_file(filepath)
         self.assertIsNone(result)
     
-    def test_axion_xml_010_file_not_found(self):
-        """AXION-XML-010: File not found handling"""
+    def test_xml_input_010_file_not_found(self):
+        """XML-INPUT-010: File not found handling"""
         result = self.parser.parse_file("/nonexistent/file.xml")
         self.assertIsNone(result)
     
     # =========================================================================
-    # AXION-XML-011: CLI Integration
+    # XML-INPUT-011: CLI Integration
     # =========================================================================
-    def test_axion_xml_011_cli_integration(self):
-        """AXION-XML-011: CLI integration with AxionHDL"""
+    def test_xml_input_011_cli_integration(self):
+        """XML-INPUT-011: CLI integration with AxionHDL"""
         xml = '''<?xml version="1.0"?>
 <register_map module="cli_test" base_addr="0x0000">
     <register name="reg" access="RO" addr="0x00"/>
@@ -298,10 +298,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertEqual(axion.analyzed_modules[0]['name'], 'cli_test')
     
     # =========================================================================
-    # AXION-XML-012: Output Equivalence
+    # XML-INPUT-012: Output Equivalence
     # =========================================================================
-    def test_axion_xml_012_output_equivalence(self):
-        """AXION-XML-012: Output equivalence test"""
+    def test_xml_input_012_output_equivalence(self):
+        """XML-INPUT-012: Output equivalence test"""
         xml = '''<?xml version="1.0"?>
 <register_map module="equiv_test" base_addr="0x0000">
     <register name="status" access="RO" addr="0x00" description="Status"/>
@@ -325,10 +325,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(output_dir, "index.html")))  # HTML is now default
     
     # =========================================================================
-    # AXION-XML-013: XML Generator Compatibility
+    # XML-INPUT-013: XML Generator Compatibility
     # =========================================================================
-    def test_axion_xml_013_generator_compatibility(self):
-        """AXION-XML-013: Parse XML generated by XMLGenerator (SPIRIT format)"""
+    def test_xml_input_013_generator_compatibility(self):
+        """XML-INPUT-013: Parse XML generated by XMLGenerator (SPIRIT format)"""
         # This is a simplified version of what XMLGenerator produces
         spirit_xml = '''<?xml version="1.0" encoding="UTF-8"?>
 <spirit:component xmlns:spirit="http://www.spiritconsortium.org/XMLSchema/SPIRIT/1.5">
@@ -363,10 +363,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertEqual(result['registers'][0]['access_mode'], 'RO')
     
     # =========================================================================
-    # AXION-XML-014: Round-trip Integrity
+    # XML-INPUT-014: Round-trip Integrity
     # =========================================================================
-    def test_axion_xml_014_roundtrip_integrity(self):
-        """AXION-XML-014: Round-trip test (parse -> generate -> parse)"""
+    def test_xml_input_014_roundtrip_integrity(self):
+        """XML-INPUT-014: Round-trip test (parse -> generate -> parse)"""
         # Start with simple XML
         xml = '''<?xml version="1.0"?>
 <register_map module="roundtrip_test" base_addr="0x0000">
@@ -396,10 +396,10 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertEqual(len(result['registers']), len(original_modules[0]['registers']))
     
     # =========================================================================
-    # AXION-XML-015: Unified Attribute Naming
+    # XML-INPUT-015: Unified Attribute Naming
     # =========================================================================
-    def test_axion_xml_015_unified_naming(self):
-        """AXION-XML-015: Unified attribute naming between parser and generator"""
+    def test_xml_input_015_unified_naming(self):
+        """XML-INPUT-015: Unified attribute naming between parser and generator"""
         xml = '''<?xml version="1.0"?>
 <register_map module="naming_test" base_addr="0x0000">
     <config cdc_en="true" cdc_stage="2"/>
