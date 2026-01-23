@@ -92,22 +92,60 @@ class TestResult:
         }
 
 
-def run_command(command: List[str], cwd: str = None, timeout: int = 300, env: dict = None) -> Tuple[bool, float, str]:
+def run_command(command: List[str], cwd: str = None, timeout: int = 300, env: dict = None, stream_output: bool = False) -> Tuple[bool, float, str]:
     """Run a command and return (success, duration, output)"""
     start = time.time()
     try:
-        result = subprocess.run(
-            command,
-            cwd=cwd or str(PROJECT_ROOT),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env
-        )
-        duration = time.time() - start
-        output = result.stdout + result.stderr
-        return result.returncode == 0, duration, output
+        if stream_output:
+            # Run with real-time output streaming
+            process = subprocess.Popen(
+                command,
+                cwd=cwd or str(PROJECT_ROOT),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Merge stderr into stdout
+                text=True,
+                env=env,
+                bufsize=1  # Line buffered
+            )
+            
+            output_lines = []
+            
+            # Read line by line as they come
+            while True:
+                line = process.stdout.readline()
+                if not line and process.poll() is not None:
+                    break
+                if line:
+                    print(line, end='', flush=True)  # Print to console immediately
+                    output_lines.append(line)
+            
+            # Read remainder
+            stdout, _ = process.communicate()
+            if stdout:
+                print(stdout, end='', flush=True)
+                output_lines.append(stdout)
+                
+            duration = time.time() - start
+            output = "".join(output_lines)
+            return process.returncode == 0, duration, output
+            
+        else:
+            # Run with output capturing (buffered)
+            result = subprocess.run(
+                command,
+                cwd=cwd or str(PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=env
+            )
+            duration = time.time() - start
+            output = result.stdout + result.stderr
+            return result.returncode == 0, duration, output
+            
     except subprocess.TimeoutExpired:
+        if stream_output:
+            process.kill()
         return False, timeout, "TIMEOUT"
     except Exception as e:
         return False, time.time() - start, str(e)
@@ -1961,6 +1999,20 @@ def run_cocotb_tests() -> List[TestResult]:
         ("test_cdc_slow_to_fast", "CDC: Slow to Fast Clock Domain Transfer"),
         ("test_cdc_fast_to_slow", "CDC: Fast to Slow Clock Domain Transfer"),
     ]
+    
+    cocotb_sub_tests = [
+        ("test_subreg_001_single_bit_control", "SUB-001: Single Bit Control Access"),
+        ("test_subreg_002_status_capture", "SUB-002: Status Register Capture"),
+        ("test_subreg_003_read_modify_write", "SUB-003: Read-Modify-Write Operation"),
+        ("test_subreg_004_field_isolation", "SUB-004: Bit Field Isolation"),
+    ]
+
+    cocotb_stress_ext_tests = [
+        ("test_stress_001_interleaved_rw", "STRESS-001: Interleaved Read/Write Transactions"),
+        ("test_stress_002_reset_under_load", "STRESS-002: Reset Under High Load"),
+        ("test_stress_003_address_map_walk", "STRESS-003: Address Map Walk"),
+        ("test_stress_004_invalid_access_storm", "STRESS-004: Invalid Access Storm"),
+    ]
 
     # Check if cocotb-config is available (check venv first, then system)
     venv_cocotb_config = PROJECT_ROOT / "venv" / "bin" / "cocotb-config"
@@ -1988,6 +2040,16 @@ def run_cocotb_tests() -> List[TestResult]:
             results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "skipped", 0,
                                       f"{skip_reason} ({skip_msg})",
                                       category="cocotb", subcategory="cdc"))
+                                      
+        for test_id, desc in cocotb_sub_tests:
+            results.append(TestResult(f"cocotb.sub.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})",
+                                      category="cocotb", subcategory="sub"))
+                                      
+        for test_id, desc in cocotb_stress_ext_tests:
+            results.append(TestResult(f"cocotb.stress.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})",
+                                      category="cocotb", subcategory="stress"))
 
         return results
 
@@ -2009,11 +2071,13 @@ def run_cocotb_tests() -> List[TestResult]:
     venv_env["VIRTUAL_ENV"] = str(PROJECT_ROOT / "venv")
 
     # Run AXI-Lite tests
+    print(f"{BOLD}Running AXI-Lite Protocol Tests...{RESET}")
     _, duration, output = run_command(
         ["make", "test_axi_lite", "DUT=sensor_controller"],
         cwd=str(cocotb_dir),
         timeout=300,
-        env=venv_env
+        env=venv_env,
+        stream_output=True
     )
 
     # Parse cocotb output for test results
@@ -2052,7 +2116,8 @@ def run_cocotb_tests() -> List[TestResult]:
         ["make", "test_cdc", "DUT=sensor_controller"],
         cwd=str(cocotb_dir),
         timeout=300,
-        env=venv_env
+        env=venv_env,
+        stream_output=True
     )
 
     cdc_results = {}
@@ -2078,6 +2143,62 @@ def run_cocotb_tests() -> List[TestResult]:
         else:
             results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "skipped", 0,
                                       "Test not executed", category="cocotb", subcategory="cdc"))
+
+    # Run Subregister tests
+    _, duration, output = run_command(
+        ["make", "test_sub", "DUT=sensor_controller"],
+        cwd=str(cocotb_dir),
+        timeout=300,
+        env=venv_env,
+        stream_output=True
+    )
+    
+    sub_results = {}
+    for match in test_pattern.finditer(output):
+        full_name = match.group(1)
+        status = match.group(2).lower()
+        test_func = full_name.split('.')[-1]
+        sub_results[test_func] = status
+        
+    for test_id, desc in cocotb_sub_tests:
+        if test_id in sub_results:
+            status = sub_results[test_id]
+            if status == "pass":
+                results.append(TestResult(f"cocotb.sub.{test_id}", desc, "passed", 0, "", category="cocotb", subcategory="sub"))
+            elif status == "fail":
+                results.append(TestResult(f"cocotb.sub.{test_id}", desc, "failed", 0, "Assertion failed", category="cocotb", subcategory="sub"))
+            else:
+                results.append(TestResult(f"cocotb.sub.{test_id}", desc, "skipped", 0, "", category="cocotb", subcategory="sub"))
+        else:
+            results.append(TestResult(f"cocotb.sub.{test_id}", desc, "skipped", 0, "Test not executed", category="cocotb", subcategory="sub"))
+
+    # Run Extended Stress tests
+    _, duration, output = run_command(
+        ["make", "test_stress_extended", "DUT=sensor_controller"],
+        cwd=str(cocotb_dir),
+        timeout=600,
+        env=venv_env,
+        stream_output=True
+    )
+    
+    stress_results = {}
+    for match in test_pattern.finditer(output):
+        full_name = match.group(1)
+        status = match.group(2).lower()
+        test_func = full_name.split('.')[-1]
+        stress_results[test_func] = status
+        
+    for test_id, desc in cocotb_stress_ext_tests:
+        if test_id in stress_results:
+            status = stress_results[test_id]
+            if status == "pass":
+                results.append(TestResult(f"cocotb.stress.{test_id}", desc, "passed", 0, "", category="cocotb", subcategory="stress"))
+            elif status == "fail":
+                results.append(TestResult(f"cocotb.stress.{test_id}", desc, "failed", 0, "Assertion failed", category="cocotb", subcategory="stress"))
+            else:
+                results.append(TestResult(f"cocotb.stress.{test_id}", desc, "skipped", 0, "", category="cocotb", subcategory="stress"))
+        else:
+            results.append(TestResult(f"cocotb.stress.{test_id}", desc, "skipped", 0, "Test not executed", category="cocotb", subcategory="stress"))
 
     return results
 
@@ -2167,88 +2288,7 @@ def main():
     # Print results
     success = print_results(all_results)
     
-    # Generate requirement coverage summary
-    print_requirement_coverage(all_results)
-    
     return 0 if success else 1
-
-
-def print_requirement_coverage(results: List[TestResult]):
-    """Print requirement coverage summary"""
-    
-    # Extract requirement IDs from test results
-    req_pattern = re.compile(r'(AXION-\d+[a-z]?|AXI-LITE-\d+[a-z]?|PARSER-\d+|GEN-\d+|CDC-\d+|ADDR-\d+|ERR-\d+|CLI-\d+|STRESS-\d+|SUB-\d+|DEF-\d+|VAL-\d+|YAML-INPUT-\d+|JSON-INPUT-\d+|EQUIV-\d+)', re.IGNORECASE)
-    
-    covered = set()
-    for r in results:
-        matches = req_pattern.findall(r.name)
-        for m in matches:
-            covered.add(m.upper())
-    
-    # Expected requirements
-    expected = set()
-    for i in range(1, 30):
-        expected.add(f"AXION-{i:03d}")
-    for i in range(1, 19):
-        expected.add(f"AXI-LITE-{i:03d}")
-    for i in range(1, 9):
-        expected.add(f"PARSER-{i:03d}")
-    for i in range(1, 15):
-        expected.add(f"GEN-{i:03d}")
-    for i in range(1, 8):
-        expected.add(f"CDC-{i:03d}")
-    for i in range(1, 9):
-        expected.add(f"ADDR-{i:03d}")
-    for i in range(1, 7):
-        expected.add(f"ERR-{i:03d}")
-    for i in range(1, 13):
-        expected.add(f"CLI-{i:03d}")
-    for i in range(1, 7):
-        expected.add(f"STRESS-{i:03d}")
-    for i in range(1, 13):
-        expected.add(f"SUB-{i:03d}")
-    for i in range(1, 11):
-        expected.add(f"DEF-{i:03d}")
-    for i in range(1, 16):
-        expected.add(f"YAML-INPUT-{i:03d}")
-    for i in range(1, 16):
-        expected.add(f"JSON-INPUT-{i:03d}")
-    for i in range(1, 7):
-        expected.add(f"EQUIV-{i:03d}")
-    
-    print(f"\n{CYAN}{BOLD}{'═' * 80}{RESET}")
-    print(f"{CYAN}{BOLD}  REQUIREMENT COVERAGE SUMMARY{RESET}")
-    print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
-    print(f"  Unique Requirement IDs Tested: {len(covered)}")
-    print(f"  Base Requirements (from spec):  134")
-    print(f"  Total Test Cases:               {len(results)}")
-    
-    # Categories
-    categories = {
-        "AXION": [r for r in covered if r.startswith("AXION-")],
-        "AXI-LITE": [r for r in covered if r.startswith("AXI-LITE-")],
-        "PARSER": [r for r in covered if r.startswith("PARSER-")],
-        "GEN": [r for r in covered if r.startswith("GEN-")],
-        "CDC": [r for r in covered if r.startswith("CDC-")],
-        "ADDR": [r for r in covered if r.startswith("ADDR-")],
-        "ERR": [r for r in covered if r.startswith("ERR-")],
-        "CLI": [r for r in covered if r.startswith("CLI-")],
-        "STRESS": [r for r in covered if r.startswith("STRESS-")],
-        "SUB": [r for r in covered if r.startswith("SUB-")],
-        "DEF": [r for r in covered if r.startswith("DEF-")],
-        "VAL": [r for r in covered if r.startswith("VAL-")],
-        "YAML-INPUT": [r for r in covered if r.startswith("YAML-INPUT-")],
-        "JSON-INPUT": [r for r in covered if r.startswith("JSON-INPUT-")],
-        "EQUIV": [r for r in covered if r.startswith("EQUIV-")],
-        "COCOTB": [r for r in covered if r.startswith("COCOTB-")]
-    }
-    
-    print(f"\n  By Category:")
-    for cat, reqs in categories.items():
-        if reqs:
-            print(f"    {cat}: {len(reqs)} requirements")
-    
-    print(f"{'═' * 80}\n")
 
 
 if __name__ == "__main__":

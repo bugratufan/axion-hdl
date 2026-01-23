@@ -209,7 +209,8 @@ class VHDLGenerator:
             description="AXI Register Interface Module",
             additional_info=[
                 f"Module: {module_data['name']}",
-                f"Source: {os.path.basename(module_data['file'])}"
+                f"Source: {os.path.basename(module_data['file'])}",
+                "Author: bugratufan"
             ]
         ) + [
             "",

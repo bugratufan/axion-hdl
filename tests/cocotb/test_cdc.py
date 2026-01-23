@@ -115,14 +115,16 @@ async def test_cdc_001_stage_count(dut):
 @cocotb.test()
 async def test_cdc_004_module_clock_port(dut):
     """CDC-004: Module Clock Port Generation"""
-    mod_clk = getattr(dut, 'module_clk', None) or getattr(dut, 'mod_clk', None)
+    mod_clk = getattr(dut, 'module_clk', None)
+    if mod_clk is None:
+        mod_clk = getattr(dut, 'mod_clk', None)
 
     if mod_clk is None:
         # Check if this is a non-CDC module (which is OK)
         dut._log.info("CDC-004: No module_clk - module may have CDC disabled")
         return
 
-    # Verify clock is toggleable
+    # Verify clock is toggleable by starting a clock on it
     cocotb.start_soon(Clock(mod_clk, 17, units="ns").start())
     await Timer(100, units="ns")
 

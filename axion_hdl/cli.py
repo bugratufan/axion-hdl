@@ -41,6 +41,12 @@ def main():
     Returns:
         None (exits with appropriate exit code)
     """
+    # Print banner
+    print(f"Axion-HDL v{__version__}")
+    print("Automated AXI4-Lite Register Interface Generator")
+    print("Developed by bugratufan")
+    print("-" * 50)
+
     parser = argparse.ArgumentParser(
         prog='axion-hdl',
         description='Axion-HDL: Automated AXI4-Lite Register Interface Generator for VHDL',
