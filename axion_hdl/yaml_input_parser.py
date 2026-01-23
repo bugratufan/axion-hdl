@@ -115,8 +115,25 @@ class YAMLInputParser:
             self.errors.append({'file': filepath, 'msg': msg})
             return None
     
+    def parse_data(self, data: Dict, filepath: str) -> Optional[Dict]:
+        """
+        Parse a dictionary data structure (from YAML, JSON, or converted XML).
+        
+        This is the public API for parsing already-loaded data structures.
+        Use this method when you have data loaded from any format that matches
+        the expected YAML structure.
+        
+        Args:
+            data: Dictionary with module, registers, etc.
+            filepath: Source file path for error reporting
+            
+        Returns:
+            Dictionary with module data or None if parsing fails
+        """
+        return self._parse_yaml_data(data, filepath)
+    
     def _parse_yaml_data(self, data: Dict, filepath: str) -> Optional[Dict]:
-        """Parse YAML data structure."""
+        """Parse YAML data structure (internal implementation)."""
         module_name = data.get('module')
         if not module_name:
             msg = f"Missing 'module' field in {filepath}"
