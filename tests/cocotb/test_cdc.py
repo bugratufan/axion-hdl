@@ -19,12 +19,17 @@ import random
 
 async def start_clocks(dut, axi_period_ns=10, mod_period_ns=17):
     """Start asynchronous clocks with different frequencies"""
-    axi_clk = getattr(dut, 'axi_aclk', None) or getattr(dut, 'axi_clk', None)
-    mod_clk = getattr(dut, 'module_clk', None) or getattr(dut, 'mod_clk', None)
+    axi_clk = getattr(dut, 'axi_aclk', None)
+    if axi_clk is None:
+        axi_clk = getattr(dut, 'axi_clk', None)
 
-    if axi_clk:
+    mod_clk = getattr(dut, 'module_clk', None)
+    if mod_clk is None:
+        mod_clk = getattr(dut, 'mod_clk', None)
+
+    if axi_clk is not None:
         cocotb.start_soon(Clock(axi_clk, axi_period_ns, units="ns").start())
-    if mod_clk:
+    if mod_clk is not None:
         cocotb.start_soon(Clock(mod_clk, mod_period_ns, units="ns").start())
 
     return axi_clk, mod_clk
@@ -46,9 +51,9 @@ async def reset_cdc_dut(dut, axi_clk, mod_clk, cycles=10):
             getattr(dut, sig).value = 0
 
     # Wait in both domains
-    if axi_clk:
+    if axi_clk is not None:
         await ClockCycles(axi_clk, cycles)
-    if mod_clk:
+    if mod_clk is not None:
         await ClockCycles(mod_clk, cycles)
 
     # Release resets
@@ -85,7 +90,7 @@ async def test_cdc_001_stage_count(dut):
     """CDC-001: Configurable CDC Stage Count"""
     axi_clk, mod_clk = await start_clocks(dut)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("CDC-001: module_clk not found, skipping")
         return
 
@@ -129,7 +134,7 @@ async def test_cdc_006_ro_path_sync(dut):
     """CDC-006: RO Register Synchronization (module -> AXI domain)"""
     axi_clk, mod_clk = await start_clocks(dut)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("CDC-006: module_clk not found, skipping")
         return
 
@@ -156,7 +161,7 @@ async def test_cdc_007_rw_path_sync(dut):
     """CDC-007: RW Register Synchronization (AXI -> module domain)"""
     axi_clk, mod_clk = await start_clocks(dut)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("CDC-007: module_clk not found, skipping")
         return
 
@@ -178,7 +183,7 @@ async def test_cdc_gray_code_counter(dut):
     """CDC: Gray Code Counter Safe Crossing"""
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=13)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("Gray code test: module_clk not found, skipping")
         return
 
@@ -212,7 +217,7 @@ async def test_cdc_handshake_protocol(dut):
     """CDC: 4-Phase Handshake Protocol"""
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=17)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("Handshake test: module_clk not found, skipping")
         return
 
@@ -232,7 +237,7 @@ async def test_cdc_async_reset(dut):
     """CDC: Asynchronous Reset Across Domains"""
     axi_clk, mod_clk = await start_clocks(dut)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("Async reset test: module_clk not found, skipping")
         return
 
@@ -263,7 +268,7 @@ async def test_cdc_metastability_stress(dut):
     # Use intentionally worst-case clock relationship
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=10)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("Metastability test: module_clk not found, skipping")
         return
 
@@ -287,7 +292,7 @@ async def test_cdc_clock_ratio_2x(dut):
     """CDC: 2:1 Clock Ratio Test"""
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=20)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("Clock ratio test: module_clk not found, skipping")
         return
 
@@ -312,7 +317,7 @@ async def test_cdc_clock_ratio_prime(dut):
     # Use prime-related periods for worst-case phase relationships
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=17)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("Prime ratio test: module_clk not found, skipping")
         return
 
@@ -338,7 +343,7 @@ async def test_cdc_data_coherency(dut):
     """CDC: Multi-bit Data Coherency"""
     axi_clk, mod_clk = await start_clocks(dut)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("Data coherency test: module_clk not found, skipping")
         return
 
@@ -368,7 +373,7 @@ async def test_cdc_pulse_sync(dut):
     """CDC: Single-Cycle Pulse Synchronization"""
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=20)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("Pulse sync test: module_clk not found, skipping")
         return
 
@@ -394,7 +399,7 @@ async def test_cdc_burst_transfer(dut):
     """CDC: Burst Data Transfer"""
     axi_clk, mod_clk = await start_clocks(dut)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("Burst transfer test: module_clk not found, skipping")
         return
 
@@ -423,7 +428,7 @@ async def test_cdc_simultaneous_edges(dut):
     # Same period = simultaneous edges
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=10)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("Simultaneous edges test: module_clk not found, skipping")
         return
 
@@ -446,7 +451,7 @@ async def test_cdc_slow_to_fast(dut):
     # Module clock is 5x slower
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=50)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("Slow to fast test: module_clk not found, skipping")
         return
 
@@ -471,7 +476,7 @@ async def test_cdc_fast_to_slow(dut):
     # Module clock is 5x slower (fast to slow for RW path)
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=50)
 
-    if not mod_clk:
+    if mod_clk is None:
         dut._log.warning("Fast to slow test: module_clk not found, skipping")
         return
 
