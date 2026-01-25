@@ -1,0 +1,288 @@
+/* ==========================================================================
+   Axion-HDL GUI - Editor Module Styles
+   Styles specific to the register editor page
+   ========================================================================== */
+
+/* ===== REGISTER ROW STYLES ===== */
+.reg-row:hover {
+    background-color: var(--hover-bg) !important;
+}
+
+.reg-row input:focus,
+.reg-row select:focus {
+    background-color: var(--card-bg) !important;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    outline: none;
+}
+
+/* ===== STROBE TOGGLE ===== */
+.strobe-toggle {
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    transition: all 0.15s;
+    user-select: none;
+}
+
+.strobe-toggle.active {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+}
+
+[data-theme="light"] .strobe-toggle.active {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+.strobe-toggle.inactive {
+    background-color: var(--hover-bg);
+    color: var(--text-muted);
+}
+
+.strobe-toggle:hover {
+    transform: scale(1.05);
+}
+
+.strobe-group {
+    display: flex;
+    gap: 4px;
+}
+
+/* ===== ACTION BUTTONS ===== */
+.action-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.15s;
+}
+
+.action-btn:hover {
+    transform: scale(1.1);
+}
+
+/* ===== ADDRESS MANAGEMENT ===== */
+.addr-badge {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    background-color: var(--hover-bg);
+    border-radius: 4px;
+    color: var(--text-muted);
+}
+
+.addr-cell {
+    position: relative;
+}
+
+.addr-original {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-decoration: line-through;
+    margin-right: 4px;
+}
+
+.addr-changed {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.addr-conflict {
+    border: 2px solid #ef4444 !important;
+    background-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+.addr-conflict-warning {
+    color: #f87171;
+    font-size: 0.8rem;
+    margin-left: 4px;
+}
+
+.addr-revert-btn {
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    padding: 2px 4px;
+    border-radius: 3px;
+    background: var(--hover-bg);
+    border: none;
+    transition: all 0.15s;
+}
+
+.addr-revert-btn:hover {
+    background: var(--border-color);
+    color: var(--text-color);
+}
+
+/* ===== TOOLTIPS ===== */
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    z-index: 100;
+}
+
+/* ===== UNSAVED CHANGES INDICATOR ===== */
+.unsaved-indicator {
+    display: none;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    z-index: 1000;
+    animation: pulse 2s infinite;
+}
+
+.unsaved-indicator.visible {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+/* ===== SUBREGISTER STYLES ===== */
+.subreg-row {
+    background-color: var(--card-bg);
+    border-left: 3px solid var(--primary-color);
+}
+
+.subreg-table th {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.subreg-table td {
+    font-size: 0.9rem;
+    vertical-align: middle;
+}
+
+.toggle-subregs {
+    cursor: pointer;
+    transition: transform 0.2s;
+    display: inline-block;
+    padding: 2px;
+    color: var(--primary-color);
+}
+
+.toggle-subregs.expanded {
+    transform: rotate(90deg);
+}
+
+.subreg-field-row {
+    transition: background 0.15s ease;
+}
+
+.subreg-field-row:hover {
+    background: var(--hover-bg);
+}
+
+.bit-range-display {
+    font-family: var(--font-mono);
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+/* Tablet/Mobile Breakpoint (< 768px) */
+@media (max-width: 767.98px) {
+    /* Stack module config form */
+    #moduleForm.row {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    #moduleForm .col-auto {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Reduce table font size */
+    #regsTable {
+        font-size: 0.85rem;
+    }
+
+    /* Hide description column on mobile */
+    #regsTable th:nth-child(7),
+    #regsTable td:nth-child(7) {
+        display: none;
+    }
+
+    /* Reduce padding */
+    #regsTable th,
+    #regsTable td {
+        padding: 0.4rem 0.3rem !important;
+    }
+
+    /* Make inputs smaller */
+    #regsTable input,
+    #regsTable select {
+        font-size: 0.8rem !important;
+        padding: 0.25rem 0.4rem !important;
+    }
+}
+
+/* Small mobile (< 576px) */
+@media (max-width: 575.98px) {
+    /* Very compact table */
+    #regsTable th:nth-child(3),
+    #regsTable td:nth-child(3),
+    #regsTable th:nth-child(4),
+    #regsTable td:nth-child(4) {
+        display: none;
+    }
+
+    /* Show only: Addr, Name, Actions */
+    #regsTable {
+        min-width: 300px;
+    }
+
+    /* Larger touch targets for mobile */
+    .action-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    /* Card padding reduction */
+    .card-body {
+        padding: 0.75rem !important;
+    }
+
+    /* Page padding */
+    .container-fluid {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}
