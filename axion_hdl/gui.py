@@ -2,6 +2,8 @@ import os
 import sys
 import webbrowser
 import json
+import threading
+import time
 from typing import Dict, List, Optional
 
 try:
@@ -9,11 +11,154 @@ try:
 except ImportError:
     Flask = None
 
+try:
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    WATCHDOG_AVAILABLE = True
+except ImportError:
+    WATCHDOG_AVAILABLE = False
+
+
+class AnalysisCache:
+    """Cache for analysis results to avoid re-parsing unchanged files"""
+    def __init__(self):
+        self.last_analysis_time = 0
+        self.source_file_mtimes = {}  # {filepath: mtime}
+        self.is_analyzing = False
+        self.analysis_lock = threading.Lock()
+
+    def needs_refresh(self, axion_instance) -> bool:
+        """Check if any source files have changed"""
+        # If never analyzed, need refresh
+        if not self.source_file_mtimes:
+            return True
+
+        all_files = self._get_all_source_files(axion_instance)
+
+        # If file list changed, need refresh
+        if set(all_files) != set(self.source_file_mtimes.keys()):
+            return True
+
+        # Check if any file modified (with tolerance for file system timestamp precision)
+        for filepath in all_files:
+            if not os.path.exists(filepath):
+                return True
+            try:
+                current_mtime = os.path.getmtime(filepath)
+                cached_mtime = self.source_file_mtimes.get(filepath, 0)
+                # Use 1 second tolerance to avoid float comparison issues
+                if abs(current_mtime - cached_mtime) > 1:
+                    return True
+            except OSError:
+                return True
+
+        return False
+
+    def update_mtimes(self, axion_instance):
+        """Update cached file modification times"""
+        all_files = self._get_all_source_files(axion_instance)
+        self.source_file_mtimes = {}
+        for filepath in all_files:
+            if os.path.exists(filepath):
+                self.source_file_mtimes[filepath] = os.path.getmtime(filepath)
+        self.last_analysis_time = time.time()
+
+    def _get_all_source_files(self, axion_instance) -> List[str]:
+        """Get all source files from axion instance"""
+        files = []
+
+        # Direct files
+        files.extend(axion_instance.src_files)
+        files.extend(axion_instance.xml_src_files)
+        files.extend(axion_instance.yaml_src_files)
+        files.extend(axion_instance.json_src_files)
+
+        # Files from directories
+        all_dirs = (
+            axion_instance.src_dirs +
+            axion_instance.xml_src_dirs +
+            axion_instance.yaml_src_dirs +
+            axion_instance.json_src_dirs
+        )
+
+        for directory in all_dirs:
+            if os.path.exists(directory):
+                for root, dirs, filenames in os.walk(directory):
+                    for filename in filenames:
+                        ext = os.path.splitext(filename)[1].lower()
+                        if ext in ['.vhd', '.vhdl', '.json', '.yaml', '.yml', '.xml']:
+                            files.append(os.path.join(root, filename))
+
+        return files
+
+
+class SourceFileEventHandler(FileSystemEventHandler):
+    """Watchdog handler for source file changes"""
+    def __init__(self, gui_instance):
+        self.gui = gui_instance
+        self.debounce_timer = None
+        self.debounce_delay = 2.0  # Wait 2 seconds after last change
+        self.last_event_path = None
+        self.last_event_time = 0
+        self.ignore_patterns = ['.swp', '.tmp', '~', '.bak', '.git', '__pycache__']
+
+    def _should_process_event(self, event):
+        """Check if event should be processed"""
+        if event.is_directory:
+            return False
+
+        # Ignore temp/swap files
+        filename = os.path.basename(event.src_path)
+        if any(pattern in filename for pattern in self.ignore_patterns):
+            return False
+
+        # Check if it's a relevant file
+        ext = os.path.splitext(event.src_path)[1].lower()
+        if ext not in ['.vhd', '.vhdl', '.json', '.yaml', '.yml', '.xml']:
+            return False
+
+        # Ignore duplicate events for same file (within 0.5 seconds)
+        current_time = time.time()
+        if event.src_path == self.last_event_path and (current_time - self.last_event_time) < 0.5:
+            return False
+
+        return True
+
+    def _schedule_analysis(self, event):
+        """Schedule analysis with debouncing"""
+        self.last_event_path = event.src_path
+        self.last_event_time = time.time()
+
+        # Debounce: cancel previous timer and start new one
+        if self.debounce_timer:
+            self.debounce_timer.cancel()
+
+        self.debounce_timer = threading.Timer(self.debounce_delay, self._trigger_analysis)
+        self.debounce_timer.start()
+
+    def on_modified(self, event):
+        """Handle file modifications"""
+        if self._should_process_event(event):
+            self._schedule_analysis(event)
+
+    def on_created(self, event):
+        """Handle new file creation"""
+        if self._should_process_event(event):
+            self._schedule_analysis(event)
+
+    def _trigger_analysis(self):
+        """Trigger analysis in background"""
+        threading.Thread(target=self.gui._background_analyze, daemon=True).start()
+
+
 class AxionGUI:
     def __init__(self, axion_instance):
         self.axion = axion_instance
         self.app = None
         self.port = 5000
+        self.analysis_cache = AnalysisCache()
+        self.file_observer = None
+        self.analysis_error = None
         
     def setup_app(self):
         if not Flask:
@@ -23,21 +168,27 @@ class AxionGUI:
             print("\nOr install Flask manually:")
             print("    pip install flask>=2.0\n")
             sys.exit(1)
-            
+
         self.app = Flask(__name__)
-        self.app.secret_key = 'axion-hdl-dev-key' 
-        
+        self.app.secret_key = 'axion-hdl-dev-key'
+
         # Read version from .version file
         self.version = self._read_version()
-        
+
         # Simple in-memory storage for pending changes during review
         # Key: module_name, Value: list of registers
-        self.pending_changes = {} 
-        
+        self.pending_changes = {}
+
         from axion_hdl.source_modifier import SourceModifier
         from axion_hdl.rule_checker import RuleChecker
         self.modifier = SourceModifier(self.axion)
         self.checker = RuleChecker()
+
+        # Start file watcher if available
+        self._start_file_watcher()
+
+        # Do initial analysis synchronously on first request (not here)
+        self.initial_analysis_done = False
         
         # Inject version into all templates
         @self.app.context_processor
@@ -47,66 +198,69 @@ class AxionGUI:
         # --- Routes ---
         @self.app.route('/')
         def index():
-            # Re-analyze sources on each dashboard load to pick up new/changed files
-            analysis_error = None
-            try:
-                self.axion.analyzed_modules = []
-                self.axion.is_analyzed = False
-                self.axion.analyze()
-            except Exception as e:
-                analysis_error = str(e)
-                # Keep any partially analyzed modules
-            
-            # Run rule checks and compute per-module error/warning counts
-            total_errors = 0
-            total_warnings = 0
-            try:
-                self.checker = RuleChecker()  # Reset checker
-                
-                self.checker.run_all_checks(self.axion.analyzed_modules)
-                
-                # Inject parsing errors from modules AFTER checks (so they aren't wiped)
-                for m in self.axion.analyzed_modules:
-                    if 'parsing_errors' in m:
-                        for err in m['parsing_errors']:
-                            self.checker._add_error("Parsing Error", m['name'], err.get('msg', 'Unknown parsing error'))
+            import os as os_module
+            # Do initial analysis only on first request
+            if not self.initial_analysis_done:
+                try:
+                    self.axion.analyzed_modules = []
+                    self.axion.is_analyzed = False
+                    self.axion.analyze()
 
-                # Also inject global parse errors (e.g. invalid files)
-                if hasattr(self.axion, 'parse_errors') and self.axion.parse_errors:
-                    import os
-                    for err in self.axion.parse_errors:
-                        fname = os.path.basename(err.get('file', 'unknown_file'))
-                        self.checker._add_error(
-                            "Format Error", 
-                            fname, 
-                            err.get('msg', 'Unknown error')
-                        )
+                    # Run initial rule checks
+                    from axion_hdl.rule_checker import RuleChecker
+                    self.checker = RuleChecker()
+                    self.checker.run_all_checks(self.axion.analyzed_modules)
 
-                # Build module status map: {module_name: {errors: count, warnings: count}}
-                module_status = {}
-                for err in self.checker.errors:
-                    name = err.get('module', 'unknown')
-                    if name not in module_status:
-                        module_status[name] = {'errors': 0, 'warnings': 0}
-                    module_status[name]['errors'] += 1
-                
-                for warn in self.checker.warnings:
-                    name = warn.get('module', 'unknown')
-                    if name not in module_status:
-                        module_status[name] = {'errors': 0, 'warnings': 0}
-                    module_status[name]['warnings'] += 1
-                
-                # Attach status to each module
-                for m in self.axion.analyzed_modules:
-                    status = module_status.get(m['name'], {'errors': 0, 'warnings': 0})
-                    m['rule_errors'] = status['errors']
-                    m['rule_warnings'] = status['warnings']
-                
-                total_errors = len(self.checker.errors)
-                total_warnings = len(self.checker.warnings)
-            except Exception as e:
-                if not analysis_error:
-                    analysis_error = str(e)
+                    # Inject parsing errors
+                    for m in self.axion.analyzed_modules:
+                        if 'parsing_errors' in m:
+                            for err in m['parsing_errors']:
+                                self.checker._add_error("Parsing Error", m['name'], err.get('msg', 'Unknown parsing error'))
+
+                    if hasattr(self.axion, 'parse_errors') and self.axion.parse_errors:
+                        for err in self.axion.parse_errors:
+                            fname = os_module.path.basename(err.get('file', 'unknown_file'))
+                            self.checker._add_error("Format Error", fname, err.get('msg', 'Unknown error'))
+
+                    # Build module status map and attach to modules
+                    module_status = {}
+                    for err in self.checker.errors:
+                        name = err.get('module', 'unknown')
+                        if name not in module_status:
+                            module_status[name] = {'errors': 0, 'warnings': 0}
+                        module_status[name]['errors'] += 1
+
+                    for warn in self.checker.warnings:
+                        name = warn.get('module', 'unknown')
+                        if name not in module_status:
+                            module_status[name] = {'errors': 0, 'warnings': 0}
+                        module_status[name]['warnings'] += 1
+
+                    # Attach status to each module
+                    for m in self.axion.analyzed_modules:
+                        status = module_status.get(m['name'], {'errors': 0, 'warnings': 0})
+                        m['rule_errors'] = status['errors']
+                        m['rule_warnings'] = status['warnings']
+
+                    self.analysis_cache.update_mtimes(self.axion)
+                    self.initial_analysis_done = True
+                    self.analysis_error = None
+                except Exception as e:
+                    self.analysis_error = str(e)
+
+            # Use cached analysis results
+            analysis_error = self.analysis_error
+
+            # Ensure all modules have rule_errors and rule_warnings attributes
+            for m in self.axion.analyzed_modules:
+                if 'rule_errors' not in m:
+                    m['rule_errors'] = 0
+                if 'rule_warnings' not in m:
+                    m['rule_warnings'] = 0
+
+            # Calculate totals from modules
+            total_errors = sum(m.get('rule_errors', 0) for m in self.axion.analyzed_modules)
+            total_warnings = sum(m.get('rule_warnings', 0) for m in self.axion.analyzed_modules)
             
             return render_template('index.html', 
                                    modules=self.axion.analyzed_modules,
@@ -226,6 +380,11 @@ class AxionGUI:
                 with open(file_path, 'w') as f:
                     f.write(content)
                 
+                # Add to sources and re-analyze to show up in list immediately
+                self.axion.add_source(file_path)
+                self.axion.is_analyzed = False
+                self.axion.analyze()
+                
                 return jsonify({'success': True, 'file': file_path})
             except Exception as e:
                 import traceback
@@ -241,59 +400,178 @@ class AxionGUI:
 
         @self.app.route('/api/select_folder')
         def select_folder():
-            """Select folder using native dialog (AppleScript on macOS)"""
-            import subprocess
+            """Select folder using native dialog (Cross-platform)"""
             import platform
             
+            system = platform.system()
             try:
-                if platform.system() == 'Darwin':  # macOS
-                    script = '''
-                    tell application "System Events"
-                        activate
-                        set folderPath to POSIX path of (choose folder with prompt "Select Source Directory")
-                    end tell
-                    '''
-                    result = subprocess.run(['osascript', '-e', script], 
-                                          capture_output=True, text=True, timeout=60)
-                    if result.returncode == 0:
-                        folder_path = result.stdout.strip()
-                        return jsonify({'path': folder_path})
-                    else:
-                        return jsonify({'error': 'User cancelled', 'path': ''})
+                if system == 'Darwin':
+                    return self._select_folder_macos()
+                elif system == 'Windows':
+                    return self._select_folder_windows()
+                elif system == 'Linux':
+                    return self._select_folder_linux()
                 else:
-                    return jsonify({'error': 'Folder selection not supported on this OS', 'path': ''})
-            except subprocess.TimeoutExpired:
-                return jsonify({'error': 'Selection timed out', 'path': ''})
+                    return jsonify({'error': f'Folder selection not supported on {system}', 'path': ''})
             except Exception as e:
                 return jsonify({'error': str(e), 'path': ''})
 
         @self.app.route('/api/select_file')
         def select_file():
-            """Select file using native dialog (AppleScript on macOS)"""
-            import subprocess
+            """Select file using native dialog (Cross-platform)"""
             import platform
             
+            system = platform.system()
             try:
-                if platform.system() == 'Darwin':  # macOS
-                    script = '''
-                    tell application "System Events"
-                        activate
-                        set filePath to POSIX path of (choose file with prompt "Select Source File" of type {"vhd", "vhdl", "json", "yaml", "yml", "xml"})
-                    end tell
-                    '''
-                    result = subprocess.run(['osascript', '-e', script], 
-                                          capture_output=True, text=True, timeout=60)
-                    if result.returncode == 0:
-                        file_path = result.stdout.strip()
-                        return jsonify({'path': file_path})
-                    else:
-                        return jsonify({'error': 'User cancelled', 'path': ''})
+                if system == 'Darwin':
+                    return self._select_file_macos()
+                elif system == 'Windows':
+                    return self._select_file_windows()
+                elif system == 'Linux':
+                    return self._select_file_linux()
                 else:
-                    return jsonify({'error': 'File selection not supported on this OS', 'path': ''})
-            except subprocess.TimeoutExpired:
-                return jsonify({'error': 'Selection timed out', 'path': ''})
+                    return jsonify({'error': f'File selection not supported on {system}', 'path': ''})
             except Exception as e:
                 return jsonify({'error': str(e), 'path': ''})
+
+        # --- Platform Specific Helpers ---
+
+        def _select_folder_macos(self):
+            import subprocess
+            script = '''
+            tell application "System Events"
+                activate
+                set folderPath to POSIX path of (choose folder with prompt "Select Source Directory")
+            end tell
+            '''
+            try:
+                result = subprocess.run(['osascript', '-e', script], 
+                                      capture_output=True, text=True, timeout=60)
+                if result.returncode == 0:
+                    return jsonify({'path': result.stdout.strip()})
+                return jsonify({'error': 'User cancelled', 'path': ''})
+            except subprocess.TimeoutExpired:
+                return jsonify({'error': 'Selection timed out', 'path': ''})
+
+        def _select_file_macos(self):
+            import subprocess
+            script = '''
+            tell application "System Events"
+                activate
+                set filePath to POSIX path of (choose file with prompt "Select Source File" of type {"vhd", "vhdl", "json", "yaml", "yml", "xml"})
+            end tell
+            '''
+            try:
+                result = subprocess.run(['osascript', '-e', script], 
+                                      capture_output=True, text=True, timeout=60)
+                if result.returncode == 0:
+                    return jsonify({'path': result.stdout.strip()})
+                return jsonify({'error': 'User cancelled', 'path': ''})
+            except subprocess.TimeoutExpired:
+                return jsonify({'error': 'Selection timed out', 'path': ''})
+
+        def _select_folder_windows(self):
+            import subprocess
+            # PowerShell command to open FolderBrowserDialog
+            ps_script = """
+            Add-Type -AssemblyName System.Windows.Forms
+            $f = New-Object System.Windows.Forms.FolderBrowserDialog
+            $f.ShowNewFolderButton = $true
+            $f.Description = "Select Source Directory"
+            if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+                Write-Host $f.SelectedPath
+            }
+            """
+            try:
+                result = subprocess.run(["powershell", "-Command", ps_script], 
+                                      capture_output=True, text=True, timeout=60)
+                path = result.stdout.strip()
+                if path and os.path.exists(path):
+                    return jsonify({'path': path})
+                return jsonify({'error': 'User cancelled', 'path': ''})
+            except Exception as e:
+                return jsonify({'error': f'Windows selection failed: {str(e)}', 'path': ''})
+
+        def _select_file_windows(self):
+            import subprocess
+            # PowerShell command to open OpenFileDialog
+            ps_script = """
+            Add-Type -AssemblyName System.Windows.Forms
+            $f = New-Object System.Windows.Forms.OpenFileDialog
+            $f.Filter = "HDL & Config Files (*.vhd;*.vhdl;*.json;*.yaml;*.yml;*.xml)|*.vhd;*.vhdl;*.json;*.yaml;*.yml;*.xml|All Files (*.*)|*.*"
+            if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+                Write-Host $f.FileName
+            }
+            """
+            try:
+                result = subprocess.run(["powershell", "-Command", ps_script], 
+                                      capture_output=True, text=True, timeout=60)
+                path = result.stdout.strip()
+                if path and os.path.exists(path):
+                    return jsonify({'path': path})
+                return jsonify({'error': 'User cancelled', 'path': ''})
+            except Exception as e:
+                return jsonify({'error': f'Windows selection failed: {str(e)}', 'path': ''})
+
+        def _select_folder_linux(self):
+            import subprocess
+            import shutil
+            
+            # 1. Try zenity (GNOME/GTK)
+            if shutil.which('zenity'):
+                try:
+                    result = subprocess.run(['zenity', '--file-selection', '--directory', '--title=Select Source Directory'], 
+                                          capture_output=True, text=True, timeout=60)
+                    if result.returncode == 0:
+                        return jsonify({'path': result.stdout.strip()})
+                    return jsonify({'error': 'User cancelled', 'path': ''})
+                except:
+                    pass # Fallback
+            
+            # 2. Try kdialog (KDE)
+            if shutil.which('kdialog'):
+                try:
+                    result = subprocess.run(['kdialog', '--getexistingdirectory'], 
+                                          capture_output=True, text=True, timeout=60)
+                    if result.returncode == 0:
+                        return jsonify({'path': result.stdout.strip()})
+                    return jsonify({'error': 'User cancelled', 'path': ''})
+                except:
+                    pass
+
+            return jsonify({'error': 'No suitable file dialog tool found (install zenity or kdialog)', 'path': ''})
+
+        def _select_file_linux(self):
+            import subprocess
+            import shutil
+            
+            # 1. Try zenity
+            if shutil.which('zenity'):
+                try:
+                    # Zenity file filter syntax: --file-filter="Name | *.vhd *.vhdl"
+                    result = subprocess.run(['zenity', '--file-selection', '--title=Select Source File', 
+                                           '--file-filter=HDL & Config | *.vhd *.vhdl *.json *.yaml *.yml *.xml'], 
+                                          capture_output=True, text=True, timeout=60)
+                    if result.returncode == 0:
+                        return jsonify({'path': result.stdout.strip()})
+                    return jsonify({'error': 'User cancelled', 'path': ''})
+                except:
+                    pass
+            
+            # 2. Try kdialog
+            if shutil.which('kdialog'):
+                try:
+                    # KDialog syntax: "extension1 extension2"
+                    result = subprocess.run(['kdialog', '--getopenfilename', '.', 
+                                           '*.vhd *.vhdl *.json *.yaml *.yml *.xml'], 
+                                          capture_output=True, text=True, timeout=60)
+                    if result.returncode == 0:
+                        return jsonify({'path': result.stdout.strip()})
+                    return jsonify({'error': 'User cancelled', 'path': ''})
+                except:
+                    pass
+
+            return jsonify({'error': 'No suitable file dialog tool found (install zenity or kdialog)', 'path': ''})
 
         @self.app.route('/api/generate', methods=['POST'])
         def run_generate():
@@ -425,17 +703,11 @@ class AxionGUI:
         def run_gui_check():
             import io
             from contextlib import redirect_stdout
-            
+
             log_capture = io.StringIO()
             with redirect_stdout(log_capture):
                 print("Starting Design Rule Check...")
-                
-                # Always re-analyze to ensure fresh logs and latest file state
-                print("Re-analyzing sources...")
-                self.axion.is_analyzed = False
-                self.axion.analyzed_modules = []
-                self.axion.analyzed_modules = []
-                self.axion.analyze()
+                print("Using current analysis state...")
                 
                 # First check source file formats for issues
                 source_dirs = (
@@ -500,6 +772,17 @@ class AxionGUI:
                     'passed': len(self.checker.errors) == 0
                 },
                 'logs': log_capture.getvalue().splitlines()
+            })
+
+        @self.app.route('/api/analysis_status')
+        def analysis_status():
+            """Return current analysis status"""
+            return jsonify({
+                'is_analyzing': self.analysis_cache.is_analyzing,
+                'last_analysis_time': self.analysis_cache.last_analysis_time,
+                'module_count': len(self.axion.analyzed_modules),
+                'error': self.analysis_error,
+                'file_watcher_active': self.file_observer is not None and self.file_observer.is_alive() if self.file_observer else False
             })
 
         @self.app.route('/config')
@@ -1075,45 +1358,174 @@ class AxionGUI:
         lines.append('</register_map>')
         return '\n'.join(lines)
 
+    def _background_analyze(self):
+        """Run analysis in background thread"""
+        import os as os_module
+
+        # Check if already analyzing
+        if self.analysis_cache.is_analyzing:
+            return
+
+        # Check if refresh is actually needed
+        if not self.analysis_cache.needs_refresh(self.axion):
+            return
+
+        with self.analysis_cache.analysis_lock:
+            if self.analysis_cache.is_analyzing:
+                return  # Already analyzing
+
+            self.analysis_cache.is_analyzing = True
+
+        try:
+            # Silent analysis - no prints
+            import io
+            from contextlib import redirect_stdout
+
+            # Keep old modules in case of parse errors
+            old_modules = self.axion.analyzed_modules[:]
+
+            with redirect_stdout(io.StringIO()):
+                self.axion.analyzed_modules = []
+                self.axion.is_analyzed = False
+
+                try:
+                    self.axion.analyze()
+                except Exception:
+                    # If analysis fails completely, restore old modules
+                    if not self.axion.analyzed_modules:
+                        self.axion.analyzed_modules = old_modules
+                    # Continue with whatever modules we have
+
+            # Run rule checks
+            from axion_hdl.rule_checker import RuleChecker
+            self.checker = RuleChecker()
+            self.checker.run_all_checks(self.axion.analyzed_modules)
+
+            # Inject parsing errors
+            for m in self.axion.analyzed_modules:
+                if 'parsing_errors' in m:
+                    for err in m['parsing_errors']:
+                        self.checker._add_error("Parsing Error", m['name'], err.get('msg', 'Unknown parsing error'))
+
+            if hasattr(self.axion, 'parse_errors') and self.axion.parse_errors:
+                for err in self.axion.parse_errors:
+                    fname = os_module.path.basename(err.get('file', 'unknown_file'))
+                    self.checker._add_error("Format Error", fname, err.get('msg', 'Unknown error'))
+
+            # Build module status map and attach to modules
+            module_status = {}
+            for err in self.checker.errors:
+                name = err.get('module', 'unknown')
+                if name not in module_status:
+                    module_status[name] = {'errors': 0, 'warnings': 0}
+                module_status[name]['errors'] += 1
+
+            for warn in self.checker.warnings:
+                name = warn.get('module', 'unknown')
+                if name not in module_status:
+                    module_status[name] = {'errors': 0, 'warnings': 0}
+                module_status[name]['warnings'] += 1
+
+            # Attach status to each module
+            for m in self.axion.analyzed_modules:
+                status = module_status.get(m['name'], {'errors': 0, 'warnings': 0})
+                m['rule_errors'] = status['errors']
+                m['rule_warnings'] = status['warnings']
+
+            # Update cache
+            self.analysis_cache.update_mtimes(self.axion)
+            self.analysis_error = None
+
+        except Exception as e:
+            self.analysis_error = str(e)
+
+        finally:
+            self.analysis_cache.is_analyzing = False
+
+    def _start_file_watcher(self):
+        """Start file system watcher for source files"""
+        if not WATCHDOG_AVAILABLE:
+            return
+
+        try:
+            all_dirs = (
+                self.axion.src_dirs +
+                self.axion.xml_src_dirs +
+                self.axion.yaml_src_dirs +
+                self.axion.json_src_dirs
+            )
+
+            if not all_dirs:
+                return
+
+            event_handler = SourceFileEventHandler(self)
+            self.file_observer = Observer()
+
+            for directory in all_dirs:
+                if os.path.exists(directory):
+                    self.file_observer.schedule(event_handler, directory, recursive=True)
+
+            self.file_observer.start()
+
+        except Exception as e:
+            pass  # Silent fail
+
     def run(self, port=None):
         self.setup_app()
         if port is not None:
             self.port = port
         url = f"http://127.0.0.1:{self.port}"
         print(f"Starting Axion GUI at {url}")
-        
+
         # Open browser automatically
         webbrowser.open(url)
-        
-        # Run Flask app
-        self.app.run(port=self.port, debug=True, use_reloader=False)
+
+        try:
+            # Run Flask app
+            self.app.run(port=self.port, debug=True, use_reloader=False)
+        finally:
+            # Cleanup file watcher
+            if self.file_observer:
+                self.file_observer.stop()
+                self.file_observer.join()
 
     def _read_version(self):
-        """Read version from .version file."""
-        import os
-        
-        # Try multiple possible locations for .version file
-        possible_paths = [
-            os.path.join(os.path.dirname(__file__), '..', '.version'),  # Package install
-            os.path.join(os.getcwd(), '.version'),  # Current directory
-        ]
-        
-        for path in possible_paths:
-            if os.path.exists(path):
-                try:
-                    with open(path, 'r') as f:
-                        return f.read().strip()
-                except:
-                    pass
-        
-        # Fallback to package version if .version not found
-        try:
-            from axion_hdl import __version__
-            return __version__
-        except:
-            return "unknown"
+        """
+        Return a random version number to force cache busting on every restart.
+        This ensures CSS/JS updates are always reflected immediately.
+        """
+        import random
+        return str(random.randint(1000, 9999))
+
 
 def start_gui(axion_instance, port=5000):
+    # Check if port is already in use
+    import socket
+    import platform
+    import sys
+    
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind(('127.0.0.1', port))
+        sock.close()
+    except OSError:
+        print(f"\nError: Port {port} is already in use.")
+        print("To verify which process is using the port and stop it:")
+        
+        system = platform.system()
+        
+        if system == "Linux" or system == "Darwin":
+            print(f"  1. Find PID:  lsof -i :{port}")
+            print(f"  2. Kill PID:  kill -9 <PID>")
+            print(f"  Or force kill: fuser -k {port}/tcp")
+        elif system == "Windows":
+            print(f"  1. Find PID:  netstat -ano | findstr :{port}")
+            print(f"  2. Kill PID:  taskkill /F /PID <PID>")
+        else:
+            print(f"  Please check your running processes for port {port}.")
+            
+        sys.exit(1)
+
     gui = AxionGUI(axion_instance)
     gui.port = port
     gui.run()
