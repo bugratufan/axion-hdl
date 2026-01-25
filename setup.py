@@ -26,7 +26,7 @@ setup(
         # No external dependencies - pure Python implementation
     ],
     extras_require={
-        'gui': ['flask>=2.0'],
+        'gui': ['flask>=2.0', 'watchdog>=2.0'],
         'dev': [
             'pytest>=6.0',
             'pytest-cov>=2.0',
