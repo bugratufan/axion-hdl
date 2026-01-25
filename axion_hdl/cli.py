@@ -242,9 +242,8 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     
     # Validate at least one source is provided
     if not args.sources and not args.xml_sources:
-        print("Error: At least one source file or directory required. Use -s to specify.", 
-              file=sys.stderr)
-        sys.exit(1)
+        print("No sources specified. Defaulting to current directory (.).")
+        args.sources = ["."]
     
     # Validate all sources exist (files or directories)
     for src in args.sources:
