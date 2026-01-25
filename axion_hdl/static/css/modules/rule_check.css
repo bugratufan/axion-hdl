@@ -1,0 +1,216 @@
+/* ==========================================================================
+   Axion-HDL GUI - Rule Check Module Styles
+   ========================================================================== */
+
+/* Status Card */
+.status-card {
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+/* Module Section Cards */
+.module-section {
+    background: var(--color-bg-tertiary);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+.module-section:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Module Header */
+.module-header {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.module-header h5 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+}
+
+.module-header h5 i {
+    opacity: 0.7;
+}
+
+.module-count {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+}
+
+/* Issues Table */
+.issues-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.issues-table thead th {
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--color-text-secondary);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 12px 20px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.issues-table tbody td {
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    vertical-align: top;
+    color: var(--color-text-primary);
+    line-height: 1.6;
+}
+
+.issues-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.issues-table tbody tr {
+    transition: background 0.15s ease;
+}
+
+.issues-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* Issue Type Cell */
+.issue-type-cell {
+    width: 180px;
+    white-space: nowrap;
+}
+
+.issue-type-cell .badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Issue Message */
+.issue-msg {
+    color: var(--color-text-primary);
+}
+
+.issue-msg code {
+    background: rgba(0, 217, 255, 0.1);
+    color: var(--color-accent-primary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-family: var(--font-mono);
+    border: 1px solid rgba(0, 217, 255, 0.2);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--color-bg-tertiary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    color: var(--color-accent-secondary);
+    opacity: 0.5;
+}
+
+.empty-state p {
+    margin-top: 16px;
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+}
+
+/* Nav Pills Dark Mode Override */
+[data-theme="dark"] .nav-pills .nav-link {
+    color: var(--color-text-secondary);
+    transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .nav-pills .nav-link:hover {
+    color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .nav-pills .nav-link.active {
+    background: var(--color-accent-primary);
+    color: var(--color-bg-primary);
+}
+
+/* Card Body Dark Mode */
+[data-theme="dark"] .card-body {
+    background: var(--color-bg-tertiary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .bg-light {
+    background: var(--color-bg-tertiary) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Light Theme Overrides */
+[data-theme="light"] .module-section {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .module-header {
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+[data-theme="light"] .module-header h5 {
+    color: #111827;
+}
+
+[data-theme="light"] .issues-table thead th {
+    background: #f9fafb;
+    color: #6b7280;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+[data-theme="light"] .issues-table tbody td {
+    color: #111827;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+[data-theme="light"] .issues-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+[data-theme="light"] .issue-msg code {
+    background: rgba(59, 130, 246, 0.1);
+    color: #2563eb;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="light"] .empty-state {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+}
