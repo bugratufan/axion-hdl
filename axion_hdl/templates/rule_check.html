@@ -3,158 +3,11 @@
 {% block title %}Rule Check - Axion HDL{% endblock %}
 
 {% block head %}
-<style>
-    .status-card {
-        border-radius: 12px;
-        padding: 20px 24px;
-        display: flex;
-        align-items: center;
-        gap: 16px;
-    }
-
-    .status-icon {
-        font-size: 2.5rem;
-    }
-
-    .status-info h3 {
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 700;
-    }
-
-    .status-info p {
-        margin: 4px 0 0 0;
-        font-size: 0.9rem;
-        opacity: 0.9;
-    }
-
-    .module-section {
-        background: var(--card-bg);
-        border-radius: 12px;
-        box-shadow: var(--card-shadow);
-        margin-bottom: 16px;
-        overflow: hidden;
-        border: 1px solid var(--border-color);
-    }
-
-    .module-header {
-        background: var(--hover-bg);
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--border-color);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .module-header h5 {
-        margin: 0;
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: var(--text-color);
-    }
-
-    .module-count {
-        background: rgba(239, 68, 68, 0.15);
-        color: #f87171;
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 3px 10px;
-        border-radius: 12px;
-    }
-
-    [data-theme="light"] .module-count {
-        background: #fee2e2;
-        color: #dc2626;
-    }
-
-    .issues-table {
-        width: 100%;
-        font-size: 0.85rem;
-    }
-
-    .issues-table th {
-        background: var(--hover-bg);
-        font-weight: 600;
-        color: var(--text-muted);
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding: 8px 12px;
-        text-align: left;
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .issues-table td {
-        padding: 8px 12px;
-        border-bottom: 1px solid var(--border-color);
-        vertical-align: top;
-        color: var(--text-color);
-    }
-
-    .issues-table tr:last-child td {
-        border-bottom: none;
-    }
-
-    .issues-table tr:hover td {
-        background: var(--hover-bg);
-    }
-
-    .issue-type-cell {
-        width: 140px;
-        white-space: nowrap;
-    }
-
-    .issue-type-badge {
-        background: rgba(239, 68, 68, 0.15);
-        color: #f87171;
-        font-size: 0.7rem;
-        font-weight: 600;
-        padding: 3px 8px;
-        border-radius: 4px;
-    }
-
-    [data-theme="light"] .issue-type-badge {
-        background: #fee2e2;
-        color: #dc2626;
-    }
-
-    .issue-msg code {
-        background: var(--code-bg);
-        padding: 1px 5px;
-        border-radius: 3px;
-        font-size: 0.8rem;
-        color: var(--text-color);
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 60px;
-        background: var(--card-bg);
-        border-radius: 12px;
-    }
-
-    .empty-state i {
-        font-size: 4rem;
-        color: #10b981;
-    }
-
-    /* Dark mode Bootstrap overrides */
-    [data-theme="dark"] .nav-pills .nav-link {
-        color: var(--text-color);
-    }
-
-    [data-theme="dark"] .nav-pills .nav-link.active {
-        background-color: var(--primary-color);
-    }
-
-    [data-theme="dark"] .card-body {
-        background: var(--card-bg);
-    }
-
-    [data-theme="dark"] .bg-light {
-        background: var(--hover-bg) !important;
-    }
-</style>
+<link rel="stylesheet"
+    href="{{ url_for('static', filename='css/modules/rule_check.css') }}?v={{ range(1, 10000) | random }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mac_terminal.css') }}?v={{ range(1, 10000) | random }}">
+<link rel="stylesheet"
+    href="{{ url_for('static', filename='css/segmented_control.css') }}?v={{ range(1, 10000) | random }}">
 {% endblock %}
 
 {% block content %}
@@ -173,16 +26,25 @@
 
 <!-- Collapsible Info -->
 <div class="collapse mb-4" id="checkDetails">
-    <div class="card card-body bg-light border-0">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="card-title fw-bold mb-0"><i class="bi bi-list-check"></i> Run Details</h6>
-            <div><strong>Checked Modules:</strong> <span id="checkedModules">-</span></div>
+    <div class="mac-terminal">
+        <div class="mac-terminal-header">
+            <div class="mac-window-controls">
+                <button type="button" class="mac-btn mac-close" data-bs-toggle="collapse" data-bs-target="#checkDetails"
+                    aria-label="Close"></button>
+            </div>
+            <div class="mac-title">run_details — bash — 80x24</div>
         </div>
+        <div class="mac-content">
+            <div class="stats-row">
+                <span>Checked Modules: <span class="stats-val" id="checkedModules">-</span></span>
+                <span>Status: <span class="stats-val" style="color: #61afef;">Active</span></span>
+            </div>
 
-        <!-- Activity Log -->
-        {% from 'components/activity_log.html' import activity_log %}
-        {{ activity_log(id="activity-log", height="200px", title="Activity Log", subtitle="<span
-            style='color: #8b949e; font-size: 0.75rem;'>stdout</span>", placeholder="Ready to check...") }}
+            <!-- Activity Log -->
+            {% from 'components/activity_log.html' import activity_log %}
+            {{ activity_log(id="activity-log", height="200px", title="", subtitle="", placeholder="Ready to check...")
+            }}
+        </div>
     </div>
 </div>
 
@@ -199,22 +61,23 @@
 
 
     <!-- Tabs -->
-    <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="pills-all-tab" data-bs-toggle="pill" data-bs-target="#pills-all"
-                type="button" role="tab">All Issues</button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="pills-errors-tab" data-bs-toggle="pill" data-bs-target="#pills-errors"
-                type="button" role="tab">Errors <span class="badge bg-danger rounded-pill"
-                    id="badge-errors">0</span></button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="pills-warnings-tab" data-bs-toggle="pill" data-bs-target="#pills-warnings"
-                type="button" role="tab">Warnings <span class="badge bg-warning text-dark rounded-pill"
-                    id="badge-warnings">0</span></button>
-        </li>
-    </ul>
+    <!-- Segmented Tabs -->
+    <div class="nav segmented-control mb-3" id="pills-tab" role="tablist">
+        <button class="segmented-item active" id="pills-all-tab" data-bs-toggle="tab" data-bs-target="#pills-all"
+            type="button" role="tab">All Issues</button>
+
+        <button class="segmented-item" id="pills-errors-tab" data-bs-toggle="tab" data-bs-target="#pills-errors"
+            type="button" role="tab">
+            Errors
+            <span class="seg-badge error" id="badge-errors">0</span>
+        </button>
+
+        <button class="segmented-item" id="pills-warnings-tab" data-bs-toggle="tab" data-bs-target="#pills-warnings"
+            type="button" role="tab">
+            Warnings
+            <span class="seg-badge warning" id="badge-warnings">0</span>
+        </button>
+    </div>
 
     <div class="tab-content" id="pills-tabContent">
         <div class="tab-pane fade show active" id="pills-all" role="tabpanel"></div>
@@ -223,149 +86,8 @@
     </div>
 </div>
 
-<script>
-    document.addEventListener('DOMContentLoaded', runCheck);
+{% endblock %}
 
-    function runCheck() {
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('results').style.display = 'none';
-
-        // Reset log
-        const log = document.getElementById('activity-log');
-        log.innerHTML = '<div class="text-info">Starting design rule check...</div>';
-
-        fetch('/api/run_check')
-            .then(r => r.json())
-            .then(renderResults)
-            .catch(err => {
-                document.getElementById('loading').innerHTML =
-                    '<div class="alert alert-danger">Failed to run check</div>';
-                document.getElementById('activity-log').innerHTML +=
-                    '<div class="text-danger mt-2">Error: Failed to communicate with server.</div>';
-            });
-    }
-
-    function renderResults(data) {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('results').style.display = 'block';
-
-        if (document.getElementById('checkedModules')) {
-            document.getElementById('checkedModules').textContent = data.checked_modules || '-';
-        }
-
-        const log = document.getElementById('activity-log');
-        if (data.logs && data.logs.length > 0) {
-            log.innerHTML = data.logs.map(line => `<div>${line}</div>`).join('');
-        } else {
-            log.innerHTML += '<div class="text-warning">No logs captured.</div>';
-        }
-
-        const totalErrors = data.summary.total_errors;
-        const totalWarnings = data.summary.total_warnings;
-        const total = totalErrors + totalWarnings;
-        const passed = data.summary.passed;
-
-        // Update badges
-        document.getElementById('badge-errors').textContent = totalErrors;
-        document.getElementById('badge-warnings').textContent = totalWarnings;
-
-        // Status card
-        const statusCard = document.getElementById('status-card');
-        if (passed && total === 0) {
-            statusCard.style.background = 'linear-gradient(135deg, #dcfce7, #bbf7d0)';
-            statusCard.innerHTML = `
-            <div class="status-icon text-success"><i class="bi bi-check-circle-fill"></i></div>
-            <div class="status-info">
-                <h3 class="text-success">All Clear</h3>
-                <p class="text-success">No design rule violations found</p>
-            </div>`;
-        } else {
-            statusCard.style.background = totalErrors > 0 ?
-                'linear-gradient(135deg, #fee2e2, #fecaca)' :
-                'linear-gradient(135deg, #fef3c7, #fde68a)';
-
-            statusCard.innerHTML = `
-            <div class="status-icon ${totalErrors > 0 ? 'text-danger' : 'text-warning'}">
-                <i class="bi bi-${totalErrors > 0 ? 'x-octagon-fill' : 'exclamation-triangle-fill'}"></i>
-            </div>
-            <div class="status-info">
-                <h3 class="${totalErrors > 0 ? 'text-danger' : 'text-warning'}">
-                    ${total} Issue${total > 1 ? 's' : ''} Found
-                </h3>
-                <p class="${totalErrors > 0 ? 'text-danger' : 'text-dark'} opacity-75">
-                    ${totalErrors} errors, ${totalWarnings} warnings
-                </p>
-            </div>`;
-        }
-
-        // Render Tabs
-        // Prepare combined lists with severity tag
-        const allIssues = [
-            ...data.errors.map(i => ({ ...i, severity: 'error' })),
-            ...data.warnings.map(i => ({ ...i, severity: 'warning' }))
-        ];
-
-        const errorIssues = data.errors.map(i => ({ ...i, severity: 'error' }));
-        const warningIssues = data.warnings.map(i => ({ ...i, severity: 'warning' }));
-
-        renderTab('pills-all', allIssues);
-        renderTab('pills-errors', errorIssues);
-        renderTab('pills-warnings', warningIssues);
-    }
-
-    function renderTab(containerId, issues) {
-        const container = document.getElementById(containerId);
-        container.innerHTML = '';
-
-        if (issues.length === 0) {
-            container.innerHTML = `
-            <div class="empty-state py-5">
-                <i class="bi bi-check2-circle text-success mb-3" style="font-size: 3rem;"></i>
-                <h5 class="text-muted">No items in this category</h5>
-            </div>`;
-            return;
-        }
-
-        // Group by module
-        const moduleMap = {};
-        issues.forEach(item => {
-            const mod = item.module || 'Global';
-            if (!moduleMap[mod]) moduleMap[mod] = [];
-            moduleMap[mod].push(item);
-        });
-
-        // Sort modules by issue count descending
-        const modules = Object.entries(moduleMap).sort((a, b) => b[1].length - a[1].length);
-
-        modules.forEach(([name, moduleIssues]) => {
-            const rows = moduleIssues.map(i => {
-                const badgeClass = i.severity === 'error' ? 'bg-danger' : 'bg-warning text-dark';
-                // Highlight addresses/numbers
-                const msg = i.msg.replace(/(0x[0-9A-Fa-f]+)/g, '<code>$1</code>');
-
-                return `<tr>
-                <td class="issue-type-cell">
-                    <span class="badge ${badgeClass}">${i.type}</span>
-                </td>
-                <td class="issue-msg">${msg}</td>
-            </tr>`;
-            }).join('');
-
-            container.innerHTML += `
-            <div class="module-section">
-                <div class="module-header">
-                    <h5><i class="bi bi-box-seam me-2"></i>${name}</h5>
-                    <span class="module-count" 
-                          style="background:${moduleIssues[0].severity === 'error' ? '#fee2e2; color:#dc2626' : '#fef3c7; color:#d97706'}">
-                        ${moduleIssues.length}
-                    </span>
-                </div>
-                <table class="issues-table">
-                    <thead><tr><th>Type</th><th>Message</th></tr></thead>
-                    <tbody>${rows}</tbody>
-                </table>
-            </div>`;
-        });
-    }
-</script>
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/modules/rule_check.js') }}"></script>
 {% endblock %}
