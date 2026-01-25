@@ -1,0 +1,144 @@
+/* ==========================================================================
+   Axion-HDL GUI - Config Module Styles
+   Styles specific to the configuration page
+   ========================================================================== */
+
+/* Path lists */
+.path-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.path-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-xs);
+    border: 1px solid var(--color-border);
+    transition: all var(--transition-fast);
+}
+
+.path-item:hover {
+    background: var(--hover-bg);
+    border-color: var(--color-border-hover);
+}
+
+.path-item code {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--color-text-primary);
+    background: transparent;
+    padding: 0;
+}
+
+.empty-list {
+    color: var(--color-text-muted);
+    font-style: italic;
+    padding: var(--space-md);
+    text-align: center;
+}
+
+/* Type badges */
+.type-badge {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.type-badge.vhdl {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.type-badge.xml {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.type-badge.yaml,
+.type-badge.yml {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.type-badge.json {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Remove buttons */
+.remove-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all var(--transition-fast);
+}
+
+.remove-btn:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--error-color);
+}
+
+/* Input groups */
+.add-source-group {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: flex-end;
+}
+
+.add-source-group input {
+    flex: 1;
+}
+
+/* Refresh log */
+#refreshLog {
+    background: var(--color-bg-tertiary);
+    padding: var(--space-md);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+}
+
+#refreshLog:empty::before {
+    content: 'Refresh logs will appear here...';
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
+/* Unsaved badge */
+#unsavedBadge {
+    animation: pulse 2s infinite;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .add-source-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .path-item {
+        flex-wrap: wrap;
+    }
+
+    .path-item code {
+        flex: 1 1 100%;
+        margin-bottom: var(--space-xs);
+    }
+}
