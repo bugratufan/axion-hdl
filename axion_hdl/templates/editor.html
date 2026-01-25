@@ -3,446 +3,18 @@
 {% block title %}Edit Module - {{ module.name }}{% endblock %}
 
 {% block head %}
-<style>
-    /* Enhanced Editor Styles */
-    .reg-row:hover {
-        background-color: var(--hover-bg) !important;
-    }
-
-    .reg-row input:focus,
-    .reg-row select:focus {
-        background-color: var(--card-bg) !important;
-        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
-        outline: none;
-    }
-
-    .input-invalid {
-        border: 1px solid #ef4444 !important;
-        background-color: rgba(239, 68, 68, 0.15) !important;
-    }
-
-    .strobe-toggle {
-        cursor: pointer;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        transition: all 0.15s;
-        user-select: none;
-    }
-
-    .strobe-toggle.active {
-        background-color: rgba(59, 130, 246, 0.2);
-        color: #60a5fa;
-    }
-
-    [data-theme="light"] .strobe-toggle.active {
-        background-color: #dbeafe;
-        color: #1d4ed8;
-    }
-
-    .strobe-toggle.inactive {
-        background-color: var(--hover-bg);
-        color: var(--text-muted);
-    }
-
-    .strobe-toggle:hover {
-        transform: scale(1.05);
-    }
-
-    .action-btn {
-        width: 28px;
-        height: 28px;
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        transition: all 0.15s;
-    }
-
-    .action-btn:hover {
-        transform: scale(1.1);
-    }
-
-    .addr-badge {
-        font-family: 'Monaco', 'Menlo', monospace;
-        font-size: 0.75rem;
-        padding: 4px 8px;
-        background-color: var(--hover-bg);
-        border-radius: 4px;
-        color: var(--text-muted);
-    }
-
-    /* Address change visual indicators */
-    .addr-cell {
-        position: relative;
-    }
-
-    .addr-original {
-        font-size: 0.65rem;
-        color: var(--text-muted);
-        text-decoration: line-through;
-        margin-right: 4px;
-    }
-
-    .addr-changed {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-    }
-
-    .addr-conflict {
-        border: 2px solid #ef4444 !important;
-        background-color: rgba(239, 68, 68, 0.15) !important;
-    }
-
-    .addr-conflict-warning {
-        color: #f87171;
-        font-size: 0.8rem;
-        margin-left: 4px;
-    }
-
-    .addr-revert-btn {
-        cursor: pointer;
-        color: var(--text-muted);
-        font-size: 0.7rem;
-        padding: 2px 4px;
-        border-radius: 3px;
-        background: var(--hover-bg);
-        border: none;
-        transition: all 0.15s;
-    }
-
-    .addr-revert-btn:hover {
-        background: var(--border-color);
-        color: var(--text-color);
-    }
-
-    .strobe-group {
-        display: flex;
-        gap: 4px;
-    }
-
-    [data-tooltip] {
-        position: relative;
-    }
-
-    [data-tooltip]:hover::after {
-        content: attr(data-tooltip);
-        position: absolute;
-        bottom: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #1e293b;
-        color: white;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 0.7rem;
-        white-space: nowrap;
-        z-index: 100;
-    }
-
-    /* Unsaved changes indicator */
-    .unsaved-indicator {
-        display: none;
-        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        color: white;
-        padding: 8px 16px;
-        border-radius: 8px;
-        font-size: 0.85rem;
-        font-weight: 500;
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-        z-index: 1000;
-        animation: pulse 2s infinite;
-    }
-
-    .unsaved-indicator.visible {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    @keyframes pulse {
-
-        0%,
-        100% {
-            opacity: 1;
-        }
-
-        50% {
-            opacity: 0.8;
-        }
-    }
-
-    /* Dark mode Bootstrap overrides for editor */
-    [data-theme="dark"] .bg-white,
-    [data-theme="dark"] .card {
-        background: var(--card-bg) !important;
-    }
-
-    [data-theme="dark"] .bg-light,
-    [data-theme="dark"] .bg-light-subtle {
-        background: var(--hover-bg) !important;
-    }
-
-    [data-theme="dark"] .text-muted,
-    [data-theme="dark"] .text-secondary {
-        color: var(--text-muted) !important;
-    }
-
-    [data-theme="dark"] .text-dark {
-        color: var(--text-color) !important;
-    }
-
-    [data-theme="dark"] .form-control,
-    [data-theme="dark"] .form-select,
-    [data-theme="dark"] .input-group-text {
-        background: var(--input-bg) !important;
-        border-color: var(--border-color) !important;
-        color: var(--text-color) !important;
-    }
-
-    [data-theme="dark"] .border-bottom {
-        border-color: var(--border-color) !important;
-    }
-
-    [data-theme="dark"] .card-header {
-        background: var(--card-bg) !important;
-        border-color: var(--border-color) !important;
-    }
-
-    [data-theme="dark"] .table {
-        color: var(--text-color);
-    }
-
-    [data-theme="dark"] .table thead {
-        background: var(--hover-bg) !important;
-    }
-
-    [data-theme="dark"] .table th {
-        background: var(--hover-bg) !important;
-        color: var(--text-muted) !important;
-    }
-
-    [data-theme="dark"] .breadcrumb-item.active {
-        color: var(--text-muted);
-    }
-
-    [data-theme="dark"] .breadcrumb-item a {
-        color: var(--primary-color);
-    }
-
-    [data-theme="dark"] .btn-light {
-        background: var(--hover-bg);
-        border-color: var(--border-color);
-        color: var(--text-color);
-    }
-
-    [data-theme="dark"] .badge.bg-warning {
-        color: #1e293b !important;
-    }
-
-    /* Card title and h5 headings */
-    [data-theme="dark"] .card-title,
-    [data-theme="dark"] h5.fw-bold,
-    [data-theme="dark"] h5.card-title {
-        color: var(--text-color) !important;
-    }
-
-    /* Improved table styles for dark mode */
-    [data-theme="dark"] .table-hover tbody tr:hover {
-        background-color: var(--hover-bg) !important;
-    }
-
-    [data-theme="dark"] .table> :not(caption)>*>* {
-        background-color: var(--card-bg);
-        color: var(--text-color);
-        border-bottom-color: var(--border-color);
-    }
-
-    [data-theme="dark"] .table thead tr {
-        background-color: var(--hover-bg) !important;
-    }
-
-    [data-theme="dark"] .table thead th {
-        color: var(--text-muted) !important;
-        background-color: var(--hover-bg) !important;
-        border-bottom-color: var(--border-color) !important;
-    }
-
-    [data-theme="dark"] .border-top {
-        border-color: var(--border-color) !important;
-    }
-
-    /* Subregister styles */
-    .subreg-row {
-        background-color: var(--card-bg);
-        border-left: 3px solid var(--primary-color);
-    }
-
-    .subreg-table th {
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: var(--text-muted);
-    }
-
-    .subreg-table td {
-        font-size: 0.9rem;
-        vertical-align: middle;
-    }
-
-    .toggle-subregs {
-        cursor: pointer;
-        transition: transform 0.2s;
-        display: inline-block;
-        padding: 2px;
-        color: var(--primary-color);
-    }
-
-    .toggle-subregs.expanded {
-        transform: rotate(90deg);
-    }
-
-    /* ===== RESPONSIVE DESIGN ===== */
-
-    /* Tablet and smaller (< 992px) */
-    @media (max-width: 991.98px) {
-
-        /* Stack module config form */
-        #moduleForm.row {
-            flex-direction: column;
-            align-items: stretch !important;
-        }
-
-        #moduleForm .col-auto {
-            width: 100%;
-            margin-bottom: 0.5rem;
-        }
-
-        /* Reduce table font size */
-        #regsTable {
-            font-size: 0.85rem;
-        }
-
-        /* Hide description column on tablet */
-        #regsTable th:nth-child(7),
-        #regsTable td:nth-child(7) {
-            display: none;
-        }
-
-        /* Reduce padding */
-        #regsTable th,
-        #regsTable td {
-            padding: 0.4rem 0.3rem !important;
-        }
-
-        /* Make inputs smaller */
-        #regsTable input,
-        #regsTable select {
-            font-size: 0.8rem !important;
-            padding: 0.25rem 0.4rem !important;
-        }
-    }
-
-    /* Mobile (< 768px) */
-    @media (max-width: 767.98px) {
-
-        /* Header adjustments */
-        .d-flex.justify-content-between {
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        /* Make buttons full width */
-        #saveBtn,
-        #generateBtn {
-            width: 100%;
-        }
-
-        /* Further reduce table */
-        #regsTable {
-            font-size: 0.75rem;
-        }
-
-        /* Hide more columns on mobile: Description, Strobes, Default */
-        #regsTable th:nth-child(5),
-        #regsTable td:nth-child(5),
-        #regsTable th:nth-child(6),
-        #regsTable td:nth-child(6) {
-            display: none;
-        }
-
-        /* Minimum table width for horizontal scroll */
-        #regsTable {
-            min-width: 500px;
-        }
-
-        /* Compact address input */
-        .reg-addr-input {
-            width: 50px !important;
-            font-size: 0.7rem !important;
-        }
-
-        /* Compact name input */
-        .reg-name-input {
-            max-width: 100px;
-        }
-
-        /* Reduce action button size */
-        .action-btn {
-            width: 24px;
-            height: 24px;
-            font-size: 0.7rem;
-        }
-
-        /* Unsaved indicator smaller */
-        .unsaved-indicator {
-            font-size: 0.75rem;
-            padding: 6px 12px;
-            bottom: 10px;
-            right: 10px;
-        }
-    }
-
-    /* Small mobile (< 576px) */
-    @media (max-width: 575.98px) {
-
-        /* Very compact table */
-        #regsTable th:nth-child(3),
-        #regsTable td:nth-child(3),
-        #regsTable th:nth-child(4),
-        #regsTable td:nth-child(4) {
-            display: none;
-        }
-
-        /* Show only: Addr, Name, Actions */
-        #regsTable {
-            min-width: 300px;
-        }
-
-        /* Larger touch targets for mobile */
-        .action-btn {
-            width: 32px;
-            height: 32px;
-        }
-
-        /* Card padding reduction */
-        .card-body {
-            padding: 0.75rem !important;
-        }
-
-        /* Page padding */
-        .container-fluid {
-            padding-left: 0.5rem;
-            padding-right: 0.5rem;
-        }
-    }
-</style>
+<!-- Editor-specific styles -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modules/editor.css') }}?v={{ range(1, 10000) | random }}">
+{% endblock %}
+
+{% block scripts %}
+<!-- Global variables for editor.js -->
+<script>
+    const moduleIsNew = {% if module.is_new %}true{% else %}false{% endif %};
+    const moduleNameGlobal = '{{ module.name }}';
+    const moduleFileGlobal = '{{ module.file }}';
+</script>
+<script src="{{ url_for('static', filename='js/modules/editor.js') }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -453,55 +25,69 @@
 </div>
 
 <!-- Top Header -->
-<div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
-    <div>
+<div class="row align-items-center mb-4 pb-3 border-bottom g-3">
+    <div class="col-12 col-md-7">
         <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-1">
-                <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Dashboard</a></li>
-                <li class="breadcrumb-item active" aria-current="page">{% if module.is_new %}New Module{% else %}{{
-                    module.name }}{% endif %}</li>
+            <ol class="breadcrumb mb-1 small" style="--bs-breadcrumb-divider-color: var(--color-text-muted);">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none"
+                        style="color: var(--color-text-secondary);">Dashboard</a></li>
+                <li class="breadcrumb-item active" aria-current="page" style="color: var(--color-text-primary);">
+                    {% if module.is_new %}New Module{% else %}{{ module.name }}{% endif %}
+                </li>
             </ol>
         </nav>
         {% if module.is_new %}
         <div class="d-flex align-items-center gap-2">
-            <input type="text" id="moduleName" class="form-control form-control-lg fw-bold border-0 p-0"
-                value="new_module" placeholder="module_name" style="font-size: 1.5rem; max-width: 300px;">
-            <span class="badge bg-primary">New</span>
+            <input type="text" id="moduleName"
+                class="form-control form-control-lg fw-bold border-0 p-0 shadow-none bg-transparent" value="new_module"
+                placeholder="module_name"
+                style="font-size: 1.5rem; max-width: 300px; color: var(--color-text-primary);">
+            <span class="badge"
+                style="background: var(--color-accent-primary); color: var(--color-bg-primary);">New</span>
         </div>
         {% else %}
-        <h2 class="mb-0 fw-bold text-dark">{{ module.name }}</h2>
+        <h2 class="mb-0 fw-bold" style="color: var(--color-text-primary);">{{ module.name }}</h2>
         {% if not server_mode %}
-        <small class="text-muted">{{ module.file }}</small>
+        <small class="text-monospace d-block text-truncate"
+            style="color: var(--color-text-muted); font-size: 0.8rem; max-width: 100%;">{{ module.file }}</small>
         {% endif %}
         {% endif %}
     </div>
-    <div class="d-flex align-items-center gap-2">
-        <span id="conflictWarning" class="badge bg-danger d-none"><i class="bi bi-exclamation-triangle me-1"></i>Address
-            Conflicts</span>
+
+    <div class="col-12 col-md-5 d-flex flex-wrap align-items-center justify-content-md-end gap-2">
+        <span id="conflictWarning" class="badge bg-danger d-none w-100 w-md-auto mb-2 mb-md-0"><i
+                class="bi bi-exclamation-triangle me-1"></i>Address Conflicts</span>
+
         {% if not module.is_new %}
-        <button id="generateBtn" onclick="openGenerateModal()" class="btn btn-success px-4 shadow-sm fw-medium"
-            title="Generate code for this module">
+        <button id="generateBtn" onclick="openGenerateModal()"
+            class="btn btn-secondary px-3 shadow-sm fw-medium flex-grow-1 flex-md-grow-0"
+            title="Generate code for this module" style="white-space: nowrap;">
             <i class="bi bi-gear-fill me-2"></i>Generate
         </button>
         {% endif %}
-        <button id="saveBtn" onclick="saveChanges()" class="btn btn-primary px-4 shadow-sm fw-medium"
-            title="Review and save changes">
+
+        <button id="saveBtn" onclick="saveChanges()"
+            class="btn btn-primary px-4 shadow-sm fw-medium flex-grow-1 flex-md-grow-0" title="Review and save changes"
+            style="white-space: nowrap;">
             <i class="bi bi-save2-fill me-2"></i>{% if module.is_new %}Save As...{% else %}Review & Save{% endif %}
         </button>
     </div>
 </div>
 
 <!-- Module Configuration (Compact Top Bar) -->
-<div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+<div class="card border-0 shadow-sm rounded-4 mb-4"
+    style="background: var(--color-bg-secondary); border: 1px solid var(--color-border) !important;">
     <div class="card-body p-4">
         <form id="moduleForm" class="row g-4 align-items-end">
             <!-- Base Address -->
             <div class="col-auto">
-                <label class="form-label text-secondary fw-bold small text-uppercase mb-2">Base Address</label>
+                <label class="form-label text-uppercase mb-2"
+                    style="font-size: 0.75rem; color: var(--color-text-secondary); letter-spacing: 0.05em;">Base
+                    Address</label>
                 <div class="input-group">
-                    <span class="input-group-text bg-light border-end-0 text-muted font-monospace">0x</span>
-                    <input type="text" name="base_address"
-                        class="form-control border-start-0 ps-0 font-monospace fw-bold"
+                    <span class="input-group-text font-monospace"
+                        style="background: var(--color-bg-tertiary); border-color: var(--color-border); color: var(--color-text-muted);">0x</span>
+                    <input type="text" name="base_address" class="form-control font-monospace fw-bold"
                         value="{{ '%04X' % module.base_address if module.base_address else '0000' }}"
                         pattern="[0-9A-Fa-f]+" placeholder="0000" oninput="recalculateAddresses()" style="width: 80px;">
                 </div>
@@ -509,12 +95,16 @@
 
             <!-- CDC Enable -->
             <div class="col-auto">
-                <label class="form-label text-secondary fw-bold small text-uppercase mb-2">CDC Sync</label>
-                <div class="form-check form-switch d-flex align-items-center gap-2 mb-0" style="min-height: 38px;">
-                    <input class="form-check-input" type="checkbox" role="switch" id="cdcEnable" {% if
+                <label class="form-label text-uppercase mb-2"
+                    style="font-size: 0.75rem; color: var(--color-text-secondary); letter-spacing: 0.05em;">CDC
+                    Sync</label>
+                <div class="form-check form-switch d-flex align-items-center mb-0 border rounded px-2"
+                    style="background: var(--color-bg-tertiary); border-color: var(--color-border) !important; height: 38px;">
+                    <input class="form-check-input my-0" type="checkbox" role="switch" id="cdcEnable" {% if
                         module.cdc_enabled %}checked{% endif %} onchange="toggleCDC()"
-                        style="width: 2.5em; height: 1.25em;">
-                    <label class="form-check-label text-dark" for="cdcEnable">
+                        style="width: 2.5em; height: 1.25em; cursor: pointer; margin-left: -0.5em;">
+                    <label class="form-check-label ms-2" for="cdcEnable"
+                        style="font-size: 0.9rem; cursor: pointer; color: var(--color-text-primary); white-space: nowrap;">
                         {% if module.cdc_enabled %}Enabled{% else %}Disabled{% endif %}
                     </label>
                 </div>
@@ -522,22 +112,27 @@
 
             <!-- CDC Stages (shown when enabled) -->
             <div class="col-auto" id="cdcSettings" {% if not module.cdc_enabled %}style="display: none;" {% endif %}>
-                <label class="form-label text-secondary fw-bold small text-uppercase mb-2">CDC Stages</label>
+                <label class="form-label text-uppercase mb-2"
+                    style="font-size: 0.75rem; color: var(--color-text-secondary); letter-spacing: 0.05em;">Stages</label>
                 <input type="number" id="cdcStages" class="form-control fw-bold" value="{{ module.cdc_stages or 2 }}"
                     min="2" max="5" style="width: 70px;">
             </div>
 
             <!-- Source File Info -->
-            <div class="col-auto ms-auto text-end">
-                <label class="form-label text-secondary fw-bold small text-uppercase mb-2">Source</label>
-                <div class="text-muted small font-monospace" style="min-height: 38px; line-height: 38px;">
+            <div class="col-12 col-md-auto ms-auto text-md-end mt-3 mt-md-0">
+                <label class="form-label d-block text-uppercase mb-1"
+                    style="font-size: 0.75rem; color: var(--color-text-secondary); letter-spacing: 0.05em;">Source
+                    File</label>
+                <div class="text-truncate font-monospace small" style="color: var(--color-text-primary);">
                     {% if module.file %}
-                    <a href="/source?file={{ module.file | urlencode }}" class="text-decoration-none"
-                        title="{{ module.file }}" style="color: var(--primary-color);">
-                        <i class="bi bi-file-earmark-code me-1"></i>{{ module.file.split('/')[-1] }}
+                    <a href="/source?file={{ module.file | urlencode }}"
+                        class="text-decoration-none d-flex align-items-center justify-content-md-end gap-2"
+                        title="{{ module.file }}" style="color: var(--color-accent-primary);">
+                        <i class="bi bi-file-earmark-code"></i>
+                        <span class="text-truncate" style="max-width: 300px;">{{ module.file.split('/')[-1] }}</span>
                     </a>
                     {% else %}
-                    <span class="text-muted">No source file</span>
+                    <span class="text-muted fst-italic">No source file linked</span>
                     {% endif %}
                 </div>
             </div>
@@ -546,8 +141,10 @@
 </div>
 
 <!-- Register Map (Full Width) -->
-<div class="card border-0 shadow-sm rounded-4 bg-white">
-    <div class="card-header bg-white border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
+<div class="card border-0 shadow-sm rounded-4"
+    style="background: var(--color-bg-secondary); border: 1px solid var(--color-border) !important;">
+    <div class="card-header border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center"
+        style="background: transparent;">
         <h5 class="card-title fw-bold mb-0">Register Map</h5>
         <button onclick="addRegister()" class="btn btn-sm btn-light text-primary fw-bold hover-lift" id="addRegBtn">
             <i class="bi bi-plus me-1"></i>New Register
@@ -556,8 +153,8 @@
 
     <div class="card-body p-0 mt-3">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" id="regsTable">
-                <thead class="bg-light text-secondary small text-uppercase text-muted border-top border-bottom">
+            <table class="table table-hover align-middle mb-0 table-registers" id="regsTable">
+                <thead class="border-bottom">
                     <tr>
                         <th class="ps-4 py-3" style="width: 8%" data-tooltip="Calculated memory offset">Addr
                         </th>
@@ -692,10 +289,11 @@
                                     style="left: 28px; top: 0; bottom: 0; width: 2px; bg-color: var(--bs-border-color);">
                                 </div>
 
-                                <div class="table-responsive rounded-3 overflow-hidden border bg-white">
+                                <div class="table-responsive rounded-3 overflow-hidden border"
+                                    style="background-color: var(--color-bg-tertiary); border-color: var(--color-border) !important;">
                                     <table class="table table-sm mb-0 subreg-table align-middle">
-                                        <thead class="bg-light text-secondary text-uppercase"
-                                            style="font-size: 0.75rem;">
+                                        <thead class="text-secondary text-uppercase"
+                                            style="font-size: 0.75rem; background-color: rgba(0,0,0,0.2);">
                                             <tr>
                                                 <th class="ps-3 py-2 border-bottom" style="width: 20%">Field Name</th>
                                                 <th class="py-2 border-bottom" style="width: 10%">Offset</th>
@@ -802,996 +400,5 @@
 
 
 
-<script>
-    // Global state
-    let nextAddr = 0;
-    let hasUnsavedChanges = false;
-    // Note: window.initialState is used globally for test synchronization
-
-    // Get current form state for comparison
-    function getFormState() {
-        try {
-            const regs = [];
-            document.querySelectorAll('.reg-row').forEach((row, index) => {
-                const isPacked = row.querySelector('.toggle-subregs') !== null;
-                const nameInput = row.querySelector('.reg-name-input');
-                const name = nameInput?.value || '';
-                const addr = row.querySelector('.reg-addr-input')?.value || '0x0';
-
-                if (isPacked) {
-                    // Collect sub-fields instead of the container
-                    const subregRow = document.getElementById('subregs-' + row.getAttribute('data-index'));
-                    if (subregRow) {
-                        subregRow.querySelectorAll('.subreg-field-row').forEach(fieldRow => {
-                            regs.push({
-                                name: fieldRow.querySelector('.subreg-name-input')?.value || '',
-                                reg_name: name, // Link to parent container name
-                                address: addr,  // Share parent address
-                                width: fieldRow.querySelector('.subreg-width-input')?.value || '',
-                                access: fieldRow.querySelector('.subreg-access-input')?.value || '',
-                                default_value: fieldRow.querySelector('.subreg-default-input')?.value || '',
-                                description: fieldRow.querySelector('.subreg-desc-input')?.value || '',
-                                bit_offset: fieldRow.querySelector('.subreg-offset-input')?.value || null,
-                                is_packed_field: true
-                            });
-                        });
-                    }
-                } else {
-                    // Standard register
-                    const strobes = row.querySelectorAll('.strobe-toggle');
-                    regs.push({
-                        name: name,
-                        width: row.querySelector('.reg-width-input')?.value || '',
-                        access: row.querySelector('.reg-access-input')?.value || '',
-                        default_value: row.querySelector('.reg-default-input')?.value || '',
-                        description: row.querySelector('.reg-desc-input')?.value || '',
-                        r_strobe: strobes[0]?.classList.contains('active') || false,
-                        w_strobe: strobes[1]?.classList.contains('active') || false,
-                        address: addr,
-                        manual_address: row.querySelector('.reg-addr-input').getAttribute('data-locked') === 'true'
-                    });
-                }
-            });
-
-            return JSON.stringify({
-                base_address: document.querySelector('input[name="base_address"]')?.value || '',
-                cdc_enabled: document.getElementById('cdcEnable')?.checked || false,
-                cdc_stages: document.getElementById('cdcStages')?.value || '',
-                registers: regs
-            });
-        } catch (e) {
-            console.error("getFormState error:", e);
-            return JSON.stringify({ registers: [] });
-        }
-    }
-    // Helper to get raw address value without decoration if possible, 
-    // but getFormState comparison needs stability.
-    // The previous implementation captured values. My new `getFormState` logic is correct 
-    // BUT `initialState` needs to be set AFTER `recalculateAddresses` potentially fixes up the UI.
-
-    // Also, markAsChanged logic works by comparing json strings.
-    // If I add data-locked attribute, getFormState uses `getAttribute`. 
-    // Wait, getFormState uses `value` and `getAttribute`.
-    // Let's ensure getFormState captures the locked state correctly.
-
-    // Get Register Address (helper)
-    function getRegAddress(row) {
-        return row.querySelector('.reg-addr-input')?.value || '0x0';
-    }
-
-    // Mark as changed
-    function markAsChanged() {
-        if (window.initialState && getFormState() !== window.initialState) {
-            hasUnsavedChanges = true;
-            document.getElementById('unsavedIndicator')?.classList.add('visible');
-        } else {
-            hasUnsavedChanges = false;
-            document.getElementById('unsavedIndicator')?.classList.remove('visible');
-        }
-    }
-
-    // Clear unsaved state
-    function clearUnsavedChanges() {
-        hasUnsavedChanges = false;
-        document.getElementById('unsavedIndicator')?.classList.remove('visible');
-    }
-
-    // Initialize addresses on load (BUT don't overwrite locked ones)
-    // Note: We skip recalculation on load to respect server-rendered values
-    // unless they are missing.
-    // recalculateAddresses(); // REMOVED to respect server values
-
-    // Store initial state
-    window.initialState = getFormState();
-
-    // Use event delegation for all inputs to handle dynamic elements
-    document.addEventListener('input', (e) => {
-        if (e.target.matches('input, textarea')) markAsChanged();
-    });
-    document.addEventListener('change', (e) => {
-        if (e.target.matches('input, select, textarea')) markAsChanged();
-    });
-
-    // Add Enter key to add new register
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' && e.ctrlKey) {
-            addRegister();
-        }
-    });
-
-    // RE-CAPTURE initial state after brief delay ensuring render stability
-    // AND after recalculateAddresses has potentially settled
-    setTimeout(() => {
-        // Ensure manual address fields from server are locked correctly if needed
-        document.querySelectorAll('.reg-addr-input').forEach(input => {
-            if (input.getAttribute('data-locked') === 'true') {
-                // Style standardized
-            }
-        });
-        window.initialState = getFormState();
-    }, 200);
-
-
-    function onAddressChange(input) {
-        input.setAttribute('data-locked', 'true');
-        input.title = "Manual Address";
-        validateHex(input);
-
-        // Show visual change indicator
-        updateAddressVisualIndicator(input);
-
-        // Check for conflicts (no automatic shifting - just detect and show warnings)
-        recalculateAddresses();
-        detectAddressConflicts();
-
-        markAsChanged();
-    }
-
-    function onAddressBlur(input) {
-        // If input is empty, revert to original or auto-calculate
-        if (input.value.trim() === '') {
-            revertAddress(input.closest('.addr-changed').querySelector('.addr-revert-btn'));
-        }
-    }
-
-    // Helper to normalize hex addresses for comparison
-    function normalizeHexAddress(addr) {
-        if (!addr) return '';
-        // Remove 0x prefix, convert to uppercase, parse and format
-        const val = parseInt(addr, 16);
-        if (isNaN(val)) return addr.toUpperCase();
-        return '0x' + val.toString(16).toUpperCase();
-    }
-
-    function updateAddressVisualIndicator(input) {
-        const container = input.closest('.addr-changed');
-        if (!container) {
-            console.log('updateAddressVisualIndicator: No container found');
-            return;
-        }
-
-        const originalSpan = container.querySelector('.addr-original');
-        const revertBtn = container.querySelector('.addr-revert-btn');
-        const originalValue = input.getAttribute('data-original');
-        const currentValue = input.value;
-
-        // Normalize for comparison
-        const normalizedOriginal = normalizeHexAddress(originalValue);
-        const normalizedCurrent = normalizeHexAddress(currentValue);
-
-        console.log('Address change check:', {
-            original: originalValue,
-            current: currentValue,
-            normalizedOriginal,
-            normalizedCurrent,
-            changed: normalizedCurrent !== normalizedOriginal
-        });
-
-        if (normalizedOriginal && normalizedCurrent !== normalizedOriginal) {
-            // Show original with strikethrough
-            originalSpan.textContent = originalValue;
-            originalSpan.style.display = 'inline';
-            if (revertBtn) revertBtn.style.display = 'inline-block';
-        } else {
-            // Hide indicators
-            originalSpan.style.display = 'none';
-            if (revertBtn) revertBtn.style.display = 'none';
-        }
-    }
-
-    function revertAddress(btn) {
-        if (!btn) return;
-        const container = btn.closest('.addr-changed');
-        if (!container) return;
-
-        const input = container.querySelector('.reg-addr-input');
-        const originalValue = input.getAttribute('data-original');
-
-        if (originalValue) {
-            input.value = originalValue;
-        }
-
-        // Unlock and recalculate
-        input.setAttribute('data-locked', 'false');
-        input.title = "Auto-calculated";
-        input.classList.remove('addr-conflict');
-
-        // Hide visual indicators
-        const originalSpan = container.querySelector('.addr-original');
-        const warningSpan = container.querySelector('.addr-conflict-warning');
-        if (originalSpan) originalSpan.style.display = 'none';
-        if (warningSpan) warningSpan.style.display = 'none';
-        btn.style.display = 'none';
-
-        recalculateAddresses();
-        detectAddressConflicts();
-        markAsChanged();
-    }
-
-    function detectAddressConflicts() {
-        const addressMap = new Map();
-        const inputs = document.querySelectorAll('.reg-addr-input');
-        let hasConflicts = false;
-
-        // First pass: collect all addresses
-        inputs.forEach((input, index) => {
-            const addr = input.value.toUpperCase();
-            if (!addressMap.has(addr)) {
-                addressMap.set(addr, []);
-            }
-            addressMap.set(addr, [...addressMap.get(addr), { input, index }]);
-        });
-
-        // Second pass: mark conflicts
-        inputs.forEach(input => {
-            const container = input.closest('.addr-changed');
-            const warningSpan = container?.querySelector('.addr-conflict-warning');
-            const addr = input.value.toUpperCase();
-            const conflicts = addressMap.get(addr);
-
-            if (conflicts && conflicts.length > 1) {
-                input.classList.add('addr-conflict');
-                if (warningSpan) warningSpan.style.display = 'inline';
-                hasConflicts = true;
-            } else {
-                input.classList.remove('addr-conflict');
-                if (warningSpan) warningSpan.style.display = 'none';
-            }
-        });
-
-        // Update save button state based on conflicts
-        updateSaveButtonState(hasConflicts);
-        return hasConflicts;
-    }
-
-    function updateSaveButtonState(hasConflicts) {
-        const saveBtn = document.getElementById('saveBtn');
-        const conflictWarning = document.getElementById('conflictWarning');
-
-        if (hasConflicts) {
-            saveBtn.disabled = true;
-            saveBtn.classList.remove('btn-primary');
-            saveBtn.classList.add('btn-secondary');
-            saveBtn.title = 'Cannot save: Address conflicts must be resolved first';
-            if (conflictWarning) conflictWarning.classList.remove('d-none');
-        } else {
-            saveBtn.disabled = false;
-            saveBtn.classList.remove('btn-secondary');
-            saveBtn.classList.add('btn-primary');
-            saveBtn.title = 'Review and save changes';
-            if (conflictWarning) conflictWarning.classList.add('d-none');
-        }
-    }
-
-    // Warn before leaving page with unsaved changes
-    window.addEventListener('beforeunload', function (e) {
-        if (hasUnsavedChanges) {
-            e.preventDefault();
-            e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-            return e.returnValue;
-        }
-    });
-
-    // Intercept navigation links
-    document.addEventListener('click', function (e) {
-        const link = e.target.closest('a[href]');
-        if (link && hasUnsavedChanges && !link.href.includes('/diff')) {
-            if (!confirm('You have unsaved changes. Are you sure you want to leave?')) {
-                e.preventDefault();
-            }
-        }
-    });
-
-    function toggleCDC() {
-        const enabled = document.getElementById('cdcEnable').checked;
-        const settings = document.getElementById('cdcSettings');
-        const label = document.querySelector('label[for="cdcEnable"]');
-
-        settings.style.display = enabled ? 'block' : 'none';
-        if (label) {
-            label.textContent = enabled ? 'Enabled' : 'Disabled';
-        }
-        markAsChanged();
-    }
-
-    function updateAccessColor(select) {
-        // Determine base class (reg vs subreg) to preserve it
-        const isSubreg = select.classList.contains('subreg-access-input');
-        const baseClass = isSubreg ? 'subreg-access-input' : 'reg-access-input';
-
-        select.className = `form-select form-select-sm ${baseClass} fw-bold border-0 bg-light-subtle`;
-        if (select.value === 'RW') select.classList.add('text-primary');
-        else if (select.value === 'RO') select.classList.add('text-success');
-        else if (select.value === 'WO') select.classList.add('text-danger');
-    }
-
-    function toggleSubregisters(btn, index) {
-        const row = document.getElementById('subregs-' + index);
-        if (row) {
-            if (row.style.display === 'none') {
-                row.style.display = 'table-row';
-                btn.classList.add('expanded');
-            } else {
-                row.style.display = 'none';
-                btn.classList.remove('expanded');
-            }
-        }
-    }
-
-    function updateParentDefault(subInput) {
-        const subregRow = subInput.closest('.subreg-details');
-        if (!subregRow) return;
-        const index = subregRow.id.replace('subregs-', '');
-        const parentRow = document.querySelector(`.reg-row[data-index="${index}"]`);
-
-        if (!parentRow) return;
-
-        let totalValue = 0n;
-
-        subregRow.querySelectorAll('.subreg-field-row').forEach(row => {
-            const defaultInput = row.querySelector('.subreg-default-input');
-            const offsetInput = row.querySelector('.subreg-offset-input');
-
-            let valStr = defaultInput.value.trim();
-            if (valStr.toLowerCase().startsWith('0x')) valStr = valStr.substring(2);
-            let val = 0n;
-            try {
-                if (valStr) val = BigInt('0x' + valStr);
-            } catch (e) { }
-
-            const lowBit = parseInt(offsetInput?.value || '0');
-
-            // Shift value to its position and OR it into total
-            totalValue |= (val << BigInt(lowBit));
-        });
-
-        // Update parent input
-        const parentInput = parentRow.querySelector('.reg-default-input');
-        if (parentInput) {
-            parentInput.value = '0x' + totalValue.toString(16).toUpperCase();
-            markAsChanged();
-        }
-    }
-
-    function updateSubregsFromParent(input, index) {
-        const subregRow = document.getElementById('subregs-' + index);
-        if (!subregRow) return;
-
-        let valStr = input.value.trim();
-        if (valStr.toLowerCase().startsWith('0x')) valStr = valStr.substring(2);
-        let parentVal = 0n;
-        try {
-            if (valStr) parentVal = BigInt('0x' + valStr);
-        } catch (e) { }
-
-        subregRow.querySelectorAll('.subreg-field-row').forEach(row => {
-            const defaultInput = row.querySelector('.subreg-default-input');
-            const offsetInput = row.querySelector('.subreg-offset-input');
-            const widthInput = row.querySelector('.subreg-width-input');
-
-            const lowBit = parseInt(offsetInput?.value || '0');
-            const width = parseInt(widthInput.value || '1');
-
-            // Create mask for this field
-            const mask = (1n << BigInt(width)) - 1n;
-
-            // Extract value: (parent >> low) & mask
-            const fieldVal = (parentVal >> BigInt(lowBit)) & mask;
-
-            defaultInput.value = '0x' + fieldVal.toString(16).toUpperCase();
-        });
-        markAsChanged();
-    }
-
-
-    function toggleStrobe(elem, type) {
-        const isActive = elem.classList.contains('active');
-        elem.classList.remove('active', 'inactive');
-        elem.classList.add(isActive ? 'inactive' : 'active');
-        markAsChanged();
-    }
-
-    function validateName(input) {
-        const val = input.value;
-        const valid = /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(val) || val === '';
-        input.classList.toggle('input-invalid', !valid && val !== '');
-        // input event listener handles markAsChanged
-    }
-
-    function validateHex(input) {
-        const val = input.value;
-        const valid = /^(0x)?[0-9A-Fa-f]+$/.test(val) || val === '';
-        input.classList.toggle('input-invalid', !valid && val !== '');
-        // input event listener handles markAsChanged
-    }
-
-    function recalculateAddresses() {
-        // This function now ONLY detects conflicts - no automatic shifting
-        // Address shifting has been removed per user request
-        const rows = [...document.querySelectorAll('.reg-row')];
-        if (rows.length === 0) return;
-
-        // Update visual indicators for all rows
-        rows.forEach((row, idx) => {
-            const input = row.querySelector('.reg-addr-input');
-            if (input) {
-                updateAddressVisualIndicator(input);
-            }
-        });
-
-        // Check for conflicts and update UI accordingly
-        detectAddressConflicts();
-    }
-
-    function addRegister() {
-        try {
-            // Remove empty state if present
-            const emptyState = document.getElementById('emptyState');
-            if (emptyState) emptyState.remove();
-
-            const tbody = document.getElementById('regsBody');
-            const row = document.createElement('tr');
-            const newAddr = '0x' + nextAddr.toString(16).toUpperCase().padStart(2, '0');
-            row.className = 'reg-row border-bottom-0 animate__animated animate__fadeIn';
-            row.innerHTML = `
-            <td class="ps-4 addr-cell">
-                <div class="addr-changed">
-                    <span class="addr-original" style="display: none;"></span>
-                    <input type="text" 
-                        class="form-control form-control-sm font-monospace reg-addr-input border-0 bg-transparent p-0"
-                        value="${newAddr}"
-                        style="width: 70px;"
-                        data-locked="false"
-                        data-original="${newAddr}"
-                        title="Auto-calculated"
-                        onchange="onAddressChange(this)"
-                        onblur="onAddressBlur(this)">
-                    <button class="addr-revert-btn" style="display: none;" onclick="revertAddress(this)" data-action="revert-address" title="Revert to original">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                    </button>
-                    <span class="addr-conflict-warning" style="display: none;"><i class="bi bi-exclamation-triangle"></i></span>
-                </div>
-            </td>
-        <td>
-            <input type="text" placeholder="new_reg" class="form-control font-monospace reg-name-input fw-bold bg-light-subtle border-0" oninput="validateName(this)">
-        </td>
-        <td>
-            <div class="input-group input-group-sm">
-                <input type="number" value="32" class="form-control reg-width-input border-0 bg-light-subtle" min="1" max="1024" style="width: 50px;" onchange="recalculateAddresses()">
-            </div>
-        </td>
-        <td>
-            <select class="form-select form-select-sm reg-access-input fw-bold border-0 bg-light-subtle text-primary" onchange="updateAccessColor(this)">
-                <option value="RW" class="text-primary">RW</option>
-                <option value="RO" class="text-success">RO</option>
-                <option value="WO" class="text-danger">WO</option>
-            </select>
-        </td>
-        <td>
-            <input type="text" value="0x0" class="form-control form-control-sm font-monospace reg-default-input border-0 bg-light-subtle text-secondary" style="width: 70px;" oninput="validateHex(this)">
-        </td>
-        <td>
-            <div class="strobe-group">
-                <span class="strobe-toggle inactive" onclick="toggleStrobe(this, 'r')" data-tooltip="Read Strobe">R</span>
-                <span class="strobe-toggle inactive" onclick="toggleStrobe(this, 'w')" data-tooltip="Write Strobe">W</span>
-            </div>
-        </td>
-        <td>
-            <input type="text" placeholder="Description" class="form-control form-control-sm reg-desc-input border-0 bg-transparent">
-        </td>
-        <td class="pe-4 text-end">
-            <button onclick="duplicateRow(this)" class="action-btn btn btn-outline-primary btn-sm border-0 bg-primary-subtle text-primary me-1" title="Duplicate" data-tooltip="Duplicate">
-                <i class="bi bi-copy"></i>
-            </button>
-            <button onclick="deleteRow(this)" class="action-btn btn btn-outline-danger btn-sm border-0 bg-danger-subtle text-danger" title="Delete" data-tooltip="Delete">
-                <i class="bi bi-trash-fill"></i>
-            </button>
-        </td>
-    `;
-            tbody.appendChild(row);
-            recalculateAddresses();
-
-            // Focus the name input
-            const nameInput = row.querySelector('.reg-name-input');
-            if (nameInput) {
-                nameInput.focus();
-                // Force removal of readonly attribute for new registers
-                setTimeout(() => {
-                    nameInput.removeAttribute('readonly');
-                }, 0);
-            }
-
-            markAsChanged();
-        } catch (e) {
-            console.error("addRegister error:", e);
-        }
-    }
-
-    function duplicateRow(btn) {
-        const row = btn.closest('tr');
-        const newRow = row.cloneNode(true);
-        newRow.classList.add('animate__animated', 'animate__fadeIn');
-
-        // Update the name to indicate it's a copy
-        const nameInput = newRow.querySelector('.reg-name-input');
-        nameInput.value = nameInput.value + '_copy';
-
-        row.parentNode.insertBefore(newRow, row.nextSibling);
-        recalculateAddresses();
-        markAsChanged();
-    }
-
-    function deleteRow(btn) {
-        if (confirm('Are you sure you want to delete this register?')) {
-            const row = btn.closest('tr');
-            row.classList.add('animate__animated', 'animate__fadeOutRight');
-            setTimeout(() => {
-                row.remove();
-                recalculateAddresses();
-                markAsChanged();
-            }, 300);
-        }
-    }
-
-    function saveChanges() {
-        // Clear unsaved changes flag to prevent warning when navigating to diff page
-        clearUnsavedChanges();
-
-        const isNew = {% if module.is_new %} true{% else %} false{% endif %};
-
-    // Gather Module Props
-    const cdcEnabled = document.getElementById('cdcEnable').checked;
-    const cdcStages = document.getElementById('cdcStages').value;
-    const baseAddress = document.querySelector('input[name="base_address"]').value;
-    const moduleName = isNew ? document.getElementById('moduleName').value : '{{ module.name }}';
-
-    // Gather Registers (same logic as getFormState for consistency)
-    const regs = [];
-    document.querySelectorAll('.reg-row').forEach(row => {
-        const isPacked = row.querySelector('.toggle-subregs') !== null;
-        const name = row.querySelector('.reg-name-input')?.value || '';
-        const addr = row.querySelector('.reg-addr-input')?.value || '0x0';
-        const manualAddr = row.querySelector('.reg-addr-input')?.getAttribute('data-locked') === 'true';
-
-        if (isPacked) {
-            // Collect sub-fields instead of the container
-            const subregRow = document.getElementById('subregs-' + row.getAttribute('data-index'));
-            if (subregRow) {
-                subregRow.querySelectorAll('.subreg-field-row').forEach(fieldRow => {
-                    regs.push({
-                        name: fieldRow.querySelector('.subreg-name-input')?.value || '',
-                        reg_name: name, // Link to parent container name
-                        address: addr,  // Share parent address
-                        width: fieldRow.querySelector('.subreg-width-input')?.value || '',
-                        access: fieldRow.querySelector('.subreg-access-input')?.value || '',
-                        default_value: fieldRow.querySelector('.subreg-default-input')?.value || '',
-                        description: fieldRow.querySelector('.subreg-desc-input')?.value || '',
-                        bit_offset: fieldRow.querySelector('.subreg-offset-input')?.value || null,
-                        is_packed_field: true,
-                        manual_address: manualAddr
-                    });
-                });
-            }
-        } else {
-            // Standard register
-            const strobes = row.querySelectorAll('.strobe-toggle');
-            regs.push({
-                name: name,
-                width: row.querySelector('.reg-width-input')?.value || '',
-                access: row.querySelector('.reg-access-input')?.value || '',
-                default_value: row.querySelector('.reg-default-input')?.value || '',
-                description: row.querySelector('.reg-desc-input')?.value || '',
-                r_strobe: strobes[0]?.classList.contains('active') || false,
-                w_strobe: strobes[1]?.classList.contains('active') || false,
-                address: addr,
-                manual_address: manualAddr
-            });
-        }
-    });
-
-    console.log("Saving regs:", regs); // Debug 
-
-    if (isNew) {
-        // For new modules, show file path modal
-        const modal = new bootstrap.Modal(document.getElementById('saveFileModal'));
-        document.getElementById('saveFilePath').value = moduleName + '.json';
-        document.getElementById('saveFormat').value = 'json';
-        modal.show();
-
-        // Store data for when user confirms
-        window._pendingSave = {
-            moduleName: moduleName,
-            regs: regs,
-            properties: {
-                cdc_enabled: cdcEnabled,
-                cdc_stages: parseInt(cdcStages),
-                base_address: baseAddress
-            }
-        };
-    } else {
-        // For existing modules, use diff view
-        const filePath = '{{ module.file }}';
-        fetch('/api/save_diff', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                module_name: moduleName,
-                file_path: filePath,
-                properties: {
-                    cdc_enabled: cdcEnabled,
-                    cdc_stages: parseInt(cdcStages),
-                    base_address: baseAddress
-                },
-                registers: regs
-            })
-        }).then(res => res.json()).then(data => {
-            if (data.redirect) window.location.href = data.redirect;
-        }).catch(err => alert('Error saving changes: ' + err));
-    }
-    }
-
-    function confirmSaveFile() {
-        const filePath = document.getElementById('saveFilePath').value;
-        const format = document.getElementById('saveFormat').value;
-        if (!filePath) {
-            alert('Please enter a file path');
-            return;
-        }
-        const data = window._pendingSave;
-        if (data) {
-            saveToFile(filePath, data.moduleName, data.regs, data.properties, format);
-            bootstrap.Modal.getInstance(document.getElementById('saveFileModal')).hide();
-        }
-    }
-
-    function updateFileExtension() {
-        const format = document.getElementById('saveFormat').value;
-        const pathInput = document.getElementById('saveFilePath');
-        let path = pathInput.value;
-        // Replace extension
-        path = path.replace(/\.(json|yaml|yml|xml)$/i, '.' + (format === 'yaml' ? 'yaml' : format));
-        pathInput.value = path;
-    }
-
-    function saveToFile(filePath, moduleName, registers, properties, format) {
-        fetch('/api/save_new_module', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                file_path: filePath,
-                module_name: moduleName,
-                registers: registers,
-                properties: properties,
-                format: format
-            })
-        }).then(res => res.json()).then(data => {
-            if (data.success) {
-                alert('Module saved successfully to: ' + filePath);
-                window.location.href = '/';
-            } else {
-                alert('Error saving module: ' + (data.error || 'Unknown error'));
-            }
-        }).catch(err => alert('Error saving: ' + err));
-    }
-
-    // Detect conflicts on page load
-    document.addEventListener('DOMContentLoaded', function () {
-        detectAddressConflicts();
-        // Initial subregister validation
-        document.querySelectorAll('.subreg-table').forEach(table => {
-            validateSubregisterOverlaps(table);
-        });
-    });
-
-    function updateBitRange(input) {
-        const row = input.closest('.subreg-field-row');
-        const offsetInput = row.querySelector('.subreg-offset-input');
-        const widthInput = row.querySelector('.subreg-width-input');
-        const display = row.querySelector('.bit-range-display');
-
-        const offset = parseInt(offsetInput.value || 0);
-        const width = parseInt(widthInput.value || 1);
-        const high = offset + width - 1;
-
-        display.textContent = `[${high}:${offset}]`;
-
-        // Trigger default value recalc if width/offset changed
-        updateParentDefault(input);
-
-        // Validate
-        const table = row.closest('.subreg-table');
-        validateSubregisterOverlaps(table);
-        markAsChanged();
-    }
-
-    function validateSubregisterOverlaps(tableOrElement) {
-        if (!tableOrElement) return;
-
-        // Handle input element passed directly
-        const table = tableOrElement.tagName === 'TABLE' ? tableOrElement : tableOrElement.closest('.subreg-table');
-        if (!table) return;
-
-        const rows = table.querySelectorAll('.subreg-field-row');
-        const ranges = [];
-        let hasOverlap = false;
-
-        // Reset previous validation state
-        rows.forEach(row => {
-            row.querySelector('.subreg-offset-input').classList.remove('input-invalid');
-            row.querySelector('.subreg-width-input').classList.remove('input-invalid');
-            row.title = "";
-        });
-
-        // Collect ranges
-        rows.forEach((row, index) => {
-            const offset = parseInt(row.querySelector('.subreg-offset-input').value || 0);
-            const width = parseInt(row.querySelector('.subreg-width-input').value || 1);
-            ranges.push({ index, start: offset, end: offset + width - 1, row });
-        });
-
-        // Check intersections
-        for (let i = 0; i < ranges.length; i++) {
-            for (let j = i + 1; j < ranges.length; j++) {
-                const r1 = ranges[i];
-                const r2 = ranges[j];
-
-                // Check overlap: max(start1, start2) <= min(end1, end2)
-                if (Math.max(r1.start, r2.start) <= Math.min(r1.end, r2.end)) {
-                    hasOverlap = true;
-                    // Mark both
-                    r1.row.querySelector('.subreg-offset-input').classList.add('input-invalid');
-                    r1.row.querySelector('.subreg-width-input').classList.add('input-invalid');
-                    r2.row.querySelector('.subreg-offset-input').classList.add('input-invalid');
-                    r2.row.querySelector('.subreg-width-input').classList.add('input-invalid');
-
-                    r1.row.title = `Overlaps with field at index ${j}`;
-                    r2.row.title = `Overlaps with field at index ${i}`;
-                }
-            }
-        }
-
-        // Show/hide parent warning icon?
-        const parentRowId = table.closest('.subreg-details').id; // subregs-X
-        // Could find parent row and add warning badge... for now, red inputs are good.
-    }
-</script>
-
-<!-- Save File Modal -->
-<div class="modal fade" id="saveFileModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-file-earmark-code me-2"></i>Save Module</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Format</label>
-                    <select id="saveFormat" class="form-select" onchange="updateFileExtension()">
-                        <option value="json" selected>JSON</option>
-                        <option value="yaml">YAML</option>
-                        <option value="xml">XML</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">File Path</label>
-                    <input type="text" id="saveFilePath" class="form-control font-monospace"
-                        placeholder="/path/to/module.json">
-                    <small class="text-muted">Enter the full path where you want to save the file</small>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="confirmSaveFile()">
-                    <i class="bi bi-save me-1"></i>Save
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Generate Modal -->
-<div class="modal fade" id="generateModal" tabindex="-1" aria-labelledby="generateModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="generateModalLabel">
-                    <i class="bi bi-gear-fill me-2"></i>Generate for {{ module.name }}
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Format Selection -->
-                <div class="mb-4">
-                    <label class="form-label fw-bold text-secondary small text-uppercase">Select Formats</label>
-                    <div class="row g-2">
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input gen-format" type="checkbox" id="genVhdl" checked>
-                                <label class="form-check-label" for="genVhdl">VHDL Modules</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input gen-format" type="checkbox" id="genXml" checked>
-                                <label class="form-check-label" for="genXml">XML Map</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input gen-format" type="checkbox" id="genYaml" checked>
-                                <label class="form-check-label" for="genYaml">YAML Map</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input gen-format" type="checkbox" id="genJson" checked>
-                                <label class="form-check-label" for="genJson">JSON Map</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input gen-format" type="checkbox" id="genHeader" checked>
-                                <label class="form-check-label" for="genHeader">C Headers</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input gen-format" type="checkbox" id="genDocMd">
-                                <label class="form-check-label" for="genDocMd">Markdown Docs</label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Output Log -->
-                <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary small text-uppercase">Output Log</label>
-                    <div id="genLog" class="bg-dark text-light p-3 rounded font-monospace small"
-                        style="height: 200px; overflow-y: auto;">
-                        Ready to generate...
-                    </div>
-                </div>
-
-                <!-- Download Section (hidden initially) -->
-                <div id="genDownloadSection" class="alert alert-success d-none">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <span><i class="bi bi-check-circle-fill me-2"></i>Generation complete!</span>
-                        <button id="genDownloadBtn" class="btn btn-success btn-sm" onclick="downloadGeneratedZip()">
-                            <i class="bi bi-download me-2"></i>Download ZIP
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-success" id="genRunBtn" onclick="runDirectGenerate()">
-                    <i class="bi bi-play-fill me-2"></i>Generate
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    // Generation modal state
-    let genTempDir = null;
-    const currentModuleName = '{{ module.name }}';
-
-    function openGenerateModal() {
-        genTempDir = null;
-        document.getElementById('genDownloadSection').classList.add('d-none');
-        document.getElementById('genLog').innerHTML = 'Ready to generate...';
-        const modal = new bootstrap.Modal(document.getElementById('generateModal'));
-        modal.show();
-    }
-
-    function genLogAdd(text, className = '') {
-        const log = document.getElementById('genLog');
-        const div = document.createElement('div');
-        if (className) div.className = className;
-        div.innerText = text;
-        log.appendChild(div);
-        log.scrollTop = log.scrollHeight;
-    }
-
-    function runDirectGenerate() {
-        const log = document.getElementById('genLog');
-        const downloadSection = document.getElementById('genDownloadSection');
-        const runBtn = document.getElementById('genRunBtn');
-
-        log.innerHTML = '';
-        downloadSection.classList.add('d-none');
-        genTempDir = null;
-        runBtn.disabled = true;
-        runBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
-
-        genLogAdd('Starting generation for ' + currentModuleName + '...', 'text-info');
-
-        const payload = {
-            modules: [currentModuleName],
-            formats: {
-                vhdl: document.getElementById('genVhdl').checked,
-                xml: document.getElementById('genXml').checked,
-                yaml: document.getElementById('genYaml').checked,
-                json: document.getElementById('genJson').checked,
-                header: document.getElementById('genHeader').checked,
-                doc_md: document.getElementById('genDocMd').checked,
-                doc_html: false
-            }
-        };
-
-        fetch('/api/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-            .then(res => res.json())
-            .then(data => {
-                runBtn.disabled = false;
-                runBtn.innerHTML = '<i class="bi bi-play-fill me-2"></i>Generate';
-
-                if (data.success) {
-                    data.logs.forEach(line => genLogAdd(line));
-                    genLogAdd('Generation completed successfully!', 'text-success fw-bold');
-
-                    if (data.temp_dir) {
-                        genTempDir = data.temp_dir;
-                        downloadSection.classList.remove('d-none');
-                        genLogAdd('Click "Download ZIP" to save files.', 'text-info');
-                    } else {
-                        genLogAdd('Files saved to: ' + data.output_dir, 'text-info');
-                    }
-                } else {
-                    genLogAdd('Generation failed:', 'text-danger fw-bold');
-                    genLogAdd(data.error, 'text-danger');
-                }
-            })
-            .catch(err => {
-                runBtn.disabled = false;
-                runBtn.innerHTML = '<i class="bi bi-play-fill me-2"></i>Generate';
-                genLogAdd('Network error: ' + err, 'text-danger');
-            });
-    }
-
-    function downloadGeneratedZip() {
-        if (!genTempDir) {
-            alert('No files to download.');
-            return;
-        }
-        window.location.href = '/api/download_generated_zip?source_dir=' + encodeURIComponent(genTempDir);
-
-        // Disable button and hide section to enforce regeneration
-        const btn = document.getElementById('genDownloadBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Downloading...';
-
-        // Hide after short delay
-        setTimeout(() => {
-            document.getElementById('genDownloadSection').classList.add('d-none');
-            genLogAdd('Download started. Re-generate to download again.', 'text-warning');
-            genTempDir = null;
-        }, 1500);
-    }
 </script>
 {% endblock %}
