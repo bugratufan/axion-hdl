@@ -9,6 +9,13 @@
     margin-bottom: 24px;
 }
 
+.status-card:empty {
+    display: none;
+    padding: 0;
+    margin: 0;
+    border: none;
+}
+
 /* Module Section Cards */
 .module-section {
     background: var(--color-bg-tertiary);
