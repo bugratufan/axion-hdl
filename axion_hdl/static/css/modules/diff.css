@@ -1,0 +1,241 @@
+/* ==========================================================================
+   Axion-HDL GUI - Diff Module Styles
+   Styles for the diff/review page
+   ========================================================================== */
+
+    .diff-container {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+
+    .diff-header {
+        background: var(--hover-bg);
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .diff-header h5 {
+        margin: 0;
+        color: var(--text-color);
+        font-weight: 600;
+    }
+
+    .diff-toggle {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .diff-toggle .btn {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    .diff-toggle .btn.active {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .diff-toggle .btn:not(.active) {
+        background: var(--hover-bg);
+        color: var(--text-muted);
+        border: 1px solid var(--border-color);
+    }
+
+    /* Unified diff view */
+    .diff-unified {
+        font-family: 'Monaco', 'Menlo', 'Consolas', 'Liberation Mono', monospace;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        overflow-x: auto;
+    }
+
+    .diff-unified .diff-line {
+        padding: 2px 1rem;
+        white-space: pre;
+        border-left: 3px solid transparent;
+    }
+
+    .diff-unified .diff-line.addition {
+        background: rgba(34, 197, 94, 0.15);
+        border-left-color: #22c55e;
+        color: #4ade80;
+    }
+
+    [data-theme="light"] .diff-unified .diff-line.addition {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .diff-unified .diff-line.deletion {
+        background: rgba(239, 68, 68, 0.15);
+        border-left-color: #ef4444;
+        color: #f87171;
+    }
+
+    [data-theme="light"] .diff-unified .diff-line.deletion {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .diff-unified .diff-line.header {
+        background: var(--hover-bg);
+        color: var(--text-muted);
+        font-weight: 500;
+        border-left-color: var(--text-muted);
+    }
+
+    .diff-unified .diff-line.context {
+        background: var(--card-bg);
+        color: var(--text-color);
+    }
+
+    /* Side-by-side diff view */
+    .diff-split {
+        display: none;
+        font-family: 'Monaco', 'Menlo', 'Consolas', 'Liberation Mono', monospace;
+        font-size: 0.85rem;
+    }
+
+    .diff-split.active {
+        display: flex;
+    }
+
+    .diff-split-pane {
+        flex: 1;
+        overflow-x: auto;
+    }
+
+    .diff-split-pane.left {
+        border-right: 1px solid var(--border-color);
+    }
+
+    .diff-split-pane .pane-header {
+        background: var(--hover-bg);
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border-color);
+        text-align: center;
+    }
+
+    .diff-split-pane .pane-header.old {
+        background: rgba(239, 68, 68, 0.1);
+        color: #f87171;
+    }
+
+    [data-theme="light"] .diff-split-pane .pane-header.old {
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        color: #991b1b;
+    }
+
+    .diff-split-pane .pane-header.new {
+        background: rgba(34, 197, 94, 0.1);
+        color: #4ade80;
+    }
+
+    [data-theme="light"] .diff-split-pane .pane-header.new {
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        color: #166534;
+    }
+
+    .diff-split .diff-line {
+        padding: 2px 1rem;
+        white-space: pre;
+        min-height: 1.6em;
+        line-height: 1.6;
+    }
+
+    .diff-split .left .diff-line.deletion {
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
+    }
+
+    [data-theme="light"] .diff-split .left .diff-line.deletion {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .diff-split .right .diff-line.addition {
+        background: rgba(34, 197, 94, 0.15);
+        color: #4ade80;
+    }
+
+    [data-theme="light"] .diff-split .right .diff-line.addition {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .diff-split .diff-line.empty {
+        background: var(--hover-bg);
+    }
+
+    /* No changes message */
+    .no-changes {
+        padding: 3rem;
+        text-align: center;
+        color: var(--text-muted);
+    }
+
+    .no-changes i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: #10b981;
+    }
+
+    /* Button styling */
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+
+    .btn-confirm {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s;
+    }
+
+    .btn-confirm:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-cancel {
+        background: var(--hover-bg);
+        color: var(--text-color);
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s;
+    }
+
+    .btn-cancel:hover {
+        background: var(--border-color);
+    }
+
+    .file-path {
+        font-family: monospace;
+        font-size: 0.875rem;
+        color: var(--text-muted);
+        background: var(--hover-bg);
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
