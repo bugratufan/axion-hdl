@@ -1,138 +1,10 @@
 {% extends 'base.html' %}
 
+{% block title %}Modules{% endblock %}
+
 {% block head %}
-<style>
-    .dashboard-summary {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-
-    .summary-card {
-        background: linear-gradient(135deg, #2563eb, #1d4ed8);
-        color: white;
-        padding: 1.25rem;
-        border-radius: 12px;
-        text-align: center;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .summary-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px -5px rgba(37, 99, 235, 0.3);
-    }
-
-    .summary-card.purple {
-        background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-    }
-
-    .summary-card.green {
-        background: linear-gradient(135deg, #10b981, #059669);
-    }
-
-    .summary-card.amber {
-        background: linear-gradient(135deg, #f59e0b, #d97706);
-    }
-
-    .summary-card.red {
-        background: linear-gradient(135deg, #ef4444, #dc2626);
-    }
-
-    .summary-card i {
-        font-size: 1.5rem;
-        opacity: 0.85;
-        margin-bottom: 0.5rem;
-        display: block;
-    }
-
-    .summary-card h2 {
-        margin: 0;
-        font-size: 2rem;
-        font-weight: 700;
-        color: white;
-        border: none;
-        padding: 0;
-    }
-
-    .summary-card p {
-        margin: 0.25rem 0 0 0;
-        opacity: 0.9;
-        font-size: 0.85rem;
-    }
-
-    .section-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
-        padding-bottom: 0.75rem;
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .section-header h2 {
-        margin: 0;
-        border: none;
-        padding: 0;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .badge-error {
-        background: rgba(239, 68, 68, 0.15);
-        color: #f87171;
-        font-size: 0.7rem;
-        padding: 0.2rem 0.5rem;
-        border-radius: 4px;
-        font-weight: 600;
-    }
-
-    [data-theme="light"] .badge-error {
-        background: #fef2f2;
-        color: #dc2626;
-    }
-
-    .badge-warning {
-        background: rgba(245, 158, 11, 0.15);
-        color: #fbbf24;
-        font-size: 0.7rem;
-        padding: 0.2rem 0.5rem;
-        border-radius: 4px;
-        font-weight: 600;
-    }
-
-    [data-theme="light"] .badge-warning {
-        background: #fffbeb;
-        color: #d97706;
-    }
-
-    .module-badges {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-    }
-
-    .module-card-large.has-errors {
-        border-left: 4px solid #ef4444;
-    }
-
-    .module-card-large.has-warnings:not(.has-errors) {
-        border-left: 4px solid #f59e0b;
-    }
-
-    /* Dark mode alert override */
-    [data-theme="dark"] .alert-danger {
-        background: rgba(239, 68, 68, 0.15);
-        border-color: rgba(239, 68, 68, 0.3);
-        color: #f87171;
-    }
-
-    [data-theme="dark"] .alert-danger pre {
-        background: var(--card-bg) !important;
-        color: var(--text-color);
-    }
-</style>
+<link rel="stylesheet"
+    href="{{ url_for('static', filename='css/modules/index.css') }}?v={{ range(1, 10000) | random }}">
 {% endblock %}
 
 {% block content %}
@@ -145,9 +17,9 @@
 {% endif %}
 {% endfor %}
 
-<div class="hero">
+<div class="page-header mb-4">
     <h1>AXI Register Map Dashboard</h1>
-    <p class="subtitle">Managed by Axion HDL</p>
+    <p>Managed by Axion HDL</p>
 </div>
 
 {% if analysis_error %}
@@ -156,108 +28,99 @@
         <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
         <strong>Analysis Error</strong>
     </div>
-    <pre class="mb-0 p-3 bg-white rounded"
-        style="font-size: 0.8rem; overflow-x: auto; white-space: pre; font-family: 'Monaco', 'Menlo', 'Consolas', monospace;">{{ analysis_error }}</pre>
+    <pre class="mb-0 p-3 rounded">{{ analysis_error }}</pre>
 </div>
 {% endif %}
 
-<!-- Statistics Cards -->
-<div class="dashboard-summary">
-    <div class="summary-card">
-        <i class="bi bi-box-seam"></i>
-        <h2>{{ modules|length }}</h2>
-        <p>Modules</p>
+<!-- Compact Statistics Bar -->
+<div class="stats-bar d-flex flex-wrap gap-4 align-items-center py-3 px-4 mb-4">
+    <div class="stat-mini d-flex align-items-center gap-2">
+        <i class="bi bi-box-seam stat-icon-primary"></i>
+        <span class="stat-label">Modules</span>
+        <span class="stat-value">{{ modules|length }}</span>
     </div>
-    <div class="summary-card purple">
-        <i class="bi bi-list-columns-reverse"></i>
-        <h2>{{ total_regs.value }}</h2>
-        <p>Total Registers</p>
+    <div class="stat-mini d-flex align-items-center gap-2">
+        <i class="bi bi-list-columns-reverse stat-icon-primary"></i>
+        <span class="stat-label">Registers</span>
+        <span class="stat-value">{{ total_regs.value }}</span>
     </div>
-    <div class="summary-card green">
-        <i class="bi bi-arrow-left-right"></i>
-        <h2>{{ cdc_count.value }}</h2>
-        <p>CDC Enabled</p>
+    <div class="stat-mini d-flex align-items-center gap-2">
+        <i class="bi bi-arrow-left-right stat-icon-secondary"></i>
+        <span class="stat-label">CDC</span>
+        <span class="stat-value">{{ cdc_count.value }}</span>
     </div>
     {% if total_errors > 0 or total_warnings > 0 %}
-    <div class="summary-card red">
-        <i class="bi bi-exclamation-triangle"></i>
-        <h2>{{ total_errors + total_warnings }}</h2>
-        <p>{{ total_errors }} Errors, {{ total_warnings }} Warnings</p>
+    <div class="stat-mini d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle stat-icon-error"></i>
+        <span class="stat-label">Issues</span>
+        <span class="stat-value stat-value-error">{{ total_errors }}/{{ total_warnings }}</span>
     </div>
     {% else %}
-    <div class="summary-card amber">
-        <i class="bi bi-check-circle"></i>
-        <h2>0</h2>
-        <p>No Issues</p>
+    <div class="stat-mini d-flex align-items-center gap-2">
+        <i class="bi bi-check-circle stat-icon-success"></i>
+        <span class="stat-label">Issues</span>
+        <span class="stat-value stat-value-success">0</span>
     </div>
     {% endif %}
 </div>
 
-<div class="section-header">
-    <h2>Modules</h2>
-    <a href="/module/new" class="btn btn-primary">
+<div class="section-header d-flex flex-wrap justify-content-between align-items-center mb-4 pb-3 gap-3">
+    <div class="d-flex align-items-center gap-4 flex-grow-1">
+        <h2 class="m-0 border-0 p-0 text-nowrap">Modules</h2>
+        <div class="search-wrapper position-relative flex-grow-1" style="max-width: 400px;">
+            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+            <input type="text" id="moduleSearch" class="form-control ps-5" placeholder="Search modules...">
+        </div>
+    </div>
+    <a href="/module/new" class="btn btn-primary text-nowrap">
         <i class="bi bi-plus me-1"></i>New Module
     </a>
 </div>
 
+
 <div class="module-list">
     {% for module in modules %}
     <a href="/module/{{ module.name }}?file={{ module.file | urlencode }}"
-        class="module-card-large{% if module.rule_errors > 0 %} has-errors{% elif module.rule_warnings > 0 %} has-warnings{% endif %}">
-        <div class="module-main">
-            <div class="module-header">
-                <h3>{{ module.name }}</h3>
-                <div class="module-badges">
-                    {% if module.cdc_enabled %}
-                    <span class="badge badge-cdc">CDC</span>
-                    {% endif %}
-                    {% if module.rule_errors > 0 %}
-                    <span class="badge-error"><i class="bi bi-x-circle me-1"></i>{{ module.rule_errors }} Error{% if
-                        module.rule_errors > 1 %}s{% endif %}</span>
-                    {% endif %}
-                    {% if module.rule_warnings > 0 %}
-                    <span class="badge-warning"><i class="bi bi-exclamation-triangle me-1"></i>{{ module.rule_warnings
-                        }} Warning{% if module.rule_warnings > 1 %}s{% endif %}</span>
-                    {% endif %}
-                </div>
-            </div>
+        class="module-card d-block text-decoration-none p-3 mb-2{% if module.rule_errors > 0 %} has-errors{% elif module.rule_warnings > 0 %} has-warnings{% endif %}">
 
-            <div class="module-info">
-                <div class="info-item">
-                    <span class="info-label">Base Address</span>
-                    <span class="info-value">0x{{ '%04X' % module.base_address if module.base_address else '0000'
-                        }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Registers</span>
-                    <span class="info-value">{{ module.registers|length }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Source</span>
-                    <span class="info-value" title="{{ module.file }}">{{ module.file.split('/')[-1] }}</span>
-                </div>
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="d-flex align-items-center gap-2">
+                <span class="module-name-text">{{ module.name }}</span>
+                {% if module.cdc_enabled %}
+                <span class="badge badge-cdc">CDC</span>
+                {% endif %}
+                {% if module.rule_errors > 0 %}
+                <span class="badge badge-error">{{ module.rule_errors }} Error{{ 's' if module.rule_errors > 1 else '' }}</span>
+                {% endif %}
+                {% if module.rule_warnings > 0 %}
+                <span class="badge badge-warning">{{ module.rule_warnings }} Warning{{ 's' if module.rule_warnings > 1 else '' }}</span>
+                {% endif %}
+            </div>
+            <div class="module-metadata d-flex gap-3 align-items-center">
+                <span class="font-monospace">0x{{ '%04X' % module.base_address if module.base_address else '0000' }}</span>
+                <span>{{ module.registers|length }} regs</span>
             </div>
         </div>
 
-        <div class="register-preview">
-            <div class="preview-title">Registers Preview</div>
-            {% for reg in module.registers[:5] %}
-            <div class="reg-item">
-                <code>{{ reg.signal_name }}</code>
-                <span class="reg-meta">{{ reg.access_mode }}</span>
-            </div>
+        <div class="register-preview d-flex flex-wrap gap-2">
+            {% for reg in module.registers[:6] %}
+            <span class="font-monospace">{{ reg.name }}</span>
             {% endfor %}
-            {% if module.registers|length > 5 %}
-            <div style="font-size: 0.75rem; color: var(--primary-color); padding-top: 5px;">
-                + {{ module.registers|length - 5 }} more registers...
-            </div>
+            {% if module.registers|length > 6 %}
+            <span class="more-indicator">+{{ module.registers|length - 6 }} more</span>
             {% endif %}
         </div>
     </a>
     {% else %}
-    <div class="card" style="text-align: center;">
-        <p>No modules loaded. Please restart with valid source files.</p>
+    <div class="feature-card text-center p-5">
+        <i class="bi bi-inbox fs-1 text-muted mb-3 d-block"></i>
+        <h3 class="text-muted">No modules found</h3>
+        <p class="text-secondary">Start by adding a new module or loading a source file.</p>
     </div>
     {% endfor %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/modules/index.js') }}?v={{ range(1, 10000) | random }}"></script>
 {% endblock %}
