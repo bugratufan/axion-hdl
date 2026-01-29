@@ -3,69 +3,9 @@
 {% block title %}Generate Outputs{% endblock %}
 
 {% block head %}
-<style>
-    /* Dark mode overrides for Bootstrap classes */
-    [data-theme="dark"] .bg-white,
-    [data-theme="dark"] .card {
-        background: var(--card-bg) !important;
-    }
-
-    [data-theme="dark"] .bg-light {
-        background: var(--hover-bg) !important;
-    }
-
-    [data-theme="dark"] .text-muted {
-        color: var(--text-muted) !important;
-    }
-
-    [data-theme="dark"] .text-secondary {
-        color: var(--text-muted) !important;
-    }
-
-    [data-theme="dark"] .form-control,
-    [data-theme="dark"] .input-group-text {
-        background: var(--card-bg) !important;
-        border-color: var(--border-color) !important;
-        color: var(--text-color) !important;
-    }
-
-    [data-theme="dark"] .form-check-label {
-        color: var(--text-color);
-    }
-
-    [data-theme="dark"] .btn-outline-secondary {
-        color: var(--text-color);
-        border-color: var(--border-color);
-    }
-
-    [data-theme="dark"] .btn-outline-secondary:hover {
-        background: var(--hover-bg);
-        color: var(--text-color);
-    }
-
-    [data-theme="dark"] .card-header {
-        background: var(--card-bg) !important;
-        border-color: var(--border-color) !important;
-    }
-
-    [data-theme="dark"] .form-text {
-        color: var(--text-muted) !important;
-    }
-
-    [data-theme="dark"] h5,
-    [data-theme="dark"] .fw-bold:not(.text-white) {
-        color: var(--text-color) !important;
-    }
-
-    /* Exclude bg-dark cards from dark mode card overrides */
-    [data-theme="dark"] .card:not(.bg-dark) {
-        background: var(--card-bg) !important;
-    }
-
-    [data-theme="dark"] .card-header:not(.bg-dark *) {
-        background: var(--card-bg) !important;
-    }
-</style>
+<link rel="stylesheet"
+    href="{{ url_for('static', filename='css/modules/generate.css') }}?v={{ range(1, 10000) | random }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mac_terminal.css') }}?v={{ range(1, 10000) | random }}">
 {% endblock %}
 
 {% block content %}
@@ -77,7 +17,7 @@
 </div>
 
 <!-- Main Generation Card: Formats + Activity Log -->
-<div class="card shadow-sm border-0 mb-4">
+<div class="card shadow-sm border-0 mb-4" style="background-color: var(--color-bg-tertiary);">
     <div class="card-body p-4">
         <div class="row g-4">
             <!-- Left: Target Formats -->
@@ -150,18 +90,6 @@
                 <button type="button" onclick="runGenerate()" class="btn btn-primary w-100 mt-4">
                     <i class="bi bi-play-circle-fill me-2"></i>Generate Files
                 </button>
-            </div>
-
-            <!-- Right: Activity Log -->
-            <div class="col-lg-7">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="fw-bold text-secondary small text-uppercase mb-0">Activity Log</h6>
-                    <span id="statusBadge" class="badge bg-secondary">Idle</span>
-                </div>
-                <div id="consoleOutput" class="bg-dark text-light p-3 rounded font-monospace small"
-                    style="height: 280px; overflow-y: auto;">
-                    Ready to generate...
-                </div>
 
                 <!-- Download ZIP Button (shown on temp mode success) -->
                 <div id="downloadSection" class="mt-3" style="display: none;">
@@ -173,12 +101,35 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Right: Activity Log (Mac Terminal Style) -->
+            <div class="col-lg-7">
+                <div class="mac-terminal" style="height: 100%; min-height: 350px; margin-bottom: 0;">
+                    <div class="mac-terminal-header">
+                        <div class="mac-window-controls">
+                        </div>
+                        <div class="mac-title">generate_log — bash</div>
+                    </div>
+                    <div class="mac-content d-flex flex-column">
+                        <div class="stats-row">
+                            <span>Status: <span class="stats-val" id="statusBadge"
+                                    style="color: #61afef;">Idle</span></span>
+                        </div>
+                        <div id="consoleOutput" class="p-3 font-monospace small flex-grow-1"
+                            style="overflow-y: auto; color: #d4d4d4; font-family: 'JetBrains Mono', monospace;">
+                            Ready to generate...
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Module Selection Card -->
-<div class="card shadow-sm border-0">
+<div class="card shadow-sm border-0" style="background-color: var(--color-bg-tertiary);">
     <div class="card-body p-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h6 class="fw-bold text-secondary small text-uppercase mb-0">Select Modules</h6>
@@ -197,144 +148,8 @@
     </div>
 </div>
 
-<script>
-    function selectFolder() {
-        fetch('/api/select_folder')
-            .then(res => res.json())
-            .then(data => {
-                if (data.path) {
-                    document.getElementById('outputDir').value = data.path;
-                }
-            });
-    }
+{% endblock %}
 
-    let lastTempDir = null;
-
-    // Load modules on page load
-    document.addEventListener('DOMContentLoaded', function () {
-        fetch('/api/modules')
-            .then(res => res.json())
-            .then(modules => {
-                const container = document.getElementById('modulesList');
-                if (modules.length === 0) {
-                    container.innerHTML = '<div class="col-12 text-muted small">No modules found.</div>';
-                    return;
-                }
-                container.innerHTML = modules.map(name => `
-                    <div class="col-md-4 col-sm-6">
-                        <div class="form-check p-2 bg-light rounded">
-                            <input class="form-check-input module-checkbox" type="checkbox" value="${name}" id="mod_${name}" checked>
-                            <label class="form-check-label font-monospace small" for="mod_${name}">${name}</label>
-                        </div>
-                    </div>
-                `).join('');
-            })
-            .catch(err => {
-                document.getElementById('modulesList').innerHTML = '<div class="col-12 text-danger small">Failed to load modules.</div>';
-            });
-    });
-
-    function selectAllModules(select) {
-        document.querySelectorAll('.module-checkbox').forEach(cb => cb.checked = select);
-    }
-
-    function getSelectedModules() {
-        return Array.from(document.querySelectorAll('.module-checkbox:checked')).map(cb => cb.value);
-    }
-
-    function runGenerate() {
-        const log = document.getElementById('consoleOutput');
-        const badge = document.getElementById('statusBadge');
-        const downloadSection = document.getElementById('downloadSection');
-        downloadSection.style.display = 'none';
-        lastTempDir = null;
-
-        log.innerHTML = '';
-        logAdd('Initializing generation...', 'text-info');
-        badge.className = 'badge bg-primary';
-        badge.innerText = 'Running...';
-
-        const selectedModules = getSelectedModules();
-        if (selectedModules.length === 0) {
-            badge.className = 'badge bg-warning';
-            badge.innerText = 'Warning';
-            logAdd('No modules selected. Please select at least one module.', 'text-warning');
-            return;
-        }
-
-        const payload = {
-            output_dir: document.getElementById('outputDir').value || null,
-            modules: selectedModules,
-            formats: {
-                vhdl: document.getElementById('fmtVhdl').checked,
-                xml: document.getElementById('fmtXml').checked,
-                yaml: document.getElementById('fmtYaml').checked,
-                json: document.getElementById('fmtJson').checked,
-                header: document.getElementById('fmtHeader').checked,
-                doc_md: document.getElementById('fmtDocMd').checked,
-                doc_html: document.getElementById('fmtDocHtml').checked
-            }
-        };
-
-        fetch('/api/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    badge.className = 'badge bg-success';
-                    badge.innerText = 'Success';
-                    logAdd('----------------------------------------', 'text-secondary');
-                    data.logs.forEach(line => logAdd(line));
-                    logAdd('Generation completed successfully.', 'text-success');
-
-                    if (data.temp_dir) {
-                        lastTempDir = data.temp_dir;
-                        downloadSection.style.display = 'block';
-                        logAdd('Click "Download ZIP" to save files.', 'text-info');
-                    } else {
-                        logAdd(`Files saved to: ${data.output_dir}`, 'text-info');
-                    }
-                } else {
-                    badge.className = 'badge bg-danger';
-                    badge.innerText = 'Error';
-                    logAdd(data.error, 'text-danger');
-                }
-            })
-            .catch(err => {
-                badge.className = 'badge bg-danger';
-                badge.innerText = 'Failed';
-                logAdd('Network Error: ' + err, 'text-danger');
-            });
-    }
-
-    function downloadZip() {
-        if (!lastTempDir) {
-            alert('No files to download.');
-            return;
-        }
-        window.location.href = `/api/download_generated_zip?source_dir=${encodeURIComponent(lastTempDir)}`;
-
-        const btn = document.getElementById('downloadZipBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Done';
-
-        setTimeout(() => {
-            document.getElementById('downloadSection').style.display = 'none';
-            logAdd('Download started. Re-generate to download again.', 'text-warning');
-            lastTempDir = null;
-        }, 1500);
-    }
-
-    function logAdd(text, className = '') {
-        const log = document.getElementById('consoleOutput');
-        const div = document.createElement('div');
-        if (className) div.className = className;
-        div.innerText = text;
-        log.appendChild(div);
-        log.scrollTop = log.scrollHeight;
-    }
-</script>
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/modules/generate.js') }}"></script>
 {% endblock %}

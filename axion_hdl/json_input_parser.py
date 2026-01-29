@@ -1,11 +1,8 @@
 """
 JSON Input Parser Module for Axion HDL
 
-This module parses JSON register definition files as an alternative input format
-to VHDL files with @axion annotations, XML files, or YAML files.
-
-The parser produces the same module dictionary format as VHDLParser and XMLInputParser
-for seamless integration with the rest of Axion-HDL.
+This module parses JSON register definition files by first converting them to YAML format,
+then using YAMLInputParser for processing. This provides a unified parsing pipeline.
 """
 
 import os
@@ -15,6 +12,7 @@ from typing import Dict, List, Optional, Set
 
 # Import from axion_hdl
 from axion_hdl.address_manager import AddressManager
+from axion_hdl.yaml_input_parser import YAMLInputParser
 
 
 class JSONInputParser:
@@ -46,6 +44,11 @@ class JSONInputParser:
         self.address_manager = AddressManager()
         self._exclude_patterns: Set[str] = set()
         self.errors = []
+        
+        try:
+            self.yaml_parser = YAMLInputParser()
+        except ImportError:
+            raise ImportError("PyYAML is required for JSON input support. Install with: pip install PyYAML")
     
     def add_exclude(self, pattern: str):
         """Add an exclusion pattern for files/directories."""
@@ -78,7 +81,7 @@ class JSONInputParser:
     
     def parse_file(self, filepath: str) -> Optional[Dict]:
         """
-        Parse a single JSON file and return structured module data.
+        Parse a single JSON file by converting to YAML then using YAMLInputParser.
         
         Args:
             filepath: Path to the JSON file
@@ -101,7 +104,16 @@ class JSONInputParser:
                 print(f"  Warning: Empty JSON file: {filepath}")
                 return None
             
-            return self._parse_json_data(data, filepath)
+            # JSON data is already a dict, directly compatible with YAML structure
+            # Use YAML parser for processing via public API
+            result = self.yaml_parser.parse_data(data, filepath)
+            
+            # Merge errors from YAML parser
+            if self.yaml_parser.errors:
+                self.errors.extend(self.yaml_parser.errors)
+                self.yaml_parser.errors.clear()
+            
+            return result
             
         except json.JSONDecodeError as e:
             msg = f"Error parsing JSON file {filepath}: {e}"
@@ -113,237 +125,6 @@ class JSONInputParser:
             print(f"  {msg}")
             self.errors.append({'file': filepath, 'msg': msg})
             return None
-    
-    def _parse_json_data(self, data: Dict, filepath: str) -> Optional[Dict]:
-        """Parse JSON data structure."""
-        module_name = data.get('module')
-        if not module_name:
-            msg = f"Missing 'module' field in {filepath}"
-            print(f"Error: {msg}")
-            self.errors.append({'file': filepath, 'msg': msg})
-            return None
-        
-        base_addr_val = data.get('base_addr', '0x0000')
-        base_addr = self._parse_address(base_addr_val)
-        
-        # Parse config
-        config = data.get('config', {})
-        cdc_en = config.get('cdc_en', False)
-        if isinstance(cdc_en, str):
-            cdc_en = cdc_en.lower() == 'true'
-        cdc_stage = config.get('cdc_stage', 2)
-        if isinstance(cdc_stage, str):
-            try:
-                cdc_stage = int(cdc_stage)
-            except ValueError:
-                cdc_stage = 2
-        
-        # Parse registers
-        registers = []
-        next_auto_addr = 0
-        
-        # Import BitFieldManager for packed registers
-        from axion_hdl.bit_field_manager import BitFieldManager
-        bit_field_manager = BitFieldManager()
-        
-        for reg_data in data.get('registers', []):
-            reg_name = reg_data.get('name')
-            if not reg_name:
-                continue
-            
-            # Access mode
-            access = str(reg_data.get('access', 'RW')).upper()
-            if access not in ('RO', 'RW', 'WO'):
-                print(f"  Warning: Invalid access mode '{access}' for {reg_name}, using RW")
-                access = 'RW'
-            
-            # Width
-            width = reg_data.get('width', 32)
-            if isinstance(width, str):
-                try:
-                    width = int(width)
-                except ValueError:
-                    width = 32
-            
-            # Packed register attributes
-            packed_reg_name = reg_data.get('reg_name')
-            bit_offset = reg_data.get('bit_offset')
-            if bit_offset is not None:
-                if isinstance(bit_offset, str):
-                    try:
-                        bit_offset = int(bit_offset)
-                    except ValueError:
-                        bit_offset = None
-            
-            # Default value
-            default_val = 0
-            default_str = reg_data.get('default')
-            if default_str is not None:
-                default_val = self._parse_address(default_str)
-            
-            # If REG_NAME is present, handle packed registers
-            if packed_reg_name:
-                addr_val = reg_data.get('addr')
-                if addr_val is not None:
-                    addr = self._parse_address(addr_val)
-                else:
-                    existing_reg = bit_field_manager.get_register(packed_reg_name)
-                    if existing_reg:
-                        addr = existing_reg.address
-                    else:
-                        addr = (next_auto_addr + 3) & ~3
-                
-                if width > 1:
-                    sig_type = f"[{width-1}:0]"
-                else:
-                    sig_type = "[0:0]"
-                
-                try:
-                    bit_field_manager.add_field(
-                        reg_name=packed_reg_name,
-                        address=addr,
-                        field_name=reg_name,
-                        width=width,
-                        access_mode=access,
-                        signal_type=sig_type,
-                        bit_offset=bit_offset,
-                        description=reg_data.get('description', ''),
-                        source_file=filepath,
-                        default_value=default_val,
-                        read_strobe=reg_data.get('r_strobe', False),
-                        write_strobe=reg_data.get('w_strobe', False),
-                        allow_overlap=True  # Allow overlaps, RuleChecker will validate
-                    )
-                    
-                    if addr >= next_auto_addr:
-                        next_auto_addr = addr + 4
-                        
-                except Exception as e:
-                    msg = f"Error processing packed register {reg_name}: {e}"
-                    print(f"  {msg}")
-                    self.errors.append({'file': filepath, 'msg': msg})
-                
-                continue
-            
-            # Standard register
-            addr_val = reg_data.get('addr')
-            if addr_val is not None:
-                addr = self._parse_address(addr_val)
-            else:
-                addr = next_auto_addr
-            
-            # Calculate next auto address
-            num_regs = (width + 31) // 32
-            next_auto_addr = addr + (num_regs * 4)
-            
-            r_strobe = reg_data.get('r_strobe', False)
-            w_strobe = reg_data.get('w_strobe', False)
-            if isinstance(r_strobe, str):
-                r_strobe = r_strobe.lower() == 'true'
-            if isinstance(w_strobe, str):
-                w_strobe = w_strobe.lower() == 'true'
-            description = reg_data.get('description', '')
-            
-            register = {
-                'signal_name': reg_name,
-                'name': reg_name,
-                'access_mode': access,
-                'access': access,
-                'address': f"0x{base_addr + addr:02X}",
-                'address_int': base_addr + addr,
-                'relative_address': f"0x{addr:02X}",
-                'relative_address_int': addr,
-                'width': width,
-                'signal_type': f"std_logic_vector({width-1} downto 0)" if width > 1 else "std_logic",
-                'r_strobe': r_strobe,
-                'w_strobe': w_strobe,
-                'read_strobe': r_strobe,
-                'write_strobe': w_strobe,
-                'description': description,
-                'default_value': default_val,
-                'default_value_hex': f"0x{default_val:X}"
-            }
-            registers.append(register)
-        
-        # Process packed registers
-        packed_regs_data = []
-        
-        for packed in bit_field_manager.get_all_registers():
-            combined_default = 0
-            for field in packed.fields:
-                mask = ((1 << field.width) - 1)
-                field_val = (field.default_value & mask) << field.bit_low
-                combined_default |= field_val
-            
-            packed_reg_entry = {
-                'signal_name': packed.name,
-                'name': packed.name,
-                'access_mode': packed.access_mode,
-                'access': packed.access_mode,
-                'address': f"0x{base_addr + packed.address:02X}",
-                'address_int': base_addr + packed.address,
-                'relative_address': f"0x{packed.address:02X}",
-                'reg_name': packed.name,
-                'relative_address_int': packed.address,
-                'width': 32,
-                'signal_type': "std_logic_vector(31 downto 0)",
-                'r_strobe': any(f.read_strobe for f in packed.fields),
-                'w_strobe': any(f.write_strobe for f in packed.fields),
-                'read_strobe': any(f.read_strobe for f in packed.fields),
-                'write_strobe': any(f.write_strobe for f in packed.fields),
-                'description': f"Packed register: {packed.name}",
-                'default_value': combined_default,
-                'default_value_hex': f"0x{combined_default:X}",
-                'is_packed': True,
-                'fields': [
-                    {
-                        'name': f.name,
-                        'bit_low': f.bit_low,
-                        'bit_high': f.bit_high,
-                        'width': f.width,
-                        'access_mode': f.access_mode,
-                        'signal_type': f.signal_type,
-                        'default_value': f.default_value,
-                        'read_strobe': f.read_strobe,
-                        'write_strobe': f.write_strobe,
-                        'description': f.description
-                    } for f in packed.fields
-                ]
-            }
-            registers.append(packed_reg_entry)
-            packed_regs_data.append(packed_reg_entry)
-        
-        # Sort registers by address
-        registers.sort(key=lambda x: x['relative_address_int'])
-        
-        return {
-            'entity_name': module_name,
-            'name': module_name,
-            'file': filepath,
-            'base_address': base_addr,
-            'base_addr': base_addr,
-            'cdc_enabled': cdc_en,
-            'cdc_en': cdc_en,
-            'cdc_stages': cdc_stage,
-            'cdc_stage': cdc_stage,
-            'registers': registers,
-            'packed_registers': packed_regs_data,
-            'source_file': filepath
-        }
-    
-    def _parse_address(self, addr_val) -> int:
-        """Parse address value (hex string, decimal string, or integer)."""
-        if isinstance(addr_val, int):
-            return addr_val
-        
-        addr_str = str(addr_val).strip()
-        try:
-            if addr_str.lower().startswith('0x'):
-                return int(addr_str, 16)
-            else:
-                return int(addr_str)
-        except ValueError:
-            return 0
     
     def parse_json_files(self, source_dirs: List[str]) -> List[Dict]:
         """

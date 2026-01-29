@@ -41,6 +41,12 @@ def main():
     Returns:
         None (exits with appropriate exit code)
     """
+    # Print banner
+    print(f"Axion-HDL v{__version__}")
+    print("Automated AXI4-Lite Register Interface Generator")
+    print("Developed by bugratufan")
+    print("-" * 50)
+
     parser = argparse.ArgumentParser(
         prog='axion-hdl',
         description='Axion-HDL: Automated AXI4-Lite Register Interface Generator for VHDL',
@@ -192,6 +198,12 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         help='Port number for GUI server (default: 5000)'
     )
     
+    gen_group.add_argument(
+        '--debug',
+        action='store_true',
+        help='Run GUI in debug mode (enables hot-reloading)'
+    )
+    
     # Parse arguments
     args = parser.parse_args()
 
@@ -236,9 +248,8 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     
     # Validate at least one source is provided
     if not args.sources and not args.xml_sources:
-        print("Error: At least one source file or directory required. Use -s to specify.", 
-              file=sys.stderr)
-        sys.exit(1)
+        print("No sources specified. Defaulting to current directory (.).")
+        args.sources = ["."]
     
     # Validate all sources exist (files or directories)
     for src in args.sources:
@@ -308,7 +319,7 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     if args.gui:
         try:
             from axion_hdl import gui
-            gui.start_gui(axion, port=args.port)
+            gui.start_gui(axion, port=args.port, debug_mode=args.debug)
             sys.exit(0)
         except ImportError as e:
             print(f"Error launching GUI: {e}", file=sys.stderr)

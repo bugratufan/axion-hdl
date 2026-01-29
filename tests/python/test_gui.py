@@ -36,27 +36,27 @@ class TestGUIDashboard:
     def test_dash_001_module_list(self, gui_page):
         """GUI-DASH-001: Dashboard lists all parsed modules"""
         # Check that module cards are present
-        module_cards = gui_page.locator(".module-card-large")
+        module_cards = gui_page.locator(".module-card")
         assert module_cards.count() > 0, "No module cards found on dashboard"
     
     def test_dash_002_module_count(self, gui_page):
         """GUI-DASH-002: Dashboard shows total module count"""
         # Look for summary cards with the new design
-        summary_cards = gui_page.locator(".summary-card")
+        summary_cards = gui_page.locator(".stat-mini")
         assert summary_cards.count() >= 1, "No summary cards found"
         # First card should be module count
         first_card = summary_cards.first
-        card_value = first_card.locator("h2").text_content()
+        card_value = first_card.locator(".stat-value").text_content()
         assert card_value.strip().isdigit(), f"Module count not a number: {card_value}"
     
     def test_dash_003_register_count(self, gui_page):
         """GUI-DASH-003: Dashboard shows total register count"""
-        summary_cards = gui_page.locator(".summary-card")
+        summary_cards = gui_page.locator(".stat-mini")
         count = summary_cards.count()
         if count >= 2:
             # Second card should be register count (purple card)
             reg_card = summary_cards.nth(1)
-            reg_count_text = reg_card.locator("h2").text_content().strip()
+            reg_count_text = reg_card.locator(".stat-value").text_content().strip()
             # May contain whitespace, extract digits
             digits = ''.join(filter(str.isdigit, reg_count_text))
             assert len(digits) > 0, f"Register count not found: {reg_count_text}"
@@ -67,10 +67,10 @@ class TestGUIDashboard:
     def test_dash_004_module_card_info(self, gui_page):
         """GUI-DASH-004: Module card shows base address, register count, source file"""
         # Get first module card
-        first_card = gui_page.locator(".module-card-large").first
+        first_card = gui_page.locator(".module-card").first
         
         # Check for info items
-        info_items = first_card.locator(".info-item")
+        info_items = first_card.locator(".module-metadata span")
         count = info_items.count()
         assert count >= 1, "No info items in module card"
     
@@ -82,7 +82,7 @@ class TestGUIDashboard:
     def test_dash_007_module_navigation(self, gui_page, gui_server):
         """GUI-DASH-007: Clicking module card opens editor"""
         # Get first module card
-        first_card = gui_page.locator(".module-card-large").first
+        first_card = gui_page.locator(".module-card").first
         
         # Click the card
         first_card.click()
@@ -100,8 +100,8 @@ class TestGUIDashboard:
         gui_page.wait_for_load_state("networkidle")
         
         # Check for statistics summary cards
-        summary_cards = gui_page.locator(".summary-card")
-        assert summary_cards.count() >= 4, f"Expected at least 4 summary cards, found {summary_cards.count()}"
+        summary_cards = gui_page.locator(".stat-mini")
+        assert summary_cards.count() >= 3, f"Expected at least 3 summary cards, found {summary_cards.count()}"
     
     def test_dash_010_cdc_count_display(self, gui_page, gui_server):
         """GUI-DASH-010: Dashboard shows CDC-enabled module count"""
@@ -109,7 +109,7 @@ class TestGUIDashboard:
         gui_page.wait_for_load_state("networkidle")
         
         # Look for CDC-related statistics card
-        cdc_card = gui_page.locator(".summary-card.green")
+        cdc_card = gui_page.locator(".stat-mini", has_text="CDC")
         assert cdc_card.is_visible(), "CDC count card not visible"
         
         # Verify it shows "CDC Enabled" label
@@ -123,7 +123,7 @@ class TestGUIEditor:
     def test_edit_001_breadcrumb(self, gui_page, gui_server):
         """GUI-EDIT-001: Editor shows breadcrumb navigation"""
         # Navigate to first module
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         breadcrumb = gui_page.locator(".breadcrumb")
@@ -131,7 +131,7 @@ class TestGUIEditor:
     
     def test_edit_002_base_address(self, gui_page, gui_server):
         """GUI-EDIT-002: Base address input accepts hex values"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         base_addr_input = gui_page.locator("input[name='base_address']")
@@ -142,8 +142,8 @@ class TestGUIEditor:
         assert re.match(r'^[0-9A-Fa-f]+$', value), f"Invalid hex value: {value}"
     
     def test_edit_003_cdc_toggle(self, gui_page, gui_server):
-        """GUI-EDIT-003: CDC enable/disable switch works"""
-        gui_page.locator(".module-card-large").first.click()
+        """GUI-EDIT-003: CDC enable/disable switch works correctly"""
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         cdc_checkbox = gui_page.locator("#cdcEnable")
@@ -151,7 +151,7 @@ class TestGUIEditor:
     
     def test_edit_005_register_table(self, gui_page, gui_server):
         """GUI-EDIT-005: Register table exists with headers"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         table = gui_page.locator("#regsTable")
@@ -163,7 +163,7 @@ class TestGUIEditor:
     
     def test_edit_012_add_register(self, gui_page, gui_server):
         """GUI-EDIT-012: New Register button adds row"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         gui_page.wait_for_load_state("networkidle")
         gui_page.wait_for_timeout(500)  # Wait for JS to initialize
@@ -195,7 +195,7 @@ class TestGUIEditor:
         """GUI-EDIT-013: Name input is readonly for VHDL modules"""
         gui_page.goto(gui_server.url)
         # Find a VHDL module card
-        vhdl_card = gui_page.locator(".module-card-large", has_text=re.compile(r"\.vhd", re.IGNORECASE))
+        vhdl_card = gui_page.locator(".module-card", has_text=re.compile(r"\.vhd", re.IGNORECASE))
         
         if vhdl_card.count() > 0:
             vhdl_card.first.click()
@@ -219,7 +219,7 @@ class TestGUIEditor:
         """GUI-EDIT-037: For VHDL sources, existing register names are read-only"""
         gui_page.goto(gui_server.url)
         # Find a VHDL module card
-        vhdl_card = gui_page.locator(".module-card-large", has_text=re.compile(r"\.vhd", re.IGNORECASE))
+        vhdl_card = gui_page.locator(".module-card", has_text=re.compile(r"\.vhd", re.IGNORECASE))
         
         if vhdl_card.count() > 0:
             vhdl_card.first.click()
@@ -303,7 +303,7 @@ class TestGUINavigation:
     
     def test_nav_001_navbar_brand(self, gui_page):
         """GUI-NAV-001: Navbar shows branding"""
-        brand = gui_page.locator(".navbar-brand")
+        brand = gui_page.locator(".logo")
         assert brand.is_visible(), "Navbar brand not visible"
         assert "Axion" in brand.text_content(), "Axion not in brand text"
     
@@ -329,7 +329,7 @@ class TestGUINavigation:
 
     def test_nav_007_layout_refinement(self, gui_page, gui_server):
         """GUI-NAV-007: Column widths are optimized; Width displayed without units"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         # Check that width column exists and shows numeric values without units
@@ -346,7 +346,7 @@ class TestGUIConfig:
     def test_config_001_page_load(self, gui_page, gui_server):
          gui_page.goto(f"{gui_server.url}/config")
          gui_page.wait_for_load_state("networkidle")
-         assert "Tool Config" in gui_page.title()
+         assert "Config" in gui_page.title()
 
     def test_config_002_save_button(self, gui_page, gui_server):
          gui_page.goto(f"{gui_server.url}/config")
@@ -381,15 +381,14 @@ class TestGUIConfig:
          gui_page.goto(f"{gui_server.url}/config")
          
          # Click Refresh
-         gui_page.locator("button", has_text="Apply & Refresh").click()
+         gui_page.locator("button", has_text="Refresh").click()
          
          # Log should become visible
-         log = gui_page.locator("#configActivityLog")
+         log = gui_page.locator("#refreshLog")
          assert log.is_visible()
          
          # Wait for success message from frontend
-         content = gui_page.locator("#configLogContent")
-         content.get_by_text("Refresh completed successfully").wait_for(timeout=5000)
+         log.get_by_text("Refresh successful!").wait_for(timeout=5000)
 
 
 class TestGUISaveIndicator:
@@ -397,7 +396,7 @@ class TestGUISaveIndicator:
 
     def test_save_001_unsaved_indicator_exists(self, gui_page, gui_server):
         """GUI-SAVE-001: Unsaved changes indicator element exists"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         indicator = gui_page.locator("#unsavedIndicator")
@@ -405,7 +404,7 @@ class TestGUISaveIndicator:
 
     def test_save_001_indicator_hidden_initially(self, gui_page, gui_server):
         """GUI-SAVE-001: Indicator is hidden when no changes"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         indicator = gui_page.locator("#unsavedIndicator")
@@ -414,7 +413,7 @@ class TestGUISaveIndicator:
 
     def test_save_001_indicator_shows_on_change(self, gui_page, gui_server):
         """GUI-SAVE-001: Indicator appears when changes are made"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         # Make a change to base address
@@ -430,7 +429,7 @@ class TestGUISaveIndicator:
 
     def test_save_002_indicator_on_module_property_change(self, gui_page, gui_server):
         """GUI-SAVE-002: Indicator appears when module properties change"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         # Wait for client-side initialization (initialState is set after 200ms)
         gui_page.wait_for_function("() => window.initialState !== undefined")
@@ -460,7 +459,7 @@ class TestGUISaveIndicator:
 
     def test_save_003_indicator_on_register_field_change(self, gui_page, gui_server):
         """GUI-SAVE-003: Indicator appears when register fields change"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         # Wait for client-side initialization
         gui_page.wait_for_function("() => window.initialState !== undefined")
@@ -496,7 +495,7 @@ class TestGUISaveIndicator:
 
     def test_save_004_indicator_clears_on_save(self, gui_page, gui_server):
         """GUI-SAVE-004: Indicator clears after save"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         # Make a change
@@ -527,11 +526,11 @@ class TestGUISaveIndicator:
         gui_page.wait_for_load_state("networkidle")
         
         # Get initial module count from dashboard
-        initial_card_count = gui_page.locator(".module-card-large").count()
+        initial_card_count = gui_page.locator(".module-card").count()
         assert initial_card_count > 0, "No module cards found"
         
         # Navigate to a module and make a change
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         gui_page.wait_for_function("() => window.initialState !== undefined")
         
@@ -543,7 +542,7 @@ class TestGUISaveIndicator:
         gui_page.wait_for_load_state("networkidle")
         
         # Verify the same module is still listed (state is consistent)
-        final_card_count = gui_page.locator(".module-card-large").count()
+        final_card_count = gui_page.locator(".module-card").count()
         assert final_card_count == initial_card_count, \
             f"Module count changed unexpectedly: {initial_card_count} -> {final_card_count}"
 
@@ -553,7 +552,7 @@ class TestGUIDiffView:
 
     def test_diff_006_unified_view_default(self, gui_page, gui_server):
         """GUI-DIFF-006: Unified view is default"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         gui_page.wait_for_load_state("networkidle")
         gui_page.wait_for_function("() => window.initialState !== undefined")
@@ -583,7 +582,7 @@ class TestGUIDiffView:
 
     def test_diff_008_view_toggle(self, gui_page, gui_server):
         """GUI-DIFF-008: View toggle switches between unified and side-by-side"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         gui_page.wait_for_load_state("networkidle")
         gui_page.wait_for_function("() => window.initialState !== undefined")
@@ -617,7 +616,7 @@ class TestGUIDiffView:
 
     def test_diff_009_color_coding(self, gui_page, gui_server):
         """GUI-DIFF-009: Additions green, deletions red"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         gui_page.wait_for_load_state("networkidle")
         gui_page.wait_for_function("() => window.initialState !== undefined")
@@ -747,7 +746,7 @@ class TestGUIDiffViewComplete:
 
     def test_diff_001_diff_display(self, gui_page, gui_server):
         """GUI-DIFF-001: Shows unified diff of pending changes"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         gui_page.wait_for_function("() => window.initialState !== undefined")
         
@@ -766,7 +765,7 @@ class TestGUIDiffViewComplete:
 
     def test_diff_002_module_name(self, gui_page, gui_server):
         """GUI-DIFF-002: Displays which module is being modified"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         gui_page.wait_for_function("() => window.initialState !== undefined")
         
@@ -785,7 +784,7 @@ class TestGUIDiffViewComplete:
 
     def test_diff_003_confirm_button(self, gui_page, gui_server):
         """GUI-DIFF-003: Confirm button exists on diff page"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         gui_page.wait_for_function("() => window.initialState !== undefined")
         
@@ -804,7 +803,7 @@ class TestGUIDiffViewComplete:
 
     def test_diff_004_cancel_action(self, gui_page, gui_server):
         """GUI-DIFF-004: Cancel/back navigation returns to editor"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         gui_page.wait_for_function("() => window.initialState !== undefined")
         
@@ -822,7 +821,7 @@ class TestGUIDiffViewComplete:
 
     def test_diff_007_side_by_side_view(self, gui_page, gui_server):
         """GUI-DIFF-007: Side-by-side view toggle exists"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         gui_page.wait_for_function("() => window.initialState !== undefined")
         
@@ -840,7 +839,7 @@ class TestGUIDiffViewComplete:
 
     def test_diff_010_file_path_display(self, gui_page, gui_server):
         """GUI-DIFF-010: Shows file path being modified"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         gui_page.wait_for_function("() => window.initialState !== undefined")
         
@@ -862,7 +861,7 @@ class TestGUIEditorComplete:
 
     def test_edit_004_cdc_stages(self, gui_page, gui_server):
         """GUI-EDIT-004: CDC stages input visible when CDC enabled"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         # Find CDC toggle and enable if not already
@@ -878,7 +877,7 @@ class TestGUIEditorComplete:
 
     def test_edit_006_register_name_input(self, gui_page, gui_server):
         """GUI-EDIT-006: Register name input accepts valid signal names"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         # Check for name inputs in register rows
@@ -888,7 +887,7 @@ class TestGUIEditorComplete:
 
     def test_edit_007_width_input(self, gui_page, gui_server):
         """GUI-EDIT-007: Width input accepts values 1-1024"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         if gui_page.locator(".reg-row").count() > 0:
@@ -897,7 +896,7 @@ class TestGUIEditorComplete:
 
     def test_edit_008_access_mode_select(self, gui_page, gui_server):
         """GUI-EDIT-008: Dropdown shows RW/RO/WO options"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         if gui_page.locator(".reg-row").count() > 0:
@@ -906,7 +905,7 @@ class TestGUIEditorComplete:
 
     def test_edit_009_default_value_input(self, gui_page, gui_server):
         """GUI-EDIT-009: Default value input accepts hex format"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         if gui_page.locator(".reg-row").count() > 0:
@@ -916,7 +915,7 @@ class TestGUIEditorComplete:
 
     def test_edit_010_description_input(self, gui_page, gui_server):
         """GUI-EDIT-010: Description input accepts free-form text"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         if gui_page.locator(".reg-row").count() > 0:
@@ -925,7 +924,7 @@ class TestGUIEditorComplete:
 
     def test_edit_011_address_display(self, gui_page, gui_server):
         """GUI-EDIT-011: Address column shows calculated register address"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         if gui_page.locator(".reg-row").count() > 0:
@@ -934,7 +933,7 @@ class TestGUIEditorComplete:
 
     def test_edit_014_r_strobe_toggle(self, gui_page, gui_server):
         """GUI-EDIT-014: Read strobe checkbox exists"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         if gui_page.locator(".reg-row").count() > 0:
@@ -943,7 +942,7 @@ class TestGUIEditorComplete:
 
     def test_edit_015_w_strobe_toggle(self, gui_page, gui_server):
         """GUI-EDIT-015: Write strobe checkbox exists"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         if gui_page.locator(".reg-row").count() > 0:
@@ -952,7 +951,7 @@ class TestGUIEditorComplete:
 
     def test_edit_016_save_changes(self, gui_page, gui_server):
         """GUI-EDIT-016: Review & Save button triggers diff view"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         save_btn = gui_page.locator("button", has_text="Review")
@@ -960,7 +959,7 @@ class TestGUIEditorComplete:
 
     def test_edit_018_validation_feedback(self, gui_page, gui_server):
         """GUI-EDIT-018: Invalid inputs show visual error indication"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         # Test is primarily that page loads without JS errors
@@ -1045,7 +1044,7 @@ class TestGUIDashComplete:
         # CDC badges may or may not be present depending on modules
         cdc_badge = gui_page.locator(".cdc-badge, .badge:has-text('CDC')")
         # Just verify page loaded correctly
-        assert gui_page.locator(".module-card-large").count() > 0
+        assert gui_page.locator(".module-card").count() > 0
 
     def test_dash_008_empty_state(self, gui_page, gui_server):
         """GUI-DASH-008: Shows appropriate message when no modules loaded"""
@@ -1053,7 +1052,7 @@ class TestGUIDashComplete:
         # For now, just verify the dashboard loads
         gui_page.goto(gui_server.url)
         gui_page.wait_for_load_state("networkidle")
-        assert "Axion" in gui_page.title() or gui_page.locator(".module-card-large").count() >= 0
+        assert "Axion" in gui_page.title() or gui_page.locator(".module-card").count() >= 0
 
 
 class TestGUISaveComplete:
@@ -1061,7 +1060,7 @@ class TestGUISaveComplete:
 
     def test_save_005_diff_return_preservation(self, gui_page, gui_server):
         """GUI-SAVE-005: Changes preserved when returning from diff page"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         gui_page.wait_for_function("() => window.initialState !== undefined")
         
@@ -1084,7 +1083,7 @@ class TestGUISaveComplete:
 
     def test_save_006_clear_indicator_on_save(self, gui_page, gui_server):
         """GUI-SAVE-006: Unsaved changes indicator clears after successful save"""
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
         
         indicator = gui_page.locator("#unsavedIndicator")

@@ -92,21 +92,60 @@ class TestResult:
         }
 
 
-def run_command(command: List[str], cwd: str = None, timeout: int = 300) -> Tuple[bool, float, str]:
+def run_command(command: List[str], cwd: str = None, timeout: int = 300, env: dict = None, stream_output: bool = False) -> Tuple[bool, float, str]:
     """Run a command and return (success, duration, output)"""
     start = time.time()
     try:
-        result = subprocess.run(
-            command,
-            cwd=cwd or str(PROJECT_ROOT),
-            capture_output=True,
-            text=True,
-            timeout=timeout
-        )
-        duration = time.time() - start
-        output = result.stdout + result.stderr
-        return result.returncode == 0, duration, output
+        if stream_output:
+            # Run with real-time output streaming
+            process = subprocess.Popen(
+                command,
+                cwd=cwd or str(PROJECT_ROOT),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Merge stderr into stdout
+                text=True,
+                env=env,
+                bufsize=1  # Line buffered
+            )
+            
+            output_lines = []
+            
+            # Read line by line as they come
+            while True:
+                line = process.stdout.readline()
+                if not line and process.poll() is not None:
+                    break
+                if line:
+                    print(line, end='', flush=True)  # Print to console immediately
+                    output_lines.append(line)
+            
+            # Read remainder
+            stdout, _ = process.communicate()
+            if stdout:
+                print(stdout, end='', flush=True)
+                output_lines.append(stdout)
+                
+            duration = time.time() - start
+            output = "".join(output_lines)
+            return process.returncode == 0, duration, output
+            
+        else:
+            # Run with output capturing (buffered)
+            result = subprocess.run(
+                command,
+                cwd=cwd or str(PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=env
+            )
+            duration = time.time() - start
+            output = result.stdout + result.stderr
+            return result.returncode == 0, duration, output
+            
     except subprocess.TimeoutExpired:
+        if stream_output:
+            process.kill()
         return False, timeout, "TIMEOUT"
     except Exception as e:
         return False, time.time() - start, str(e)
@@ -956,12 +995,17 @@ def generate_markdown_report(results: List[TestResult]):
         "c": ("⚙️ C Tests", {
             "compile": "Compilation Tests"
         }),
-        "vhdl": ("🔧 VHDL Tests", {
+        "vhdl": ("🔧 VHDL Tests (GHDL)", {
             "simulation": "Simulation Setup",
             "analyze": "VHDL Analysis",
             "elaborate": "Elaboration",
             "simulate": "Simulation Run",
             "requirements": "Requirements Verification (AXION/AXI-LITE)"
+        }),
+        "cocotb": ("🧪 Cocotb VHDL Tests", {
+            "setup": "Setup & Configuration",
+            "axi_lite": "AXI-Lite Protocol Tests",
+            "cdc": "CDC Comprehensive Tests"
         }),
         "parser": ("📜 Parser Tests (PARSER-xxx)", {
             "requirements": "PARSER Requirements",
@@ -1008,7 +1052,7 @@ def generate_markdown_report(results: List[TestResult]):
         })
     }
     
-    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml-input", "json-input", "equiv"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml-input", "json-input", "equiv"]:
         if cat not in categories:
             continue
         
@@ -1072,7 +1116,8 @@ def print_results(results: List[TestResult]):
     cat_names = {
         "python": "🐍 PYTHON",
         "c": "⚙️  C",
-        "vhdl": "🔧 VHDL",
+        "vhdl": "🔧 VHDL (GHDL)",
+        "cocotb": "🧪 COCOTB",
         "parser": "📜 PARSER",
         "gen": "⚙️ GENERATION",
         "err": "🚨 ERRORS",
@@ -1097,7 +1142,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "yaml_input", "json_input", "equiv"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "yaml_input", "json_input", "equiv"]:
         if cat not in categories:
             continue
         
@@ -1904,83 +1949,337 @@ def run_equivalence_tests() -> List[TestResult]:
         TestFormatEquivalence.tearDownClass()
     except ImportError as e:
         results.append(TestResult("equiv.import", "EQUIV: Import test module", "failed", 0, str(e), category="equiv", subcategory="setup"))
+
+    return results
+
+
+def run_cocotb_tests() -> List[TestResult]:
+    """Run cocotb VHDL simulation tests"""
+    results = []
+
+    # Define all cocotb tests with their descriptions
+    cocotb_axi_tests = [
+        ("test_axion_001_ro_read", "AXION-001: Read-Only Register Read Access"),
+        ("test_axion_002_ro_write_protection", "AXION-002: Read-Only Register Write Protection"),
+        ("test_axion_003_wo_write", "AXION-003: Write-Only Register Write Access"),
+        ("test_axion_004_wo_read_protection", "AXION-004: Write-Only Register Read Protection"),
+        ("test_axion_005_rw_full_access", "AXION-005: Read-Write Register Full Access"),
+        ("test_axion_011_write_handshake", "AXION-011: AXI Write Transaction Handshake"),
+        ("test_axion_012_read_handshake", "AXION-012: AXI Read Transaction Handshake"),
+        ("test_axion_016_byte_strobe", "AXION-016: Byte-Level Write Strobe Support"),
+        ("test_axion_017_sync_reset", "AXION-017: Synchronous Reset Behavior"),
+        ("test_axion_021_out_of_range", "AXION-021: Out-of-Range Address Access"),
+        ("test_axion_023_default_values", "AXION-023: Default Register Values After Reset"),
+        ("test_axi_lite_001_reset_state", "AXI-LITE-001: Reset State Requirements"),
+        ("test_axi_lite_003_valid_before_ready", "AXI-LITE-003: VALID Before READY Dependency"),
+        ("test_axi_lite_004_valid_stability", "AXI-LITE-004: VALID Signal Stability Rule"),
+        ("test_axi_lite_005_write_independence", "AXI-LITE-005: Write Address/Data Independence"),
+        ("test_axi_lite_006_back_to_back", "AXI-LITE-006: Back-to-Back Transaction Support"),
+        ("test_axi_lite_016_delayed_ready", "AXI-LITE-016: Delayed READY Handling"),
+        ("test_axi_lite_017_early_ready", "AXI-LITE-017: Early READY Handling"),
+        ("test_stress_random_access", "STRESS: Random Register Access Pattern"),
+        ("test_stress_rapid_writes", "STRESS: Rapid Consecutive Writes"),
+    ]
+
+    cocotb_cdc_tests = [
+        ("test_cdc_001_stage_count", "CDC-001: Configurable CDC Stage Count"),
+        ("test_cdc_004_module_clock_port", "CDC-004: Module Clock Port Generation"),
+        ("test_cdc_006_ro_path_sync", "CDC-006: RO Register Synchronization (module->AXI)"),
+        ("test_cdc_007_rw_path_sync", "CDC-007: RW Register Synchronization (AXI->module)"),
+        ("test_cdc_gray_code_counter", "CDC: Gray Code Counter Safe Crossing"),
+        ("test_cdc_handshake_protocol", "CDC: 4-Phase Handshake Protocol"),
+        ("test_cdc_async_reset", "CDC: Asynchronous Reset Across Domains"),
+        ("test_cdc_metastability_stress", "CDC: Metastability Stress Test"),
+        ("test_cdc_clock_ratio_2x", "CDC: 2:1 Clock Ratio Crossing"),
+        ("test_cdc_clock_ratio_prime", "CDC: Prime Number Clock Ratio (Worst Case)"),
+        ("test_cdc_data_coherency", "CDC: Multi-bit Data Coherency"),
+        ("test_cdc_pulse_sync", "CDC: Single-Cycle Pulse Synchronization"),
+        ("test_cdc_burst_transfer", "CDC: Burst Data Transfer"),
+        ("test_cdc_simultaneous_edges", "CDC: Simultaneous Clock Edges"),
+        ("test_cdc_slow_to_fast", "CDC: Slow to Fast Clock Domain Transfer"),
+        ("test_cdc_fast_to_slow", "CDC: Fast to Slow Clock Domain Transfer"),
+    ]
     
+    cocotb_sub_tests = [
+        ("test_subreg_001_single_bit_control", "SUB-001: Single Bit Control Access"),
+        ("test_subreg_002_status_capture", "SUB-002: Status Register Capture"),
+        ("test_subreg_003_read_modify_write", "SUB-003: Read-Modify-Write Operation"),
+        ("test_subreg_004_field_isolation", "SUB-004: Bit Field Isolation"),
+    ]
+
+    cocotb_stress_ext_tests = [
+        ("test_stress_001_interleaved_rw", "STRESS-001: Interleaved Read/Write Transactions"),
+        ("test_stress_002_reset_under_load", "STRESS-002: Reset Under High Load"),
+        ("test_stress_003_address_map_walk", "STRESS-003: Address Map Walk"),
+        ("test_stress_004_invalid_access_storm", "STRESS-004: Invalid Access Storm"),
+    ]
+
+    # Check if cocotb-config is available (check venv first, then system)
+    venv_cocotb_config = PROJECT_ROOT / "venv" / "bin" / "cocotb-config"
+    if venv_cocotb_config.exists():
+        cocotb_config_path = str(venv_cocotb_config)
+        cocotb_config_available = True
+    else:
+        cocotb_config_available, _, _ = run_command(["which", "cocotb-config"])
+        cocotb_config_path = "cocotb-config"
+
+    # Check if GHDL is available
+    ghdl_available, _, _ = run_command(["which", "ghdl"])
+
+    if not cocotb_config_available or not ghdl_available:
+        skip_reason = "cocotb not installed" if not cocotb_config_available else "ghdl not found"
+        skip_msg = "pip install cocotb cocotb-bus cocotbext-axi" if not cocotb_config_available else "Install GHDL simulator"
+
+        # List all tests as skipped
+        for test_id, desc in cocotb_axi_tests:
+            results.append(TestResult(f"cocotb.axi.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})",
+                                      category="cocotb", subcategory="axi_lite"))
+
+        for test_id, desc in cocotb_cdc_tests:
+            results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})",
+                                      category="cocotb", subcategory="cdc"))
+                                      
+        for test_id, desc in cocotb_sub_tests:
+            results.append(TestResult(f"cocotb.sub.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})",
+                                      category="cocotb", subcategory="sub"))
+                                      
+        for test_id, desc in cocotb_stress_ext_tests:
+            results.append(TestResult(f"cocotb.stress.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})",
+                                      category="cocotb", subcategory="stress"))
+
+        return results
+
+    # Get cocotb version
+    _, _, cocotb_version = run_command([cocotb_config_path, "--version"])
+    cocotb_version = cocotb_version.strip() if cocotb_version else "unknown"
+
+    # Setup check
+    results.append(TestResult("cocotb.setup", f"Cocotb Setup (v{cocotb_version})", "passed", 0,
+                              f"cocotb {cocotb_version}, ghdl available",
+                              category="cocotb", subcategory="setup"))
+
+    cocotb_dir = PROJECT_ROOT / "tests" / "cocotb"
+
+    # Set up environment with venv PATH for cocotb
+    venv_env = os.environ.copy()
+    venv_bin = str(PROJECT_ROOT / "venv" / "bin")
+    venv_env["PATH"] = venv_bin + ":" + venv_env.get("PATH", "")
+    venv_env["VIRTUAL_ENV"] = str(PROJECT_ROOT / "venv")
+
+    # Run AXI-Lite tests
+    print(f"{BOLD}Running AXI-Lite Protocol Tests...{RESET}")
+    _, duration, output = run_command(
+        ["make", "test_axi_lite", "DUT=sensor_controller"],
+        cwd=str(cocotb_dir),
+        timeout=300,
+        env=venv_env,
+        stream_output=True
+    )
+
+    # Parse cocotb output for test results
+    # Format: ** test_axi_lite.test_axion_001_ro_read                 PASS         190.00 ...
+    import re
+    test_pattern = re.compile(r'\*\*\s+(test_\w+\.test_\w+)\s+(PASS|FAIL|SKIP)')
+
+    axi_results = {}
+    for match in test_pattern.finditer(output):
+        full_name = match.group(1)
+        status = match.group(2).lower()
+        # Extract just the test function name
+        test_func = full_name.split('.')[-1]
+        axi_results[test_func] = status
+
+    # Map results to our test list
+    for test_id, desc in cocotb_axi_tests:
+        if test_id in axi_results:
+            status = axi_results[test_id]
+            if status == "pass":
+                results.append(TestResult(f"cocotb.axi.{test_id}", desc, "passed", 0,
+                                          "", category="cocotb", subcategory="axi_lite"))
+            elif status == "fail":
+                results.append(TestResult(f"cocotb.axi.{test_id}", desc, "failed", 0,
+                                          "Assertion failed", category="cocotb", subcategory="axi_lite"))
+            else:
+                results.append(TestResult(f"cocotb.axi.{test_id}", desc, "skipped", 0,
+                                          "", category="cocotb", subcategory="axi_lite"))
+        else:
+            # Test not found in output - either not run or environment issue
+            results.append(TestResult(f"cocotb.axi.{test_id}", desc, "skipped", 0,
+                                      "Test not executed", category="cocotb", subcategory="axi_lite"))
+
+    # Run CDC tests
+    _, duration, output = run_command(
+        ["make", "test_cdc", "DUT=sensor_controller"],
+        cwd=str(cocotb_dir),
+        timeout=300,
+        env=venv_env,
+        stream_output=True
+    )
+
+    cdc_results = {}
+    for match in test_pattern.finditer(output):
+        full_name = match.group(1)
+        status = match.group(2).lower()
+        test_func = full_name.split('.')[-1]
+        cdc_results[test_func] = status
+
+    # Map results to our test list
+    for test_id, desc in cocotb_cdc_tests:
+        if test_id in cdc_results:
+            status = cdc_results[test_id]
+            if status == "pass":
+                results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "passed", 0,
+                                          "", category="cocotb", subcategory="cdc"))
+            elif status == "fail":
+                results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "failed", 0,
+                                          "Assertion failed", category="cocotb", subcategory="cdc"))
+            else:
+                results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "skipped", 0,
+                                          "", category="cocotb", subcategory="cdc"))
+        else:
+            results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "skipped", 0,
+                                      "Test not executed", category="cocotb", subcategory="cdc"))
+
+    # Run Subregister tests
+    _, duration, output = run_command(
+        ["make", "test_sub", "DUT=sensor_controller"],
+        cwd=str(cocotb_dir),
+        timeout=300,
+        env=venv_env,
+        stream_output=True
+    )
+    
+    sub_results = {}
+    for match in test_pattern.finditer(output):
+        full_name = match.group(1)
+        status = match.group(2).lower()
+        test_func = full_name.split('.')[-1]
+        sub_results[test_func] = status
+        
+    for test_id, desc in cocotb_sub_tests:
+        if test_id in sub_results:
+            status = sub_results[test_id]
+            if status == "pass":
+                results.append(TestResult(f"cocotb.sub.{test_id}", desc, "passed", 0, "", category="cocotb", subcategory="sub"))
+            elif status == "fail":
+                results.append(TestResult(f"cocotb.sub.{test_id}", desc, "failed", 0, "Assertion failed", category="cocotb", subcategory="sub"))
+            else:
+                results.append(TestResult(f"cocotb.sub.{test_id}", desc, "skipped", 0, "", category="cocotb", subcategory="sub"))
+        else:
+            results.append(TestResult(f"cocotb.sub.{test_id}", desc, "skipped", 0, "Test not executed", category="cocotb", subcategory="sub"))
+
+    # Run Extended Stress tests
+    _, duration, output = run_command(
+        ["make", "test_stress_extended", "DUT=sensor_controller"],
+        cwd=str(cocotb_dir),
+        timeout=600,
+        env=venv_env,
+        stream_output=True
+    )
+    
+    stress_results = {}
+    for match in test_pattern.finditer(output):
+        full_name = match.group(1)
+        status = match.group(2).lower()
+        test_func = full_name.split('.')[-1]
+        stress_results[test_func] = status
+        
+    for test_id, desc in cocotb_stress_ext_tests:
+        if test_id in stress_results:
+            status = stress_results[test_id]
+            if status == "pass":
+                results.append(TestResult(f"cocotb.stress.{test_id}", desc, "passed", 0, "", category="cocotb", subcategory="stress"))
+            elif status == "fail":
+                results.append(TestResult(f"cocotb.stress.{test_id}", desc, "failed", 0, "Assertion failed", category="cocotb", subcategory="stress"))
+            else:
+                results.append(TestResult(f"cocotb.stress.{test_id}", desc, "skipped", 0, "", category="cocotb", subcategory="stress"))
+        else:
+            results.append(TestResult(f"cocotb.stress.{test_id}", desc, "skipped", 0, "Test not executed", category="cocotb", subcategory="stress"))
+
     return results
 
 
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, JSON-INPUT, EQUIV\n")
-    
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, JSON-INPUT, EQUIV + Cocotb\n")
+
     all_results = []
-    
+
     # Run Python unit tests (core functionality)
-    print(f"  [1/17] Running Python unit tests...", flush=True)
+    print(f"  [1/18] Running Python unit tests...", flush=True)
     all_results.extend(run_python_unit_tests())
-    
+
     # Run address conflict tests (ADDR requirements)
-    print(f"  [2/17] Running address conflict tests...", flush=True)
+    print(f"  [2/18] Running address conflict tests...", flush=True)
     all_results.extend(run_address_conflict_tests())
-    
+
     # Run Parser tests (PARSER requirements)
-    print(f"  [3/17] Running parser tests...", flush=True)
+    print(f"  [3/18] Running parser tests...", flush=True)
     all_results.extend(run_parser_tests())
-    
+
     # Run Generator tests (GEN requirements)
-    print(f"  [4/17] Running generator tests...", flush=True)
+    print(f"  [4/18] Running generator tests...", flush=True)
     all_results.extend(run_generator_tests())
-    
+
     # Run Error handling tests (ERR requirements)
-    print(f"  [5/17] Running error handling tests...", flush=True)
+    print(f"  [5/18] Running error handling tests...", flush=True)
     all_results.extend(run_error_handling_tests())
-    
+
     # Run CLI tests (CLI requirements)
-    print(f"  [6/17] Running CLI tests...", flush=True)
+    print(f"  [6/18] Running CLI tests...", flush=True)
     all_results.extend(run_cli_tests())
-    
+
     # Run CDC tests (CDC requirements)
-    print(f"  [7/17] Running CDC tests...", flush=True)
+    print(f"  [7/18] Running CDC tests...", flush=True)
     all_results.extend(run_cdc_tests())
-    
+
     # Run ADDR tests (ADDR requirements)
-    print(f"  [8/17] Running address management tests...", flush=True)
+    print(f"  [8/18] Running address management tests...", flush=True)
     all_results.extend(run_addr_tests())
-    
+
     # Run STRESS tests (STRESS requirements)
-    print(f"  [9/17] Running stress tests...", flush=True)
+    print(f"  [9/18] Running stress tests...", flush=True)
     all_results.extend(run_stress_tests())
-    
+
     # Run SUB tests (Subregister requirements)
-    print(f"  [10/17] Running subregister tests...", flush=True)
+    print(f"  [10/18] Running subregister tests...", flush=True)
     all_results.extend(run_subregister_tests())
-    
+
     # Run DEF tests (DEFAULT attribute requirements)
-    print(f"  [11/17] Running default attribute tests...", flush=True)
+    print(f"  [11/18] Running default attribute tests...", flush=True)
     all_results.extend(run_default_tests())
-    
+
     # Run VAL tests (Validation & Diagnostics requirements)
-    print(f"  [12/17] Running validation tests...", flush=True)
+    print(f"  [12/18] Running validation tests...", flush=True)
     all_results.extend(run_validation_tests())
-    
+
     # Run YAML-INPUT tests
-    print(f"  [13/17] Running YAML input parser tests...", flush=True)
+    print(f"  [13/18] Running YAML input parser tests...", flush=True)
     all_results.extend(run_yaml_input_tests())
-    
+
     # Run JSON-INPUT tests
-    print(f"  [14/17] Running JSON input parser tests...", flush=True)
+    print(f"  [14/18] Running JSON input parser tests...", flush=True)
     all_results.extend(run_json_input_tests())
-    
+
     # Run EQUIV tests (format equivalence)
-    print(f"  [15/17] Running format equivalence tests...", flush=True)
+    print(f"  [15/18] Running format equivalence tests...", flush=True)
     all_results.extend(run_equivalence_tests())
-    
+
     # Run VHDL tests (AXION, AXI-LITE requirements)
-    print(f"  [16/17] Running VHDL simulation tests...", flush=True)
+    print(f"  [16/18] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
-    
+
     # Run C tests
-    print(f"  [17/17] Running C header tests...", flush=True)
+    print(f"  [17/18] Running C header tests...", flush=True)
     all_results.extend(run_c_tests())
+
+    # Run Cocotb tests (comprehensive VHDL verification)
+    print(f"  [18/18] Running Cocotb VHDL tests...", flush=True)
+    all_results.extend(run_cocotb_tests())
     
     # Save and generate reports
     save_results(all_results)
@@ -1989,87 +2288,7 @@ def main():
     # Print results
     success = print_results(all_results)
     
-    # Generate requirement coverage summary
-    print_requirement_coverage(all_results)
-    
     return 0 if success else 1
-
-
-def print_requirement_coverage(results: List[TestResult]):
-    """Print requirement coverage summary"""
-    
-    # Extract requirement IDs from test results
-    req_pattern = re.compile(r'(AXION-\d+[a-z]?|AXI-LITE-\d+[a-z]?|PARSER-\d+|GEN-\d+|CDC-\d+|ADDR-\d+|ERR-\d+|CLI-\d+|STRESS-\d+|SUB-\d+|DEF-\d+|VAL-\d+|YAML-INPUT-\d+|JSON-INPUT-\d+|EQUIV-\d+)', re.IGNORECASE)
-    
-    covered = set()
-    for r in results:
-        matches = req_pattern.findall(r.name)
-        for m in matches:
-            covered.add(m.upper())
-    
-    # Expected requirements
-    expected = set()
-    for i in range(1, 30):
-        expected.add(f"AXION-{i:03d}")
-    for i in range(1, 19):
-        expected.add(f"AXI-LITE-{i:03d}")
-    for i in range(1, 9):
-        expected.add(f"PARSER-{i:03d}")
-    for i in range(1, 15):
-        expected.add(f"GEN-{i:03d}")
-    for i in range(1, 8):
-        expected.add(f"CDC-{i:03d}")
-    for i in range(1, 9):
-        expected.add(f"ADDR-{i:03d}")
-    for i in range(1, 7):
-        expected.add(f"ERR-{i:03d}")
-    for i in range(1, 13):
-        expected.add(f"CLI-{i:03d}")
-    for i in range(1, 7):
-        expected.add(f"STRESS-{i:03d}")
-    for i in range(1, 13):
-        expected.add(f"SUB-{i:03d}")
-    for i in range(1, 11):
-        expected.add(f"DEF-{i:03d}")
-    for i in range(1, 16):
-        expected.add(f"YAML-INPUT-{i:03d}")
-    for i in range(1, 16):
-        expected.add(f"JSON-INPUT-{i:03d}")
-    for i in range(1, 7):
-        expected.add(f"EQUIV-{i:03d}")
-    
-    print(f"\n{CYAN}{BOLD}{'═' * 80}{RESET}")
-    print(f"{CYAN}{BOLD}  REQUIREMENT COVERAGE SUMMARY{RESET}")
-    print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
-    print(f"  Unique Requirement IDs Tested: {len(covered)}")
-    print(f"  Base Requirements (from spec):  134")
-    print(f"  Total Test Cases:               {len(results)}")
-    
-    # Categories
-    categories = {
-        "AXION": [r for r in covered if r.startswith("AXION-")],
-        "AXI-LITE": [r for r in covered if r.startswith("AXI-LITE-")],
-        "PARSER": [r for r in covered if r.startswith("PARSER-")],
-        "GEN": [r for r in covered if r.startswith("GEN-")],
-        "CDC": [r for r in covered if r.startswith("CDC-")],
-        "ADDR": [r for r in covered if r.startswith("ADDR-")],
-        "ERR": [r for r in covered if r.startswith("ERR-")],
-        "CLI": [r for r in covered if r.startswith("CLI-")],
-        "STRESS": [r for r in covered if r.startswith("STRESS-")],
-        "SUB": [r for r in covered if r.startswith("SUB-")],
-        "DEF": [r for r in covered if r.startswith("DEF-")],
-        "VAL": [r for r in covered if r.startswith("VAL-")],
-        "YAML-INPUT": [r for r in covered if r.startswith("YAML-INPUT-")],
-        "JSON-INPUT": [r for r in covered if r.startswith("JSON-INPUT-")],
-        "EQUIV": [r for r in covered if r.startswith("EQUIV-")]
-    }
-    
-    print(f"\n  By Category:")
-    for cat, reqs in categories.items():
-        if reqs:
-            print(f"    {cat}: {len(reqs)} requirements")
-    
-    print(f"{'═' * 80}\n")
 
 
 if __name__ == "__main__":

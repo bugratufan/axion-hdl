@@ -61,13 +61,12 @@ class TestGUIParsingErrors:
         assert response.status_code == 200
         html = response.data.decode('utf-8')
         
-        # Check for error card presence
-        # Look for "1 Modules"
-        assert "1</h2>" in html or "1 </h2>" in html  # Module count
+        # Check for error badge presence
+        assert "stat-value" in html  # Module count class
         
-        # Look for Error count in summary card
-        # The Red card should be visible with "1 Errors" or similar
-        # Based on index.html: <div class="summary-card red"> ... <h2>{{ total_errors + total_warnings }}</h2> ... <p>{{ total_errors }} Errors
+        # Look for Error count in summary
+        # Based on index.html: <span class="stat-value stat-value-error">{{ total_errors }}</span>
         
-        assert "summary-card red" in html
-        assert "1 Errors" in html
+        assert "stat-value-error" in html
+        assert "1</span>" in html or "1 </span>" in html # The count value 
+

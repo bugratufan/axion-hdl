@@ -428,6 +428,7 @@ class VHDLParser:
                 # Build register data
                 reg_data = {
                     'signal_name': signal_name,
+                    'name': signal_name,
                     'signal_type': signal_type,
                     'address': addr_mgr.format_address(absolute_addr),
                     'address_int': absolute_addr,

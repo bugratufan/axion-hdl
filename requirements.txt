@@ -1,2 +1,3 @@
-# Axion-HDL Dependencies
+# Axion-HDL Runtime Dependencies
+# Note: PyYAML is optional, only needed for YAML input format support
 PyYAML>=6.0

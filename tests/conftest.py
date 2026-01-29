@@ -33,9 +33,9 @@ def reset_all_test_files():
 @pytest.fixture(scope="session", autouse=True)
 def reset_test_files():
     """Reset test files before and after test session"""
-    reset_vhdl_files()
+    reset_all_test_files()
     yield
-    reset_vhdl_files()
+    reset_all_test_files()
 
 
 class FlaskTestServer:

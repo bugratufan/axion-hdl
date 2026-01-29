@@ -1,83 +1,91 @@
-#!/usr/bin/env python3
-"""
-test_axion.py - Test script for Axion HDL Register Generator
-
-This script demonstrates how to use Axion to analyze VHDL files
-and generate AXI register interfaces.
-"""
-
+import pytest
 import os
-import sys
-
-# Add project root to path for imports
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, project_root)
-
+import shutil
+import tempfile
 from axion_hdl import AxionHDL
 
-def main():
-    print("="*80)
-    print("Axion HDL Register Generator - Test Script")
-    print("="*80)
+@pytest.fixture
+def test_setup():
+    """Set up a temporary environment with a sample VHDL file."""
+    tmp_dir = tempfile.mkdtemp()
+    output_dir = os.path.join(tmp_dir, "output")
     
-    # Determine paths relative to project root
-    tests_vhdl_dir = os.path.join(project_root, "tests", "vhdl")
-    output_dir = os.path.join(project_root, "output")
+    # Create sample VHDL
+    vhdl_content = """
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x1000
+entity sample_mod is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of sample_mod is
+    signal ctrl : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x00
+begin
+end architecture;
+"""
+    vhdl_file = os.path.join(tmp_dir, "sample.vhd")
+    with open(vhdl_file, 'w') as f:
+        f.write(vhdl_content)
+        
+    yield tmp_dir, output_dir
     
-    # Step 1: Create Axion instance with output directory
-    print("\n[1] Initializing Axion...")
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+
+def test_axion_full_workflow(test_setup):
+    """Verify the full Axion HDL workflow: analyze -> generate all."""
+    tmp_dir, output_dir = test_setup
+    
     axion = AxionHDL(output_dir=output_dir)
-    print(f"    Output directory: {output_dir}")
+    axion.add_src(tmp_dir)
     
-    # Step 2: Add source directories
-    print("\n[2] Adding source directories...")
-    axion.add_src(tests_vhdl_dir)
+    # Analyze
+    assert axion.analyze() is True
+    assert len(axion.analyzed_modules) == 1
+    assert axion.analyzed_modules[0]['name'] == 'sample_mod'
     
-    # Exclude error test cases (intentionally broken files for testing)
-    print("\n[2.1] Excluding error test cases...")
+    # Generate All
+    axion.generate_all(doc_format="md")
+    
+    # Verify file existence with correct naming conventions
+    expected_files = [
+        "sample_mod_axion_reg.vhd",
+        "register_map.md",
+        "sample_mod_regs.xml",
+        "sample_mod_regs.h",
+        "sample_mod_regs.yaml",
+        "sample_mod_regs.json"
+    ]
+    
+    for filename in expected_files:
+        filepath = os.path.join(output_dir, filename)
+        assert os.path.exists(filepath), f"Missing generated file: {filename}"
+        
+        # Verify basic content
+        with open(filepath, 'r') as f:
+            content = f.read()
+            assert len(content) > 0
+            if filename.endswith(".vhd"):
+                assert "entity sample_mod_axion_reg" in content
+            elif filename.endswith(".h"):
+                assert "SAMPLE_MOD" in content.upper()
+
+def test_axion_exclude_logic(test_setup):
+    """Verify that exclusion logic works correctly."""
+    tmp_dir, output_dir = test_setup
+    
+    # Create an "error_cases" directory that should be excluded
+    err_dir = os.path.join(tmp_dir, "error_cases")
+    os.makedirs(err_dir)
+    with open(os.path.join(err_dir, "bad.vhd"), 'w') as f:
+        f.write("garbage content")
+        
+    axion = AxionHDL(output_dir=output_dir)
+    axion.add_src(tmp_dir)
     axion.exclude("error_cases")
     
-    # List all added source directories
-    print("\n[3] Source directories:")
-    axion.list_src()
+    # Analyze should succeed because bad.vhd is excluded
+    assert axion.analyze() is True
     
-    # Step 3: Analyze VHDL files
-    print("\n[4] Analyzing VHDL files...")
-    if not axion.analyze():
-        print("    ERROR: Analysis failed!")
-        return 1
-    
-    # Step 4: Generate outputs
-    print("\n[5] Generating outputs...")
-    
-    # Generate VHDL register modules
-    print("\n    [5.1] Generating VHDL modules...")
-    axion.generate_vhdl()
-    
-    # Generate documentation
-    print("\n    [5.2] Generating documentation...")
-    axion.generate_documentation(format="md")
-    
-    # Generate XML register map
-    print("\n    [5.3] Generating XML register map...")
-    axion.generate_xml()
-    
-    # Generate C header files
-    print("\n    [5.4] Generating C header files...")
-    axion.generate_c_header()
-    
-    print("\n" + "="*80)
-    print("Test completed successfully!")
-    print("="*80)
-    print(f"\nGenerated files can be found in: {output_dir}/")
-    print("\nNext steps:")
-    print("  1. Review the analysis output above")
-    print("  2. Check generated VHDL files in ./output/")
-    print("  3. Review documentation in ./output/register_map.md")
-    print("  4. Check C headers in ./output/")
-    print("="*80)
-    
-    return 0
-
-if __name__ == "__main__":
-    exit(main())
+    # Verify bad.vhd was NOT parsed
+    for module in axion.analyzed_modules:
+        assert os.path.basename(module['file']) != "bad.vhd"

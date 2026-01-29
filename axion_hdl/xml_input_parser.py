@@ -1,13 +1,12 @@
 """
 XML Input Parser Module for Axion HDL
 
-This module parses XML register definition files as an alternative input format
-to VHDL files with @axion annotations. It supports both:
+This module parses XML register definition files by first converting them to YAML format,
+then using YAMLInputParser for processing. This provides a unified parsing pipeline.
+
+Supports both:
 1. Simple custom format: <register_map> with <register> elements
 2. SPIRIT/IP-XACT format: <spirit:component> with <spirit:register> elements
-
-The parser produces the same module dictionary format as VHDLParser for
-seamless integration with the rest of Axion-HDL.
 """
 
 import os
@@ -18,6 +17,7 @@ from pathlib import Path
 
 # Import from axion_hdl
 from axion_hdl.address_manager import AddressManager
+from axion_hdl.yaml_input_parser import YAMLInputParser
 
 
 class XMLInputParser:
@@ -41,6 +41,11 @@ class XMLInputParser:
         self.address_manager = AddressManager()
         self._exclude_patterns: Set[str] = set()
         self.errors = []
+        
+        try:
+            self.yaml_parser = YAMLInputParser()
+        except ImportError:
+            raise ImportError("PyYAML is required for XML input support. Install with: pip install PyYAML")
     
     def add_exclude(self, pattern: str):
         """Add an exclusion pattern for files/directories."""
@@ -74,7 +79,7 @@ class XMLInputParser:
     
     def parse_file(self, filepath: str) -> Optional[Dict]:
         """
-        Parse a single XML file and return structured module data.
+        Parse a single XML file by converting to YAML then using YAMLInputParser.
         
         Args:
             filepath: Path to the XML file
@@ -93,16 +98,20 @@ class XMLInputParser:
             tree = ET.parse(filepath)
             root = tree.getroot()
             
-            # Detect format and parse accordingly
-            if root.tag.startswith('{http://www.spiritconsortium.org'):
-                return self._parse_spirit_format(root, filepath)
-            elif root.tag == 'spirit:component' or 'spirit' in root.tag:
-                return self._parse_spirit_format(root, filepath)
-            elif root.tag == 'register_map':
-                return self._parse_simple_format(root, filepath)
-            else:
-                print(f"  Warning: Unknown XML format in {filepath}: {root.tag}")
+            # Convert XML to YAML structure
+            yaml_data = self._xml_to_yaml(root, filepath)
+            if not yaml_data:
                 return None
+            
+            # Use YAML parser for processing via public API
+            result = self.yaml_parser.parse_data(yaml_data, filepath)
+            
+            # Merge errors from YAML parser
+            if self.yaml_parser.errors:
+                self.errors.extend(self.yaml_parser.errors)
+                self.yaml_parser.errors.clear()
+            
+            return result
                 
         except ET.ParseError as e:
             msg = f"Error parsing XML file {filepath}: {e}"
@@ -115,8 +124,21 @@ class XMLInputParser:
             self.errors.append({'file': filepath, 'msg': msg})
             return None
     
-    def _parse_simple_format(self, root: ET.Element, filepath: str) -> Optional[Dict]:
-        """Parse simple custom XML format."""
+    def _xml_to_yaml(self, root: ET.Element, filepath: str) -> Optional[Dict]:
+        """Convert XML structure to YAML dictionary."""
+        # Detect format and convert accordingly
+        if root.tag.startswith('{http://www.spiritconsortium.org'):
+            return self._spirit_to_yaml(root, filepath)
+        elif root.tag == 'spirit:component' or 'spirit' in root.tag:
+            return self._spirit_to_yaml(root, filepath)
+        elif root.tag == 'register_map':
+            return self._simple_xml_to_yaml(root, filepath)
+        else:
+            print(f"  Warning: Unknown XML format in {filepath}: {root.tag}")
+            return None
+    
+    def _simple_xml_to_yaml(self, root: ET.Element, filepath: str) -> Optional[Dict]:
+        """Convert simple custom XML format to YAML dictionary."""
         module_name = root.get('module')
         if not module_name:
             msg = f"Missing 'module' attribute in {filepath}"
@@ -125,234 +147,65 @@ class XMLInputParser:
             return None
         
         base_addr_str = root.get('base_addr', '0x0000')
-        base_addr = self._parse_address(base_addr_str)
         
         # Parse config element
-        cdc_en = False
-        cdc_stage = 2
+        config = {}
         config_elem = root.find('config')
         if config_elem is not None:
-            cdc_en = config_elem.get('cdc_en', '').lower() == 'true'
+            config['cdc_en'] = config_elem.get('cdc_en', '').lower() == 'true'
             cdc_stage_str = config_elem.get('cdc_stage', '2')
             try:
-                cdc_stage = int(cdc_stage_str)
+                config['cdc_stage'] = int(cdc_stage_str)
             except ValueError:
-                cdc_stage = 2
+                config['cdc_stage'] = 2
         
         # Parse registers
         registers = []
-        next_auto_addr = 0
-        
-        # Import from axion_hdl
-        from axion_hdl.bit_field_manager import BitFieldManager, BitOverlapError
-
-        bit_field_manager = BitFieldManager()
         
         for reg_elem in root.findall('register'):
             reg_name = reg_elem.get('name')
             if not reg_name:
                 continue
             
-            # Use 'access' attribute first, fallback to 'mode' if needed
-            access = reg_elem.get('access', reg_elem.get('mode', 'RW')).upper()
-            if access not in ('RO', 'RW', 'WO'):
-                print(f"  Warning: Invalid access mode '{access}' for {reg_name}, using RW")
-                access = 'RW'
-            
-            width_str = reg_elem.get('width', '32')
-            try:
-                width = int(width_str)
-            except ValueError:
-                width = 32
-            
-            # Parse packed register attributes
-            packed_reg_name = reg_elem.get('reg_name')  # Grouping name
-            bit_offset_str = reg_elem.get('bit_offset')
-            bit_offset = None
-            if bit_offset_str is not None:
-                try:
-                    bit_offset = int(bit_offset_str)
-                except ValueError:
-                    bit_offset = None
-
-            # Parse default value
-            default_str = reg_elem.get('default')
-            default_val = 0
-            if default_str:
-                try:
-                    if default_str.lower().startswith('0x'):
-                        default_val = int(default_str, 16)
-                    else:
-                        default_val = int(default_str)
-                except ValueError:
-                    print(f"  Warning: Invalid default value '{default_str}' for {reg_name}, using 0")
-            
-            # If REG_NAME is present, logic for packed registers
-            if packed_reg_name:
-                # Get or calculate address for packed register
-                addr_str = reg_elem.get('addr')
-                if addr_str:
-                    addr = self._parse_address(addr_str)
-                else:
-                    # If this packed register already exists, use its address
-                    existing_reg = bit_field_manager.get_register(packed_reg_name)
-                    if existing_reg:
-                        addr = existing_reg.address
-                    else:
-                        # New packed register, assign new address
-                        # Align to 32-bit (4 byte) boundary
-                        addr = (next_auto_addr + 3) & ~3
-                
-                # Signal type creation (Internal format)
-                if width > 1:
-                    sig_type = f"[{width-1}:0]"
-                else:
-                    sig_type = "[0:0]"
-                
-                try:
-                    bit_field_manager.add_field(
-                        reg_name=packed_reg_name,
-                        address=addr,
-                        field_name=reg_name,
-                        width=width,
-                        access_mode=access,
-                        signal_type=sig_type,
-                        bit_offset=bit_offset,
-                        description=reg_elem.get('description', ''),
-                        source_file=filepath,
-                        default_value=default_val,
-                        read_strobe=reg_elem.get('r_strobe', '').lower() == 'true',
-                        write_strobe=reg_elem.get('w_strobe', '').lower() == 'true',
-                        allow_overlap=True  # Allow overlaps, RuleChecker will validate
-                    )
-                    
-                    # Update next address only if this is a new register at a higher address
-                    if addr >= next_auto_addr:
-                        next_auto_addr = addr + 4
-                        
-                except Exception as e:
-                     msg = f"Error processing packed register {reg_name}: {e}"
-                     print(f"  {msg}")
-                     self.errors.append({'file': filepath, 'msg': msg})
-                
-                continue  # Skip adding to standard registers list
-            
-            # Standard Register Logic
-            addr_str = reg_elem.get('addr')
-            if addr_str:
-                addr = self._parse_address(addr_str)
-            else:
-                addr = next_auto_addr
-            
-            # Calculate next auto address
-            num_regs = (width + 31) // 32
-            next_auto_addr = addr + (num_regs * 4)
-            
-            r_strobe = reg_elem.get('r_strobe', '').lower() == 'true'
-            w_strobe = reg_elem.get('w_strobe', '').lower() == 'true'
-            description = reg_elem.get('description', '')
-            
-            register = {
-                'signal_name': reg_name,
+            reg_dict = {
                 'name': reg_name,
-                'access_mode': access,
-                'access': access,
-                'address': f"0x{base_addr + addr:02X}",
-                'address_int': base_addr + addr,
-                'relative_address': f"0x{addr:02X}",
-                'relative_address_int': addr,
-                'width': width,
-                'signal_type': f"std_logic_vector({width-1} downto 0)" if width > 1 else "std_logic",
-                'r_strobe': r_strobe,
-                'w_strobe': w_strobe,
-                'read_strobe': r_strobe,
-                'write_strobe': w_strobe,
-                'description': description,
-                'default_value': default_val,
-                'default_value_hex': f"0x{default_val:X}",
-                'manual_address': bool(addr_str)  # Mark as manual if explicitly defined
+                'access': reg_elem.get('access', reg_elem.get('mode', 'RW')),
+                'description': reg_elem.get('description', '')
             }
-            registers.append(register)
-
-        # Process packed registers from BitFieldManager and add them to the list
-        packed_regs_data = [] # To store in module data if needed
-        
-        for packed in bit_field_manager.get_all_registers():
-            # Calculate combined default value
-            combined_default = 0
-            for field in packed.fields:
-                mask = ((1 << field.width) - 1)
-                field_val = (field.default_value & mask) << field.bit_low
-                combined_default |= field_val
-
-            packed_reg_entry = {
-                'signal_name': packed.name,
-                'name': packed.name,
-                'access_mode': packed.access_mode,
-                'access': packed.access_mode,
-                'address': f"0x{base_addr + packed.address:02X}",
-                'address_int': base_addr + packed.address,
-                'relative_address': f"0x{packed.address:02X}",
-                'reg_name': packed.name,
-                'signal_name': packed.name,     # For consistency
-                'name': packed.name,            # For consistency
-                'relative_address': f"0x{packed.address:02X}",
-                'relative_address_int': packed.address,
-                'width': 32, # Packed registers are always 32-bit
-                'signal_type': "std_logic_vector(31 downto 0)",
-                'r_strobe': any(f.read_strobe for f in packed.fields),
-                'w_strobe': any(f.write_strobe for f in packed.fields),
-                'read_strobe': any(f.read_strobe for f in packed.fields),
-                'write_strobe': any(f.write_strobe for f in packed.fields),
-                'description': f"Packed register: {packed.name}",
-                'default_value': combined_default,
-                'default_value_hex': f"0x{combined_default:X}",
-                'is_packed': True,
-                'fields': [
-                    {
-                        'name': f.name,
-                        'bit_low': f.bit_low,
-                        'bit_high': f.bit_high,
-                        'width': f.width,
-                        'access_mode': f.access_mode,
-                        'signal_type': f.signal_type,
-                        'default_value': f.default_value,
-                        'read_strobe': f.read_strobe,
-                        'write_strobe': f.write_strobe,
-                        'description': f.description
-                    } for f in packed.fields
-                ]
-            }
-            registers.append(packed_reg_entry)
-            packed_regs_data.append(packed_reg_entry) # Track for potential verification
-
-        # Sort registers by address
-        registers.sort(key=lambda x: x['relative_address_int'])
+            
+            # Optional attributes
+            if reg_elem.get('addr'):
+                reg_dict['addr'] = reg_elem.get('addr')
+            if reg_elem.get('width'):
+                reg_dict['width'] = reg_elem.get('width')
+            if reg_elem.get('reg_name'):
+                reg_dict['reg_name'] = reg_elem.get('reg_name')
+            if reg_elem.get('bit_offset'):
+                reg_dict['bit_offset'] = reg_elem.get('bit_offset')
+            if reg_elem.get('default'):
+                reg_dict['default'] = reg_elem.get('default')
+            if reg_elem.get('r_strobe', '').lower() == 'true':
+                reg_dict['r_strobe'] = True
+            if reg_elem.get('w_strobe', '').lower() == 'true':
+                reg_dict['w_strobe'] = True
+            
+            registers.append(reg_dict)
         
         return {
-            'entity_name': module_name,
-            'name': module_name,
-            'file': filepath,  # For compatibility with VHDLParser
-            'base_address': base_addr,
-            'base_addr': base_addr,
-            'cdc_enabled': cdc_en,
-            'cdc_en': cdc_en,
-            'cdc_stages': cdc_stage,
-            'cdc_stage': cdc_stage,
-            'registers': registers,
-            'packed_registers': packed_regs_data,
-            'source_file': filepath
+            'module': module_name,
+            'base_addr': base_addr_str,
+            'config': config,
+            'registers': registers
         }
     
-    def _parse_spirit_format(self, root: ET.Element, filepath: str) -> Optional[Dict]:
-        """Parse SPIRIT/IP-XACT XML format (generated by XMLGenerator)."""
+    def _spirit_to_yaml(self, root: ET.Element, filepath: str) -> Optional[Dict]:
+        """Convert SPIRIT/IP-XACT XML format to YAML dictionary."""
         # Handle namespace
         ns = self.SPIRIT_NS
         
         # Try to find module name
         name_elem = root.find('.//spirit:name', ns)
         if name_elem is None:
-            # Try without namespace
             name_elem = root.find('.//name')
         
         module_name = name_elem.text if name_elem is not None else None
@@ -365,9 +218,9 @@ class XMLInputParser:
         if base_addr_elem is None:
             base_addr_elem = root.find('.//baseAddress')
         
-        base_addr = 0
+        base_addr_str = '0x0000'
         if base_addr_elem is not None and base_addr_elem.text:
-            base_addr = self._parse_address(base_addr_elem.text)
+            base_addr_str = base_addr_elem.text
         
         # Parse registers
         registers = []
@@ -390,97 +243,54 @@ class XMLInputParser:
             if offset_elem is None:
                 offset_elem = reg_elem.find('addressOffset')
             
-            addr = 0
-            has_explicit_addr = False
+            reg_dict = {'name': reg_name}
+            
             if offset_elem is not None and offset_elem.text:
-                addr = self._parse_address(offset_elem.text)
-                has_explicit_addr = True
+                reg_dict['addr'] = offset_elem.text
             
             # Get access mode
             access_elem = reg_elem.find('spirit:access', ns)
             if access_elem is None:
                 access_elem = reg_elem.find('access')
             
-            access = 'RW'
             if access_elem is not None and access_elem.text:
                 access_map = {
                     'read-only': 'RO',
                     'write-only': 'WO',
                     'read-write': 'RW'
                 }
-                access = access_map.get(access_elem.text.lower(), 'RW')
+                reg_dict['access'] = access_map.get(access_elem.text.lower(), 'RW')
             
             # Get size/width
             size_elem = reg_elem.find('spirit:size', ns)
             if size_elem is None:
                 size_elem = reg_elem.find('size')
             
-            width = 32
             if size_elem is not None and size_elem.text:
-                try:
-                    width = int(size_elem.text)
-                except ValueError:
-                    width = 32
+                reg_dict['width'] = size_elem.text
             
             # Get description
             desc_elem = reg_elem.find('spirit:description', ns)
             if desc_elem is None:
                 desc_elem = reg_elem.find('description')
             
-            description = desc_elem.text if desc_elem is not None else ''
+            if desc_elem is not None and desc_elem.text:
+                reg_dict['description'] = desc_elem.text
             
             # Get strobe attributes (custom extension)
-            r_strobe = reg_elem.get('r_strobe', '').lower() == 'true'
-            w_strobe = reg_elem.get('w_strobe', '').lower() == 'true'
+            if reg_elem.get('r_strobe', '').lower() == 'true':
+                reg_dict['r_strobe'] = True
+            if reg_elem.get('w_strobe', '').lower() == 'true':
+                reg_dict['w_strobe'] = True
             
-            register = {
-                'signal_name': reg_name,
-                'name': reg_name,
-                'access_mode': access,
-                'access': access,
-                'address': f"0x{base_addr + addr:02X}",
-                'address_int': base_addr + addr,
-                'relative_address': f"0x{addr:02X}",
-                'relative_address_int': addr,
-                'width': width,
-                'signal_type': f"std_logic_vector({width-1} downto 0)" if width > 1 else "std_logic",
-                'r_strobe': r_strobe,
-                'w_strobe': w_strobe,
-                'read_strobe': r_strobe,   # Alias for VHDLParser compatibility
-                'write_strobe': w_strobe,  # Alias for VHDLParser compatibility
-                'description': description or '',
-                'manual_address': has_explicit_addr
-            }
-            registers.append(register)
-        
-        # CDC is not typically in SPIRIT format, check for custom extension
-        cdc_en = False
-        cdc_stage = 2
+            registers.append(reg_dict)
         
         return {
-            'entity_name': module_name,
-            'name': module_name,
-            'file': filepath,  # For compatibility with VHDLParser
-            'base_address': base_addr,
-            'base_addr': base_addr,
-            'cdc_enabled': cdc_en,
-            'cdc_en': cdc_en,
-            'cdc_stages': cdc_stage,
-            'cdc_stage': cdc_stage,
-            'registers': registers,
-            'source_file': filepath
+            'module': module_name,
+            'base_addr': base_addr_str,
+            'config': {},
+            'registers': registers
         }
-    
-    def _parse_address(self, addr_str: str) -> int:
-        """Parse address string (hex or decimal)."""
-        addr_str = addr_str.strip()
-        try:
-            if addr_str.lower().startswith('0x'):
-                return int(addr_str, 16)
-            else:
-                return int(addr_str)
-        except ValueError:
-            return 0
     
     def parse_xml_files(self, source_dirs: List[str]) -> List[Dict]:
         """

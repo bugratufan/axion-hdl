@@ -1,0 +1,507 @@
+/* ==========================================================================
+   Axion-HDL GUI - Common Styles
+   Shared styles across all GUI pages
+   ========================================================================== */
+
+/* ===== CSS VARIABLES (inherited from style.css but extended for GUI) ===== */
+:root {
+    /* Additional GUI-specific colors */
+    --hover-bg: rgba(255, 255, 255, 0.05);
+    --card-bg: var(--color-bg-secondary);
+    --primary-color: var(--color-accent-primary);
+
+    /* State colors */
+    --success-color: #22c55e;
+    --warning-color: #f59e0b;
+    --error-color: #ef4444;
+    --info-color: #3b82f6;
+}
+
+/* ===== LAYOUT ===== */
+.page-header {
+    margin-bottom: var(--space-lg);
+}
+
+.page-header h1 {
+    font-size: 1.5rem;
+    margin: 0;
+    color: var(--color-text-primary);
+}
+
+.page-header p {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    margin: 0.25rem 0 0 0;
+}
+
+/* ===== CARDS ===== */
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.card:hover {
+    border-color: var(--color-border-hover);
+}
+
+.card-header {
+    background: var(--color-bg-tertiary);
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-md);
+}
+
+.card-body {
+    padding: var(--space-lg);
+}
+
+/* ===== BUTTONS ===== */
+.btn {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+    transition: all var(--transition-fast);
+    cursor: pointer;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: var(--color-bg-primary);
+}
+
+.btn-primary:hover {
+    background: var(--color-accent-secondary);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover {
+    border-color: var(--color-border-hover);
+    background: var(--hover-bg);
+}
+
+.btn-sm {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ===== FORMS ===== */
+.form-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-xs);
+    display: block;
+}
+
+.form-control,
+.form-select {
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem;
+    width: 100%;
+    font-family: inherit;
+    transition: all var(--transition-fast);
+}
+
+.form-control:focus,
+.form-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 217, 255, 0.15);
+}
+
+.form-control::placeholder {
+    color: var(--color-text-muted);
+}
+
+/* Monospace inputs */
+.font-monospace {
+    font-family: var(--font-mono);
+}
+
+/* ===== BADGES ===== */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    line-height: 1;
+}
+
+.badge.bg-primary {
+    background: rgba(0, 217, 255, 0.15);
+    color: var(--primary-color);
+    border: 1px solid rgba(0, 217, 255, 0.3);
+}
+
+.badge.bg-success {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--success-color);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.badge.bg-warning {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning-color);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge.bg-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--error-color);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* ===== TABLES ===== */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--color-text-primary);
+}
+
+.table th {
+    text-align: left;
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    border-bottom: 1px solid var(--color-border);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.table tbody tr {
+    transition: background var(--transition-fast);
+}
+
+.table-hover tbody tr:hover {
+    background: var(--hover-bg);
+}
+
+/* ===== ALERTS ===== */
+.alert {
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-md);
+    border: 1px solid;
+}
+
+.alert-success {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: var(--success-color);
+}
+
+.alert-warning {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.3);
+    color: var(--warning-color);
+}
+
+.alert-danger {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: var(--error-color);
+}
+
+.alert-info {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: var(--info-color);
+}
+
+/* ===== STATS BAR ===== */
+.stats-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-lg);
+    padding: var(--space-md);
+    background: var(--card-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+}
+
+.stat-mini {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stat-mini i {
+    font-size: 0.9rem;
+}
+
+.stat-mini span:first-of-type {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.stat-mini span:last-of-type {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+/* ===== UTILITIES ===== */
+.text-muted {
+    color: var(--color-text-muted);
+}
+
+.text-primary {
+    color: var(--primary-color);
+}
+
+.text-success {
+    color: var(--success-color);
+}
+
+.text-warning {
+    color: var(--warning-color);
+}
+
+.text-danger {
+    color: var(--error-color);
+}
+
+.fw-bold {
+    font-weight: 700;
+}
+
+.fw-medium {
+    font-weight: 500;
+}
+
+.small {
+    font-size: 0.875rem;
+}
+
+.d-none {
+    display: none;
+}
+
+.d-block {
+    display: block;
+}
+
+.d-flex {
+    display: flex;
+}
+
+.gap-2 {
+    gap: 0.5rem;
+}
+
+.gap-3 {
+    gap: 1rem;
+}
+
+.gap-4 {
+    gap: 1.5rem;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.3s ease;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+    .stats-bar {
+        gap: var(--space-md);
+    }
+
+    .card-body {
+        padding: var(--space-md);
+    }
+}
+
+/* ===== BASE HTML OVERRIDES ===== */
+/* Force dark theme variables if not present in style.css or to override bootstrap defaults */
+:root {
+    --bs-body-bg: var(--color-bg-primary);
+    --bs-body-color: var(--color-text-primary);
+}
+
+body {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    padding-top: 80px;
+    /* Space for fixed navbar */
+}
+
+/* Override Bootstrap Cards for Dark Theme integration */
+.card {
+    background-color: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+}
+
+.card-header {
+    background-color: var(--color-bg-tertiary);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+}
+
+/* Navbar Overrides to match website but keep functioning elements */
+.navbar {
+    /* Ensure fixed positioning from style.css wins over bootstrap */
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    padding: var(--space-md) 0;
+    background: rgba(10, 14, 20, 0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--color-border);
+    /* Reset bootstrap flex behaviors if needed */
+    display: block;
+}
+
+.navbar .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Mobile Menu Active State */
+.nav-links.active {
+    display: flex !important;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    background: var(--color-bg-secondary);
+    padding: 1rem;
+    border-bottom: 1px solid var(--color-border);
+    gap: 1rem;
+}
+
+.nav-link {
+    color: var(--color-text-secondary);
+    font-weight: 500;
+    transition: color var(--transition-fast);
+    text-decoration: none;
+}
+
+.nav-link:hover,
+.nav-link.active {
+    color: var(--color-text-primary);
+    background: transparent;
+    /* Override bootstrap */
+}
+
+.nav-link.active {
+    color: var(--color-accent-primary);
+}
+
+/* Form Controls Dark Theme */
+.form-control,
+.form-select {
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+}
+
+.form-control:focus,
+.form-select:focus {
+    background-color: var(--color-bg-secondary);
+    border-color: var(--color-accent-primary);
+    color: var(--color-text-primary);
+    box-shadow: 0 0 0 0.25rem rgba(0, 217, 255, 0.15);
+}
+
+/* Table Overrides */
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--color-text-primary);
+    color: var(--color-text-primary);
+}
+
+.table th {
+    color: var(--color-text-muted);
+    border-bottom-color: var(--color-border);
+}
+
+.table td {
+    border-bottom-color: var(--color-border);
+}
+
+.table-hover tbody tr:hover td,
+.table-hover tbody tr:hover th {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+}
+
+/* Module List Styles (Restored & Refined) */
+.module-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.module-card-large {
+    display: block;
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.module-card-large:hover {
+    border-color: var(--color-accent-primary);
+    transform: translateY(-1px);
+    background-color: var(--color-bg-tertiary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Compact Badges */
+.status-badge {
+    font-size: 0.6rem !important;
+    padding: 2px 6px !important;
+    font-weight: 600;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+    line-height: normal;
+    display: inline-flex;
+    align-items: center;
+    opacity: 0.9;
+}
