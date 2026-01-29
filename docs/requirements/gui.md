@@ -62,7 +62,7 @@ Testing is automated via Playwright browser tests mapped back to these requireme
 | GUI-EDIT-009 | Default Value Edit | Default value input accepts hex format (0x...). | Playwright (`gui.test_edit_009`) |
 | GUI-EDIT-010 | Description Edit | Description input accepts free-form text. | Playwright (`gui.test_edit_010`) |
 | GUI-EDIT-011 | Address Display | Address column shows calculated register address. | Playwright (`gui.test_edit_011`) |
-| GUI-EDIT-012 | Add Register | New Register button adds blank row to table. | Playwright (`gui.test_edit_012`) |
+| GUI-EDIT-012 | Add Register | New Register button adds new row with smart address calculation (Next aligned address). | Playwright (`gui.test_edit_012`) |
 | GUI-EDIT-013 | Delete Register | Delete button removes register with confirmation. | Playwright (`gui.test_edit_013`) |
 | GUI-EDIT-014 | R_STROBE Toggle | Read strobe checkbox enables/disables R_STROBE generation. | Playwright (`gui.test_edit_014`) |
 | GUI-EDIT-015 | W_STROBE Toggle | Write strobe checkbox enables/disables W_STROBE generation. | Playwright (`gui.test_edit_015`) |
@@ -80,6 +80,7 @@ The following requirements define the interactive register address assignment be
 2. Address conflicts show warning indicators (no automatic shifting)
 3. Save is blocked when address conflicts exist
 4. Auto-assigned addresses are persisted when saving
+5. New registers auto-increment from last address (aligned to 4 bytes)
 
 | ID | Definition | Acceptance Criteria | Test Method |
 |----|------------|---------------------|-------------|

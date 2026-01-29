@@ -405,7 +405,57 @@ function addRegister() {
 
         const tbody = document.getElementById('regsBody');
         const row = document.createElement('tr');
-        const newAddr = '0x' + nextAddr.toString(16).toUpperCase().padStart(2, '0');
+        // SMART ADDRESS CALCULATION
+        let newAddrInt = 0;
+        const rows = document.querySelectorAll('.reg-row');
+        if (rows.length > 0) {
+            const lastRow = rows[rows.length - 1];
+
+            // Get last address
+            const lastAddrInput = lastRow.querySelector('.reg-addr-input');
+            let lastAddr = 0;
+            if (lastAddrInput) {
+                lastAddr = parseHex(lastAddrInput.value);
+            }
+
+            // Get last width
+            let lastWidth = 32; // Default to 32 if can't determine
+
+            // Check if packed
+            const isPacked = lastRow.querySelector('.toggle-subregs') !== null;
+            if (isPacked) {
+                // For packed, we assume 32-bit aligned chunks. 
+                // To be safe and simple, we assume specific width if we can calculate it, 
+                // but usually packed registers are 32-bit.
+                // However, let's try to sum up fields or check valid width?
+                // Actually, packed registers in this GUI don't have a main width input visible usually,
+                // but one might exist on the object model. 
+                // The DOM for packed row:
+                // <input type="number" ... class="reg-width-input" ...> might be hidden or not present?
+                // Looking at template: {% if not reg.is_packed %}... reg-width-input ... {% endif %}
+                // So packed registers don't have a width input in the row immediately.
+                // We'll assume 32 bit for packed registers for now as they are typically 32-bit CSRs.
+                // If the user wants 64-bit packed, they usually add two 32-bit regs? 
+                // Or maybe we should check if there are fields going beyond 32?
+                // Let's stick effectively to 32 for packed for now, or just look at the last address 
+                // and add 4.
+                lastWidth = 32;
+            } else {
+                const widthInput = lastRow.querySelector('.reg-width-input');
+                if (widthInput) {
+                    lastWidth = parseInt(widthInput.value) || 32;
+                }
+            }
+
+            // Calculate offset: Round up to nearest 32-bit word, then multiply by 4 bytes
+            // e.g. 1-32 bits -> 1 word -> 4 bytes
+            //      33-64 bits -> 2 words -> 8 bytes
+            const bytesStrided = Math.ceil(lastWidth / 32) * 4;
+
+            newAddrInt = lastAddr + bytesStrided;
+        }
+
+        const newAddr = '0x' + newAddrInt.toString(16).toUpperCase().padStart(4, '0');
         row.className = 'reg-row border-bottom-0 animate__animated animate__fadeIn';
         row.innerHTML = `
             <td class="ps-4 addr-cell">
@@ -831,7 +881,7 @@ function downloadGeneratedZip() {
 
 // ===== INITIALIZATION =====
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Store initial state
     window.initialState = getFormState();
 
