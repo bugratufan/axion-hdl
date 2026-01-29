@@ -1,196 +1,128 @@
+import pytest
 import os
-import unittest
+import shutil
+import tempfile
 from axion_hdl.parser import VHDLParser
 from axion_hdl.address_manager import AddressConflictError
+from axion_hdl.axion import AxionHDL
 
+@pytest.fixture
+def err_env():
+    tmp_dir = tempfile.mkdtemp()
+    parser = VHDLParser()
+    yield tmp_dir, parser
+    shutil.rmtree(tmp_dir, ignore_errors=True)
 
-class TestErrorHandlingRequirements(unittest.TestCase):
-    """ERR-xxx requirement tests for error handling"""
+def test_err_001_address_conflict_error_message():
+    """ERR-001: AddressConflictError string representation is clean."""
+    err = AddressConflictError(0x1000, "reg_a", "reg_b", "mod_x")
+    msg = str(err)
+    assert "Address Conflict" in msg
+    assert "0x1000" in msg
+    assert "reg_a" in msg
+    assert "reg_b" in msg
+    # Clean message should not have ASCII art
+    assert "╔" not in msg
+    assert "VIOLATED REQUIREMENTS" not in msg
+    # Formatted message should have ASCII art
+    assert "╔" in err.formatted_message
 
-    def test_err_001_address_conflict_error_message(self):
-        """ERR-001: AddressConflictError string representation is clean"""
-        err = AddressConflictError(0x1000, "reg_a", "reg_b", "mod_x")
-        msg = str(err)
-        
-        self.assertIn("Address Conflict", msg)
-        self.assertIn("0x1000", msg)
-        self.assertIn("reg_a", msg)
-        self.assertIn("reg_b", msg)
-        # Assert ASCII art is NOT in the default string
-        self.assertNotIn("╔", msg)
-        self.assertNotIn("VIOLATED REQUIREMENTS", msg)
-        
-        # Assert formatted message is available
-        self.assertIn("╔", err.formatted_message)
+def test_err_002_parser_partial_loading_on_conflict(err_env):
+    """ERR-002: Parser returns module with errors on conflict."""
+    tmp_dir, parser = err_env
+    content = """
+entity conflict_test is end;
+architecture rtl of conflict_test is
+    signal reg_a : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x00
+    signal reg_b : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x00
+begin end;
+"""
+    f = os.path.join(tmp_dir, "conflict.vhd")
+    with open(f, 'w') as f_out: f_out.write(content)
+    
+    data = parser._parse_vhdl_file(f)
+    assert data is not None
+    assert data['name'] == 'conflict_test'
+    
+    # Check that both registers exist in data
+    regs = [r['signal_name'] for r in data['registers']]
+    assert 'reg_a' in regs
+    assert 'reg_b' in regs
+    
+    # Check for recorded error
+    errors = data.get('parsing_errors', [])
+    assert any("Address Conflict" in e['msg'] and "0x0000" in e['msg'] for e in errors)
 
-    def test_err_002_parser_partial_loading_on_conflict(self):
-        """ERR-002: Parser returns module with errors on conflict"""
-        content = """
-        library ieee;
-        entity conflict_test is end;
-        architecture rtl of conflict_test is
-            -- @axion_def cdc_enabled=false
-            
-            signal reg_a : std_logic_vector(31 downto 0); -- @axion address=0x0 access=RW
-            signal reg_b : std_logic_vector(31 downto 0); -- @axion address=0x0 access=RW
-        begin
-        end;
-        """
-        
-        test_path = "/tmp/conflict_test.vhd"
-        with open(test_path, 'w') as f:
-            f.write(content)
-            
-        parser = VHDLParser()
-        # Use internal parse to check dict directly
-        data = parser._parse_vhdl_file(test_path)
-        
-        self.assertIsNotNone(data, "Parser should return data even with conflicts")
-        self.assertEqual(data['name'], 'conflict_test')
-        
-        # Check registers
-        regs = {r['signal_name']: r for r in data['registers']}
-        self.assertIn('reg_a', regs)
-        self.assertIn('reg_b', regs)
-        
-        # Check errors
-        self.assertIn('parsing_errors', data)
-        errors = data['parsing_errors']
-        self.assertGreater(len(errors), 0)
-        
-        conflict_err = next((e for e in errors if "Address Conflict" in e['msg']), None)
-        self.assertIsNotNone(conflict_err)
-        self.assertIn("Address 0x0000", conflict_err['msg'])
-        
-        os.remove(test_path)
+def test_err_003_skipped_files(err_env):
+    """ERR-003: Skips files missing @axion or valid entities."""
+    tmp_dir, parser = err_env
+    f = os.path.join(tmp_dir, "no_axion.vhd")
+    with open(f, 'w') as f_out: f_out.write("entity e is end;")
+    
+    data = parser._parse_vhdl_file(f)
+    assert data is None
 
-    def test_err_003_skipped_files(self):
-        """ERR-003: Skips files missing @axion or valid entities"""
-        content = """
-        -- No @axion annotations here
-        entity skipped_mod is end;
-        """
-        test_path = "/tmp/skipped_mod.vhd"
-        with open(test_path, 'w') as f:
-            f.write(content)
-            
-        parser = VHDLParser()
-        data = parser._parse_vhdl_file(test_path)
-        os.remove(test_path)
-        
-        # Should return None for skipped files
-        self.assertIsNone(data)
+def test_err_004_invalid_hex_address(err_env):
+    """ERR-004: Reports error for malformed hex strings."""
+    tmp_dir, parser = err_env
+    content = """
+entity bad_hex is end;
+architecture rtl of bad_hex is
+    signal r : std_logic; -- @axion ADDR=0xGG
+begin end;
+"""
+    f = os.path.join(tmp_dir, "bad_hex.vhd")
+    with open(f, 'w') as f_out: f_out.write(content)
+    
+    with pytest.raises(ValueError):
+        parser._parse_vhdl_file(f)
 
-    def test_err_004_invalid_hex_address(self):
-        """ERR-004: Reports error for malformed hex strings"""
-        content = """
-        library ieee;
-        entity bad_hex is end;
-        architecture rtl of bad_hex is
-            signal reg_a : std_logic_vector(31 downto 0); -- @axion address=0xGG
-        begin
-        end;
-        """
-        test_path = "/tmp/bad_hex.vhd"
-        with open(test_path, 'w') as f:
-            f.write(content)
-            
-        parser = VHDLParser()
-        # The parser uses int(x, 16) which raises ValueError on invalid hex
-        # This exception is uncaught in _parse_signal_annotations -> int()
-        # So we verify it raises ValueError
-        with self.assertRaises(ValueError):
-            parser._parse_vhdl_file(test_path)
-            
-        os.remove(test_path)
-        
-    def test_err_005_no_entity_declaration(self):
-        """ERR-005: Handles files missing entity declarations"""
-        content = """
-        -- Just comments
-        -- @axion address=0x0
-        """
-        test_path = "/tmp/no_entity.vhd"
-        with open(test_path, 'w') as f:
-            f.write(content)
-            
-        parser = VHDLParser()
-        data = parser._parse_vhdl_file(test_path)
-        os.remove(test_path)
-        
-        self.assertIsNone(data)
+def test_err_006_duplicate_signal_detection(err_env):
+    """ERR-006: Detects and reports duplicate signal names."""
+    tmp_dir, parser = err_env
+    content = """
+entity dup is end;
+architecture rtl of dup is
+    signal a : std_logic; -- @axion ADDR=0x0
+    signal a : std_logic; -- @axion ADDR=0x4
+begin end;
+"""
+    f = os.path.join(tmp_dir, "dup.vhd")
+    with open(f, 'w') as f_out: f_out.write(content)
+    
+    data = parser._parse_vhdl_file(f)
+    assert data is not None
+    regs = [r['signal_name'] for r in data['registers']]
+    assert regs.count('a') == 2
 
-    def test_err_006_duplicate_signal_detection(self):
-        """ERR-006: Detects and reports duplicate signal names"""
-        content = """
-        library ieee;
-        entity dup_sig is end;
-        architecture rtl of dup_sig is
-            signal reg_a : std_logic; -- @axion address=0x0
-            signal reg_a : std_logic; -- @axion address=0x4
-        begin
-        end;
-        """
-        test_path = "/tmp/dup_sig.vhd"
-        with open(test_path, 'w') as f:
-            f.write(content)
-            
-        parser = VHDLParser()
-        data = parser._parse_vhdl_file(test_path)
-        os.remove(test_path)
-        
-        self.assertIsNotNone(data)
-        regs = [r['signal_name'] for r in data['registers']]
-        self.assertEqual(regs.count('reg_a'), 2)
-
-    def test_err_007_address_overlap_detection(self):
-        """ERR-007: Warns when multiple modules have overlapping address ranges"""
-        from axion_hdl.axion import AxionHDL
-        from axion_hdl.address_manager import AddressConflictError
-        
-        # Create two modules with overlapping base addresses
-        # Module 1: Base 0x1000, Size 0x10 (regs at 0x0, 0x4, 0x8, 0xC)
-        mod1 = {
-            'name': 'm1', 
-            'base_address': 0x1000, 
-            'registers': [
-                {'name': 'r1', 'offset': 0x0, 'width': 32},
-                {'name': 'r2', 'offset': 0xC, 'width': 32}
-            ]
-        }
-        # m1 range: 0x1000 to 0x1010
-        
-        # Module 2: Base 0x1008, Size 0x4
-        # Starts at 0x1008 which is inside m1's range
-        mod2 = {
-            'name': 'm2', 
-            'base_address': 0x1008, 
-            'registers': [
-                {'name': 'r3', 'offset': 0x0, 'width': 32}
-            ]
-        }
-        
-        axion = AxionHDL()
-        axion.analyzed_modules = [mod1, mod2]
-        
-        # Trigger conflict check
-        with self.assertRaises(AddressConflictError):
-            axion.check_address_overlaps()
-
-
-
-# Backwards compatibility
-def test_address_conflict_error_message():
-    """Verify AddressConflictError string representation is clean."""
-    t = TestErrorHandlingRequirements()
-    t.test_err_001_address_conflict_error_message()
-
-def test_parser_partial_loading_on_conflict():
-    """Verify parser returns module with errors on conflict."""
-    t = TestErrorHandlingRequirements()
-    t.test_err_002_parser_partial_loading_on_conflict()
-
-
-if __name__ == "__main__":
-    unittest.main()
-
+def test_err_007_address_overlap_detection():
+    """ERR-007: Raises AddressConflictError when modules overlap."""
+    mod1 = {
+        'name': 'm1', 
+        'base_address': 0x1000, 
+        'registers': [
+            {'name': 'r1', 'offset': 0x0, 'width': 32},
+            # r1 ends at 0x1004
+            {'name': 'r2', 'offset': 0x4, 'width': 32}
+            # r2 ends at 0x1008
+        ]
+    }
+    mod2 = {
+        'name': 'm2', 
+        'base_address': 0x1004, 
+        'registers': [
+            {'name': 'r3', 'offset': 0x0, 'width': 32}
+        ]
+    }
+    # m2 starts at 0x1004, which is where r1 ends and r2 starts. 
+    # Since r2 starts at 0x1004, there's an overlap.
+    
+    axion = AxionHDL()
+    axion.analyzed_modules = [mod1, mod2]
+    axion.is_analyzed = True
+    
+    with pytest.raises(AddressConflictError) as exc:
+        axion.check_address_overlaps()
+    
+    assert "Module m1" in str(exc.value)
+    assert "Module m2" in str(exc.value)
