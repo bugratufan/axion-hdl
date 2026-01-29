@@ -109,6 +109,8 @@
                 {% endif %}
             </div>
             <div class="module-metadata d-flex gap-3 align-items-center">
+                <span class="font-monospace text-truncate" style="max-width: 150px;" title="{{ module.file }}">{{
+                    module.file | basename }}</span>
                 <span class="font-monospace">0x{{ '%04X' % module.base_address if module.base_address else '0000'
                     }}</span>
                 <span>{{ module.registers|length }} regs</span>

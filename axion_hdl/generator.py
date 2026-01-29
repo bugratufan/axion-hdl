@@ -927,7 +927,10 @@ class VHDLGenerator:
                         chunk_offset = offset + (i * 4)
                         addr_checks.append(f"unsigned(rd_addr_reg) = unsigned(BASE_ADDR) + {chunk_offset}")
                     addr_cond = " or ".join(addr_checks)
-                    lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and ({addr_cond})) else '0';")
+                    if num_regs > 1:
+                        lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and ({addr_cond})) else '0';")
+                    else:
+                        lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and {addr_cond}) else '0';")
                 
                 # RO is 'in' port - assign chunks from input to internal registers
                 if num_regs == 1:
@@ -961,7 +964,10 @@ class VHDLGenerator:
                         chunk_offset = offset + (i * 4)
                         addr_checks.append(f"unsigned(wr_addr_reg) = unsigned(BASE_ADDR) + {chunk_offset}")
                     addr_cond = " or ".join(addr_checks)
-                    lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and ({addr_cond})) else '0';")
+                    if num_regs > 1:
+                        lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and ({addr_cond})) else '0';")
+                    else:
+                        lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and {addr_cond}) else '0';")
                 
                 # WO is 'out' port - concatenate chunks to output
                 if num_regs == 1:
@@ -995,7 +1001,10 @@ class VHDLGenerator:
                         chunk_offset = offset + (i * 4)
                         addr_checks_rd.append(f"unsigned(rd_addr_reg) = unsigned(BASE_ADDR) + {chunk_offset}")
                     addr_cond_rd = " or ".join(addr_checks_rd)
-                    lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and ({addr_cond_rd})) else '0';")
+                    if num_regs > 1:
+                        lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and ({addr_cond_rd})) else '0';")
+                    else:
+                        lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and {addr_cond_rd}) else '0';")
 
                 if reg['write_strobe']:
                     # Check all address chunks for wide signals
@@ -1004,7 +1013,10 @@ class VHDLGenerator:
                         chunk_offset = offset + (i * 4)
                         addr_checks_wr.append(f"unsigned(wr_addr_reg) = unsigned(BASE_ADDR) + {chunk_offset}")
                     addr_cond_wr = " or ".join(addr_checks_wr)
-                    lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and ({addr_cond_wr})) else '0';")
+                    if num_regs > 1:
+                        lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and ({addr_cond_wr})) else '0';")
+                    else:
+                        lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and {addr_cond_wr}) else '0';")
                 
                 # RW is 'out' port - concatenate chunks to output
                 if num_regs == 1:

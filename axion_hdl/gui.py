@@ -208,6 +208,10 @@ class AxionGUI:
         def inject_version():
             return {'version': self.version}
         
+        @self.app.template_filter('basename')
+        def basename_filter(s):
+            return os.path.basename(s)
+        
         # --- Routes ---
         @self.app.route('/')
         def index():

@@ -174,7 +174,7 @@ function renderResults(data) {
     document.getElementById('badge-warnings').textContent = summary.total_warnings;
 
     // Render status card
-    // renderStatusCard(summary);
+    renderStatusCard(summary);
 
     // Combine all issues for "All" tab
     const allIssues = [

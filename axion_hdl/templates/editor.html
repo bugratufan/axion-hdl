@@ -181,7 +181,8 @@
                     {% elif reg.signal_type == 'std_logic' %}
                     {% set width = 1 %}
                     {% endif %}
-                    <tr class="reg-row border-bottom-0" data-index="{{ loop.index0 }}">
+                    <tr class="reg-row border-bottom-0" data-index="{{ loop.index0 }}"
+                        data-reg-name="{{ reg.reg_name or reg.signal_name }}">
                         <td class="ps-4 addr-cell">
                             <div class="d-flex align-items-center gap-2">
                                 {% if reg.is_packed %}
