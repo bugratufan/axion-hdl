@@ -49,13 +49,23 @@
         <span class="stat-label">CDC</span>
         <span class="stat-value">{{ cdc_count.value }}</span>
     </div>
-    {% if total_errors > 0 or total_warnings > 0 %}
+    {% if total_errors > 0 %}
     <div class="stat-mini d-flex align-items-center gap-2">
-        <i class="bi bi-exclamation-triangle stat-icon-error"></i>
-        <span class="stat-label">Issues</span>
-        <span class="stat-value stat-value-error">{{ total_errors }}/{{ total_warnings }}</span>
+        <i class="bi bi-x-circle stat-icon-error"></i>
+        <span class="stat-label">Errors</span>
+        <span class="stat-value stat-value-error">{{ total_errors }}</span>
     </div>
-    {% else %}
+    {% endif %}
+
+    {% if total_warnings > 0 %}
+    <div class="stat-mini d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle stat-icon-warning"></i>
+        <span class="stat-label">Warnings</span>
+        <span class="stat-value stat-value-warning">{{ total_warnings }}</span>
+    </div>
+    {% endif %}
+
+    {% if total_errors == 0 and total_warnings == 0 %}
     <div class="stat-mini d-flex align-items-center gap-2">
         <i class="bi bi-check-circle stat-icon-success"></i>
         <span class="stat-label">Issues</span>
@@ -90,14 +100,17 @@
                 <span class="badge badge-cdc">CDC</span>
                 {% endif %}
                 {% if module.rule_errors > 0 %}
-                <span class="badge badge-error">{{ module.rule_errors }} Error{{ 's' if module.rule_errors > 1 else '' }}</span>
+                <span class="badge badge-error">{{ module.rule_errors }} Error{{ 's' if module.rule_errors > 1 else ''
+                    }}</span>
                 {% endif %}
                 {% if module.rule_warnings > 0 %}
-                <span class="badge badge-warning">{{ module.rule_warnings }} Warning{{ 's' if module.rule_warnings > 1 else '' }}</span>
+                <span class="badge badge-warning">{{ module.rule_warnings }} Warning{{ 's' if module.rule_warnings > 1
+                    else '' }}</span>
                 {% endif %}
             </div>
             <div class="module-metadata d-flex gap-3 align-items-center">
-                <span class="font-monospace">0x{{ '%04X' % module.base_address if module.base_address else '0000' }}</span>
+                <span class="font-monospace">0x{{ '%04X' % module.base_address if module.base_address else '0000'
+                    }}</span>
                 <span>{{ module.registers|length }} regs</span>
             </div>
         </div>
