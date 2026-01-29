@@ -1200,205 +1200,320 @@ def save_results(results: List[TestResult]):
     RESULTS_FILE.write_text(json.dumps(data, indent=2))
 
 
-def run_pytest_module(module_path: str, test_prefix: str, req_prefix: str, category: str) -> List[TestResult]:
-    """
-    Generic helper to run pytest-based test modules
-
-    Args:
-        module_path: Path to test file (e.g., 'tests/python/test_parser.py')
-        test_prefix: Prefix of test functions (e.g., 'test_parser_')
-        req_prefix: Requirement ID prefix (e.g., 'PARSER')
-        category: Category name for results (e.g., 'parser')
-    """
+def run_parser_tests() -> List[TestResult]:
+    """Run PARSER-xxx requirement tests"""
     results = []
-
+    
     try:
-        import pytest
-        import importlib.util
-        import inspect
-
-        # Load the module dynamically
-        spec = importlib.util.spec_from_file_location("test_module", module_path)
-        if spec and spec.loader:
-            test_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(test_module)
-
-            # Get all test functions with the specified prefix
-            test_functions = [
-                (name, func) for name, func in inspect.getmembers(test_module, inspect.isfunction)
-                if name.startswith(test_prefix)
-            ]
-
-            for test_name, test_func in test_functions:
-                # Convert test_parser_001_foo to PARSER-001
-                req_id = test_name.replace(test_prefix, f'{req_prefix}-').replace('_', '-').upper()
-                # Extract just the numeric part for cleaner IDs
-                parts = test_name.replace(test_prefix, '').split('_')
-                if parts and parts[0].isdigit():
-                    req_id = f"{req_prefix}-{parts[0].zfill(3)}"
-
-                # Get docstring for test description
-                desc = test_func.__doc__ or test_name
-                if desc:
-                    desc = desc.strip().split('\n')[0]  # First line only
-
-                start = time.time()
-
-                # Run the test using pytest (capture output)
-                result = pytest.main([
-                    '-xvs',
-                    '--tb=line',
-                    f'{module_path}::{test_name}',
-                    '-p', 'no:warnings',
-                    '--capture=no',
-                    '-q'
-                ])
-
-                if result == 0:
-                    results.append(TestResult(
-                        f"{category}.{test_name}",
-                        f"{req_id}: {desc}",
-                        "passed",
-                        time.time() - start,
-                        category=category,
-                        subcategory="requirements"
-                    ))
-                else:
-                    results.append(TestResult(
-                        f"{category}.{test_name}",
-                        f"{req_id}: {desc}",
-                        "failed",
-                        time.time() - start,
-                        f"pytest exit code: {result}",
-                        category=category,
-                        subcategory="requirements"
-                    ))
-        else:
-            results.append(TestResult(
-                f"{category}.import",
-                f"{req_prefix}: Import test module",
-                "failed",
-                0,
-                f"Could not load module from {module_path}",
-                category=category,
-                subcategory="setup"
-            ))
-
+        from tests.python.test_parser import TestParserRequirements
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestParserRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_parser_', 'PARSER-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                test.debug()
+                results.append(TestResult(
+                    f"parser.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="parser",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"parser.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="parser",
+                    subcategory="requirements"
+                ))
     except ImportError as e:
-        error_msg = str(e)
-        if 'pytest' in error_msg:
-            error_msg += "\n\nTo run tests, install development dependencies:\n"
-            error_msg += "  python3 -m venv venv && source venv/bin/activate\n"
-            error_msg += "  pip install -e \".[dev]\"\n"
-            error_msg += "Or install pytest system-wide:\n"
-            error_msg += "  pip install pytest>=7.0"
-
         results.append(TestResult(
-            f"{category}.import",
-            f"{req_prefix}: Import test module",
-            "failed",
-            0,
-            error_msg,
-            category=category,
-            subcategory="setup"
-        ))
-    except Exception as e:
-        results.append(TestResult(
-            f"{category}.error",
-            f"{req_prefix}: Test execution error",
+            "parser.import",
+            "PARSER: Import test module",
             "failed",
             0,
             str(e),
-            category=category,
+            category="parser",
             subcategory="setup"
         ))
-
+    
     return results
 
 
-def run_parser_tests() -> List[TestResult]:
-    """Run PARSER-xxx requirement tests using pytest"""
-    return run_pytest_module(
-        'tests/python/test_parser.py',
-        'test_parser_',
-        'PARSER',
-        'parser'
-    )
-
-
 def run_generator_tests() -> List[TestResult]:
-    """Run GEN-xxx requirement tests using pytest"""
-    gen_results = run_pytest_module(
-        'tests/python/test_generator.py',
-        'test_gen_',
-        'GEN',
-        'gen'
-    )
-    over_results = run_pytest_module(
-        'tests/python/test_overwrite.py',
-        'test_',
-        'AXION-027',
-        'gen'
-    )
-    return gen_results + over_results
+    """Run GEN-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_generator import TestGeneratorRequirements
+        from tests.python.test_overwrite import TestGenerationOverwrite
+        import io
+        import sys
+        
+        # First run setUpClass manually if needed
+        TestGeneratorRequirements.setUpClass()
+        
+        loader = unittest.TestLoader()
+        suite_gen = loader.loadTestsFromTestCase(TestGeneratorRequirements)
+        suite_over = loader.loadTestsFromTestCase(TestGenerationOverwrite)
+        
+        # Combine suites
+        suite = unittest.TestSuite()
+        suite.addTests(suite_gen)
+        suite.addTests(suite_over)
+        
+        # Run each test
+        for test in suite:
+            test_name = str(test).split()[0]
+            if "overwrite" in test_name:
+                req_id = "AXION-027"
+            else:
+                req_id = test_name.replace('test_gen_', 'GEN-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                # Capture output
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"gen.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="gen",
+                    subcategory="requirements"
+                ))
+            except unittest.SkipTest as e:
+                results.append(TestResult(
+                    f"gen.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "skipped",
+                    time.time() - start,
+                    str(e),
+                    category="gen",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"gen.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="gen",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult(
+            "gen.import",
+            "GEN: Import test module",
+            "failed",
+            0,
+            str(e),
+            category="gen",
+            subcategory="setup"
+        ))
+    
+    return results
 
 
 def run_error_handling_tests() -> List[TestResult]:
-    """Run ERR-xxx requirement tests using pytest"""
-    return run_pytest_module(
-        'tests/python/test_error_handling.py',
-        'test_err_',
-        'ERR',
-        'err'
-    )
+    """Run ERR-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_error_handling import TestErrorHandlingRequirements
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestErrorHandlingRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_err_', 'ERR-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                test.debug()
+                results.append(TestResult(
+                    f"err.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="err",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"err.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="err",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult(
+            "err.import",
+            "ERR: Import test module",
+            "failed",
+            0,
+            str(e),
+            category="err",
+            subcategory="setup"
+        ))
+    
+    return results
 
 
 def run_cli_tests() -> List[TestResult]:
-    """Run CLI-xxx requirement tests using pytest"""
-    return run_pytest_module(
-        'tests/python/test_cli.py',
-        'test_cli_',
-        'CLI',
-        'cli'
-    )
+    """Run CLI-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_cli import TestCLIRequirements
+        import io
+        import sys
+        
+        # First run setUpClass manually
+        TestCLIRequirements.setUpClass()
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestCLIRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_cli_', 'CLI-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                # Capture output
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"cli.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="cli",
+                    subcategory="requirements"
+                ))
+            except unittest.SkipTest as e:
+                results.append(TestResult(
+                    f"cli.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "skipped",
+                    time.time() - start,
+                    str(e),
+                    category="cli",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"cli.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="cli",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult(
+            "cli.import",
+            "CLI: Import test module",
+            "failed",
+            0,
+            str(e),
+            category="cli",
+            subcategory="setup"
+        ))
+    
+    return results
 
 
 def run_cdc_tests() -> List[TestResult]:
-    """Run CDC-xxx requirement tests using pytest"""
-    return run_pytest_module(
-        'tests/python/test_cdc.py',
-        'test_cdc_',
-        'CDC',
-        'cdc'
-    )
+    """Run CDC-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_cdc import TestCDCRequirements
+        import io
+        import sys
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestCDCRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_cdc_', 'CDC-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"cdc.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="cdc",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"cdc.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="cdc",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("cdc.import", "CDC: Import test module", "failed", 0, str(e), category="cdc", subcategory="setup"))
+    
+    return results
 
 
 def run_addr_tests() -> List[TestResult]:
-    """Run ADDR-xxx requirement tests using pytest"""
-    return run_pytest_module(
-        'tests/python/test_addr.py',
-        'test_addr_',
-        'ADDR',
-        'addr'
-    )
-
-
-def _old_run_addr_tests() -> List[TestResult]:
     """Run ADDR-xxx requirement tests"""
     results = []
-
+    
     try:
         from tests.python.test_addr import TestAddressManagementRequirements
         import io
         import sys
-
+        
         loader = unittest.TestLoader()
         suite = loader.loadTestsFromTestCase(TestAddressManagementRequirements)
-
+        
         for test in suite:
             test_name = str(test).split()[0]
             req_id = test_name.replace('test_addr_', 'ADDR-').replace('_', '-').upper()
-
+            
             start = time.time()
             try:
                 old_stdout = sys.stdout
@@ -1433,39 +1548,156 @@ def _old_run_addr_tests() -> List[TestResult]:
 
 
 def run_stress_tests() -> List[TestResult]:
-    """Run STRESS-xxx requirement tests using pytest"""
-    return run_pytest_module(
-        'tests/python/test_stress.py',
-        'test_stress_',
-        'STRESS',
-        'stress'
-    )
+    """Run STRESS-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_stress import TestStressRequirements
+        import io
+        import sys
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestStressRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_stress_', 'STRESS-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"stress.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="stress",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"stress.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="stress",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("stress.import", "STRESS: Import test module", "failed", 0, str(e), category="stress", subcategory="setup"))
+    
+    return results
 
 
 def run_subregister_tests() -> List[TestResult]:
-    """Run SUB-xxx requirement tests using pytest"""
-    return run_pytest_module(
-        'tests/python/test_subregister.py',
-        'test_sub_',
-        'SUB',
-        'sub'
-    )
+    """Run SUB-xxx requirement tests for subregister support"""
+    results = []
+    
+    try:
+        from tests.python.test_subregister import TestSubregisterRequirements
+        import io
+        import sys
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestSubregisterRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_sub_', 'SUB-').replace('test_bit_', 'SUB-BIT-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"sub.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="sub",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"sub.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="sub",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("sub.import", "SUB: Import test module", "failed", 0, str(e), category="sub", subcategory="setup"))
+    
+    return results
 
 
 def run_default_tests() -> List[TestResult]:
-    """Run DEF-xxx requirement tests using pytest"""
-    return run_pytest_module(
-        'tests/python/test_default.py',
-        'test_def_',
-        'DEF',
-        'def'
-    )
+    """Run DEF-xxx requirement tests for DEFAULT attribute support"""
+    results = []
+    
+    try:
+        from tests.python.test_default import TestDefaultRequirements
+        import io
+        import sys
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestDefaultRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_def_', 'DEF-').replace('test_single_', 'DEF-SINGLE-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"def.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="def",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"def.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="def",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("def.import", "DEF: Import test module", "failed", 0, str(e), category="def", subcategory="setup"))
+    
+    return results
 
 
 def run_validation_tests() -> List[TestResult]:
     """Run VAL-xxx requirement tests for validation and diagnostics"""
     results = []
-
+    
     try:
         from tests.python.test_validation import (
             test_json_missing_module_field,
@@ -1481,7 +1713,7 @@ def run_validation_tests() -> List[TestResult]:
         )
         import tempfile
         from pathlib import Path
-
+        
         # VAL-001: Missing module field tests
         for test_func, fmt in [
             (test_json_missing_module_field, "JSON"),
@@ -1499,7 +1731,7 @@ def run_validation_tests() -> List[TestResult]:
             except Exception as e:
                 results.append(TestResult(test_id, name, "failed", time.time() - start,
                                          str(e), category="val", subcategory="requirements"))
-
+        
         # VAL-002: Syntax error test
         test_id = "val.val_002"
         name = "VAL-002: Syntax error reporting"
@@ -1512,7 +1744,7 @@ def run_validation_tests() -> List[TestResult]:
         except Exception as e:
             results.append(TestResult(test_id, name, "failed", time.time() - start,
                                      str(e), category="val", subcategory="requirements"))
-
+        
         # VAL-003: Logical integrity check
         test_id = "val.val_003"
         name = "VAL-003: Logical integrity check"
@@ -1524,7 +1756,7 @@ def run_validation_tests() -> List[TestResult]:
         except Exception as e:
             results.append(TestResult(test_id, name, "failed", time.time() - start,
                                      str(e), category="val", subcategory="requirements"))
-
+        
         # VAL-004: Documentation warning
         test_id = "val.val_004"
         name = "VAL-004: Missing documentation warning"
@@ -1536,7 +1768,7 @@ def run_validation_tests() -> List[TestResult]:
         except Exception as e:
             results.append(TestResult(test_id, name, "failed", time.time() - start,
                                      str(e), category="val", subcategory="requirements"))
-
+        
         # VAL-005: Duplicate module detection
         test_id = "val.val_005"
         name = "VAL-005: Duplicate module name detection"
@@ -1548,7 +1780,7 @@ def run_validation_tests() -> List[TestResult]:
         except Exception as e:
             results.append(TestResult(test_id, name, "failed", time.time() - start,
                                      str(e), category="val", subcategory="requirements"))
-
+        
         # VAL-005 (unique names - no error case)
         test_id = "val.val_005_unique"
         name = "VAL-005: Unique module names (no error)"
@@ -1560,42 +1792,165 @@ def run_validation_tests() -> List[TestResult]:
         except Exception as e:
             results.append(TestResult(test_id, name, "failed", time.time() - start,
                                      str(e), category="val", subcategory="requirements"))
-
+                                     
     except ImportError as e:
         results.append(TestResult("val.import", "VAL: Import test module", "failed", 0, str(e),
                                  category="val", subcategory="setup"))
-
+    
     return results
 
 
 def run_yaml_input_tests() -> List[TestResult]:
-    """Run YAML-INPUT-xxx requirement tests using pytest"""
-    return run_pytest_module(
-        'tests/python/test_yaml_input.py',
-        'test_yaml_',
-        'YAML-INPUT',
-        'yaml_input'
-    )
+    """Run YAML-INPUT-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_yaml_input import TestYAMLInputRequirements
+        import io
+        import sys
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestYAMLInputRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_yaml_input_', 'YAML-INPUT-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"yaml_input.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="yaml_input",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"yaml_input.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="yaml_input",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("yaml_input.import", "YAML-INPUT: Import test module", "failed", 0, str(e), category="yaml_input", subcategory="setup"))
+    
+    return results
 
 
 def run_json_input_tests() -> List[TestResult]:
-    """Run JSON-INPUT-xxx requirement tests using pytest"""
-    return run_pytest_module(
-        'tests/python/test_json_input.py',
-        'test_json_',
-        'JSON-INPUT',
-        'json_input'
-    )
+    """Run JSON-INPUT-xxx requirement tests"""
+    results = []
+    
+    try:
+        from tests.python.test_json_input import TestJSONInputRequirements
+        import io
+        import sys
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestJSONInputRequirements)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_json_input_', 'JSON-INPUT-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"json_input.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="json_input",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"json_input.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="json_input",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("json_input.import", "JSON-INPUT: Import test module", "failed", 0, str(e), category="json_input", subcategory="setup"))
+    
+    return results
 
 
 def run_equivalence_tests() -> List[TestResult]:
-    """Run EQUIV-xxx format equivalence tests using pytest"""
-    return run_pytest_module(
-        'tests/python/test_format_equivalence.py',
-        'test_equiv_',
-        'EQUIV',
-        'equiv'
-    )
+    """Run EQUIV-xxx format equivalence tests"""
+    results = []
+    
+    try:
+        from tests.python.test_format_equivalence import TestFormatEquivalence
+        import io
+        import sys
+        
+        # Run setUpClass
+        TestFormatEquivalence.setUpClass()
+        
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestFormatEquivalence)
+        
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_equiv_', 'EQUIV-').replace('_', '-').upper()
+            
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+                    
+                results.append(TestResult(
+                    f"equiv.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="equiv",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"equiv.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="equiv",
+                    subcategory="requirements"
+                ))
+        
+        # Run tearDownClass
+        TestFormatEquivalence.tearDownClass()
+    except ImportError as e:
+        results.append(TestResult("equiv.import", "EQUIV: Import test module", "failed", 0, str(e), category="equiv", subcategory="setup"))
+
+    return results
 
 
 def run_cocotb_tests() -> List[TestResult]:
