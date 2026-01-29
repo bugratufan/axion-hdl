@@ -29,18 +29,22 @@ class RuleChecker:
         self.warnings = []
 
     def _add_error(self, rule_type: str, module_name: str, message: str):
-        self.errors.append({
+        issue = {
             'type': rule_type,
             'module': module_name,
             'msg': message
-        })
+        }
+        if issue not in self.errors:
+            self.errors.append(issue)
 
     def _add_warning(self, rule_type: str, module_name: str, message: str):
-        self.warnings.append({
+        issue = {
             'type': rule_type,
             'module': module_name,
             'msg': message
-        })
+        }
+        if issue not in self.warnings:
+            self.warnings.append(issue)
 
     def check_subregister_overlaps(self, modules: List[Dict]) -> None:
         """Check for overlapping bit fields within packed registers."""
