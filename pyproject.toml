@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "axion-hdl"
-version = "1.0.0"
+version = "1.0.1"
 description = "Automated AXI4-Lite Register Interface Generator for VHDL modules"
 readme = "README.md"
 license = {text = "MIT"}
@@ -19,7 +19,7 @@ keywords = [
     "hardware", "eda", "rtl", "code-generation", "automation"
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",

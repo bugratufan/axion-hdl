@@ -88,19 +88,19 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 .PHONY: test_axi_lite test_cdc test_all clean_cocotb generate
 
 # Run AXI-Lite protocol tests
-test_axi_lite:
+test_axi_lite: generate
 	$(MAKE) MODULE=test_axi_lite DUT=sensor_controller
 
 # Run CDC tests
-test_cdc:
+test_cdc: generate
 	$(MAKE) MODULE=test_cdc DUT=sensor_controller
 
 # Run Subregister tests
-test_sub:
+test_sub: generate
 	$(MAKE) MODULE=test_subregisters DUT=sensor_controller
 
 # Run Extended Stress tests
-test_stress_extended:
+test_stress_extended: generate
 	$(MAKE) MODULE=test_stress_extended DUT=sensor_controller
 
 # Run all test modules

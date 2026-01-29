@@ -41,7 +41,7 @@ from .axion import AxionHDL
 from .bit_field_manager import BitFieldManager, BitOverlapError, BitField
 
 # Package metadata
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __author__ = "Bugra Tufan"
 __email__ = "bugratufan97@gmail.com"
 __license__ = "MIT"
