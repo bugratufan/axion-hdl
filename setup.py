@@ -26,15 +26,30 @@ setup(
         # No external dependencies - pure Python implementation
     ],
     extras_require={
-        'gui': ['flask>=2.0', 'watchdog>=2.0'],
+        'gui': [
+            'flask>=2.0',
+            'watchdog>=2.0',
+            'pytest-playwright>=0.4.0',
+            'playwright>=1.40.0',
+            'pytest-xdist>=3.0',
+            'pytest-rerunfailures>=10.0',
+        ],
         'dev': [
             'pytest>=7.0',
             'pytest-cov>=2.0',
+            'pytest-playwright>=0.4.0',
+            'playwright>=1.40.0',
+            'pytest-xdist>=3.0',
+            'pytest-rerunfailures>=10.0',
             'black>=21.0',
             'flake8>=3.9',
             'cocotb>=1.9.0',
             'cocotb-bus>=0.2.1',
             'cocotbext-axi>=0.1.24',
+            'build>=0.7',
+            'twine>=3.4',
+            'flask>=2.0',
+            'watchdog>=2.0',
         ],
     },
     classifiers=[
