@@ -1716,3 +1716,29 @@ code {
     background-color: var(--color-bg-tertiary) !important;
     border-color: var(--color-accent-primary) !important;
 }
+
+/* Custom Scrollbar for Dark Theme */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(13, 17, 23, 0.5);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    border: 2px solid rgba(13, 17, 23, 0.5);
+    /* Creates padding effect around thumb */
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}

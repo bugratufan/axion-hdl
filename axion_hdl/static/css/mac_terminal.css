@@ -7,6 +7,8 @@
     font-family: 'JetBrains Mono', monospace;
     margin-bottom: 20px;
     border: 1px solid #333;
+    display: flex;
+    flex-direction: column;
 }
 
 .mac-terminal-header {
@@ -17,6 +19,7 @@
     align-items: center;
     position: relative;
     border-bottom: 1px solid #1a1a1a;
+    flex-shrink: 0;
 }
 
 .mac-window-controls {
@@ -69,6 +72,10 @@
     /* Activity log has its own padding usually, or we add some */
     background-color: #1e1e1e;
     color: #d4d4d4;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .mac-content .stats-row {
