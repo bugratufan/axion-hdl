@@ -1,0 +1,72 @@
+/* Segmented Control Tabs */
+.segmented-control {
+    display: inline-flex;
+    background: var(--color-bg-tertiary);
+    /* Darker track */
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    margin-bottom: 24px;
+}
+
+[data-theme="light"] .segmented-control {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+}
+
+.segmented-item {
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    padding: 6px 16px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.segmented-item:hover {
+    color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .segmented-item:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.segmented-item.active {
+    background: var(--color-accent-primary);
+    /* Popup look */
+    color: var(--color-bg-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    font-weight: 600;
+}
+
+[data-theme="light"] .segmented-item.active {
+    background: #ffffff;
+    color: #111827;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Custom Badges for Segmented Control */
+.seg-badge {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.seg-badge.error {
+    background-color: #ef4444;
+    color: white;
+}
+
+.seg-badge.warning {
+    background-color: #f59e0b;
+    color: white;
+}

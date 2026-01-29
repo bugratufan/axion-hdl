@@ -18,6 +18,7 @@ Scenarios Tested:
 6. Revert restores single address
 """
 import pytest
+import re
 from playwright.sync_api import expect
 
 
@@ -33,13 +34,13 @@ FORMATS = {
 def navigate_to_module_by_format(gui_page, gui_server, module_base_name, file_format, min_registers=2):
     """Navigate to a specific module matching base name and format."""
     gui_page.goto(gui_server.url)
-    gui_page.wait_for_selector(".module-card-large", timeout=5000)
+    gui_page.wait_for_selector(".module-card", timeout=5000)
     
     suffix = FORMATS.get(file_format, "")
     # The filename shown in card is like "addr_test_basic.json"
     target_filename = f"{module_base_name}{suffix}"
     
-    modules = gui_page.locator(".module-card-large")
+    modules = gui_page.locator(".module-card")
     count = modules.count()
     
     for i in range(count):
@@ -60,7 +61,7 @@ def navigate_to_module_by_format(gui_page, gui_server, module_base_name, file_fo
             
             # Not enough registers, go back
             gui_page.goto(gui_server.url)
-            gui_page.wait_for_selector(".module-card-large", timeout=5000)
+            gui_page.wait_for_selector(".module-card", timeout=5000)
     
     return False
 
@@ -250,8 +251,8 @@ class TestVisualIndicators:
     def test_strikethrough_shown(self, gui_page, gui_server):
         """Changed address shows strikethrough original."""
         gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_selector(".module-card", timeout=5000)
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url("**/module/**", timeout=5000)
 
         addr_input = gui_page.locator(".reg-addr-input").first
@@ -265,8 +266,8 @@ class TestVisualIndicators:
     def test_locked_attribute(self, gui_page, gui_server):
         """Changed address has data-locked=true."""
         gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_selector(".module-card", timeout=5000)
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url("**/module/**", timeout=5000)
 
         addr_input = gui_page.locator(".reg-addr-input").first
@@ -283,8 +284,8 @@ class TestSaveValidation:
     def test_save_button_has_id(self, gui_page, gui_server):
         """Save button has correct ID for JS manipulation."""
         gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_selector(".module-card", timeout=5000)
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url("**/module/**", timeout=5000)
         gui_page.wait_for_timeout(500)
 
@@ -294,8 +295,8 @@ class TestSaveValidation:
     def test_conflict_warning_element_exists(self, gui_page, gui_server):
         """Conflict warning badge element exists in DOM."""
         gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_selector(".module-card", timeout=5000)
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url("**/module/**", timeout=5000)
         gui_page.wait_for_timeout(500)
 
@@ -305,8 +306,8 @@ class TestSaveValidation:
     def test_detect_address_conflicts_function_exists(self, gui_page, gui_server):
         """detectAddressConflicts JS function is defined."""
         gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_selector(".module-card", timeout=5000)
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url("**/module/**", timeout=5000)
         gui_page.wait_for_timeout(500)
 
@@ -316,8 +317,8 @@ class TestSaveValidation:
     def test_update_save_button_state_function_exists(self, gui_page, gui_server):
         """updateSaveButtonState JS function is defined."""
         gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_selector(".module-card", timeout=5000)
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url("**/module/**", timeout=5000)
         gui_page.wait_for_timeout(500)
 
@@ -327,8 +328,8 @@ class TestSaveValidation:
     def test_conflict_disables_save_via_js(self, gui_page, gui_server):
         """Calling updateSaveButtonState(true) disables save button."""
         gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_selector(".module-card", timeout=5000)
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url("**/module/**", timeout=5000)
         gui_page.wait_for_timeout(500)
 
@@ -342,8 +343,8 @@ class TestSaveValidation:
     def test_no_conflict_enables_save_via_js(self, gui_page, gui_server):
         """Calling updateSaveButtonState(false) enables save button."""
         gui_page.goto(gui_server.url)
-        gui_page.wait_for_selector(".module-card-large", timeout=5000)
-        gui_page.locator(".module-card-large").first.click()
+        gui_page.wait_for_selector(".module-card", timeout=5000)
+        gui_page.locator(".module-card").first.click()
         gui_page.wait_for_url("**/module/**", timeout=5000)
         gui_page.wait_for_timeout(500)
 
@@ -369,29 +370,36 @@ class TestScenario_Persistence:
         if not navigate_to_module_by_format(gui_page, gui_server, "addr_test_basic", file_format, 3):
             pytest.skip(f"addr_test_basic{FORMATS[file_format]} not found")
 
-        addr_inputs = gui_page.locator(".reg-addr-input")
-        new_addr_val = "0xABC" 
+        # Find reg_a by name
+        reg_row = gui_page.locator("tr.reg-row[data-reg-name='reg_a']")
+        addr_input = reg_row.locator(".reg-addr-input")
+        new_addr_val = "0x40" 
         
         # Change address
-        addr_inputs.nth(0).fill(new_addr_val)
-        addr_inputs.nth(0).dispatch_event("change")
-        gui_page.wait_for_timeout(300)
+        addr_input.fill(new_addr_val)
+        addr_input.dispatch_event("change")
+        gui_page.wait_for_timeout(1000)
         
-        # Click Save
+        # Click Save (goes to diff page)
         save_btn = gui_page.locator("#saveBtn")
-        save_btn.click()
+        save_btn.evaluate("el => el.click()")
         
-        # Wait for reload (save triggers redirect/refresh)
-        try:
-             gui_page.wait_for_load_state("networkidle", timeout=5000)
-        except:
-             pass # sometimes networkidle times out if no navigation happens quickly, but we expect it.
-
+        # Wait for diff page and confirm button
+        confirm_btn = gui_page.locator("button.btn-confirm")
+        confirm_btn.wait_for(state="visible", timeout=10000)
+        confirm_btn.click()
+        
+        # Wait for redirect to dashboard
+        gui_page.wait_for_load_state("networkidle")
+        
+        # Go back to the module page
+        navigate_to_module_by_format(gui_page, gui_server, "addr_test_basic", file_format, 3)
+        
         # Re-check selectors to ensure we are back on the page
         gui_page.wait_for_selector(".reg-addr-input", timeout=10000)
         
-        # Check value
-        addr_inputs_new = gui_page.locator(".reg-addr-input")
-        val = addr_inputs_new.nth(0).input_value()
+        # Check value of reg_a again
+        reg_row_new = gui_page.locator("tr.reg-row[data-reg-name='reg_a']")
+        val = reg_row_new.locator(".reg-addr-input").input_value()
         
-        assert val.upper() == "0XABC", f"{file_format}: Address should persist after save & reload"
+        assert val.upper() in ["0X40", "0X0040"], f"{file_format}: Address should persist after save & reload"

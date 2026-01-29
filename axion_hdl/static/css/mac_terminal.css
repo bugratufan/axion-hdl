@@ -1,0 +1,93 @@
+/* Mac Terminal Style */
+.mac-terminal {
+    background-color: #1e1e1e;
+    border-radius: 6px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 20px;
+    border: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+}
+
+.mac-terminal-header {
+    background-color: #2d2d2d;
+    /* Or #3a3a3a, typical mac grey */
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    border-bottom: 1px solid #1a1a1a;
+    flex-shrink: 0;
+}
+
+.mac-window-controls {
+    display: flex;
+    gap: 8px;
+    z-index: 2;
+    /* Ensure clickable */
+}
+
+.mac-btn {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.mac-btn:hover {
+    opacity: 0.8;
+}
+
+.mac-close {
+    background-color: #ff5f56;
+}
+
+.mac-minimize {
+    background-color: #ffbd2e;
+}
+
+.mac-maximize {
+    background-color: #27ca40;
+}
+
+.mac-title {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: #999;
+    font-size: 13px;
+    font-weight: 500;
+    pointer-events: none;
+    /* Let clicks pass through if needed */
+}
+
+.mac-content {
+    padding: 0;
+    /* Activity log has its own padding usually, or we add some */
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.mac-content .stats-row {
+    padding: 10px 15px;
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: #aaa;
+}
+
+.mac-content .stats-val {
+    color: #fff;
+    font-weight: bold;
+}

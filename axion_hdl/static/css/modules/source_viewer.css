@@ -1,0 +1,216 @@
+/* ==========================================================================
+   Axion-HDL GUI - Source Viewer Module Styles
+   ========================================================================== */
+
+.source-viewer-container {
+    background: var(--card-bg, #161b22);
+    border-radius: 12px;
+    box-shadow: var(--card-shadow, 0 4px 12px rgba(0, 0, 0, 0.3));
+    overflow: hidden;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+    margin-bottom: 2rem;
+}
+
+.source-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    color: white;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.source-header .file-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.source-header .file-info i {
+    font-size: 1.1rem;
+    opacity: 0.8;
+}
+
+.source-header .file-path {
+    font-family: 'JetBrains Mono', 'Monaco', monospace;
+    font-size: 0.85rem;
+    opacity: 0.9;
+    max-width: 500px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.source-header .file-type {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.source-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.source-actions .btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-edit {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e6edf3;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-edit:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.btn-edit.active {
+    background: #f59e0b;
+    border-color: #f59e0b;
+    color: #1e293b;
+}
+
+.btn-save {
+    background: #238636;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-save:hover {
+    background: #2ea043;
+    color: white;
+}
+
+.btn-save:disabled {
+    background: #262c36;
+    color: #6e7681;
+    border-color: rgba(255, 255, 255, 0.1);
+    cursor: not-allowed;
+}
+
+.editor-wrapper {
+    position: relative;
+    height: 600px;
+    /* fallback height */
+}
+
+.CodeMirror {
+    height: 600px !important;
+    font-family: 'JetBrains Mono', 'Monaco', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    background-color: #272822;
+    /* Monokai bg matches theme */
+    color: #f8f8f2;
+}
+
+/* Ensure full height container */
+.CodeMirror-scroll {
+    min-height: 100%;
+}
+
+.CodeMirror-gutters {
+    border-right: 1px solid #3e3d32;
+    background-color: #272822;
+}
+
+.save-status {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.85rem;
+    display: none;
+    z-index: 1050;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.save-status.success {
+    background: #238636;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.save-status.error {
+    background: #cf222e;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.save-status.saving {
+    background: #1f6feb;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.unsaved-badge {
+    background: #d29922;
+    color: #1e293b;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-left: 0.5rem;
+    display: none;
+    text-transform: uppercase;
+}
+
+.unsaved-badge.visible {
+    display: inline-block;
+}
+
+.breadcrumb {
+    background: transparent;
+    padding: 0;
+    margin-bottom: 1.5rem;
+}
+
+.breadcrumb-item a {
+    color: #58a6ff;
+    text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+    text-decoration: underline;
+}
+
+.breadcrumb-item.active {
+    color: #8b949e;
+}

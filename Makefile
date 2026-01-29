@@ -1,17 +1,7 @@
 # Makefile for Axion-HDL
 # Automated AXI4-Lite Register Interface Generator
 
-.PHONY: all build install dev-install test test-vhdl test-c test-python clean dist upload-test upload help
-
-# Python interpreter (use venv if available)
-VENV_DIR := $(PROJECT_ROOT)/venv
-ifneq ($(wildcard $(VENV_DIR)/bin/python3),)
-    PYTHON := $(VENV_DIR)/bin/python3
-    PIP := $(VENV_DIR)/bin/pip3
-else
-    PYTHON := python3
-    PIP := pip3
-endif
+.PHONY: all build install dev-install test test-vhdl test-c test-python clean dist upload-test upload help setup-venv setup-dev ensure-dev check-pytest ensure-playwright test-gui test-gui-full
 
 # Directories
 PROJECT_ROOT := $(shell pwd)
@@ -20,6 +10,16 @@ OUTPUT_DIR := output
 WORK_DIR := work
 WAVEFORMS_DIR := waveforms
 DIST_DIR := dist
+
+# Python interpreter - ALWAYS use venv
+VENV_DIR := $(PROJECT_ROOT)/venv
+VENV_PYTHON := $(VENV_DIR)/bin/python3
+VENV_PIP := $(VENV_DIR)/bin/pip3
+VENV_ACTIVATE := $(VENV_DIR)/bin/activate
+
+# Always use venv python for commands
+PYTHON := $(VENV_PYTHON)
+PIP := $(VENV_PIP)
 
 # GHDL options
 GHDL := ghdl
@@ -32,6 +32,47 @@ GCC_FLAGS := -Wall -Wextra -Werror -pedantic -std=c11
 
 # Default target
 all: build
+
+#------------------------------------------------------------------------------
+# Environment Setup
+#------------------------------------------------------------------------------
+
+## Create virtual environment and install all dev dependencies
+setup-dev:
+	@if [ ! -d "$(VENV_DIR)" ]; then \
+		echo "Creating virtual environment..."; \
+		python3 -m venv $(VENV_DIR); \
+		echo "Virtual environment created."; \
+	fi
+	@echo "Installing development dependencies..."
+	@$(VENV_PIP) install --upgrade pip -q
+	@$(VENV_PIP) install -e ".[dev]" -q
+	@echo "✅ Development environment ready!"
+
+## Ensure dev environment is set up (silent, for use as dependency)
+ensure-dev:
+	@if [ ! -f "$(VENV_PYTHON)" ] || ! $(VENV_PYTHON) -c "import pytest, flask, cocotb" 2>/dev/null; then \
+		echo "Setting up development environment..."; \
+		$(MAKE) setup-dev; \
+	fi
+
+## Check pytest is available (auto-installs if needed)
+check-pytest: ensure-dev
+	@if ! $(VENV_PYTHON) -c "import pytest" 2>/dev/null; then \
+		echo "Installing pytest..."; \
+		$(VENV_PIP) install pytest -q; \
+	fi
+
+## Ensure playwright browsers are installed (for GUI tests)
+ensure-playwright: ensure-dev
+	@if ! $(VENV_PYTHON) -c "import playwright" 2>/dev/null; then \
+		echo "Installing playwright..."; \
+		$(VENV_PIP) install pytest-playwright playwright pytest-xdist pytest-rerunfailures -q; \
+	fi
+	@if ! $(VENV_PYTHON) -c "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); p.chromium.launch(); p.stop()" 2>/dev/null; then \
+		echo "Installing playwright browsers..."; \
+		$(VENV_PYTHON) -m playwright install chromium; \
+	fi
 
 #------------------------------------------------------------------------------
 # Build & Install
@@ -62,8 +103,8 @@ uninstall:
 # Testing
 #------------------------------------------------------------------------------
 
-## Run all tests with tabular results
-test:
+## Run all tests with tabular results (auto-installs dependencies if needed)
+test: check-pytest
 	@$(PYTHON) $(TESTS_DIR)/run_tests.py
 
 ## Run all tests (legacy format)
@@ -89,7 +130,7 @@ test-address-conflict:
 test-c: generate
 	@echo "Running C header tests..."
 	@if command -v $(GCC) &> /dev/null; then \
-		$(GCC) $(GCC_FLAGS) -o $(TESTS_DIR)/c/test_c_headers $(TESTS_DIR)/c/test_c_headers.c && \
+		$(GCC) $(GCC_FLAGS) -I$(OUTPUT_DIR) -o $(TESTS_DIR)/c/test_c_headers $(TESTS_DIR)/c/test_c_headers.c && \
 		./$(TESTS_DIR)/c/test_c_headers && \
 		rm -f $(TESTS_DIR)/c/test_c_headers && \
 		echo "C header tests passed!"; \
@@ -164,30 +205,20 @@ test-full:
 	@bash $(TESTS_DIR)/run_full_test.sh
 
 ## Run GUI tests (requires playwright) - Chrome only for speed
-test-gui:
+test-gui: ensure-playwright
 	@echo "Running GUI tests on Chrome (4 parallel workers)..."
-	@if $(PYTHON) -c "import playwright" 2>/dev/null; then \
-		$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py $(TESTS_DIR)/python/test_gui_property_changes.py $(TESTS_DIR)/python/test_gui_address_assignment.py -v --tb=short --browser chromium -n 4 --reruns 2 --reruns-delay 1; \
-	else \
-		echo "Warning: playwright not installed, skipping GUI tests"; \
-		echo "Install with: pip install pytest-playwright playwright pytest-xdist pytest-rerunfailures && playwright install"; \
-	fi
+	@$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py $(TESTS_DIR)/python/test_gui_property_changes.py $(TESTS_DIR)/python/test_gui_address_assignment.py -v --tb=short --browser chromium -n 4 --reruns 2 --reruns-delay 1
 
 ## Run GUI tests on all browsers (Chrome, Firefox, WebKit)
-test-gui-full:
+test-gui-full: ensure-playwright
 	@echo "Running GUI tests on all browsers (4 parallel workers)..."
-	@if $(PYTHON) -c "import playwright" 2>/dev/null; then \
-		$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py $(TESTS_DIR)/python/test_gui_property_changes.py $(TESTS_DIR)/python/test_gui_address_assignment.py -v --tb=short --browser chromium --browser firefox --browser webkit -n 4 --reruns 2 --reruns-delay 1; \
-	else \
-		echo "Warning: playwright not installed, skipping GUI tests"; \
-		echo "Install with: pip install pytest-playwright playwright pytest-xdist pytest-rerunfailures && playwright install"; \
-	fi
+	@$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py $(TESTS_DIR)/python/test_gui_property_changes.py $(TESTS_DIR)/python/test_gui_address_assignment.py -v --tb=short --browser chromium --browser firefox --browser webkit -n 4 --reruns 2 --reruns-delay 1
 
 #------------------------------------------------------------------------------
 # Code Generation
 #------------------------------------------------------------------------------
 
-## Generate all outputs from example VHDL files
+## Generate all outputs from example VHDL and XML files
 generate:
 	@echo "Generating register modules..."
 	@mkdir -p $(OUTPUT_DIR)
@@ -195,6 +226,7 @@ generate:
 from axion_hdl import AxionHDL; \
 axion = AxionHDL(output_dir='$(OUTPUT_DIR)'); \
 axion.add_src('$(TESTS_DIR)/vhdl'); \
+axion.add_src('$(TESTS_DIR)/xml/subregister_test.xml'); \
 axion.exclude('error_cases'); \
 axion.analyze(); \
 axion.generate_all()"
@@ -326,6 +358,10 @@ help:
 	@echo "=================="
 	@echo ""
 	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Setup:"
+	@echo "  setup-venv    Create virtual environment"
+	@echo "  setup-dev     Install all dev dependencies (auto-creates venv)"
 	@echo ""
 	@echo "Build & Install:"
 	@echo "  build         Build the package (sdist + wheel)"

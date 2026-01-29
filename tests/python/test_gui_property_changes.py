@@ -28,7 +28,7 @@ class TestVHDLPropertyChanges:
         gui_page.wait_for_load_state("networkidle")
         
         # Find and click the sensor_controller VHDL module card
-        vhdl_card = gui_page.locator(".module-card-large", has_text=re.compile(r"sensor_controller.*\.vhd", re.IGNORECASE))
+        vhdl_card = gui_page.locator(".module-card", has_text=re.compile(r"sensor_controller.*\.vhd", re.IGNORECASE))
         if vhdl_card.count() > 0:
             vhdl_card.first.click()
             gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
@@ -148,7 +148,7 @@ class TestXMLPropertyChanges:
         gui_page.wait_for_load_state("networkidle")
         
         # Find and click an XML module card
-        xml_card = gui_page.locator(".module-card-large", has_text=re.compile(r"\.xml", re.IGNORECASE))
+        xml_card = gui_page.locator(".module-card", has_text=re.compile(r"\.xml", re.IGNORECASE))
         if xml_card.count() > 0:
             xml_card.first.click()
             gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
@@ -267,7 +267,7 @@ class TestYAMLPropertyChanges:
         gui_page.wait_for_load_state("networkidle")
         
         # Find and click a YAML module card
-        yaml_card = gui_page.locator(".module-card-large", has_text=re.compile(r"\.yaml|\.yml", re.IGNORECASE))
+        yaml_card = gui_page.locator(".module-card", has_text=re.compile(r"\.yaml|\.yml", re.IGNORECASE))
         if yaml_card.count() > 0:
             yaml_card.first.click()
             gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
@@ -386,7 +386,7 @@ class TestJSONPropertyChanges:
         gui_page.wait_for_load_state("networkidle")
         
         # Find and click a JSON module card
-        json_card = gui_page.locator(".module-card-large", has_text=re.compile(r"\.json", re.IGNORECASE))
+        json_card = gui_page.locator(".module-card", has_text=re.compile(r"\.json", re.IGNORECASE))
         if json_card.count() > 0:
             json_card.first.click()
             gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)

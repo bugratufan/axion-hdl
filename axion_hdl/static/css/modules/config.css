@@ -1,0 +1,215 @@
+/* ==========================================================================
+   Axion-HDL GUI - Config Module Styles
+   Styles specific to the configuration page
+   ========================================================================== */
+
+/* Layout & Container */
+.config-container {
+    padding-bottom: 4rem;
+}
+
+/* Animations */
+.fade-in {
+    opacity: 0;
+    animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.config-card {
+    opacity: 0;
+    animation: fadeIn 0.4s ease-out forwards;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.config-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.config-card .card-header {
+    background: transparent;
+    border-bottom: 1px solid var(--color-border);
+    padding: 1rem 1.25rem;
+}
+
+.config-card .card-body {
+    padding: 1.25rem;
+}
+
+/* Path Lists */
+.path-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.path-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.path-item:hover {
+    background: var(--hover-bg);
+    border-color: var(--color-border-hover);
+}
+
+.path-item code {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--color-text-primary);
+    word-break: break-all;
+}
+
+.empty-list {
+    color: var(--color-text-muted);
+    font-style: italic;
+    padding: 2rem;
+    text-align: center;
+    background: var(--color-bg-tertiary);
+    border-radius: 6px;
+    border: 1px dashed var(--color-border);
+}
+
+/* Detected Files List specific */
+.detected-files-container {
+    overflow-y: auto;
+    max-height: 450px;
+    background: var(--color-bg-tertiary);
+}
+
+.detected-files-container .path-item {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--color-border-subtle);
+    border-radius: 0;
+    margin-bottom: 0;
+    padding: 0.5rem 1rem;
+}
+
+.detected-files-container .path-item:last-child {
+    border-bottom: none;
+}
+
+.detected-files-container .path-item:hover {
+    background: var(--hover-bg);
+}
+
+/* Type Badges */
+.type-badge {
+    font-size: 0.65rem;
+    padding: 3px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    min-width: 45px;
+    text-align: center;
+}
+
+.type-badge.vhdl {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.type-badge.xml {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.type-badge.yaml,
+.type-badge.yml {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.type-badge.json {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Action Buttons */
+.remove-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+    opacity: 0.6;
+}
+
+.path-item:hover .remove-btn {
+    opacity: 1;
+}
+
+.remove-btn:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--error-color);
+}
+
+/* Input Forms */
+.add-path-form {
+    background: var(--color-bg-tertiary);
+    padding: 0.25rem;
+    border-radius: 6px;
+}
+
+/* Detected Files Input Group */
+#filterFiles {
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    font-size: 0.85rem;
+}
+
+#filterFiles:focus {
+    background: var(--color-bg-primary);
+    box-shadow: none;
+    border-color: var(--color-primary);
+}
+
+/* Utils */
+.bg-subtle {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.border-subtle {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 991px) {
+    .config-card {
+        margin-bottom: 2rem;
+    }
+}
+
+/* Fix visibility for bootstrap text-muted class inside cards */
+.config-card .text-muted {
+    color: var(--color-text-muted) !important;
+}
