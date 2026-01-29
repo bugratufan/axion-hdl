@@ -6,6 +6,7 @@
 <!-- Editor-specific styles -->
 <link rel="stylesheet"
     href="{{ url_for('static', filename='css/modules/editor.css') }}?v={{ range(1, 10000) | random }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mac_terminal.css') }}?v={{ range(1, 10000) | random }}">
 {% endblock %}
 
 {% block scripts %}
@@ -399,6 +400,145 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Generate Modal -->
+<div class="modal fade" id="generateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow-lg theme-modal">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-gear-fill me-2 text-primary"></i>Generate Code</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-4">
+                <div class="row">
+                    <!-- Format Selection -->
+                    <div class="col-md-5 border-end">
+                        <h6 class="text-uppercase text-secondary small fw-bold mb-3">Target Formats</h6>
+
+                        <div class="row g-2 mb-4">
+                            <div class="col-6">
+                                <div class="form-check form-switch p-2 bg-light rounded d-flex align-items-center">
+                                    <input class="form-check-input ms-0 me-2" type="checkbox" id="genVhdl" checked>
+                                    <label class="form-check-label small" for="genVhdl">VHDL</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check form-switch p-2 bg-light rounded d-flex align-items-center">
+                                    <input class="form-check-input ms-0 me-2" type="checkbox" id="genXml">
+                                    <label class="form-check-label small" for="genXml">XML</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check form-switch p-2 bg-light rounded d-flex align-items-center">
+                                    <input class="form-check-input ms-0 me-2" type="checkbox" id="genYaml">
+                                    <label class="form-check-label small" for="genYaml">YAML</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check form-switch p-2 bg-light rounded d-flex align-items-center">
+                                    <input class="form-check-input ms-0 me-2" type="checkbox" id="genJson">
+                                    <label class="form-check-label small" for="genJson">JSON</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check form-switch p-2 bg-light rounded d-flex align-items-center">
+                                    <input class="form-check-input ms-0 me-2" type="checkbox" id="genHeader" checked>
+                                    <label class="form-check-label small" for="genHeader">C Header</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check form-switch p-2 bg-light rounded d-flex align-items-center">
+                                    <input class="form-check-input ms-0 me-2" type="checkbox" id="genDocMd" checked>
+                                    <label class="form-check-label small" for="genDocMd">Markdown</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button id="genRunBtn" class="btn btn-primary w-100 mt-4 py-2 shadow-sm"
+                            onclick="runDirectGenerate()">
+                            <i class="bi bi-play-circle-fill me-2"></i>Generate Files
+                        </button>
+
+                        <div id="genDownloadSection" class="d-none animate__animated animate__fadeIn mt-3">
+                            <div
+                                class="alert alert-success d-flex align-items-center justify-content-between p-3 mb-0 border-0 shadow-sm">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-file-earmark-zip-fill fs-3 me-3"></i>
+                                    <div>
+                                        <h6 class="fw-bold mb-0">Generation Complete</h6>
+                                        <small>Files are ready for download.</small>
+                                    </div>
+                                </div>
+                                <button id="genDownloadBtn" class="btn btn-success fw-bold shadow-sm"
+                                    onclick="downloadGeneratedZip()">
+                                    <i class="bi bi-download me-2"></i>Download ZIP
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Logs & Output -->
+                    <div class="col-md-7 ps-md-4">
+                        <h6 class="text-uppercase text-secondary small fw-bold mb-3">Generation Status</h6>
+
+                        <!-- Mac Terminal Style Log -->
+                        <!-- Mac Terminal Style Log -->
+                        <div class="mac-terminal" style="height: 250px; margin-bottom: 1rem;">
+                            <div class="mac-terminal-header">
+                                <div class="mac-window-controls">
+                                </div>
+                                <div class="mac-title">generate_log — bash</div>
+                            </div>
+                            <div class="mac-content overflow-auto">
+                                <div id="genLog" class="p-3 font-monospace small">
+                                    <span class="text-secondary">> Ready to generate...</span>
+                                </div>
+                            </div>
+                        </div>
+
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Save File Modal (For New Modules) -->
+<div class="modal fade" id="saveFileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Save New Module</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Choose where to save your module definition.</p>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">File Path</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="saveFilePath" placeholder="/path/to/module.yaml">
+                        <button class="btn btn-outline-secondary" onclick="browseFile()"><i
+                                class="bi bi-folder2-open"></i></button>
+                    </div>
+                    <div class="form-text">We recommend saving in your source directory.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Format</label>
+                    <select class="form-select" id="saveFormat" onchange="updateFileExtension()">
+                        <option value="yaml">YAML (Recommended)</option>
+                        <option value="json">JSON</option>
+                        <option value="xml">XML</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-link text-muted text-decoration-none"
+                    data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary px-4" onclick="confirmSaveFile()">Save Module</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 

@@ -3,6 +3,20 @@
    Styles specific to the register editor page
    ========================================================================== */
 
+/* Dark mode overrides (Copied from generate.css for consistency) */
+[data-theme="dark"] .bg-white,
+[data-theme="dark"] .card {
+    background: var(--card-bg) !important;
+}
+
+[data-theme="dark"] .bg-light {
+    background: var(--hover-bg) !important;
+}
+
+[data-theme="dark"] .text-muted {
+    color: var(--text-muted) !important;
+}
+
 /* ===== REGISTER ROW STYLES ===== */
 .reg-row:hover {
     background-color: var(--hover-bg) !important;
@@ -164,9 +178,12 @@
 }
 
 @keyframes pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
     }
+
     50% {
         opacity: 0.8;
     }
@@ -218,6 +235,7 @@
 
 /* Tablet/Mobile Breakpoint (< 768px) */
 @media (max-width: 767.98px) {
+
     /* Stack module config form */
     #moduleForm.row {
         flex-direction: column;
@@ -256,6 +274,7 @@
 
 /* Small mobile (< 576px) */
 @media (max-width: 575.98px) {
+
     /* Very compact table */
     #regsTable th:nth-child(3),
     #regsTable td:nth-child(3),
