@@ -41,9 +41,10 @@
             </div>
 
             <!-- Activity Log -->
-            {% from 'components/activity_log.html' import activity_log %}
-            {{ activity_log(id="activity-log", height="200px", title="", subtitle="", placeholder="Ready to check...")
-            }}
+            <div id="activity-log" class="p-3 font-monospace small"
+                style="height: 200px; overflow-y: auto; color: #dcdfe4; font-family: 'JetBrains Mono', monospace;">
+                <span class="text-secondary">Ready to check...</span>
+            </div>
         </div>
     </div>
 </div>
