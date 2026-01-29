@@ -11,8 +11,18 @@
 
 ## Install
 
+**For users:**
 ```bash
-axion-hdl -s my_module.vhd -o output/
+pip install axion-hdl
+```
+
+**For development:**
+```bash
+git clone https://github.com/bugratufan/axion-hdl.git
+cd axion-hdl
+python3 -m venv venv
+source venv/bin/activate
+pip install -e ".[dev]"  # Includes pytest, cocotb, etc.
 ```
 
 ## Use
@@ -62,13 +72,29 @@ registers:
 
 📖 **[axion-hdl.readthedocs.io](https://axion-hdl.readthedocs.io/en/stable/)**
 
-## Contributing
+## Development & Testing
 
+**Setup:**
+```bash
+git clone https://github.com/bugratufan/axion-hdl.git
+cd axion-hdl
+python3 -m venv venv
+source venv/bin/activate
+pip install -e ".[dev]"
+```
+
+**Run tests:**
+```bash
+make test  # Runs all 207 tests (Python + VHDL + cocotb)
+```
+
+**Contributing:**
 ```bash
 git checkout develop
 git checkout -b feature/your-feature
+# Make changes
 make test
-# PR to develop
+# Submit PR to develop branch
 ```
 
 ## License
