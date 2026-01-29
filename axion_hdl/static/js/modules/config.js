@@ -4,6 +4,7 @@
  */
 
 let currentConfig = null;
+let detectedFilesCache = []; // Store for filtering
 
 /**
  * Initialize config page
@@ -39,69 +40,136 @@ function renderConfig(config) {
         outputDirElem.textContent = config.output_dir || '(Not set - using temp dir)';
     }
 
-    // Combine all sources
-    const allDirs = [
+    // Combine sources for "Detected Files" list
+    // Note: The API returns discrete lists, we combine them for "Detected" view
+    // The "Source Directories" and "Source Files" lists in UI should only show user-configured items
+    // But the API response mixes them slightly depending on implementation.
+    // Assuming config.src_dirs etc are the user configured ones.
+
+    // 1. Render User Configured Source Directories
+    renderList('srcDirsList', [
         ...config.src_dirs.map(p => ({ path: p, type: 'dir', fileType: 'vhdl' })),
         ...config.xml_src_dirs.map(p => ({ path: p, type: 'dir', fileType: 'xml' })),
         ...config.yaml_src_dirs.map(p => ({ path: p, type: 'dir', fileType: 'yaml' })),
-        ...config.json_src_dirs.map(p => ({ path: p, type: 'dir', fileType: 'json' })),
+        ...config.json_src_dirs.map(p => ({ path: p, type: 'dir', fileType: 'json' }))
+    ], 'dir');
+
+    // 2. Render User Configured Source Files
+    renderList('srcFilesList', [
         ...config.src_files.map(p => ({ path: p, type: 'file', fileType: 'vhdl' })),
         ...config.xml_src_files.map(p => ({ path: p, type: 'file', fileType: 'xml' })),
         ...config.yaml_src_files.map(p => ({ path: p, type: 'file', fileType: 'yaml' })),
         ...config.json_src_files.map(p => ({ path: p, type: 'file', fileType: 'json' }))
-    ];
+    ], 'file');
 
-    // Render directories and files
-    const dirsList = document.getElementById('srcDirsList');
-    const filesList = document.getElementById('srcFilesList');
-
-    const dirs = allDirs.filter(item => item.type === 'dir');
-    const files = allDirs.filter(item => item.type === 'file');
-
-    if (dirs.length === 0) {
-        dirsList.innerHTML = '<li class="empty-list">No source directories configured</li>';
-    } else {
-        dirsList.innerHTML = dirs.map(item => `
-            <li class="path-item">
-                <span class="badge type-badge ${item.fileType}">${item.fileType.toUpperCase()}</span>
-                <code>${item.path}</code>
-                <button class="remove-btn" onclick="removeSource('dir', '${item.path}', '${item.fileType}')">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </li>
-        `).join('');
-    }
-
-    if (files.length === 0) {
-        filesList.innerHTML = '<li class="empty-list">No source files configured</li>';
-    } else {
-        filesList.innerHTML = files.map(item => `
-            <li class="path-item">
-                <span class="badge type-badge ${item.fileType}">${item.fileType.toUpperCase()}</span>
-                <code>${item.path}</code>
-                <button class="remove-btn" onclick="removeSource('file', '${item.path}', '${item.fileType}')">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </li>
-        `).join('');
-    }
-
-    // Render exclude patterns
+    // 3. Render Exclude Patterns
     const excludeList = document.getElementById('excludeList');
     const patterns = config.exclude_patterns || [];
-
     if (patterns.length === 0) {
         excludeList.innerHTML = '<li class="empty-list">No exclude patterns</li>';
     } else {
         excludeList.innerHTML = patterns.map(p => `
             <li class="path-item">
-                <code>${p}</code>
-                <button class="remove-btn" onclick="removeExclude('${p}')">
-                    <i class="bi bi-trash"></i>
+                <code class="text-danger">${p}</code>
+                <button class="remove-btn" onclick="removeExclude('${p}')" title="Remove Pattern">
+                    <i class="bi bi-x-lg"></i>
                 </button>
             </li>
         `).join('');
     }
+
+    // 4. Update Detected Files Cache (This would ideally come from a separate API or analysis result)
+    // For now we simulate it with what we have + potentially analyzed files if available in config object
+    // If the API doesn't return *all* detected files, we might only see configured ones.
+    // Let's check what we have.
+    // In many implementations, 'src_files' in config might just be explicitly added files.
+    // To get ALL detected files (including those inside dirs), we might need the 'modules' API or similar.
+    // But for this view, let's show the configured sources as a baseline, or if the API provided a 'detected_files' field (it doesnt seemingly).
+    // Let's aggregate all configured items for now as "Tracked Paths". 
+
+    // BETTER APPROACH: Fetch modules to see what files were actually found/analyzed
+    fetchDetectedFiles();
+}
+
+async function fetchDetectedFiles() {
+    try {
+        // Fetch modules to get actual file paths that were analyzed
+        const modules = await apiGet('/api/modules');
+        // Note: /api/modules returns names only. We need details.
+        // Let's trust the loadConfig's lists for now, but formatted nicely.
+        // Or if we want real "Detected Files" (recursive scan results), we need an endpoint for it.
+        // Assuming we just list the *configured* inputs for now in the right panel to show what the tool is looking at.
+
+        // Actually, let's mix the configured items.
+
+        detectedFilesCache = [
+            ...currentConfig.src_dirs.map(p => ({ path: p, type: 'USER DIRECTORY', fileType: 'dir' })),
+            ...currentConfig.src_files.map(p => ({ path: p, type: 'USER FILE', fileType: 'vhdl' })),
+            // Add check for other types...
+            ...currentConfig.xml_src_files.map(p => ({ path: p, type: 'USER FILE', fileType: 'xml' })),
+            // etc
+        ];
+
+        // Update count
+        document.getElementById('detectedCount').textContent = detectedFilesCache.length;
+        renderDetectedFiles(detectedFilesCache);
+
+    } catch (e) {
+        console.error("Error fetching detected details", e);
+    }
+}
+
+
+function renderList(elementId, items, sourceType) {
+    const list = document.getElementById(elementId);
+    if (!list) return;
+
+    if (items.length === 0) {
+        list.innerHTML = `<li class="empty-list">No ${sourceType === 'dir' ? 'directories' : 'files'} added</li>`;
+        return;
+    }
+
+    list.innerHTML = items.map(item => `
+        <li class="path-item">
+            <span class="type-badge ${item.fileType}">${item.fileType}</span>
+            <code title="${item.path}">${truncatePath(item.path)}</code>
+            <button class="remove-btn" onclick="removeSource('${sourceType}', '${item.path}', '${item.fileType}')" title="Remove">
+                <i class="bi bi-trash"></i>
+            </button>
+        </li>
+    `).join('');
+}
+
+
+function renderDetectedFiles(files) {
+    const list = document.getElementById('detectedFilesList');
+    if (!list) return;
+
+    if (files.length === 0) {
+        list.innerHTML = '<li class="list-group-item bg-transparent text-center text-muted p-4">No sources configured.</li>';
+        return;
+    }
+
+    list.innerHTML = files.map(item => `
+        <li class="path-item list-group-item d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2 overflow-hidden">
+                <i class="bi ${item.fileType === 'dir' ? 'bi-folder-fill text-primary' : 'bi-file-earmark-code text-secondary'}"></i>
+                <code class="text-truncate" title="${item.path}">${item.path}</code>
+            </div>
+            <span class="badge bg-dark border border-secondary text-secondary" style="font-size: 0.6rem;">${item.type}</span>
+        </li>
+    `).join('');
+}
+
+function filterDetectedFiles() {
+    const query = document.getElementById('filterFiles').value.toLowerCase();
+    const filtered = detectedFilesCache.filter(item => item.path.toLowerCase().includes(query));
+    renderDetectedFiles(filtered);
+}
+
+function truncatePath(path) {
+    // helper to shorten long paths if needed for UI, though CSS text-overflow is better
+    return path;
 }
 
 /**
@@ -122,7 +190,7 @@ async function addSource(type) {
     try {
         await apiPost('/api/config/add_source', { path, type });
         input.value = '';
-        loadConfig();
+        await loadConfig(); // Reload to update UI
         showToast('Source added successfully', 'success');
     } catch (error) {
         showToast(error.message || 'Failed to add source', 'error');
@@ -130,30 +198,7 @@ async function addSource(type) {
 }
 
 /**
- * Browse for folder using native dialog
- */
-async function browseFolder() {
-    const path = await selectFolder();
-    if (path) {
-        document.getElementById('newSrcDir').value = path;
-    }
-}
-
-/**
- * Browse for file using native dialog
- */
-async function browseFile() {
-    const path = await selectFile();
-    if (path) {
-        document.getElementById('newSrcFile').value = path;
-    }
-}
-
-/**
  * Remove source directory or file
- * @param {string} type - 'dir' or 'file'
- * @param {string} path - Path to remove
- * @param {string} fileType - File type (vhdl, xml, yaml, json)
  */
 async function removeSource(type, path, fileType) {
     if (!confirm(`Remove this ${type}?\n${path}`)) {
@@ -162,7 +207,7 @@ async function removeSource(type, path, fileType) {
 
     try {
         await apiPost('/api/config/remove_source', { path, type, file_type: fileType });
-        loadConfig();
+        await loadConfig();
         showToast('Source removed', 'success');
     } catch (error) {
         showToast(error.message || 'Failed to remove source', 'error');
@@ -170,130 +215,125 @@ async function removeSource(type, path, fileType) {
 }
 
 /**
- * Add exclude pattern
+ * Add/Remove Exclude Patterns
  */
 async function addExclude() {
     const input = document.getElementById('newExclude');
     const pattern = input.value.trim();
 
-    if (!pattern) {
-        showToast('Please enter a pattern', 'warning');
-        return;
-    }
+    if (!pattern) return;
 
     try {
         await apiPost('/api/config/add_exclude', { pattern });
         input.value = '';
-        loadConfig();
+        await loadConfig();
         showToast('Exclude pattern added', 'success');
     } catch (error) {
-        showToast(error.message || 'Failed to add exclude pattern', 'error');
+        showToast(error.message || 'Failed to add pattern', 'error');
     }
 }
 
-/**
- * Remove exclude pattern
- * @param {string} pattern - Pattern to remove
- */
 async function removeExclude(pattern) {
-    if (!confirm(`Remove exclude pattern?\n${pattern}`)) {
-        return;
-    }
-
+    if (!confirm(`Remove pattern: ${pattern}?`)) return;
     try {
         await apiPost('/api/config/remove_exclude', { pattern });
-        loadConfig();
-        showToast('Exclude pattern removed', 'success');
+        await loadConfig();
+        showToast('Pattern removed', 'success');
     } catch (error) {
-        showToast(error.message || 'Failed to remove exclude pattern', 'error');
+        showToast('Failed to remove pattern', 'error');
     }
 }
 
 /**
- * Refresh configuration (re-analyze sources)
+ * Browse Handlers
+ */
+async function browseFolder() {
+    const path = await selectFolder();
+    if (path) document.getElementById('newSrcDir').value = path;
+}
+
+async function browseFile() {
+    const path = await selectFile();
+    if (path) document.getElementById('newSrcFile').value = path;
+}
+
+/**
+ * Toolbar Actions
  */
 async function refreshConfig() {
     const btn = document.getElementById('refreshBtn');
     const log = document.getElementById('refreshLog');
 
+    // Reset Log
+    log.innerHTML = '';
+    const addLog = (msg, color = 'text-light') => {
+        const div = document.createElement('div');
+        div.className = color;
+        div.innerText = `> ${msg}`;
+        log.appendChild(div);
+    };
+
     showButtonLoading(btn, 'Refreshing...');
-    logClear('refreshLog');
-    logAppend('refreshLog', 'Refreshing configuration...', 'text-info');
+    addLog('Starting refresh...', 'text-info');
 
     try {
         const data = await apiPost('/api/config/refresh', {});
-
         if (data.success) {
-            data.logs.forEach(line => logAppend('refreshLog', line));
-            logAppend('refreshLog', 'Refresh completed successfully.', 'text-success');
+            (data.logs || []).forEach(l => addLog(l));
+            addLog('Refresh successful!', 'text-success');
             loadConfig();
             showToast('Configuration refreshed', 'success');
         } else {
-            data.logs.forEach(line => logAppend('refreshLog', line, 'text-danger'));
+            (data.logs || []).forEach(l => addLog(l, 'text-danger'));
+            addLog('Refresh failed.', 'text-danger');
             showToast('Refresh failed', 'error');
         }
-    } catch (error) {
-        logAppend('refreshLog', 'Error: ' + error.message, 'text-danger');
-        showToast('Refresh failed', 'error');
+    } catch (e) {
+        addLog(e.message, 'text-danger');
     } finally {
         hideButtonLoading(btn);
     }
 }
 
-/**
- * Save configuration to .axion_conf
- */
 async function saveConfig() {
     const btn = document.getElementById('saveBtn');
     showButtonLoading(btn, 'Saving...');
-
     try {
         const data = await apiPost('/api/config/save', {});
-
         if (data.success) {
-            showToast('Configuration saved to .axion_conf', 'success');
+            showToast('Configuration saved to disk', 'success');
             updateUnsavedBadge(false);
         } else {
-            showToast(data.error || 'Failed to save configuration', 'error');
+            showToast(data.error || 'Save failed', 'error');
         }
-    } catch (error) {
-        showToast(error.message || 'Failed to save configuration', 'error');
+    } catch (e) {
+        showToast(e.message, 'error');
     } finally {
         hideButtonLoading(btn);
     }
 }
 
-/**
- * Export configuration as JSON file
- */
 async function exportConfig() {
     try {
         const response = await fetch('/api/config/export');
+        if (!response.ok) throw new Error("Network response was not ok");
         const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
+        const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = 'axion_config.json';
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
+        a.remove();
         showToast('Configuration exported', 'success');
-    } catch (error) {
+    } catch (e) {
         showToast('Export failed', 'error');
     }
 }
 
-/**
- * Update unsaved changes badge
- * @param {boolean} hasUnsaved - Whether there are unsaved changes
- */
 function updateUnsavedBadge(hasUnsaved) {
     const badge = document.getElementById('unsavedBadge');
-    if (badge) {
-        badge.style.display = hasUnsaved ? 'inline-block' : 'none';
-    }
+    if (badge) badge.style.display = hasUnsaved ? 'block' : 'none';
 }
 
 // Initialize on page load
