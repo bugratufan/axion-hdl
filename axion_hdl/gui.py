@@ -465,6 +465,8 @@ class AxionGUI:
             temp_dir_path = None  # For temp+ZIP mode
             used_output_dir = None
             
+            original_output_dir = self.axion.output_dir
+            
             try:
                 with redirect_stdout(log_capture):
                     # Determine effective output directory
@@ -522,6 +524,9 @@ class AxionGUI:
                 import traceback
                 traceback.print_exc(file=log_capture)
                 success = False
+            finally:
+                # Restore original output directory (crucial for server-mode to stay in temp mode)
+                self.axion.output_dir = original_output_dir
 
             return jsonify({
                 'success': success,
