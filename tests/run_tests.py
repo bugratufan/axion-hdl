@@ -1463,20 +1463,109 @@ def run_default_tests() -> List[TestResult]:
 
 
 def run_validation_tests() -> List[TestResult]:
-    """Run VAL-xxx requirement tests using pytest"""
-    val_results = run_pytest_module(
-        'tests/python/test_validation.py',
-        'test_',
-        'VAL',
-        'val'
-    )
-    val_005_results = run_pytest_module(
-        'tests/python/test_val_005_duplicate_module.py',
-        'test_val_005_',
-        'VAL-005',
-        'val'
-    )
-    return val_results + val_005_results
+    """Run VAL-xxx requirement tests for validation and diagnostics"""
+    results = []
+
+    try:
+        from tests.python.test_validation import (
+            test_json_missing_module_field,
+            test_yaml_missing_module_field,
+            test_xml_missing_module_attr,
+            test_syntax_error,
+            test_check_documentation_warning,
+            test_val_003_logical_integrity_check
+        )
+        from tests.python.test_val_005_duplicate_module import (
+            test_val_005_duplicate_module_names,
+            test_val_005_unique_module_names
+        )
+        import tempfile
+        from pathlib import Path
+
+        # VAL-001: Missing module field tests
+        for test_func, fmt in [
+            (test_json_missing_module_field, "JSON"),
+            (test_yaml_missing_module_field, "YAML"),
+            (test_xml_missing_module_attr, "XML")
+        ]:
+            test_id = f"val.val_001_{fmt.lower()}"
+            name = f"VAL-001: Missing 'module' field in {fmt}"
+            start = time.time()
+            try:
+                with tempfile.TemporaryDirectory() as tmp:
+                    test_func(Path(tmp))
+                results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                         category="val", subcategory="requirements"))
+            except Exception as e:
+                results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                         str(e), category="val", subcategory="requirements"))
+
+        # VAL-002: Syntax error test
+        test_id = "val.val_002"
+        name = "VAL-002: Syntax error reporting"
+        start = time.time()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                test_syntax_error(Path(tmp))
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+
+        # VAL-003: Logical integrity check
+        test_id = "val.val_003"
+        name = "VAL-003: Logical integrity check"
+        start = time.time()
+        try:
+            test_val_003_logical_integrity_check()
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+
+        # VAL-004: Documentation warning
+        test_id = "val.val_004"
+        name = "VAL-004: Missing documentation warning"
+        start = time.time()
+        try:
+            test_check_documentation_warning()
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+
+        # VAL-005: Duplicate module detection
+        test_id = "val.val_005"
+        name = "VAL-005: Duplicate module name detection"
+        start = time.time()
+        try:
+            test_val_005_duplicate_module_names()
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+
+        # VAL-005 (unique names - no error case)
+        test_id = "val.val_005_unique"
+        name = "VAL-005: Unique module names (no error)"
+        start = time.time()
+        try:
+            test_val_005_unique_module_names()
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+
+    except ImportError as e:
+        results.append(TestResult("val.import", "VAL: Import test module", "failed", 0, str(e),
+                                 category="val", subcategory="setup"))
+
+    return results
 
 
 def run_yaml_input_tests() -> List[TestResult]:
