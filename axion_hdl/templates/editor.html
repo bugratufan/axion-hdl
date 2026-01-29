@@ -4,13 +4,14 @@
 
 {% block head %}
 <!-- Editor-specific styles -->
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modules/editor.css') }}?v={{ range(1, 10000) | random }}">
+<link rel="stylesheet"
+    href="{{ url_for('static', filename='css/modules/editor.css') }}?v={{ range(1, 10000) | random }}">
 {% endblock %}
 
 {% block scripts %}
 <!-- Global variables for editor.js -->
 <script>
-    const moduleIsNew = {% if module.is_new %}true{% else %}false{% endif %};
+    const moduleIsNew = {% if module.is_new %}true{% else %} false{% endif %};
     const moduleNameGlobal = '{{ module.name }}';
     const moduleFileGlobal = '{{ module.file }}';
 </script>
@@ -102,7 +103,7 @@
                     style="background: var(--color-bg-tertiary); border-color: var(--color-border) !important; height: 38px;">
                     <input class="form-check-input my-0" type="checkbox" role="switch" id="cdcEnable" {% if
                         module.cdc_enabled %}checked{% endif %} onchange="toggleCDC()"
-                        style="width: 2.5em; height: 1.25em; cursor: pointer; margin-left: -0.5em;">
+                        style="width: 2.5em; height: 1.25em; cursor: pointer;">
                     <label class="form-check-label ms-2" for="cdcEnable"
                         style="font-size: 0.9rem; cursor: pointer; color: var(--color-text-primary); white-space: nowrap;">
                         {% if module.cdc_enabled %}Enabled{% else %}Disabled{% endif %}
@@ -262,9 +263,14 @@
                             </div>
                         </td>
                         <td>
+                            {% if not reg.is_packed %}
                             <input type="text" value="{{ reg.description }}"
                                 class="form-control form-control-sm reg-desc-input border-0 bg-transparent"
                                 placeholder="Add description...">
+                            {% else %}
+                            <span class="text-secondary small fst-italic opacity-50">See subregisters</span>
+                            <input type="hidden" class="reg-desc-input" value="{{ reg.description }}">
+                            {% endif %}
                         </td>
                         <td class="pe-4 text-end">
                             <button onclick="duplicateRow(this)"
@@ -282,12 +288,9 @@
 
                     {% if reg.is_packed %}
                     <tr class="subreg-details" id="subregs-{{ loop.index0 }}" style="display: table-row;">
-                        <td colspan="8" class="p-0 bg-light-subtle">
+                        <td colspan="8" class="p-0" style="background-color: var(--color-bg-secondary);">
                             <div class="position-relative ps-4 py-2 pe-3">
-                                <!-- Connecting line for hierarchy -->
-                                <div class="position-absolute"
-                                    style="left: 28px; top: 0; bottom: 0; width: 2px; bg-color: var(--bs-border-color);">
-                                </div>
+                                <!-- Connecting line removed -->
 
                                 <div class="table-responsive rounded-3 overflow-hidden border"
                                     style="background-color: var(--color-bg-tertiary); border-color: var(--color-border) !important;">
