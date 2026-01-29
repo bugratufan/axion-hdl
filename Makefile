@@ -1,7 +1,7 @@
 # Makefile for Axion-HDL
 # Automated AXI4-Lite Register Interface Generator
 
-.PHONY: all build install dev-install test test-vhdl test-c test-python clean dist upload-test upload help
+.PHONY: all build install dev-install test test-vhdl test-c test-python clean dist upload-test upload help setup-venv setup-dev check-pytest check-cocotb test-gui test-gui-full
 
 # Directories
 PROJECT_ROOT := $(shell pwd)
@@ -161,7 +161,7 @@ test-address-conflict:
 test-c: generate
 	@echo "Running C header tests..."
 	@if command -v $(GCC) &> /dev/null; then \
-		$(GCC) $(GCC_FLAGS) -o $(TESTS_DIR)/c/test_c_headers $(TESTS_DIR)/c/test_c_headers.c && \
+		$(GCC) $(GCC_FLAGS) -I$(OUTPUT_DIR) -o $(TESTS_DIR)/c/test_c_headers $(TESTS_DIR)/c/test_c_headers.c && \
 		./$(TESTS_DIR)/c/test_c_headers && \
 		rm -f $(TESTS_DIR)/c/test_c_headers && \
 		echo "C header tests passed!"; \
@@ -271,7 +271,7 @@ test-gui-full: check-pytest
 # Code Generation
 #------------------------------------------------------------------------------
 
-## Generate all outputs from example VHDL files
+## Generate all outputs from example VHDL and XML files
 generate:
 	@echo "Generating register modules..."
 	@mkdir -p $(OUTPUT_DIR)
@@ -279,6 +279,7 @@ generate:
 from axion_hdl import AxionHDL; \
 axion = AxionHDL(output_dir='$(OUTPUT_DIR)'); \
 axion.add_src('$(TESTS_DIR)/vhdl'); \
+axion.add_src('$(TESTS_DIR)/xml/subregister_test.xml'); \
 axion.exclude('error_cases'); \
 axion.analyze(); \
 axion.generate_all()"
