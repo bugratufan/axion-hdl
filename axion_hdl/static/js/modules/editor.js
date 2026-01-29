@@ -793,7 +793,10 @@ function genLogAdd(text, className = '') {
     if (className) div.className = className;
     div.innerText = text;
     log.appendChild(div);
-    log.scrollTop = log.scrollHeight;
+    // Scroll the parent container (mac-content) which has overflow-auto
+    if (log.parentElement) {
+        log.parentElement.scrollTop = log.parentElement.scrollHeight;
+    }
 }
 
 /**
