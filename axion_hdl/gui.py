@@ -447,144 +447,7 @@ class AxionGUI:
             except Exception as e:
                 return jsonify({'error': str(e), 'path': ''})
 
-        # --- Platform Specific Helpers ---
 
-        def _select_folder_macos(self):
-            import subprocess
-            script = '''
-            tell application "System Events"
-                activate
-                set folderPath to POSIX path of (choose folder with prompt "Select Source Directory")
-            end tell
-            '''
-            try:
-                result = subprocess.run(['osascript', '-e', script], 
-                                      capture_output=True, text=True, timeout=60)
-                if result.returncode == 0:
-                    return jsonify({'path': result.stdout.strip()})
-                return jsonify({'error': 'User cancelled', 'path': ''})
-            except subprocess.TimeoutExpired:
-                return jsonify({'error': 'Selection timed out', 'path': ''})
-
-        def _select_file_macos(self):
-            import subprocess
-            script = '''
-            tell application "System Events"
-                activate
-                set filePath to POSIX path of (choose file with prompt "Select Source File" of type {"vhd", "vhdl", "json", "yaml", "yml", "xml"})
-            end tell
-            '''
-            try:
-                result = subprocess.run(['osascript', '-e', script], 
-                                      capture_output=True, text=True, timeout=60)
-                if result.returncode == 0:
-                    return jsonify({'path': result.stdout.strip()})
-                return jsonify({'error': 'User cancelled', 'path': ''})
-            except subprocess.TimeoutExpired:
-                return jsonify({'error': 'Selection timed out', 'path': ''})
-
-        def _select_folder_windows(self):
-            import subprocess
-            # PowerShell command to open FolderBrowserDialog
-            ps_script = """
-            Add-Type -AssemblyName System.Windows.Forms
-            $f = New-Object System.Windows.Forms.FolderBrowserDialog
-            $f.ShowNewFolderButton = $true
-            $f.Description = "Select Source Directory"
-            if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-                Write-Host $f.SelectedPath
-            }
-            """
-            try:
-                result = subprocess.run(["powershell", "-Command", ps_script], 
-                                      capture_output=True, text=True, timeout=60)
-                path = result.stdout.strip()
-                if path and os.path.exists(path):
-                    return jsonify({'path': path})
-                return jsonify({'error': 'User cancelled', 'path': ''})
-            except Exception as e:
-                return jsonify({'error': f'Windows selection failed: {str(e)}', 'path': ''})
-
-        def _select_file_windows(self):
-            import subprocess
-            # PowerShell command to open OpenFileDialog
-            ps_script = """
-            Add-Type -AssemblyName System.Windows.Forms
-            $f = New-Object System.Windows.Forms.OpenFileDialog
-            $f.Filter = "HDL & Config Files (*.vhd;*.vhdl;*.json;*.yaml;*.yml;*.xml)|*.vhd;*.vhdl;*.json;*.yaml;*.yml;*.xml|All Files (*.*)|*.*"
-            if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-                Write-Host $f.FileName
-            }
-            """
-            try:
-                result = subprocess.run(["powershell", "-Command", ps_script], 
-                                      capture_output=True, text=True, timeout=60)
-                path = result.stdout.strip()
-                if path and os.path.exists(path):
-                    return jsonify({'path': path})
-                return jsonify({'error': 'User cancelled', 'path': ''})
-            except Exception as e:
-                return jsonify({'error': f'Windows selection failed: {str(e)}', 'path': ''})
-
-        def _select_folder_linux(self):
-            import subprocess
-            import shutil
-            
-            # 1. Try zenity (GNOME/GTK)
-            if shutil.which('zenity'):
-                try:
-                    result = subprocess.run(['zenity', '--file-selection', '--directory', '--title=Select Source Directory'], 
-                                          capture_output=True, text=True, timeout=60)
-                    if result.returncode == 0:
-                        return jsonify({'path': result.stdout.strip()})
-                    return jsonify({'error': 'User cancelled', 'path': ''})
-                except:
-                    pass # Fallback
-            
-            # 2. Try kdialog (KDE)
-            if shutil.which('kdialog'):
-                try:
-                    result = subprocess.run(['kdialog', '--getexistingdirectory'], 
-                                          capture_output=True, text=True, timeout=60)
-                    if result.returncode == 0:
-                        return jsonify({'path': result.stdout.strip()})
-                    return jsonify({'error': 'User cancelled', 'path': ''})
-                except:
-                    pass
-
-            return jsonify({'error': 'No suitable file dialog tool found (install zenity or kdialog)', 'path': ''})
-
-        def _select_file_linux(self):
-            import subprocess
-            import shutil
-            
-            # 1. Try zenity
-            if shutil.which('zenity'):
-                try:
-                    # Zenity file filter syntax: --file-filter="Name | *.vhd *.vhdl"
-                    result = subprocess.run(['zenity', '--file-selection', '--title=Select Source File', 
-                                           '--file-filter=HDL & Config | *.vhd *.vhdl *.json *.yaml *.yml *.xml'], 
-                                          capture_output=True, text=True, timeout=60)
-                    if result.returncode == 0:
-                        return jsonify({'path': result.stdout.strip()})
-                    return jsonify({'error': 'User cancelled', 'path': ''})
-                except:
-                    pass
-            
-            # 2. Try kdialog
-            if shutil.which('kdialog'):
-                try:
-                    # KDialog syntax: "extension1 extension2"
-                    result = subprocess.run(['kdialog', '--getopenfilename', '.', 
-                                           '*.vhd *.vhdl *.json *.yaml *.yml *.xml'], 
-                                          capture_output=True, text=True, timeout=60)
-                    if result.returncode == 0:
-                        return jsonify({'path': result.stdout.strip()})
-                    return jsonify({'error': 'User cancelled', 'path': ''})
-                except:
-                    pass
-
-            return jsonify({'error': 'No suitable file dialog tool found (install zenity or kdialog)', 'path': ''})
 
         @self.app.route('/api/generate', methods=['POST'])
         def run_generate():
@@ -1502,6 +1365,150 @@ class AxionGUI:
             if self.file_observer:
                 self.file_observer.stop()
                 self.file_observer.join()
+
+    # --- Platform Selection Helpers (Moved from setup_app) ---
+
+    def _select_folder_macos(self):
+            import subprocess
+            script = '''
+            tell application "System Events"
+                activate
+                set folderPath to POSIX path of (choose folder with prompt "Select Source Directory")
+            end tell
+            '''
+            try:
+                result = subprocess.run(['osascript', '-e', script], 
+                                      capture_output=True, text=True, timeout=60)
+                if result.returncode == 0:
+                    return jsonify({'path': result.stdout.strip()})
+                return jsonify({'error': 'User cancelled', 'path': ''})
+            except subprocess.TimeoutExpired:
+                return jsonify({'error': 'Selection timed out', 'path': ''})
+
+
+    def _select_file_macos(self):
+            import subprocess
+            script = '''
+            tell application "System Events"
+                activate
+                set filePath to POSIX path of (choose file with prompt "Select Source File" of type {"vhd", "vhdl", "json", "yaml", "yml", "xml"})
+            end tell
+            '''
+            try:
+                result = subprocess.run(['osascript', '-e', script], 
+                                      capture_output=True, text=True, timeout=60)
+                if result.returncode == 0:
+                    return jsonify({'path': result.stdout.strip()})
+                return jsonify({'error': 'User cancelled', 'path': ''})
+            except subprocess.TimeoutExpired:
+                return jsonify({'error': 'Selection timed out', 'path': ''})
+
+
+    def _select_folder_windows(self):
+            import subprocess
+            # PowerShell command to open FolderBrowserDialog
+            ps_script = """
+            Add-Type -AssemblyName System.Windows.Forms
+            $f = New-Object System.Windows.Forms.FolderBrowserDialog
+            $f.ShowNewFolderButton = $true
+            $f.Description = "Select Source Directory"
+            if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+                Write-Host $f.SelectedPath
+            }
+            """
+            try:
+                result = subprocess.run(["powershell", "-Command", ps_script], 
+                                      capture_output=True, text=True, timeout=60)
+                path = result.stdout.strip()
+                if path and os.path.exists(path):
+                    return jsonify({'path': path})
+                return jsonify({'error': 'User cancelled', 'path': ''})
+            except Exception as e:
+                return jsonify({'error': f'Windows selection failed: {str(e)}', 'path': ''})
+
+
+    def _select_file_windows(self):
+            import subprocess
+            # PowerShell command to open OpenFileDialog
+            ps_script = """
+            Add-Type -AssemblyName System.Windows.Forms
+            $f = New-Object System.Windows.Forms.OpenFileDialog
+            $f.Filter = "HDL & Config Files (*.vhd;*.vhdl;*.json;*.yaml;*.yml;*.xml)|*.vhd;*.vhdl;*.json;*.yaml;*.yml;*.xml|All Files (*.*)|*.*"
+            if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+                Write-Host $f.FileName
+            }
+            """
+            try:
+                result = subprocess.run(["powershell", "-Command", ps_script], 
+                                      capture_output=True, text=True, timeout=60)
+                path = result.stdout.strip()
+                if path and os.path.exists(path):
+                    return jsonify({'path': path})
+                return jsonify({'error': 'User cancelled', 'path': ''})
+            except Exception as e:
+                return jsonify({'error': f'Windows selection failed: {str(e)}', 'path': ''})
+
+
+    def _select_folder_linux(self):
+            import subprocess
+            import shutil
+            
+            # 1. Try zenity (GNOME/GTK)
+            if shutil.which('zenity'):
+                try:
+                    result = subprocess.run(['zenity', '--file-selection', '--directory', '--title=Select Source Directory'], 
+                                          capture_output=True, text=True, timeout=60)
+                    if result.returncode == 0:
+                        return jsonify({'path': result.stdout.strip()})
+                    return jsonify({'error': 'User cancelled', 'path': ''})
+                except:
+                    pass # Fallback
+            
+            # 2. Try kdialog (KDE)
+            if shutil.which('kdialog'):
+                try:
+                    result = subprocess.run(['kdialog', '--getexistingdirectory'], 
+                                          capture_output=True, text=True, timeout=60)
+                    if result.returncode == 0:
+                        return jsonify({'path': result.stdout.strip()})
+                    return jsonify({'error': 'User cancelled', 'path': ''})
+                except:
+                    pass
+
+            return jsonify({'error': 'No suitable file dialog tool found (install zenity or kdialog)', 'path': ''})
+
+
+    def _select_file_linux(self):
+            import subprocess
+            import shutil
+            
+            # 1. Try zenity
+            if shutil.which('zenity'):
+                try:
+                    # Zenity file filter syntax: --file-filter="Name | *.vhd *.vhdl"
+                    result = subprocess.run(['zenity', '--file-selection', '--title=Select Source File', 
+                                           '--file-filter=HDL & Config | *.vhd *.vhdl *.json *.yaml *.yml *.xml'], 
+                                          capture_output=True, text=True, timeout=60)
+                    if result.returncode == 0:
+                        return jsonify({'path': result.stdout.strip()})
+                    return jsonify({'error': 'User cancelled', 'path': ''})
+                except:
+                    pass
+            
+            # 2. Try kdialog
+            if shutil.which('kdialog'):
+                try:
+                    # KDialog syntax: "extension1 extension2"
+                    result = subprocess.run(['kdialog', '--getopenfilename', '.', 
+                                           '*.vhd *.vhdl *.json *.yaml *.yml *.xml'], 
+                                          capture_output=True, text=True, timeout=60)
+                    if result.returncode == 0:
+                        return jsonify({'path': result.stdout.strip()})
+                    return jsonify({'error': 'User cancelled', 'path': ''})
+                except:
+                    pass
+
+            return jsonify({'error': 'No suitable file dialog tool found (install zenity or kdialog)', 'path': ''})
 
     def _read_version(self):
         """
