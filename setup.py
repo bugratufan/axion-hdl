@@ -28,10 +28,13 @@ setup(
     extras_require={
         'gui': ['flask>=2.0', 'watchdog>=2.0'],
         'dev': [
-            'pytest>=6.0',
+            'pytest>=7.0',
             'pytest-cov>=2.0',
             'black>=21.0',
             'flake8>=3.9',
+            'cocotb>=1.9.0',
+            'cocotb-bus>=0.2.1',
+            'cocotbext-axi>=0.1.24',
         ],
     },
     classifiers=[
