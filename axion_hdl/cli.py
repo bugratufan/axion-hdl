@@ -198,6 +198,12 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         help='Port number for GUI server (default: 5000)'
     )
     
+    gen_group.add_argument(
+        '--debug',
+        action='store_true',
+        help='Run GUI in debug mode (enables hot-reloading)'
+    )
+    
     # Parse arguments
     args = parser.parse_args()
 
@@ -313,7 +319,7 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     if args.gui:
         try:
             from axion_hdl import gui
-            gui.start_gui(axion, port=args.port)
+            gui.start_gui(axion, port=args.port, debug_mode=args.debug)
             sys.exit(0)
         except ImportError as e:
             print(f"Error launching GUI: {e}", file=sys.stderr)

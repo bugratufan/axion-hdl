@@ -152,10 +152,11 @@ class SourceFileEventHandler(FileSystemEventHandler):
 
 
 class AxionGUI:
-    def __init__(self, axion_instance):
+    def __init__(self, axion_instance, debug_mode=False):
         self.axion = axion_instance
         self.app = None
         self.port = 5000
+        self.debug_mode = debug_mode
         self.analysis_cache = AnalysisCache()
         self.file_observer = None
         self.analysis_error = None
@@ -171,6 +172,18 @@ class AxionGUI:
 
         self.app = Flask(__name__)
         self.app.secret_key = 'axion-hdl-dev-key'
+
+        # Configure logging based on debug mode
+        import logging
+        log = logging.getLogger('werkzeug')
+        if self.debug_mode:
+            log.setLevel(logging.INFO)
+        else:
+            log.setLevel(logging.ERROR)
+            # Also suppress Flask's default banner in non-debug mode
+            # Check if running in a way where cli is available (Flask 2.x+)
+            if hasattr(self.app, 'cli'):
+                self.app.cli.show_server_banner = lambda *args: None
 
         # Read version from .version file
         self.version = self._read_version()
@@ -1482,7 +1495,8 @@ class AxionGUI:
 
         try:
             # Run Flask app
-            self.app.run(port=self.port, debug=True, use_reloader=False)
+            # Only enable debug/reloader if requested via CLI flag
+            self.app.run(port=self.port, debug=self.debug_mode, use_reloader=self.debug_mode)
         finally:
             # Cleanup file watcher
             if self.file_observer:
@@ -1498,34 +1512,7 @@ class AxionGUI:
         return str(random.randint(1000, 9999))
 
 
-def start_gui(axion_instance, port=5000):
-    # Check if port is already in use
-    import socket
-    import platform
-    import sys
-    
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        sock.bind(('127.0.0.1', port))
-        sock.close()
-    except OSError:
-        print(f"\nError: Port {port} is already in use.")
-        print("To verify which process is using the port and stop it:")
-        
-        system = platform.system()
-        
-        if system == "Linux" or system == "Darwin":
-            print(f"  1. Find PID:  lsof -i :{port}")
-            print(f"  2. Kill PID:  kill -9 <PID>")
-            print(f"  Or force kill: fuser -k {port}/tcp")
-        elif system == "Windows":
-            print(f"  1. Find PID:  netstat -ano | findstr :{port}")
-            print(f"  2. Kill PID:  taskkill /F /PID <PID>")
-        else:
-            print(f"  Please check your running processes for port {port}.")
-            
-        sys.exit(1)
-
-    gui = AxionGUI(axion_instance)
+def start_gui(axion_instance, port=5000, debug_mode=False):
+    gui = AxionGUI(axion_instance, debug_mode=debug_mode)
     gui.port = port
     gui.run()
