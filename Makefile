@@ -3,16 +3,6 @@
 
 .PHONY: all build install dev-install test test-vhdl test-c test-python clean dist upload-test upload help
 
-# Python interpreter (use venv if available)
-VENV_DIR := $(PROJECT_ROOT)/venv
-ifneq ($(wildcard $(VENV_DIR)/bin/python3),)
-    PYTHON := $(VENV_DIR)/bin/python3
-    PIP := $(VENV_DIR)/bin/pip3
-else
-    PYTHON := python3
-    PIP := pip3
-endif
-
 # Directories
 PROJECT_ROOT := $(shell pwd)
 TESTS_DIR := tests
@@ -20,6 +10,22 @@ OUTPUT_DIR := output
 WORK_DIR := work
 WAVEFORMS_DIR := waveforms
 DIST_DIR := dist
+
+# Python interpreter (use venv if available)
+VENV_DIR := $(PROJECT_ROOT)/venv
+VENV_PYTHON := $(VENV_DIR)/bin/python3
+VENV_PIP := $(VENV_DIR)/bin/pip3
+VENV_ACTIVATE := $(VENV_DIR)/bin/activate
+
+ifneq ($(wildcard $(VENV_PYTHON)),)
+    PYTHON := $(VENV_PYTHON)
+    PIP := $(VENV_PIP)
+    VENV_EXISTS := 1
+else
+    PYTHON := python3
+    PIP := pip3
+    VENV_EXISTS := 0
+endif
 
 # GHDL options
 GHDL := ghdl
@@ -32,6 +38,65 @@ GCC_FLAGS := -Wall -Wextra -Werror -pedantic -std=c11
 
 # Default target
 all: build
+
+#------------------------------------------------------------------------------
+# Environment Setup
+#------------------------------------------------------------------------------
+
+## Create virtual environment if it doesn't exist
+setup-venv:
+	@if [ ! -d "$(VENV_DIR)" ]; then \
+		echo "Creating virtual environment..."; \
+		python3 -m venv $(VENV_DIR); \
+		echo "Virtual environment created at $(VENV_DIR)"; \
+	else \
+		echo "Virtual environment already exists at $(VENV_DIR)"; \
+	fi
+
+## Install development dependencies (creates venv if needed)
+setup-dev: setup-venv
+	@echo "Installing development dependencies..."
+	@$(VENV_PIP) install -e ".[dev]"
+	@echo "Development environment ready!"
+	@echo ""
+	@echo "To activate the virtual environment, run:"
+	@echo "  source $(VENV_ACTIVATE)"
+
+## Check if pytest is available (auto-install if missing)
+check-pytest:
+	@if ! $(PYTHON) -c "import pytest" 2>/dev/null; then \
+		echo ""; \
+		echo "❌ pytest not found!"; \
+		echo ""; \
+		echo "Test dependencies are required. Install them?"; \
+		echo "  [Y] Yes - Install automatically (creates venv + installs dev dependencies)"; \
+		echo "  [N] No  - Exit and install manually"; \
+		echo ""; \
+		read -p "Choice [Y/n]: " choice; \
+		case "$$choice" in \
+			n|N|no|No|NO) \
+				echo ""; \
+				echo "To install manually:"; \
+				echo "  make setup-dev"; \
+				echo ""; \
+				exit 1; \
+				;; \
+			*) \
+				echo ""; \
+				echo "Installing development dependencies..."; \
+				$(MAKE) setup-dev; \
+				echo ""; \
+				echo "✅ Dependencies installed! Re-running make test..."; \
+				echo ""; \
+				;; \
+		esac; \
+	fi
+
+## Check if cocotb is available
+check-cocotb:
+	@$(PYTHON) -c "import cocotb" 2>/dev/null || \
+		(echo "⚠️  cocotb not found - cocotb tests will be skipped"; \
+		 echo "To install: make setup-dev")
 
 #------------------------------------------------------------------------------
 # Build & Install
@@ -62,8 +127,8 @@ uninstall:
 # Testing
 #------------------------------------------------------------------------------
 
-## Run all tests with tabular results
-test:
+## Run all tests with tabular results (auto-installs dependencies if needed)
+test: check-pytest
 	@$(PYTHON) $(TESTS_DIR)/run_tests.py
 
 ## Run all tests (legacy format)
@@ -164,23 +229,35 @@ test-full:
 	@bash $(TESTS_DIR)/run_full_test.sh
 
 ## Run GUI tests (requires playwright) - Chrome only for speed
-test-gui:
+test-gui: check-pytest
 	@echo "Running GUI tests on Chrome (4 parallel workers)..."
 	@if $(PYTHON) -c "import playwright" 2>/dev/null; then \
 		$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py $(TESTS_DIR)/python/test_gui_property_changes.py $(TESTS_DIR)/python/test_gui_address_assignment.py -v --tb=short --browser chromium -n 4 --reruns 2 --reruns-delay 1; \
 	else \
-		echo "Warning: playwright not installed, skipping GUI tests"; \
-		echo "Install with: pip install pytest-playwright playwright pytest-xdist pytest-rerunfailures && playwright install"; \
+		echo ""; \
+		echo "❌ playwright not found!"; \
+		echo ""; \
+		echo "GUI tests require additional dependencies. Install with:"; \
+		echo "  $(PIP) install pytest-playwright playwright pytest-xdist pytest-rerunfailures"; \
+		echo "  playwright install"; \
+		echo ""; \
+		exit 1; \
 	fi
 
 ## Run GUI tests on all browsers (Chrome, Firefox, WebKit)
-test-gui-full:
+test-gui-full: check-pytest
 	@echo "Running GUI tests on all browsers (4 parallel workers)..."
 	@if $(PYTHON) -c "import playwright" 2>/dev/null; then \
 		$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py $(TESTS_DIR)/python/test_gui_property_changes.py $(TESTS_DIR)/python/test_gui_address_assignment.py -v --tb=short --browser chromium --browser firefox --browser webkit -n 4 --reruns 2 --reruns-delay 1; \
 	else \
-		echo "Warning: playwright not installed, skipping GUI tests"; \
-		echo "Install with: pip install pytest-playwright playwright pytest-xdist pytest-rerunfailures && playwright install"; \
+		echo ""; \
+		echo "❌ playwright not found!"; \
+		echo ""; \
+		echo "GUI tests require additional dependencies. Install with:"; \
+		echo "  $(PIP) install pytest-playwright playwright pytest-xdist pytest-rerunfailures"; \
+		echo "  playwright install"; \
+		echo ""; \
+		exit 1; \
 	fi
 
 #------------------------------------------------------------------------------
@@ -326,6 +403,10 @@ help:
 	@echo "=================="
 	@echo ""
 	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Setup:"
+	@echo "  setup-venv    Create virtual environment"
+	@echo "  setup-dev     Install all dev dependencies (auto-creates venv)"
 	@echo ""
 	@echo "Build & Install:"
 	@echo "  build         Build the package (sdist + wheel)"
