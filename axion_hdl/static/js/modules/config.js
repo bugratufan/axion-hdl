@@ -264,6 +264,12 @@ async function refreshConfig() {
     const btn = document.getElementById('refreshBtn');
     const log = document.getElementById('refreshLog');
 
+    // Auto-show logs
+    const collapseElement = document.getElementById('logsCollapse');
+    if (collapseElement && !collapseElement.classList.contains('show')) {
+        new bootstrap.Collapse(collapseElement, { toggle: true });
+    }
+
     // Reset Log
     log.innerHTML = '';
     const addLog = (msg, color = 'text-light') => {
@@ -282,6 +288,7 @@ async function refreshConfig() {
             (data.logs || []).forEach(l => addLog(l));
             addLog('Refresh successful!', 'text-success');
             loadConfig();
+            fetchDetectedFiles(); // Also refresh the detected files list
             showToast('Configuration refreshed', 'success');
         } else {
             (data.logs || []).forEach(l => addLog(l, 'text-danger'));

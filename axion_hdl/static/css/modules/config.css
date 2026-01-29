@@ -208,3 +208,8 @@
         margin-bottom: 2rem;
     }
 }
+
+/* Fix visibility for bootstrap text-muted class inside cards */
+.config-card .text-muted {
+    color: var(--color-text-muted) !important;
+}
