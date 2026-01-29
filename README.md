@@ -74,18 +74,27 @@ registers:
 
 ## Development & Testing
 
-**Setup:**
+**Quick start:**
 ```bash
 git clone https://github.com/bugratufan/axion-hdl.git
 cd axion-hdl
-python3 -m venv venv
-source venv/bin/activate
-pip install -e ".[dev]"
+make test  # Auto-installs dependencies and runs all tests
 ```
 
-**Run tests:**
+The `make test` command automatically:
+- Creates a virtual environment if needed
+- Installs all test dependencies
+- Runs 200+ tests (Python + VHDL + cocotb)
+
+**Manual setup (optional):**
 ```bash
-make test  # Runs all 207 tests (Python + VHDL + cocotb)
+make setup-dev  # Create venv + install dependencies
+source venv/bin/activate
+```
+
+**CI/Automated environments:**
+```bash
+AXION_AUTO_INSTALL=1 make test  # Skip prompt, auto-install
 ```
 
 **Contributing:**
@@ -93,7 +102,7 @@ make test  # Runs all 207 tests (Python + VHDL + cocotb)
 git checkout develop
 git checkout -b feature/your-feature
 # Make changes
-make test
+make test  # Dependencies auto-installed on first run
 # Submit PR to develop branch
 ```
 
