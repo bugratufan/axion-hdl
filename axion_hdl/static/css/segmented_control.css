@@ -1,7 +1,7 @@
 /* Segmented Control Tabs */
 .segmented-control {
     display: inline-flex;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--color-bg-tertiary);
     /* Darker track */
     padding: 4px;
     border-radius: 8px;
@@ -39,9 +39,9 @@
 }
 
 .segmented-item.active {
-    background: var(--color-bg-secondary);
+    background: var(--color-accent-primary);
     /* Popup look */
-    color: var(--color-text-primary);
+    color: var(--color-bg-primary);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     font-weight: 600;
 }
