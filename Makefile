@@ -68,28 +68,35 @@ check-pytest:
 		echo ""; \
 		echo "❌ pytest not found!"; \
 		echo ""; \
-		echo "Test dependencies are required. Install them?"; \
-		echo "  [Y] Yes - Install automatically (creates venv + installs dev dependencies)"; \
-		echo "  [N] No  - Exit and install manually"; \
-		echo ""; \
-		read -p "Choice [Y/n]: " choice; \
-		case "$$choice" in \
-			n|N|no|No|NO) \
-				echo ""; \
-				echo "To install manually:"; \
-				echo "  make setup-dev"; \
-				echo ""; \
-				exit 1; \
-				;; \
-			*) \
-				echo ""; \
-				echo "Installing development dependencies..."; \
-				$(MAKE) setup-dev; \
-				echo ""; \
-				echo "✅ Dependencies installed! Re-running make test..."; \
-				echo ""; \
-				;; \
-		esac; \
+		if [ -n "$$CI" ] || [ "$$AXION_AUTO_INSTALL" = "1" ]; then \
+			echo "CI environment detected or AXION_AUTO_INSTALL=1, installing automatically..."; \
+			$(MAKE) setup-dev; \
+		else \
+			echo "Test dependencies are required. Install them?"; \
+			echo "  [Y] Yes - Install automatically (creates venv + installs dev dependencies)"; \
+			echo "  [N] No  - Exit and install manually"; \
+			echo ""; \
+			echo "Tip: Set AXION_AUTO_INSTALL=1 to skip this prompt"; \
+			echo ""; \
+			read -p "Choice [Y/n]: " choice; \
+			case "$$choice" in \
+				n|N|no|No|NO) \
+					echo ""; \
+					echo "To install manually:"; \
+					echo "  make setup-dev"; \
+					echo ""; \
+					exit 1; \
+					;; \
+				*) \
+					echo ""; \
+					echo "Installing development dependencies..."; \
+					$(MAKE) setup-dev; \
+					echo ""; \
+					echo "✅ Dependencies installed!"; \
+					echo ""; \
+					;; \
+			esac; \
+		fi \
 	fi
 
 ## Check if cocotb is available
