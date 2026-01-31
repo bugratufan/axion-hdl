@@ -74,13 +74,15 @@ class AnalysisCache:
         files.extend(axion_instance.xml_src_files)
         files.extend(axion_instance.yaml_src_files)
         files.extend(axion_instance.json_src_files)
+        files.extend(axion_instance.toml_src_files)
 
         # Files from directories
         all_dirs = (
             axion_instance.src_dirs +
             axion_instance.xml_src_dirs +
             axion_instance.yaml_src_dirs +
-            axion_instance.json_src_dirs
+            axion_instance.json_src_dirs +
+            axion_instance.toml_src_dirs
         )
 
         for directory in all_dirs:
@@ -88,7 +90,7 @@ class AnalysisCache:
                 for root, dirs, filenames in os.walk(directory):
                     for filename in filenames:
                         ext = os.path.splitext(filename)[1].lower()
-                        if ext in ['.vhd', '.vhdl', '.json', '.yaml', '.yml', '.xml']:
+                        if ext in ['.vhd', '.vhdl', '.json', '.yaml', '.yml', '.xml', '.toml']:
                             files.append(os.path.join(root, filename))
 
         return files
@@ -116,7 +118,7 @@ class SourceFileEventHandler(FileSystemEventHandler):
 
         # Check if it's a relevant file
         ext = os.path.splitext(event.src_path)[1].lower()
-        if ext not in ['.vhd', '.vhdl', '.json', '.yaml', '.yml', '.xml']:
+        if ext not in ['.vhd', '.vhdl', '.json', '.yaml', '.yml', '.xml', '.toml']:
             return False
 
         # Ignore duplicate events for same file (within 0.5 seconds)
@@ -390,6 +392,15 @@ class AxionGUI:
                         content = yaml.dump(module_data, default_flow_style=False, sort_keys=False)
                     except ImportError:
                         return jsonify({'success': False, 'error': 'PyYAML not installed. Run: pip install pyyaml'})
+                elif format_type == 'toml':
+                    try:
+                        try:
+                            import tomli_w
+                        except ImportError:
+                            return jsonify({'success': False, 'error': 'tomli_w not installed. Run: pip install tomli_w'})
+                        content = tomli_w.dumps(module_data)
+                    except Exception as e:
+                        return jsonify({'success': False, 'error': f'TOML generation failed: {str(e)}'})
                 elif format_type == 'xml':
                     content = self._generate_xml(module_data)
                 else:
