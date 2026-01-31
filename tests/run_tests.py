@@ -1041,11 +1041,17 @@ def generate_markdown_report(results: List[TestResult]):
         "val": ("✅ Validation Tests (VAL-xxx)", {
             "requirements": "VAL Requirements"
         }),
+        "xml-input": ("📄 XML Input Tests (XML-INPUT-xxx)", {
+            "requirements": "XML-INPUT Requirements"
+        }),
         "yaml-input": ("📄 YAML Input Tests (YAML-INPUT-xxx)", {
             "requirements": "YAML-INPUT Requirements"
         }),
         "json-input": ("📄 JSON Input Tests (JSON-INPUT-xxx)", {
             "requirements": "JSON-INPUT Requirements"
+        }),
+        "toml-input": ("📄 TOML Input Tests (TOML-INPUT-xxx)", {
+            "requirements": "TOML-INPUT Requirements"
         }),
         "equiv": ("🔀 Format Equivalence Tests (EQUIV-xxx)", {
             "requirements": "EQUIV Requirements"
@@ -1127,8 +1133,10 @@ def print_results(results: List[TestResult]):
         "stress": "🔥 STRESS",
         "sub": "📦 SUB",
         "def": "🔧 DEF",
+        "xml_input": "📄 XML-INPUT",
         "yaml_input": "📄 YAML-INPUT",
         "json_input": "📄 JSON-INPUT",
+        "toml_input": "📄 TOML-INPUT",
         "equiv": "🔀 EQUIV"
     }
     
@@ -1142,7 +1150,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "yaml_input", "json_input", "equiv"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "xml_input", "yaml_input", "json_input", "toml_input", "equiv"]:
         if cat not in categories:
             continue
         
@@ -1898,10 +1906,118 @@ def run_json_input_tests() -> List[TestResult]:
     return results
 
 
+def run_toml_input_tests() -> List[TestResult]:
+    """Run TOML-INPUT-xxx requirement tests"""
+    results = []
+
+    try:
+        from tests.python.test_toml_input import TestTOMLInputRequirements
+        import io
+        import sys
+
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestTOMLInputRequirements)
+
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_toml_input_', 'TOML-INPUT-').replace('_', '-').upper()
+
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+
+                results.append(TestResult(
+                    f"toml_input.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="toml_input",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"toml_input.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="toml_input",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("toml_input.import", "TOML-INPUT: Import test module", "failed", 0, str(e), category="toml_input", subcategory="setup"))
+
+    return results
+
+
+def run_xml_input_tests() -> List[TestResult]:
+    """Run XML-INPUT-xxx requirement tests"""
+    results = []
+
+    try:
+        from tests.python.test_xml_input_unittest import TestXMLInputRequirements
+        import io
+        import sys
+
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestXMLInputRequirements)
+
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_xml_input_', 'XML-INPUT-').replace('_', '-').upper()
+
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+
+                results.append(TestResult(
+                    f"xml_input.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="xml_input",
+                    subcategory="requirements"
+                ))
+            except unittest.SkipTest as e:
+                results.append(TestResult(
+                    f"xml_input.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "skipped",
+                    time.time() - start,
+                    str(e),
+                    category="xml_input",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"xml_input.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="xml_input",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("xml_input.import", "XML-INPUT: Import test module", "failed", 0, str(e), category="xml_input", subcategory="setup"))
+
+    return results
+
+
 def run_equivalence_tests() -> List[TestResult]:
     """Run EQUIV-xxx format equivalence tests"""
     results = []
-    
+
     try:
         from tests.python.test_format_equivalence import TestFormatEquivalence
         import io
@@ -2205,80 +2321,88 @@ def run_cocotb_tests() -> List[TestResult]:
 
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, JSON-INPUT, EQUIV + Cocotb\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, XML-INPUT, YAML-INPUT, JSON-INPUT, TOML-INPUT, EQUIV + Cocotb\n")
 
     all_results = []
 
     # Run Python unit tests (core functionality)
-    print(f"  [1/18] Running Python unit tests...", flush=True)
+    print(f"  [1/20] Running Python unit tests...", flush=True)
     all_results.extend(run_python_unit_tests())
 
     # Run address conflict tests (ADDR requirements)
-    print(f"  [2/18] Running address conflict tests...", flush=True)
+    print(f"  [2/20] Running address conflict tests...", flush=True)
     all_results.extend(run_address_conflict_tests())
 
     # Run Parser tests (PARSER requirements)
-    print(f"  [3/18] Running parser tests...", flush=True)
+    print(f"  [3/20] Running parser tests...", flush=True)
     all_results.extend(run_parser_tests())
 
     # Run Generator tests (GEN requirements)
-    print(f"  [4/18] Running generator tests...", flush=True)
+    print(f"  [4/20] Running generator tests...", flush=True)
     all_results.extend(run_generator_tests())
 
     # Run Error handling tests (ERR requirements)
-    print(f"  [5/18] Running error handling tests...", flush=True)
+    print(f"  [5/20] Running error handling tests...", flush=True)
     all_results.extend(run_error_handling_tests())
 
     # Run CLI tests (CLI requirements)
-    print(f"  [6/18] Running CLI tests...", flush=True)
+    print(f"  [6/20] Running CLI tests...", flush=True)
     all_results.extend(run_cli_tests())
 
     # Run CDC tests (CDC requirements)
-    print(f"  [7/18] Running CDC tests...", flush=True)
+    print(f"  [7/20] Running CDC tests...", flush=True)
     all_results.extend(run_cdc_tests())
 
     # Run ADDR tests (ADDR requirements)
-    print(f"  [8/18] Running address management tests...", flush=True)
+    print(f"  [8/20] Running address management tests...", flush=True)
     all_results.extend(run_addr_tests())
 
     # Run STRESS tests (STRESS requirements)
-    print(f"  [9/18] Running stress tests...", flush=True)
+    print(f"  [9/20] Running stress tests...", flush=True)
     all_results.extend(run_stress_tests())
 
     # Run SUB tests (Subregister requirements)
-    print(f"  [10/18] Running subregister tests...", flush=True)
+    print(f"  [10/20] Running subregister tests...", flush=True)
     all_results.extend(run_subregister_tests())
 
     # Run DEF tests (DEFAULT attribute requirements)
-    print(f"  [11/18] Running default attribute tests...", flush=True)
+    print(f"  [11/20] Running default attribute tests...", flush=True)
     all_results.extend(run_default_tests())
 
     # Run VAL tests (Validation & Diagnostics requirements)
-    print(f"  [12/18] Running validation tests...", flush=True)
+    print(f"  [12/20] Running validation tests...", flush=True)
     all_results.extend(run_validation_tests())
 
+    # Run XML-INPUT tests
+    print(f"  [13/20] Running XML input parser tests...", flush=True)
+    all_results.extend(run_xml_input_tests())
+
     # Run YAML-INPUT tests
-    print(f"  [13/18] Running YAML input parser tests...", flush=True)
+    print(f"  [14/20] Running YAML input parser tests...", flush=True)
     all_results.extend(run_yaml_input_tests())
 
     # Run JSON-INPUT tests
-    print(f"  [14/18] Running JSON input parser tests...", flush=True)
+    print(f"  [15/20] Running JSON input parser tests...", flush=True)
     all_results.extend(run_json_input_tests())
 
+    # Run TOML-INPUT tests
+    print(f"  [16/20] Running TOML input parser tests...", flush=True)
+    all_results.extend(run_toml_input_tests())
+
     # Run EQUIV tests (format equivalence)
-    print(f"  [15/18] Running format equivalence tests...", flush=True)
+    print(f"  [17/20] Running format equivalence tests...", flush=True)
     all_results.extend(run_equivalence_tests())
 
     # Run VHDL tests (AXION, AXI-LITE requirements)
-    print(f"  [16/18] Running VHDL simulation tests...", flush=True)
+    print(f"  [18/20] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
 
     # Run C tests
-    print(f"  [17/18] Running C header tests...", flush=True)
+    print(f"  [19/20] Running C header tests...", flush=True)
     all_results.extend(run_c_tests())
 
     # Run Cocotb tests (comprehensive VHDL verification)
-    print(f"  [18/18] Running Cocotb VHDL tests...", flush=True)
+    print(f"  [20/20] Running Cocotb VHDL tests...", flush=True)
     all_results.extend(run_cocotb_tests())
     
     # Save and generate reports
