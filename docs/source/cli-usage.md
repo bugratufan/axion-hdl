@@ -20,6 +20,9 @@ axion-hdl -s <source> -o <output> [options]
 # Generate all outputs from a YAML file
 axion-hdl -s registers.yaml -o ./output --all
 
+# Generate from TOML file
+axion-hdl -s registers.toml -o ./output --all
+
 # Generate from VHDL with annotations
 axion-hdl -s ./src/my_module.vhd -o ./generated --all
 
@@ -42,17 +45,18 @@ axion-hdl -s ./src --gui
 **Examples:**
 
 ```bash
-# Single file
+# Single file (YAML, JSON, XML, or TOML)
 axion-hdl -s controller.yaml -o ./output --all
+axion-hdl -s controller.toml -o ./output --all
 
 # Multiple files
-axion-hdl -s cpu_regs.yaml -s dma_regs.xml -o ./output --all
+axion-hdl -s cpu_regs.yaml -s dma_regs.xml -s spi_regs.toml -o ./output --all
 
 # Entire directory (recursive scan)
 axion-hdl -s ./rtl -o ./generated --all
 
 # Mixed files and directories
-axion-hdl -s ./rtl -s extra_regs.json -o ./output --all
+axion-hdl -s ./rtl -s extra_regs.toml -o ./output --all
 ```
 
 ### Output Options
