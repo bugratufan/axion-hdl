@@ -707,6 +707,119 @@ end entity gpio_controller_axion_reg;
 
 ---
 
+## TOML Example: I2C Master
+
+**Input File (`i2c_master.toml`):**
+
+```toml
+module = "i2c_master"
+base_addr = "0x2000"
+
+[config]
+cdc_en = true
+cdc_stage = 3
+
+[[registers]]
+name = "control"
+addr = "0x00"
+access = "RW"
+width = 32
+w_strobe = true
+description = "I2C control: bit0=start, bit1=stop, bit2=ack/nack"
+
+[[registers]]
+name = "status"
+addr = "0x04"
+access = "RO"
+width = 32
+r_strobe = true
+description = "I2C status: bit0=busy, bit1=ack_received, bit2=error"
+
+[[registers]]
+name = "clock_div"
+addr = "0x08"
+access = "RW"
+width = 32
+default = "0x00000064"
+description = "Clock divider (I2C_CLK = SYS_CLK / (4 * clock_div))"
+
+[[registers]]
+name = "tx_data"
+addr = "0x0C"
+access = "WO"
+width = 32
+description = "Transmit data buffer"
+
+[[registers]]
+name = "rx_data"
+addr = "0x10"
+access = "RO"
+width = 32
+description = "Receive data buffer"
+
+[[registers]]
+name = "slave_addr"
+addr = "0x14"
+access = "RW"
+width = 32
+description = "I2C slave device address (7-bit or 10-bit)"
+```
+
+**Command:**
+
+```bash
+axion-hdl -s i2c_master.toml -o output --all
+```
+
+**Terminal Output:**
+
+```
+TOML source file added: i2c_master.toml
+
+============================================================
+Starting analysis of TOML files...
+============================================================
+Found 1 modules from TOML files.
+
+Analysis complete. Found 1 total modules.
+
+================================================================================
+Module: i2c_master
+File: i2c_master.toml
+CDC: Enabled (Stages: 3)
+Base Address: 0x2000
+================================================================================
+
+Signal Name               Type       Abs.Addr   Offset     Access   Strobes
+------------------------- ---------- ---------- ---------- -------- ---------------
+control                   [31:0]     0x2000     0x00       RW       WR
+status                    [31:0]     0x2004     0x04       RO       RD
+clock_div                 [31:0]     0x2008     0x08       RW       None
+tx_data                   [31:0]     0x200C     0x0C       WO       None
+rx_data                   [31:0]     0x2010     0x10       RO       None
+slave_addr                [31:0]     0x2014     0x14       RW       None
+
+Total Registers: 6
+
+================================================================================
+
+============================================================
+All files generated successfully!
+Output directory: output
+============================================================
+```
+
+**Key Features Demonstrated:**
+
+- TOML's clean, readable syntax
+- CDC synchronizers with 3 stages
+- Register strobes for control/status
+- Default values (clock_div = 0x64)
+- Mixed access modes (RO, WO, RW)
+- Comprehensive descriptions
+
+---
+
 ## Generated Output Files Summary
 
 Each example generates the following files:
