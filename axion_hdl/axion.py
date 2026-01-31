@@ -919,22 +919,49 @@ class AxionHDL:
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")
             return False
-            
+
         print(f"\n{'='*60}")
         print("Generating JSON register map...")
         print(f"{'='*60}")
-        
+
         # Create output directory if it doesn't exist
         os.makedirs(self.output_dir, exist_ok=True)
-        
+
         # Generate JSON files
         json_gen = JSONGenerator(self.output_dir)
         for module in self.analyzed_modules:
             output_path = json_gen.generate_json(module)
             if output_path:
                 print(f"  Generated: {os.path.basename(output_path)}")
-        
+
         print(f"\nJSON files generated in: {self.output_dir}")
+        return True
+
+    def generate_toml(self):
+        """
+        Generate TOML register map description.
+        Useful for Python projects and clean, readable configuration.
+        """
+        if not self.is_analyzed:
+            print("Error: Analysis not performed. Call analyze() first.")
+            return False
+
+        print(f"\n{'='*60}")
+        print("Generating TOML register map...")
+        print(f"{'='*60}")
+
+        # Create output directory if it doesn't exist
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        # Generate TOML files
+        from .doc_generators import TOMLGenerator
+        toml_gen = TOMLGenerator(self.output_dir)
+        for module in self.analyzed_modules:
+            output_path = toml_gen.generate_toml(module)
+            if output_path:
+                print(f"  Generated: {os.path.basename(output_path)}")
+
+        print(f"\nTOML files generated in: {self.output_dir}")
         return True
 
     def check_address_overlaps(self) -> List[str]:

@@ -973,9 +973,17 @@ class TestGUIGenerationComplete:
         """GUI-GEN-004: JSON checkbox toggles generation"""
         gui_page.goto(f"{gui_server.url}/generate")
         gui_page.wait_for_load_state("networkidle")
-        
+
         json_checkbox = gui_page.locator("#fmtJson")
         assert json_checkbox.is_visible(), "JSON checkbox not visible"
+
+    def test_gen_004_toml_toggle(self, gui_page, gui_server):
+        """GUI-GEN-004-TOML: TOML checkbox toggles generation"""
+        gui_page.goto(f"{gui_server.url}/generate")
+        gui_page.wait_for_load_state("networkidle")
+
+        toml_checkbox = gui_page.locator("#fmtToml")
+        assert toml_checkbox.is_visible(), "TOML checkbox not visible"
 
     def test_gen_005_c_header_toggle(self, gui_page, gui_server):
         """GUI-GEN-005: C headers checkbox toggles header generation"""

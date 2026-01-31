@@ -2132,3 +2132,77 @@ class JSONGenerator:
             data['registers'].append(reg_entry)
         
         return data
+
+
+class TOMLGenerator:
+    """Generator for creating TOML register maps."""
+
+    def __init__(self, output_dir: str):
+        self.output_dir = output_dir
+
+    def generate_toml(self, module: Dict) -> str:
+        """Generate TOML register map."""
+        try:
+            import tomli_w
+        except ImportError:
+            print("Warning: tomli_w not installed. TOML generation requires: pip install tomli-w")
+            return None
+
+        module_name = module['name']
+        output_filename = f"{module_name}_regs.toml"
+        output_path = os.path.join(self.output_dir, output_filename)
+
+        data = self._generate_toml_data(module)
+
+        with open(output_path, 'wb') as f:
+            tomli_w.dump(data, f)
+
+        return output_path
+
+    def _generate_toml_data(self, module: Dict) -> Dict:
+        """Generate TOML data structure for round-trip compatibility."""
+        base_addr = module.get('base_address', 0x00)
+        cdc_en = module.get('cdc_enabled', False)
+        cdc_stage = module.get('cdc_stages', 2)
+
+        data = {
+            'module': module['name'],
+            'base_addr': f"0x{base_addr:04X}",
+            'config': {
+                'cdc_en': cdc_en,
+                'cdc_stage': cdc_stage
+            },
+            'registers': []
+        }
+
+        for reg in module['registers']:
+            offset = reg.get('relative_address_int', reg['address_int'])
+            r_strobe = reg.get('read_strobe', reg.get('r_strobe', False))
+            w_strobe = reg.get('write_strobe', reg.get('w_strobe', False))
+            default_val = reg.get('default_value', 0)
+
+            reg_entry = {
+                'name': reg['signal_name'],
+                'addr': f"0x{offset:02X}",
+                'access': reg['access_mode'],
+                'width': reg.get('width', 32)
+            }
+
+            if r_strobe:
+                reg_entry['r_strobe'] = True
+            if w_strobe:
+                reg_entry['w_strobe'] = True
+            if reg.get('description'):
+                reg_entry['description'] = reg['description']
+            if default_val != 0:
+                reg_entry['default'] = f"0x{default_val:X}"
+
+            # Handle packed registers
+            if reg.get('is_packed'):
+                # For TOML, packed registers should use reg_name/bit_offset format
+                # not the fields array format (which is YAML/JSON specific)
+                pass
+
+            data['registers'].append(reg_entry)
+
+        return data

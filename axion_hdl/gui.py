@@ -520,6 +520,7 @@ class AxionGUI:
                     if formats.get('xml'): res &= self.axion.generate_xml()
                     if formats.get('yaml'): res &= self.axion.generate_yaml()
                     if formats.get('json'): res &= self.axion.generate_json()
+                    if formats.get('toml'): res &= self.axion.generate_toml()
                     if formats.get('header'): res &= self.axion.generate_c_header()
                     if formats.get('doc_md'): res &= self.axion.generate_documentation(format="md")
                     if formats.get('doc_html'): res &= self.axion.generate_documentation(format="html")
