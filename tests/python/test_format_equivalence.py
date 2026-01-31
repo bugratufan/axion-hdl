@@ -20,6 +20,7 @@ sys.path.insert(0, str(project_root))
 from axion_hdl.xml_input_parser import XMLInputParser
 from axion_hdl.yaml_input_parser import YAMLInputParser
 from axion_hdl.json_input_parser import JSONInputParser
+from axion_hdl.toml_input_parser import TOMLInputParser
 from axion_hdl import AxionHDL
 
 
@@ -33,6 +34,7 @@ class TestFormatEquivalence(unittest.TestCase):
         cls.xml_file = cls.project_root / "tests" / "xml" / "sensor_controller.xml"
         cls.yaml_file = cls.project_root / "tests" / "yaml" / "sensor_controller.yaml"
         cls.json_file = cls.project_root / "tests" / "json" / "sensor_controller.json"
+        cls.toml_file = cls.project_root / "tests" / "toml" / "sensor_controller.toml"
         cls.temp_dir = tempfile.mkdtemp()
         
     @classmethod
@@ -144,50 +146,85 @@ class TestFormatEquivalence(unittest.TestCase):
     
     # EQUIV-006: Cross-format VHDL output
     def test_equiv_006_cross_format_vhdl_output(self):
-        """EQUIV-006: XML/YAML/JSON inputs produce identical VHDL outputs"""
+        """EQUIV-006: XML/YAML/JSON/TOML inputs produce identical VHDL outputs"""
         import re
         from axion_hdl.generator import VHDLGenerator
-        
+
         xml_parser = XMLInputParser()
         yaml_parser = YAMLInputParser()
         json_parser = JSONInputParser()
-        
+        toml_parser = TOMLInputParser()
+
         xml_module = xml_parser.parse_file(str(self.xml_file))
         yaml_module = yaml_parser.parse_file(str(self.yaml_file))
         json_module = json_parser.parse_file(str(self.json_file))
-        
+        toml_module = toml_parser.parse_file(str(self.toml_file))
+
         # Generate VHDL for each
         xml_dir = os.path.join(self.temp_dir, "xml_out")
         yaml_dir = os.path.join(self.temp_dir, "yaml_out")
         json_dir = os.path.join(self.temp_dir, "json_out")
+        toml_dir = os.path.join(self.temp_dir, "toml_out")
         os.makedirs(xml_dir, exist_ok=True)
         os.makedirs(yaml_dir, exist_ok=True)
         os.makedirs(json_dir, exist_ok=True)
-        
+        os.makedirs(toml_dir, exist_ok=True)
+
         xml_gen = VHDLGenerator(xml_dir)
         yaml_gen = VHDLGenerator(yaml_dir)
         json_gen = VHDLGenerator(json_dir)
-        
+        toml_gen = VHDLGenerator(toml_dir)
+
         xml_vhdl = xml_gen.generate_module(xml_module)
         yaml_vhdl = yaml_gen.generate_module(yaml_module)
         json_vhdl = json_gen.generate_module(json_module)
-        
+        toml_vhdl = toml_gen.generate_module(toml_module)
+
         # Compare VHDL outputs (filter out source file path comments which differ)
         def normalize_vhdl(content):
-            # Remove source file path comment lines  
+            # Remove source file path comment lines
             content = re.sub(r'--\s*Source:.*\n', '', content)
-            content = re.sub(r'sensor_controller\.(xml|yaml|json)', 'sensor_controller.src', content)
+            content = re.sub(r'sensor_controller\.(xml|yaml|json|toml)', 'sensor_controller.src', content)
             return content
-        
+
         with open(xml_vhdl, 'r') as f:
             xml_content = normalize_vhdl(f.read())
         with open(yaml_vhdl, 'r') as f:
             yaml_content = normalize_vhdl(f.read())
         with open(json_vhdl, 'r') as f:
             json_content = normalize_vhdl(f.read())
-        
+        with open(toml_vhdl, 'r') as f:
+            toml_content = normalize_vhdl(f.read())
+
         self.assertEqual(xml_content, yaml_content, "XML and YAML VHDL outputs differ")
         self.assertEqual(xml_content, json_content, "XML and JSON VHDL outputs differ")
+        self.assertEqual(xml_content, toml_content, "XML and TOML VHDL outputs differ")
+
+    # EQUIV-007: TOML→YAML equivalence
+    def test_equiv_007_toml_yaml_equivalence(self):
+        """EQUIV-007: TOML and YAML with same content produce identical modules"""
+        toml_parser = TOMLInputParser()
+        yaml_parser = YAMLInputParser()
+
+        toml_module = toml_parser.parse_file(str(self.toml_file))
+        yaml_module = yaml_parser.parse_file(str(self.yaml_file))
+
+        self.assertIsNotNone(toml_module)
+        self.assertIsNotNone(yaml_module)
+        self._compare_modules(toml_module, yaml_module, "(TOML vs YAML)")
+
+    # EQUIV-008: TOML→JSON equivalence
+    def test_equiv_008_toml_json_equivalence(self):
+        """EQUIV-008: TOML and JSON with same content produce identical modules"""
+        toml_parser = TOMLInputParser()
+        json_parser = JSONInputParser()
+
+        toml_module = toml_parser.parse_file(str(self.toml_file))
+        json_module = json_parser.parse_file(str(self.json_file))
+
+        self.assertIsNotNone(toml_module)
+        self.assertIsNotNone(json_module)
+        self._compare_modules(toml_module, json_module, "(TOML vs JSON)")
 
 
 def run_equivalence_tests():
