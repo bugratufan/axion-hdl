@@ -39,12 +39,15 @@ classifiers = [
 requires-python = ">=3.7"
 dependencies = [
     "PyYAML>=6.0",
+    "toml>=0.10.2; python_version < '3.11'",
+    "tomli-w>=1.0.0",
 ]
 
 [project.optional-dependencies]
 gui = [
     "flask>=2.0",
     "watchdog>=2.0",
+    "tomli-w>=1.0.0",
 ]
 dev = [
     "pytest>=7.0",
