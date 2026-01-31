@@ -74,7 +74,7 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         dest='sources',
         metavar='PATH',
         default=[],
-        help='Source file (.vhd, .vhdl, .xml, .yaml, .yml, .json) or directory. '
+        help='Source file (.vhd, .vhdl, .xml, .yaml, .yml, .json, .toml) or directory. '
              'File type is auto-detected by extension. '
              'Can be specified multiple times.'
     )
@@ -228,6 +228,8 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
                 config_sources.extend(config.get('yaml_src_files', []))
                 config_sources.extend(config.get('json_src_dirs', []))
                 config_sources.extend(config.get('json_src_files', []))
+                config_sources.extend(config.get('toml_src_dirs', []))
+                config_sources.extend(config.get('toml_src_files', []))
                 
                 # Append to args.sources (CLI flags take precedence? No, we merge)
                 # Actually, adding them to list effectively merges them.
