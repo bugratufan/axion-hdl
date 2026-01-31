@@ -63,21 +63,34 @@ registers:
 
 **TOML** — clean, readable syntax:
 ```toml
-module = "my_module"
-base_addr = "0x1000"
+module = "spi_master"
+base_addr = "0x0000"
 
 [config]
 cdc_en = true
-
-[[registers]]
-name = "status"
-access = "RO"
+cdc_stage = 2
 
 [[registers]]
 name = "control"
+addr = "0x00"
 access = "RW"
 w_strobe = true
+description = "SPI control register"
+
+[[registers]]
+name = "status"
+addr = "0x04"
+access = "RO"
+r_strobe = true
+description = "SPI status register"
 ```
+
+**Output** — one command:
+```bash
+axion-hdl -s spi_master.toml -o output --all
+```
+
+Generates: VHDL module (21KB), C header (3.8KB), HTML docs, XML/YAML/JSON exports
 
 ## Features
 

@@ -707,17 +707,20 @@ end entity gpio_controller_axion_reg;
 
 ---
 
-## TOML Example: I2C Master
+## TOML Example: SPI Master
 
-**Input File (`i2c_master.toml`):**
+**Input File (`spi_master.toml`):**
 
 ```toml
-module = "i2c_master"
-base_addr = "0x2000"
+# SPI Master Controller Register Definitions
+# TOML format example for Axion HDL
+
+module = "spi_master"
+base_addr = "0x0000"
 
 [config]
 cdc_en = true
-cdc_stage = 3
+cdc_stage = 2
 
 [[registers]]
 name = "control"
@@ -725,7 +728,7 @@ addr = "0x00"
 access = "RW"
 width = 32
 w_strobe = true
-description = "I2C control: bit0=start, bit1=stop, bit2=ack/nack"
+description = "SPI control register"
 
 [[registers]]
 name = "status"
@@ -733,48 +736,52 @@ addr = "0x04"
 access = "RO"
 width = 32
 r_strobe = true
-description = "I2C status: bit0=busy, bit1=ack_received, bit2=error"
-
-[[registers]]
-name = "clock_div"
-addr = "0x08"
-access = "RW"
-width = 32
-default = "0x00000064"
-description = "Clock divider (I2C_CLK = SYS_CLK / (4 * clock_div))"
+description = "SPI status register"
 
 [[registers]]
 name = "tx_data"
-addr = "0x0C"
+addr = "0x08"
 access = "WO"
 width = 32
-description = "Transmit data buffer"
+description = "Transmit data register"
 
 [[registers]]
 name = "rx_data"
-addr = "0x10"
+addr = "0x0C"
 access = "RO"
 width = 32
-description = "Receive data buffer"
+description = "Receive data register"
 
 [[registers]]
-name = "slave_addr"
+name = "clock_div"
+addr = "0x10"
+access = "RW"
+width = 32
+default = "0x00000008"
+description = "Clock divider (SPI clock = system clock / (2 * clock_div))"
+
+[[registers]]
+name = "chip_select"
 addr = "0x14"
 access = "RW"
 width = 32
-description = "I2C slave device address (7-bit or 10-bit)"
+description = "Chip select control (one-hot encoding)"
 ```
 
 **Command:**
 
 ```bash
-axion-hdl -s i2c_master.toml -o output --all
+axion-hdl -s spi_master.toml -o output --all
 ```
 
 **Terminal Output:**
 
 ```
-TOML source file added: i2c_master.toml
+Axion-HDL v1.0.1
+Automated AXI4-Lite Register Interface Generator
+Developed by bugratufan
+--------------------------------------------------
+TOML source file added: spi_master.toml
 
 ============================================================
 Starting analysis of TOML files...
@@ -783,25 +790,71 @@ Found 1 modules from TOML files.
 
 Analysis complete. Found 1 total modules.
 
-================================================================================
-Module: i2c_master
-File: i2c_master.toml
-CDC: Enabled (Stages: 3)
-Base Address: 0x2000
-================================================================================
+==============================================================================================================
+Module: spi_master
+File: spi_master.toml
+CDC: Enabled (Stages: 2)
+Base Address: 0x0000
+==============================================================================================================
 
-Signal Name               Type       Abs.Addr   Offset     Access   Strobes
-------------------------- ---------- ---------- ---------- -------- ---------------
-control                   [31:0]     0x2000     0x00       RW       WR
-status                    [31:0]     0x2004     0x04       RO       RD
-clock_div                 [31:0]     0x2008     0x08       RW       None
-tx_data                   [31:0]     0x200C     0x0C       WO       None
-rx_data                   [31:0]     0x2010     0x10       RO       None
-slave_addr                [31:0]     0x2014     0x14       RW       None
+Signal Name               Type     Abs.Addr   Offset     Access   Strobes         Ports Generated
+------------------------- -------- ---------- ---------- -------- --------------- ----------------------------------------
+control                   std_logic_vector(31 downto 0) 0x00       0x00       RW       WR              control, control_wr_strobe
+status                    std_logic_vector(31 downto 0) 0x04       0x04       RO       RD              status, status_rd_strobe
+tx_data                   std_logic_vector(31 downto 0) 0x08       0x08       WO       None            tx_data
+rx_data                   std_logic_vector(31 downto 0) 0x0C       0x0C       RO       None            rx_data
+clock_div                 std_logic_vector(31 downto 0) 0x10       0x10       RW       None            clock_div
+chip_select               std_logic_vector(31 downto 0) 0x14       0x14       RW       None            chip_select
 
 Total Registers: 6
 
-================================================================================
+==============================================================================================================
+Summary: 1 module(s) analyzed
+Total Registers: 6
+==============================================================================================================
+
+
+============================================================
+Generating VHDL register modules...
+============================================================
+  Generated: spi_master_axion_reg.vhd
+
+VHDL files generated in: output
+
+============================================================
+Generating documentation (HTML)...
+============================================================
+  Generated: index.html
+
+Documentation generated in: output
+
+============================================================
+Generating XML register map...
+============================================================
+  Generated: spi_master_regs.xml
+
+XML files generated in: output
+
+============================================================
+Generating YAML register map...
+============================================================
+  Generated: spi_master_regs.yaml
+
+YAML files generated in: output
+
+============================================================
+Generating JSON register map...
+============================================================
+  Generated: spi_master_regs.json
+
+JSON files generated in: output
+
+============================================================
+Generating C header files...
+============================================================
+  Generated: spi_master_regs.h
+
+C header files generated in: output
 
 ============================================================
 All files generated successfully!
@@ -809,14 +862,95 @@ Output directory: output
 ============================================================
 ```
 
+**Generated Files:**
+
+```bash
+$ ls -lh output/
+total 88K
+drwxrwxr-x 2 bugra bugra   80 Jan 31 20:57 html
+-rw-rw-r-- 1 bugra bugra  19K Jan 31 20:57 index.html
+-rw-rw-r-- 1 bugra bugra  24K Jan 31 20:57 register_map.html
+-rw-rw-r-- 1 bugra bugra  21K Jan 31 20:57 spi_master_axion_reg.vhd
+-rw-rw-r-- 1 bugra bugra 3.8K Jan 31 20:57 spi_master_regs.h
+-rw-rw-r-- 1 bugra bugra 1.2K Jan 31 20:57 spi_master_regs.json
+-rw-rw-r-- 1 bugra bugra 4.8K Jan 31 20:57 spi_master_regs.xml
+-rw-rw-r-- 1 bugra bugra  754 Jan 31 20:57 spi_master_regs.yaml
+```
+
+**Generated C Header Excerpt (`spi_master_regs.h`):**
+
+```c
+#ifndef SPI_MASTER_REGS_H
+#define SPI_MASTER_REGS_H
+
+#include <stdint.h>
+
+/* Module Base Address */
+#define SPI_MASTER_BASE_ADDR    0x00000000
+
+/* Register Address Offsets (relative to base) */
+#define SPI_MASTER_CONTROL_OFFSET    0x00  /* SPI control register */
+#define SPI_MASTER_STATUS_OFFSET     0x04  /* SPI status register */
+#define SPI_MASTER_TX_DATA_OFFSET    0x08  /* Transmit data register */
+#define SPI_MASTER_RX_DATA_OFFSET    0x0C  /* Receive data register */
+#define SPI_MASTER_CLOCK_DIV_OFFSET  0x10  /* Clock divider */
+#define SPI_MASTER_CHIP_SELECT_OFFSET 0x14  /* Chip select control */
+
+/* Register Structure */
+typedef struct {
+    volatile uint32_t control;      /* 0x00 - RW - SPI control register */
+    volatile uint32_t status;       /* 0x04 - RO - SPI status register */
+    volatile uint32_t tx_data;      /* 0x08 - WO - Transmit data register */
+    volatile uint32_t rx_data;      /* 0x0C - RO - Receive data register */
+    volatile uint32_t clock_div;    /* 0x10 - RW - Clock divider */
+    volatile uint32_t chip_select;  /* 0x14 - RW - Chip select control */
+} spi_master_regs_t;
+
+/* Access register block as structure */
+#define SPI_MASTER_REGS    ((volatile spi_master_regs_t*)(SPI_MASTER_BASE_ADDR))
+
+#endif /* SPI_MASTER_REGS_H */
+```
+
+**Generated VHDL Entity:**
+
+```vhdl
+entity spi_master_axion_reg is
+    generic (
+        BASE_ADDR : std_logic_vector(31 downto 0) := x"00000000"
+    );
+    port (
+        -- AXI4-Lite Interface
+        axi_aclk    : in  std_logic;
+        axi_aresetn : in  std_logic;
+
+        -- AXI Write/Read Channels...
+
+        -- Module Clock (for CDC)
+        module_clk  : in  std_logic;
+
+        -- Register Signals
+        control : out std_logic_vector(31 downto 0);
+        control_wr_strobe : out std_logic;
+        status : in  std_logic_vector(31 downto 0);
+        status_rd_strobe : out std_logic;
+        tx_data : out std_logic_vector(31 downto 0);
+        rx_data : in  std_logic_vector(31 downto 0);
+        clock_div : out std_logic_vector(31 downto 0);
+        chip_select : out std_logic_vector(31 downto 0)
+    );
+end entity spi_master_axion_reg;
+```
+
 **Key Features Demonstrated:**
 
-- TOML's clean, readable syntax
-- CDC synchronizers with 3 stages
-- Register strobes for control/status
-- Default values (clock_div = 0x64)
-- Mixed access modes (RO, WO, RW)
-- Comprehensive descriptions
+- **TOML's clean syntax** - No braces, minimal punctuation
+- **CDC synchronizers** with 2 stages for clock domain crossing
+- **Register strobes** for control/status (control_wr_strobe, status_rd_strobe)
+- **Default values** (clock_div = 0x00000008)
+- **Mixed access modes** (RO, WO, RW)
+- **Comprehensive output** - VHDL (21KB), C header (3.8KB), docs, XML/YAML/JSON
+- **Production-ready** code with full AXI4-Lite compliance
 
 ---
 
