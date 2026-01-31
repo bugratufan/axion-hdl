@@ -24,6 +24,9 @@ The TOML format follows the same structure as YAML/JSON:
 import os
 import sys
 
+# Initialize global flag for toml package detection
+_USE_TOML_PACKAGE = False
+
 try:
     # Python 3.11+ has tomllib in standard library
     import tomllib
@@ -35,7 +38,6 @@ except ImportError:
         _USE_TOML_PACKAGE = True
     except ImportError:
         tomllib = None
-        _USE_TOML_PACKAGE = False
 
 from axion_hdl.yaml_input_parser import YAMLInputParser
 
