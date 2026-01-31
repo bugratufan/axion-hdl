@@ -1,6 +1,6 @@
 # Axion-HDL
 
-**AXI4-Lite register interfaces from VHDL, YAML, XML, or JSON. One command.**
+**AXI4-Lite register interfaces from VHDL, YAML, XML, JSON, or TOML. One command.**
 
 [![PyPI](https://img.shields.io/pypi/v/axion-hdl.svg)](https://pypi.org/project/axion-hdl/)
 [![Tests](https://github.com/bugratufan/axion-hdl/actions/workflows/tests.yml/badge.svg)](https://github.com/bugratufan/axion-hdl/actions/workflows/tests.yml)
@@ -31,8 +31,9 @@ pip install -e ".[dev]"  # Includes pytest, cocotb, etc.
 # From VHDL with @axion annotations
 axion-hdl -s my_module.vhd -o output/
 
-# From YAML/XML/JSON
+# From YAML/XML/JSON/TOML
 axion-hdl -s registers.yaml -o output/
+axion-hdl -s registers.toml -o output/
 ```
 
 **Output:** VHDL module, C header, documentation, XML/YAML/JSON exports.
@@ -60,13 +61,31 @@ registers:
     w_strobe: true
 ```
 
+**TOML** — clean, readable syntax:
+```toml
+module = "my_module"
+base_addr = "0x1000"
+
+[config]
+cdc_en = true
+
+[[registers]]
+name = "status"
+access = "RO"
+
+[[registers]]
+name = "control"
+access = "RW"
+w_strobe = true
+```
+
 ## Features
 
-- **Multi-format input** — VHDL annotations, YAML, XML, JSON
+- **Multi-format input** — VHDL annotations, YAML, XML, JSON, TOML
 - **CDC support** — built-in clock domain crossing synchronizers
 - **Subregisters** — pack multiple fields into one address
 - **Wide signals** — auto-split 64-bit+ signals across addresses
-- **Tested** — 230+ tests, GHDL simulation verified
+- **Tested** — 307+ tests, GHDL simulation verified
 
 ## Documentation
 
@@ -84,7 +103,7 @@ make test  # Auto-installs dependencies and runs all tests
 The `make test` command automatically:
 - Creates a virtual environment if needed
 - Installs all test dependencies
-- Runs 200+ tests (Python + VHDL + cocotb)
+- Runs 307+ tests (Python + VHDL + cocotb)
 
 **Manual setup (optional):**
 ```bash
