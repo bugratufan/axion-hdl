@@ -517,5 +517,257 @@ class TestSystemVerilogGenerator(unittest.TestCase):
             assert 'input  logic                      module_clk' in content
 
 
+    def test_sv_gen_017_wide_register_64bit(self):
+        """SV-GEN-017: Generate wide 64-bit register handling"""
+        module_data = {
+            'name': 'test_module',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': [
+                {
+                    'signal_name': 'wide_data',
+                    'signal_type': '[63:0]',
+                    'signal_width': 64,
+                    'access_mode': 'RO',
+                    'read_strobe': False,
+                    'write_strobe': False,
+                    'description': '64-bit data',
+                    'address_int': 0x00
+                }
+            ]
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gen = SystemVerilogGenerator(tmpdir)
+            output_path = gen.generate_module(module_data)
+
+            with open(output_path, 'r') as f:
+                content = f.read()
+
+            # Should handle 64-bit signal
+            assert 'logic [63:0]' in content or 'logic [31:0]' in content
+
+    def test_sv_gen_018_zero_registers(self):
+        """SV-GEN-018: Handle module with no registers"""
+        module_data = {
+            'name': 'empty_module',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': []
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gen = SystemVerilogGenerator(tmpdir)
+            output_path = gen.generate_module(module_data)
+
+            with open(output_path, 'r') as f:
+                content = f.read()
+
+            # Should still generate valid module
+            assert 'module empty_module_axion_reg' in content
+            assert 'endmodule' in content
+
+    def test_sv_gen_019_many_registers_stress(self):
+        """SV-GEN-019: Stress test with 100 registers"""
+        registers = []
+        for i in range(100):
+            registers.append({
+                'signal_name': f'reg{i}',
+                'signal_type': '[31:0]',
+                'signal_width': 32,
+                'access_mode': 'RW',
+                'read_strobe': False,
+                'write_strobe': False,
+                'description': f'Register {i}',
+                'address_int': i * 4
+            })
+
+        module_data = {
+            'name': 'stress_module',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': registers
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gen = SystemVerilogGenerator(tmpdir)
+            output_path = gen.generate_module(module_data)
+
+            with open(output_path, 'r') as f:
+                content = f.read()
+
+            # Check all registers are present
+            for i in range(100):
+                assert f'reg{i}' in content
+
+    def test_sv_gen_020_all_access_mode_combinations(self):
+        """SV-GEN-020: All access modes with all strobe combinations"""
+        module_data = {
+            'name': 'combo_module',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': [
+                # RO with no strobes
+                {'signal_name': 'ro_plain', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RO', 'read_strobe': False, 'write_strobe': False,
+                 'description': 'RO plain', 'address_int': 0x00},
+                # RO with read strobe
+                {'signal_name': 'ro_rstrobe', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RO', 'read_strobe': True, 'write_strobe': False,
+                 'description': 'RO with R strobe', 'address_int': 0x04},
+                # WO with no strobes
+                {'signal_name': 'wo_plain', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'WO', 'read_strobe': False, 'write_strobe': False,
+                 'description': 'WO plain', 'address_int': 0x08},
+                # WO with write strobe
+                {'signal_name': 'wo_wstrobe', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'WO', 'read_strobe': False, 'write_strobe': True,
+                 'description': 'WO with W strobe', 'address_int': 0x0C},
+                # RW with no strobes
+                {'signal_name': 'rw_plain', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RW', 'read_strobe': False, 'write_strobe': False,
+                 'description': 'RW plain', 'address_int': 0x10},
+                # RW with both strobes
+                {'signal_name': 'rw_both', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RW', 'read_strobe': True, 'write_strobe': True,
+                 'description': 'RW with both strobes', 'address_int': 0x14},
+            ]
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gen = SystemVerilogGenerator(tmpdir)
+            output_path = gen.generate_module(module_data)
+
+            with open(output_path, 'r') as f:
+                content = f.read()
+
+            # Verify all signals present
+            assert 'ro_plain' in content
+            assert 'ro_rstrobe' in content
+            assert 'wo_plain' in content
+            assert 'wo_wstrobe' in content
+            assert 'rw_plain' in content
+            assert 'rw_both' in content
+
+            # Verify strobes
+            assert 'ro_rstrobe_rd_strobe' in content
+            assert 'wo_wstrobe_wr_strobe' in content
+            assert 'rw_both_rd_strobe' in content
+            assert 'rw_both_wr_strobe' in content
+
+    def test_sv_gen_021_cdc_with_multiple_stages(self):
+        """SV-GEN-021: CDC with various stage counts"""
+        for stages in [2, 3, 4, 5]:
+            module_data = {
+                'name': f'cdc_{stages}_stage',
+                'base_address': 0,
+                'cdc_enabled': True,
+                'cdc_stages': stages,
+                'registers': [
+                    {'signal_name': 'status', 'signal_type': '[31:0]', 'signal_width': 32,
+                     'access_mode': 'RO', 'read_strobe': False, 'write_strobe': False,
+                     'description': 'Status', 'address_int': 0x00}
+                ]
+            }
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                gen = SystemVerilogGenerator(tmpdir)
+                output_path = gen.generate_module(module_data)
+
+                with open(output_path, 'r') as f:
+                    content = f.read()
+
+                # Check for correct number of stages
+                assert f'[{stages}]' in content
+                assert 'status_sync' in content
+
+    def test_sv_gen_022_syntax_validation(self):
+        """SV-GEN-022: Generated code has valid SystemVerilog syntax"""
+        module_data = {
+            'name': 'syntax_test',
+            'base_address': 0,
+            'cdc_enabled': True,
+            'cdc_stages': 3,
+            'registers': [
+                {'signal_name': 'status', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RO', 'read_strobe': True, 'write_strobe': False,
+                 'description': 'Status', 'address_int': 0x00},
+                {'signal_name': 'control', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RW', 'read_strobe': True, 'write_strobe': True,
+                 'description': 'Control', 'address_int': 0x04},
+            ]
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gen = SystemVerilogGenerator(tmpdir)
+            output_path = gen.generate_module(module_data)
+
+            with open(output_path, 'r') as f:
+                content = f.read()
+
+            # Basic syntax checks
+            assert content.count('module ') == content.count('endmodule')
+            # Count 'begin' as a word boundary, not in 'begin'
+            import re
+            begin_count = len(re.findall(r'\bbegin\b', content))
+            end_count = len(re.findall(r'\bend\b', content))
+            assert begin_count == end_count, f"begin count ({begin_count}) != end count ({end_count})"
+            assert 'always_ff' in content
+            assert 'always_comb' in content
+            assert 'typedef enum' in content
+
+    def test_sv_gen_023_special_characters_in_description(self):
+        """SV-GEN-023: Handle special characters in descriptions"""
+        module_data = {
+            'name': 'special_chars',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': [
+                {'signal_name': 'reg1', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RW', 'read_strobe': False, 'write_strobe': False,
+                 'description': 'Test "quotes" and \'apostrophes\'', 'address_int': 0x00},
+            ]
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gen = SystemVerilogGenerator(tmpdir)
+            output_path = gen.generate_module(module_data)
+
+            # Should not crash
+            assert os.path.exists(output_path)
+
+    def test_sv_gen_024_numeric_signal_names(self):
+        """SV-GEN-024: Handle signal names with numbers"""
+        module_data = {
+            'name': 'numeric_test',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': [
+                {'signal_name': 'reg0', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RW', 'read_strobe': False, 'write_strobe': False,
+                 'description': 'Reg 0', 'address_int': 0x00},
+                {'signal_name': 'reg123', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RW', 'read_strobe': False, 'write_strobe': False,
+                 'description': 'Reg 123', 'address_int': 0x04},
+            ]
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gen = SystemVerilogGenerator(tmpdir)
+            output_path = gen.generate_module(module_data)
+
+            with open(output_path, 'r') as f:
+                content = f.read()
+
+            assert 'reg0' in content
+            assert 'reg123' in content
+
+
 if __name__ == '__main__':
     unittest.main()

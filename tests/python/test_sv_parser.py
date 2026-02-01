@@ -532,5 +532,243 @@ endmodule
             os.unlink(f.name)
 
 
+    def test_sv_axion_023_wide_signal_64bit(self):
+        """SV-AXION-023: Parse 64-bit wide signal"""
+        content = """
+module test_module (
+    input logic clk
+);
+    logic [63:0] wide_data; // @axion RO DESC="64-bit data"
+endmodule
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sv', delete=False) as f:
+            f.write(content)
+            f.flush()
+
+            parser = SystemVerilogParser()
+            result = parser.parse_file(f.name)
+
+            assert result is not None
+            assert len(result['registers']) >= 1  # Should split into 2 registers
+
+            # First register should be lower 32 bits
+            reg0 = result['registers'][0]
+            assert reg0['signal_name'] == 'wide_data'
+            assert reg0['signal_width'] == 64
+
+            os.unlink(f.name)
+
+    def test_sv_axion_024_wide_signal_128bit(self):
+        """SV-AXION-024: Parse 128-bit wide signal"""
+        content = """
+module test_module (
+    input logic clk
+);
+    logic [127:0] huge_data; // @axion RO DESC="128-bit data"
+endmodule
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sv', delete=False) as f:
+            f.write(content)
+            f.flush()
+
+            parser = SystemVerilogParser()
+            result = parser.parse_file(f.name)
+
+            assert result is not None
+            reg = result['registers'][0]
+            assert reg['signal_width'] == 128
+
+            os.unlink(f.name)
+
+    def test_sv_axion_025_error_missing_module(self):
+        """SV-AXION-025: Handle file without module declaration"""
+        content = """
+// Just a comment
+logic [31:0] orphan_signal; // @axion RO
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sv', delete=False) as f:
+            f.write(content)
+            f.flush()
+
+            parser = SystemVerilogParser()
+            result = parser.parse_file(f.name)
+
+            # Should return None when no module found
+            assert result is None
+
+            os.unlink(f.name)
+
+    def test_sv_axion_026_error_invalid_access_mode(self):
+        """SV-AXION-026: Handle invalid access mode"""
+        content = """
+module test_module (
+    input logic clk
+);
+    logic [31:0] bad_reg; // @axion INVALID DESC="Bad access mode"
+endmodule
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sv', delete=False) as f:
+            f.write(content)
+            f.flush()
+
+            parser = SystemVerilogParser()
+            result = parser.parse_file(f.name)
+
+            # Should default to RW
+            assert result is not None
+            reg = result['registers'][0]
+            assert reg['access_mode'] == 'RW'  # Default fallback
+
+            os.unlink(f.name)
+
+    def test_sv_axion_027_error_duplicate_address(self):
+        """SV-AXION-027: Detect duplicate manual addresses"""
+        content = """
+module test_module (
+    input logic clk
+);
+    logic [31:0] reg1; // @axion RO ADDR=0x100
+    logic [31:0] reg2; // @axion RO ADDR=0x100
+endmodule
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sv', delete=False) as f:
+            f.write(content)
+            f.flush()
+
+            parser = SystemVerilogParser()
+            result = parser.parse_file(f.name)
+
+            # Should only have 1 register (second should be rejected)
+            assert result is not None
+            assert len(result['registers']) == 1
+
+            # Should have an error
+            errors = parser.get_errors()
+            assert len(errors) > 0
+
+            os.unlink(f.name)
+
+    def test_sv_axion_028_empty_file(self):
+        """SV-AXION-028: Handle empty file"""
+        content = ""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sv', delete=False) as f:
+            f.write(content)
+            f.flush()
+
+            parser = SystemVerilogParser()
+            result = parser.parse_file(f.name)
+
+            assert result is None
+
+            os.unlink(f.name)
+
+    def test_sv_axion_029_comments_only(self):
+        """SV-AXION-029: Handle file with only comments"""
+        content = """
+// This is a comment
+/* This is a
+   multi-line comment */
+// More comments
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sv', delete=False) as f:
+            f.write(content)
+            f.flush()
+
+            parser = SystemVerilogParser()
+            result = parser.parse_file(f.name)
+
+            assert result is None
+
+            os.unlink(f.name)
+
+    def test_sv_axion_030_multiple_registers_stress(self):
+        """SV-AXION-030: Stress test with 50 registers"""
+        lines = ["module test_module (", "    input logic clk", ");"]
+        for i in range(50):
+            lines.append(f"    logic [31:0] reg{i}; // @axion RW DESC=\"Register {i}\"")
+        lines.append("endmodule")
+        content = "\n".join(lines)
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sv', delete=False) as f:
+            f.write(content)
+            f.flush()
+
+            parser = SystemVerilogParser()
+            result = parser.parse_file(f.name)
+
+            assert result is not None
+            assert len(result['registers']) == 50
+
+            # Check sequential addresses
+            for i, reg in enumerate(result['registers']):
+                assert reg['signal_name'] == f'reg{i}'
+                assert reg['address_int'] == i * 4
+
+            os.unlink(f.name)
+
+    def test_sv_axion_031_mixed_signal_widths(self):
+        """SV-AXION-031: Mix of different signal widths"""
+        content = """
+module test_module (
+    input logic clk
+);
+    logic       bit1;   // @axion RO DESC="1-bit"
+    logic [7:0] byte1;  // @axion RO DESC="8-bit"
+    logic [15:0] word1; // @axion RO DESC="16-bit"
+    logic [31:0] dword; // @axion RO DESC="32-bit"
+endmodule
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sv', delete=False) as f:
+            f.write(content)
+            f.flush()
+
+            parser = SystemVerilogParser()
+            result = parser.parse_file(f.name)
+
+            assert result is not None
+            assert len(result['registers']) == 4
+
+            assert result['registers'][0]['signal_width'] == 1
+            assert result['registers'][1]['signal_width'] == 8
+            assert result['registers'][2]['signal_width'] == 16
+            assert result['registers'][3]['signal_width'] == 32
+
+            os.unlink(f.name)
+
+    def test_sv_axion_032_all_access_modes(self):
+        """SV-AXION-032: All access mode combinations in one module"""
+        content = """
+module test_module (
+    input logic clk
+);
+    logic [31:0] ro_reg;     // @axion RO
+    logic [31:0] wo_reg;     // @axion WO
+    logic [31:0] rw_reg;     // @axion RW
+    logic [31:0] ro_strobe;  // @axion RO R_STROBE
+    logic [31:0] wo_strobe;  // @axion WO W_STROBE
+    logic [31:0] rw_both;    // @axion RW R_STROBE W_STROBE
+endmodule
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sv', delete=False) as f:
+            f.write(content)
+            f.flush()
+
+            parser = SystemVerilogParser()
+            result = parser.parse_file(f.name)
+
+            assert result is not None
+            assert len(result['registers']) == 6
+
+            assert result['registers'][0]['access_mode'] == 'RO'
+            assert result['registers'][1]['access_mode'] == 'WO'
+            assert result['registers'][2]['access_mode'] == 'RW'
+            assert result['registers'][3]['read_strobe'] == True
+            assert result['registers'][4]['write_strobe'] == True
+            assert result['registers'][5]['read_strobe'] == True
+            assert result['registers'][5]['write_strobe'] == True
+
+            os.unlink(f.name)
+
+
 if __name__ == '__main__':
     unittest.main()

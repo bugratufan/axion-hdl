@@ -1137,7 +1137,8 @@ def print_results(results: List[TestResult]):
         "yaml_input": "📄 YAML-INPUT",
         "json_input": "📄 JSON-INPUT",
         "toml_input": "📄 TOML-INPUT",
-        "equiv": "🔀 EQUIV"
+        "equiv": "🔀 EQUIV",
+        "systemverilog": "⚡ SYSTEMVERILOG"
     }
     
     total_passed = 0
@@ -1150,7 +1151,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "yaml_input", "toml_input", "xml_input", "json_input", "equiv"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "systemverilog"]:
         if cat not in categories:
             continue
         
@@ -2447,99 +2448,167 @@ def run_systemverilog_generator_tests() -> List[TestResult]:
     return results
 
 
+def run_systemverilog_advanced_tests() -> List[TestResult]:
+    """Run SystemVerilog advanced tests (lint, equivalence, stress)"""
+    results = []
+    test_file = PROJECT_ROOT / "tests" / "python" / "test_sv_advanced.py"
+
+    if not test_file.exists():
+        results.append(TestResult("sv.advanced.not_found", "SystemVerilog Advanced Tests",
+                                 "skipped", 0, "Test file not found",
+                                 category="systemverilog", subcategory="advanced"))
+        return results
+
+    # Import and run tests
+    try:
+        # Add tests directory to path
+        sys.path.insert(0, str(PROJECT_ROOT / "tests" / "python"))
+
+        # Import test module
+        import test_sv_advanced
+
+        # Create test suite
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromModule(test_sv_advanced)
+
+        # Run tests
+        runner = unittest.TextTestRunner(verbosity=0, stream=open(os.devnull, 'w'))
+        result = runner.run(suite)
+
+        # Process results
+        for test, traceback in result.failures + result.errors:
+            test_name = str(test).split()[0]
+            test_id = f"sv.advanced.{test_name}"
+            results.append(TestResult(test_id, test_name, "failed", 0,
+                                     traceback, category="systemverilog", subcategory="advanced"))
+
+        for test in result.skipped:
+            test_name = str(test[0]).split()[0]
+            test_id = f"sv.advanced.{test_name}"
+            results.append(TestResult(test_id, test_name, "skipped", 0,
+                                     test[1], category="systemverilog", subcategory="advanced"))
+
+        # Count passed tests
+        passed_count = result.testsRun - len(result.failures) - len(result.errors) - len(result.skipped)
+
+        # Add summary result
+        if result.wasSuccessful():
+            results.append(TestResult("sv.advanced.summary",
+                                     f"SystemVerilog Advanced Tests ({passed_count} tests)",
+                                     "passed", 0, "",
+                                     category="systemverilog", subcategory="advanced"))
+        else:
+            results.append(TestResult("sv.advanced.summary",
+                                     f"SystemVerilog Advanced Tests ({passed_count}/{result.testsRun} passed)",
+                                     "failed", 0,
+                                     f"{len(result.failures)} failures, {len(result.errors)} errors",
+                                     category="systemverilog", subcategory="advanced"))
+
+    except Exception as e:
+        results.append(TestResult("sv.advanced.error", "SystemVerilog Advanced Tests",
+                                 "error", 0, str(e),
+                                 category="systemverilog", subcategory="advanced"))
+
+    return results
+
+
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, SV-PARSER, SV-GEN + Cocotb\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, SV-PARSER, SV-GEN, SV-ADV + Cocotb\n")
 
     all_results = []
 
     # Run Python unit tests (core functionality)
-    print(f"  [1/22] Running Python unit tests...", flush=True)
+    print(f"  [1/23] Running Python unit tests...", flush=True)
     all_results.extend(run_python_unit_tests())
 
     # Run address conflict tests (ADDR requirements)
-    print(f"  [2/22] Running address conflict tests...", flush=True)
+    print(f"  [2/23] Running address conflict tests...", flush=True)
     all_results.extend(run_address_conflict_tests())
 
     # Run Parser tests (PARSER requirements)
-    print(f"  [3/22] Running parser tests...", flush=True)
+    print(f"  [3/23] Running parser tests...", flush=True)
     all_results.extend(run_parser_tests())
 
     # Run Generator tests (GEN requirements)
-    print(f"  [4/22] Running generator tests...", flush=True)
+    print(f"  [4/23] Running generator tests...", flush=True)
     all_results.extend(run_generator_tests())
 
     # Run Error handling tests (ERR requirements)
-    print(f"  [5/22] Running error handling tests...", flush=True)
+    print(f"  [5/23] Running error handling tests...", flush=True)
     all_results.extend(run_error_handling_tests())
 
     # Run CLI tests (CLI requirements)
-    print(f"  [6/22] Running CLI tests...", flush=True)
+    print(f"  [6/23] Running CLI tests...", flush=True)
     all_results.extend(run_cli_tests())
 
     # Run CDC tests (CDC requirements)
-    print(f"  [7/22] Running CDC tests...", flush=True)
+    print(f"  [7/23] Running CDC tests...", flush=True)
     all_results.extend(run_cdc_tests())
 
     # Run ADDR tests (ADDR requirements)
-    print(f"  [8/22] Running address management tests...", flush=True)
+    print(f"  [8/23] Running address management tests...", flush=True)
     all_results.extend(run_addr_tests())
 
     # Run STRESS tests (STRESS requirements)
-    print(f"  [9/22] Running stress tests...", flush=True)
+    print(f"  [9/23] Running stress tests...", flush=True)
     all_results.extend(run_stress_tests())
 
     # Run SUB tests (Subregister requirements)
-    print(f"  [10/22] Running subregister tests...", flush=True)
+    print(f"  [10/23] Running subregister tests...", flush=True)
     all_results.extend(run_subregister_tests())
 
     # Run DEF tests (DEFAULT attribute requirements)
-    print(f"  [11/22] Running default attribute tests...", flush=True)
+    print(f"  [11/23] Running default attribute tests...", flush=True)
     all_results.extend(run_default_tests())
 
     # Run VAL tests (Validation & Diagnostics requirements)
-    print(f"  [12/22] Running validation tests...", flush=True)
+    print(f"  [12/23] Running validation tests...", flush=True)
     all_results.extend(run_validation_tests())
 
     # Run YAML-INPUT tests
-    print(f"  [13/22] Running YAML input parser tests...", flush=True)
+    print(f"  [13/23] Running YAML input parser tests...", flush=True)
     all_results.extend(run_yaml_input_tests())
 
     # Run TOML-INPUT tests
-    print(f"  [14/22] Running TOML input parser tests...", flush=True)
+    print(f"  [14/23] Running TOML input parser tests...", flush=True)
     all_results.extend(run_toml_input_tests())
 
     # Run XML-INPUT tests
-    print(f"  [15/22] Running XML input parser tests...", flush=True)
+    print(f"  [15/23] Running XML input parser tests...", flush=True)
     all_results.extend(run_xml_input_tests())
 
     # Run JSON-INPUT tests
-    print(f"  [16/22] Running JSON input parser tests...", flush=True)
+    print(f"  [16/23] Running JSON input parser tests...", flush=True)
     all_results.extend(run_json_input_tests())
 
     # Run EQUIV tests (format equivalence)
-    print(f"  [17/22] Running format equivalence tests...", flush=True)
+    print(f"  [17/23] Running format equivalence tests...", flush=True)
     all_results.extend(run_equivalence_tests())
 
     # Run VHDL tests (AXION, AXI-LITE requirements)
-    print(f"  [18/22] Running VHDL simulation tests...", flush=True)
+    print(f"  [18/23] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
 
     # Run C tests
-    print(f"  [19/22] Running C header tests...", flush=True)
+    print(f"  [19/23] Running C header tests...", flush=True)
     all_results.extend(run_c_tests())
 
     # Run Cocotb tests (comprehensive VHDL verification)
-    print(f"  [20/22] Running Cocotb VHDL tests...", flush=True)
+    print(f"  [20/23] Running Cocotb VHDL tests...", flush=True)
     all_results.extend(run_cocotb_tests())
 
     # Run SystemVerilog parser tests
-    print(f"  [21/22] Running SystemVerilog parser tests...", flush=True)
+    print(f"  [21/23] Running SystemVerilog parser tests...", flush=True)
     all_results.extend(run_systemverilog_parser_tests())
 
     # Run SystemVerilog generator tests
-    print(f"  [22/22] Running SystemVerilog generator tests...", flush=True)
+    print(f"  [22/23] Running SystemVerilog generator tests...", flush=True)
     all_results.extend(run_systemverilog_generator_tests())
+
+    # Run SystemVerilog advanced tests (lint, equivalence, stress)
+    print(f"  [23/23] Running SystemVerilog advanced tests...", flush=True)
+    all_results.extend(run_systemverilog_advanced_tests())
 
     # Save and generate reports
     save_results(all_results)
