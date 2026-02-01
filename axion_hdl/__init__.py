@@ -31,11 +31,14 @@ Repository: https://github.com/bugratufan/axion-hdl
 # Import core classes for convenient access
 from .address_manager import AddressManager, AddressConflictError
 from .vhdl_utils import VHDLUtils
+from .systemverilog_utils import SystemVerilogUtils
 from .annotation_parser import AnnotationParser
 from .code_formatter import CodeFormatter
 from .parser import VHDLParser
+from .systemverilog_parser import SystemVerilogParser
 from .xml_input_parser import XMLInputParser
 from .generator import VHDLGenerator
+from .systemverilog_generator import SystemVerilogGenerator
 from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator
 from .axion import AxionHDL
 from .bit_field_manager import BitFieldManager, BitOverlapError, BitField
@@ -48,21 +51,24 @@ __license__ = "MIT"
 
 # Public API - classes exposed when using 'from axion_hdl import *'
 __all__ = [
-    'AxionHDL',              # Main interface class
-    'VHDLParser',            # VHDL file parser
-    'XMLInputParser',        # XML input parser
-    'VHDLGenerator',         # VHDL code generator
-    'DocGenerator',          # Markdown documentation generator
-    'CHeaderGenerator',      # C header generator
-    'XMLGenerator',          # XML (IP-XACT) generator
-    'AddressManager',        # Address allocation utilities
-    'AddressConflictError',  # Address conflict exception
-    'VHDLUtils',             # VHDL parsing utilities
-    'AnnotationParser',      # Annotation parsing utilities
-    'CodeFormatter',         # VHDL code formatting
-    'BitFieldManager',       # Bit field allocation for subregisters
-    'BitOverlapError',       # Bit overlap exception
-    'BitField',              # Bit field data class
+    'AxionHDL',                 # Main interface class
+    'VHDLParser',               # VHDL file parser
+    'SystemVerilogParser',      # SystemVerilog file parser
+    'XMLInputParser',           # XML input parser
+    'VHDLGenerator',            # VHDL code generator
+    'SystemVerilogGenerator',   # SystemVerilog code generator
+    'DocGenerator',             # Markdown documentation generator
+    'CHeaderGenerator',         # C header generator
+    'XMLGenerator',             # XML (IP-XACT) generator
+    'AddressManager',           # Address allocation utilities
+    'AddressConflictError',     # Address conflict exception
+    'VHDLUtils',                # VHDL parsing utilities
+    'SystemVerilogUtils',       # SystemVerilog parsing utilities
+    'AnnotationParser',         # Annotation parsing utilities
+    'CodeFormatter',            # VHDL code formatting
+    'BitFieldManager',          # Bit field allocation for subregisters
+    'BitOverlapError',          # Bit overlap exception
+    'BitField',                 # Bit field data class
     '__version__',
     '__author__',
     '__email__',

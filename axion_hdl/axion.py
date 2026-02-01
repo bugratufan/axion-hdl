@@ -23,11 +23,13 @@ Example:
 import os
 from typing import List, Dict, Optional, Any
 from .parser import VHDLParser
+from .systemverilog_parser import SystemVerilogParser
 from .xml_input_parser import XMLInputParser
 from .yaml_input_parser import YAMLInputParser
 from .json_input_parser import JSONInputParser
 from .toml_input_parser import TOMLInputParser
 from .generator import VHDLGenerator
+from .systemverilog_generator import SystemVerilogGenerator
 from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator, YAMLGenerator, JSONGenerator
 from .rule_checker import RuleChecker
 
@@ -52,13 +54,15 @@ class AxionHDL:
     def __init__(self, output_dir="./axion_output"):
         """
         Initialize Axion HDL generator.
-        
+
         Args:
             output_dir: Output directory for generated files (default: ./axion_output).
                         Set to None to enable temp+ZIP mode (no persistent output).
         """
         self.src_dirs = []
         self.src_files = []  # Individual VHDL files
+        self.sv_src_dirs = []  # SystemVerilog source directories
+        self.sv_src_files = []  # Individual SystemVerilog files
         self.xml_src_dirs = []  # XML source directories
         self.xml_src_files = []  # Individual XML files
         self.yaml_src_dirs = []  # YAML source directories
@@ -327,12 +331,41 @@ class AxionHDL:
         else:
             print(f"Error: '{normalized_path}' does not exist.")
 
+    def add_sv_src(self, path):
+        """
+        Add a SystemVerilog source file or directory.
+
+        Args:
+            path: Path to a SystemVerilog file (.sv/.svh) or directory containing SystemVerilog files
+        """
+        normalized_path = os.path.abspath(path)
+
+        if os.path.isfile(normalized_path):
+            ext = os.path.splitext(normalized_path)[1].lower()
+            if ext in ('.sv', '.svh'):
+                if normalized_path not in self.sv_src_files:
+                    self.sv_src_files.append(normalized_path)
+                    print(f"SystemVerilog source file added: {normalized_path}")
+                else:
+                    print(f"SystemVerilog source file already exists: {normalized_path}")
+            else:
+                print(f"Error: '{normalized_path}' is not a SystemVerilog file (.sv/.svh)")
+        elif os.path.isdir(normalized_path):
+            if normalized_path not in self.sv_src_dirs:
+                self.sv_src_dirs.append(normalized_path)
+                print(f"SystemVerilog source directory added: {normalized_path}")
+            else:
+                print(f"SystemVerilog source directory already exists: {normalized_path}")
+        else:
+            print(f"Error: '{normalized_path}' does not exist.")
+
     def add_source(self, path):
         """
         Add a source file or directory with auto-detection based on file extension.
 
         This is the unified method that automatically determines file type:
         - .vhd, .vhdl files → VHDL source
+        - .sv, .svh files → SystemVerilog source
         - .xml files → XML source
         - .yaml, .yml files → YAML source
         - .json files → JSON source
@@ -348,6 +381,8 @@ class AxionHDL:
             ext = os.path.splitext(normalized_path)[1].lower()
             if ext in ('.vhd', '.vhdl'):
                 self.add_src(normalized_path)
+            elif ext in ('.sv', '.svh'):
+                self.add_sv_src(normalized_path)
             elif ext == '.xml':
                 self.add_xml_src(normalized_path)
             elif ext in ('.yaml', '.yml'):
@@ -357,10 +392,11 @@ class AxionHDL:
             elif ext == '.toml':
                 self.add_toml_src(normalized_path)
             else:
-                print(f"Error: '{normalized_path}' has unsupported extension. Use .vhd, .vhdl, .xml, .yaml, .yml, .json, or .toml")
+                print(f"Error: '{normalized_path}' has unsupported extension. Use .vhd, .vhdl, .sv, .svh, .xml, .yaml, .yml, .json, or .toml")
         elif os.path.isdir(normalized_path):
             # For directories, scan and categorize files
             has_vhdl = False
+            has_sv = False
             has_xml = False
             has_yaml = False
             has_json = False
@@ -370,6 +406,8 @@ class AxionHDL:
                     ext = os.path.splitext(f)[1].lower()
                     if ext in ('.vhd', '.vhdl'):
                         has_vhdl = True
+                    elif ext in ('.sv', '.svh'):
+                        has_sv = True
                     elif ext == '.xml':
                         has_xml = True
                     elif ext in ('.yaml', '.yml'):
@@ -381,6 +419,8 @@ class AxionHDL:
 
             if has_vhdl:
                 self.add_src(normalized_path)
+            if has_sv:
+                self.add_sv_src(normalized_path)
             if has_xml:
                 self.add_xml_src(normalized_path)
             if has_yaml:
@@ -389,27 +429,28 @@ class AxionHDL:
                 self.add_json_src(normalized_path)
             if has_toml:
                 self.add_toml_src(normalized_path)
-            if not has_vhdl and not has_xml and not has_yaml and not has_json and not has_toml:
+            if not has_vhdl and not has_sv and not has_xml and not has_yaml and not has_json and not has_toml:
                 print(f"Warning: No supported files found in '{normalized_path}'")
         else:
             print(f"Error: '{normalized_path}' does not exist.")
             
     def analyze(self):
         """
-        Analyze all VHDL, XML, YAML, JSON, and TOML files in source directories and files.
+        Analyze all VHDL, SystemVerilog, XML, YAML, JSON, and TOML files in source directories and files.
         This must be called before any generation functions.
 
         Files and directories matching exclusion patterns will be skipped.
         Use exclude() to add patterns before calling analyze().
         """
         has_vhdl_sources = bool(self.src_dirs or self.src_files)
+        has_sv_sources = bool(self.sv_src_dirs or self.sv_src_files)
         has_xml_sources = bool(self.xml_src_dirs or self.xml_src_files)
         has_yaml_sources = bool(self.yaml_src_dirs or self.yaml_src_files)
         has_json_sources = bool(self.json_src_dirs or self.json_src_files)
         has_toml_sources = bool(self.toml_src_dirs or self.toml_src_files)
 
-        if not has_vhdl_sources and not has_xml_sources and not has_yaml_sources and not has_json_sources and not has_toml_sources:
-            print("Error: No sources added. Use add_src(), add_xml_src(), add_yaml_src(), add_json_src(), add_toml_src(), or add_source() first.")
+        if not has_vhdl_sources and not has_sv_sources and not has_xml_sources and not has_yaml_sources and not has_json_sources and not has_toml_sources:
+            print("Error: No sources added. Use add_src(), add_sv_src(), add_xml_src(), add_yaml_src(), add_json_src(), add_toml_src(), or add_source() first.")
             return False
         
         self.analyzed_modules = []
@@ -457,7 +498,59 @@ class AxionHDL:
             
             vhdl_count = len([m for m in self.analyzed_modules])
             print(f"Found {vhdl_count} modules from VHDL files.")
-        
+
+        # Parse SystemVerilog files if any
+        if has_sv_sources:
+            print(f"\n{'='*60}")
+            print("Starting analysis of SystemVerilog files...")
+            print(f"{'='*60}")
+
+            if self._exclude_patterns:
+                print(f"Excluding: {', '.join(sorted(self._exclude_patterns))}")
+
+            sv_parser = SystemVerilogParser()
+            for pattern in self._exclude_patterns:
+                sv_parser.add_exclude_pattern(pattern)
+
+            sv_modules_start = len(self.analyzed_modules)
+
+            # Collect all SystemVerilog files
+            sv_files_to_parse = []
+
+            # From directories
+            for sv_dir in self.sv_src_dirs:
+                for root, _, files in os.walk(sv_dir):
+                    for file in files:
+                        if file.endswith(('.sv', '.svh')):
+                            full_path = os.path.join(root, file)
+                            if not sv_parser._is_excluded(full_path):
+                                sv_files_to_parse.append(full_path)
+
+            # From individual files
+            for filepath in self.sv_src_files:
+                if not sv_parser._is_excluded(filepath):
+                    sv_files_to_parse.append(filepath)
+
+            # Parse each file
+            for filepath in sv_files_to_parse:
+                try:
+                    print(f"  Parsing: {os.path.basename(filepath)}")
+                    module = sv_parser._parse_sv_file(filepath)
+                    if module and module.get('registers'):
+                        self.analyzed_modules.append(module)
+                    elif module:
+                        print(f"    Warning: No registers found in {os.path.basename(filepath)}")
+                except Exception as e:
+                    msg = f"Failed to parse {filepath}: {e}"
+                    print(f"Warning: {msg}")
+                    self.parse_errors.append({'file': filepath, 'msg': msg})
+
+            # Collect parser errors
+            self.parse_errors.extend([{'file': '', 'msg': err} for err in sv_parser.get_errors()])
+
+            sv_count = len(self.analyzed_modules) - sv_modules_start
+            print(f"Found {sv_count} modules from SystemVerilog files.")
+
         # Parse XML files if any
         if has_xml_sources:
             print(f"\n{'='*60}")
@@ -771,7 +864,31 @@ class AxionHDL:
         
         print(f"\nVHDL files generated in: {self.output_dir}")
         return True
-        
+
+    def generate_systemverilog(self):
+        """
+        Generate SystemVerilog register interface modules (*_axion_reg.sv) for all analyzed modules.
+        """
+        if not self.is_analyzed:
+            print("Error: Analysis not performed. Call analyze() first.")
+            return False
+
+        print(f"\n{'='*60}")
+        print("Generating SystemVerilog register modules...")
+        print(f"{'='*60}")
+
+        # Create output directory if it doesn't exist
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        # Generate SystemVerilog modules
+        generator = SystemVerilogGenerator(self.output_dir)
+        for module in self.analyzed_modules:
+            output_path = generator.generate_module(module)
+            print(f"  Generated: {os.path.basename(output_path)}")
+
+        print(f"\nSystemVerilog files generated in: {self.output_dir}")
+        return True
+
     def generate_documentation(self, format="md"):
         """
         Generate register map documentation.
@@ -860,29 +977,30 @@ class AxionHDL:
         
     def generate_all(self, doc_format="html"):
         """
-        Generate all outputs: VHDL, documentation, XML, YAML, JSON, and C headers.
-        
+        Generate all outputs: VHDL, SystemVerilog, documentation, XML, YAML, JSON, and C headers.
+
         Args:
             doc_format: Documentation format - "html" (default), "md", or "pdf"
         """
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")
             return False
-            
+
         success = True
         success &= self.generate_vhdl()
+        success &= self.generate_systemverilog()
         success &= self.generate_documentation(doc_format)
         success &= self.generate_xml()
         success &= self.generate_yaml()
         success &= self.generate_json()
         success &= self.generate_c_header()
-        
+
         if success:
             print(f"\n{'='*60}")
             print("All files generated successfully!")
             print(f"Output directory: {self.output_dir}")
             print(f"{'='*60}")
-        
+
         return success
     
     def generate_yaml(self):
