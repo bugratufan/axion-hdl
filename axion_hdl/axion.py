@@ -26,6 +26,7 @@ from .parser import VHDLParser
 from .xml_input_parser import XMLInputParser
 from .yaml_input_parser import YAMLInputParser
 from .json_input_parser import JSONInputParser
+from .toml_input_parser import TOMLInputParser
 from .generator import VHDLGenerator
 from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator, YAMLGenerator, JSONGenerator
 from .rule_checker import RuleChecker
@@ -64,6 +65,8 @@ class AxionHDL:
         self.yaml_src_files = []  # Individual YAML files
         self.json_src_dirs = []  # JSON source directories
         self.json_src_files = []  # Individual JSON files
+        self.toml_src_dirs = []  # TOML source directories
+        self.toml_src_files = []  # Individual TOML files
         # Handle None output_dir (temp+ZIP mode)
         self.output_dir = os.path.abspath(output_dir) if output_dir else None
         self.analyzed_modules = []
@@ -271,12 +274,12 @@ class AxionHDL:
     def add_json_src(self, path):
         """
         Add a JSON source file or directory.
-        
+
         Args:
             path: Path to a JSON file (.json) or directory containing JSON files
         """
         normalized_path = os.path.abspath(path)
-        
+
         if os.path.isfile(normalized_path):
             ext = os.path.splitext(normalized_path)[1].lower()
             if ext == '.json':
@@ -295,23 +298,52 @@ class AxionHDL:
                 print(f"JSON source directory already exists: {normalized_path}")
         else:
             print(f"Error: '{normalized_path}' does not exist.")
-    
+
+    def add_toml_src(self, path):
+        """
+        Add a TOML source file or directory.
+
+        Args:
+            path: Path to a TOML file (.toml) or directory containing TOML files
+        """
+        normalized_path = os.path.abspath(path)
+
+        if os.path.isfile(normalized_path):
+            ext = os.path.splitext(normalized_path)[1].lower()
+            if ext == '.toml':
+                if normalized_path not in self.toml_src_files:
+                    self.toml_src_files.append(normalized_path)
+                    print(f"TOML source file added: {normalized_path}")
+                else:
+                    print(f"TOML source file already exists: {normalized_path}")
+            else:
+                print(f"Error: '{normalized_path}' is not a TOML file (.toml)")
+        elif os.path.isdir(normalized_path):
+            if normalized_path not in self.toml_src_dirs:
+                self.toml_src_dirs.append(normalized_path)
+                print(f"TOML source directory added: {normalized_path}")
+            else:
+                print(f"TOML source directory already exists: {normalized_path}")
+        else:
+            print(f"Error: '{normalized_path}' does not exist.")
+
     def add_source(self, path):
         """
         Add a source file or directory with auto-detection based on file extension.
-        
+
         This is the unified method that automatically determines file type:
         - .vhd, .vhdl files → VHDL source
         - .xml files → XML source
         - .yaml, .yml files → YAML source
         - .json files → JSON source
+        - .toml files → TOML source
         - Directories → scanned for supported file types
-        
+
         Args:
             path: Path to a source file or directory
         """
         normalized_path = os.path.abspath(path)
-        
+
         if os.path.isfile(normalized_path):
             ext = os.path.splitext(normalized_path)[1].lower()
             if ext in ('.vhd', '.vhdl'):
@@ -322,14 +354,17 @@ class AxionHDL:
                 self.add_yaml_src(normalized_path)
             elif ext == '.json':
                 self.add_json_src(normalized_path)
+            elif ext == '.toml':
+                self.add_toml_src(normalized_path)
             else:
-                print(f"Error: '{normalized_path}' has unsupported extension. Use .vhd, .vhdl, .xml, .yaml, .yml, or .json")
+                print(f"Error: '{normalized_path}' has unsupported extension. Use .vhd, .vhdl, .xml, .yaml, .yml, .json, or .toml")
         elif os.path.isdir(normalized_path):
             # For directories, scan and categorize files
             has_vhdl = False
             has_xml = False
             has_yaml = False
             has_json = False
+            has_toml = False
             for root, _, files in os.walk(normalized_path):
                 for f in files:
                     ext = os.path.splitext(f)[1].lower()
@@ -341,7 +376,9 @@ class AxionHDL:
                         has_yaml = True
                     elif ext == '.json':
                         has_json = True
-            
+                    elif ext == '.toml':
+                        has_toml = True
+
             if has_vhdl:
                 self.add_src(normalized_path)
             if has_xml:
@@ -350,16 +387,18 @@ class AxionHDL:
                 self.add_yaml_src(normalized_path)
             if has_json:
                 self.add_json_src(normalized_path)
-            if not has_vhdl and not has_xml and not has_yaml and not has_json:
+            if has_toml:
+                self.add_toml_src(normalized_path)
+            if not has_vhdl and not has_xml and not has_yaml and not has_json and not has_toml:
                 print(f"Warning: No supported files found in '{normalized_path}'")
         else:
             print(f"Error: '{normalized_path}' does not exist.")
             
     def analyze(self):
         """
-        Analyze all VHDL, XML, YAML, and JSON files in source directories and files.
+        Analyze all VHDL, XML, YAML, JSON, and TOML files in source directories and files.
         This must be called before any generation functions.
-        
+
         Files and directories matching exclusion patterns will be skipped.
         Use exclude() to add patterns before calling analyze().
         """
@@ -367,9 +406,10 @@ class AxionHDL:
         has_xml_sources = bool(self.xml_src_dirs or self.xml_src_files)
         has_yaml_sources = bool(self.yaml_src_dirs or self.yaml_src_files)
         has_json_sources = bool(self.json_src_dirs or self.json_src_files)
-        
-        if not has_vhdl_sources and not has_xml_sources and not has_yaml_sources and not has_json_sources:
-            print("Error: No sources added. Use add_src(), add_xml_src(), add_yaml_src(), add_json_src(), or add_source() first.")
+        has_toml_sources = bool(self.toml_src_dirs or self.toml_src_files)
+
+        if not has_vhdl_sources and not has_xml_sources and not has_yaml_sources and not has_json_sources and not has_toml_sources:
+            print("Error: No sources added. Use add_src(), add_xml_src(), add_yaml_src(), add_json_src(), add_toml_src(), or add_source() first.")
             return False
         
         self.analyzed_modules = []
@@ -485,18 +525,18 @@ class AxionHDL:
             print(f"\n{'='*60}")
             print("Starting analysis of JSON files...")
             print(f"{'='*60}")
-            
+
             json_parser = JSONInputParser()
             for pattern in self._exclude_patterns:
                 json_parser.add_exclude(pattern)
-            
+
             json_modules_start = len(self.analyzed_modules)
-            
+
             # Parse files from directories
             if self.json_src_dirs:
                 json_modules = json_parser.parse_json_files(self.json_src_dirs)
                 self.analyzed_modules.extend(json_modules)
-            
+
             # Parse individual files
             for filepath in self.json_src_files:
                 try:
@@ -505,12 +545,43 @@ class AxionHDL:
                         self.analyzed_modules.append(module)
                 except Exception as e:
                     print(f"Warning: Failed to parse {filepath}: {e}")
-            
+
             self.parse_errors.extend(json_parser.errors)
-            
+
             json_count = len(self.analyzed_modules) - json_modules_start
             print(f"Found {json_count} modules from JSON files.")
-        
+
+        # Parse TOML files if any
+        if has_toml_sources:
+            print(f"\n{'='*60}")
+            print("Starting analysis of TOML files...")
+            print(f"{'='*60}")
+
+            toml_parser = TOMLInputParser()
+            for pattern in self._exclude_patterns:
+                toml_parser.add_exclude(pattern)
+
+            toml_modules_start = len(self.analyzed_modules)
+
+            # Parse files from directories
+            if self.toml_src_dirs:
+                toml_modules = toml_parser.parse_toml_files(self.toml_src_dirs)
+                self.analyzed_modules.extend(toml_modules)
+
+            # Parse individual files
+            for filepath in self.toml_src_files:
+                try:
+                    module = toml_parser.parse_file(filepath)
+                    if module:
+                        self.analyzed_modules.append(module)
+                except Exception as e:
+                    print(f"Warning: Failed to parse {filepath}: {e}")
+
+            self.parse_errors.extend(toml_parser.errors)
+
+            toml_count = len(self.analyzed_modules) - toml_modules_start
+            print(f"Found {toml_count} modules from TOML files.")
+
         self.is_analyzed = True
         
         print(f"\nAnalysis complete. Found {len(self.analyzed_modules)} total modules.")
@@ -848,22 +919,49 @@ class AxionHDL:
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")
             return False
-            
+
         print(f"\n{'='*60}")
         print("Generating JSON register map...")
         print(f"{'='*60}")
-        
+
         # Create output directory if it doesn't exist
         os.makedirs(self.output_dir, exist_ok=True)
-        
+
         # Generate JSON files
         json_gen = JSONGenerator(self.output_dir)
         for module in self.analyzed_modules:
             output_path = json_gen.generate_json(module)
             if output_path:
                 print(f"  Generated: {os.path.basename(output_path)}")
-        
+
         print(f"\nJSON files generated in: {self.output_dir}")
+        return True
+
+    def generate_toml(self):
+        """
+        Generate TOML register map description.
+        Useful for Python projects and clean, readable configuration.
+        """
+        if not self.is_analyzed:
+            print("Error: Analysis not performed. Call analyze() first.")
+            return False
+
+        print(f"\n{'='*60}")
+        print("Generating TOML register map...")
+        print(f"{'='*60}")
+
+        # Create output directory if it doesn't exist
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        # Generate TOML files
+        from .doc_generators import TOMLGenerator
+        toml_gen = TOMLGenerator(self.output_dir)
+        for module in self.analyzed_modules:
+            output_path = toml_gen.generate_toml(module)
+            if output_path:
+                print(f"  Generated: {os.path.basename(output_path)}")
+
+        print(f"\nTOML files generated in: {self.output_dir}")
         return True
 
     def check_address_overlaps(self) -> List[str]:

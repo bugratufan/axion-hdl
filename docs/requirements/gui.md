@@ -11,7 +11,7 @@ Testing is automated via Playwright browser tests mapped back to these requireme
 | **GUI-DASH** | Dashboard | Module listing and summary display |
 | **GUI-EDIT** | Editor | Register editing functionality |
 | **GUI-SAVE** | Save & Changes | Unsaved changes tracking and warnings |
-| **GUI-MOD** | File Modification | YAML/JSON/XML/VHDL file modification |
+| **GUI-MOD** | File Modification | VHDL/YAML/TOML/XML/JSON file modification |
 | **GUI-GEN** | Generation | Output generation interface |
 | **GUI-RULE** | Rule Check | Design rule checking interface |
 | **GUI-DIFF** | Diff/Review | Change preview and confirmation |
@@ -124,6 +124,7 @@ The following requirements define the interactive register address assignment be
 | GUI-MOD-002 | YAML Comment Preservation | YAML file comments preserved during modification. | Python Unit Test (`gui.test_mod_002`) |
 | GUI-MOD-003 | YAML Structure Preservation | YAML file structure (keys, order) preserved during modification. | Python Unit Test (`gui.test_mod_003`) |
 | GUI-MOD-004 | JSON Structure Preservation | JSON file structure preserved, only changed fields updated. | Python Unit Test (`gui.test_mod_004`) |
+| GUI-MOD-004a | TOML Structure Preservation | TOML file structure preserved, only changed fields updated. | Python Unit Test (`gui.test_mod_004a`) |
 | GUI-MOD-005 | XML Comment Preservation | XML file comments preserved during modification. | Python Unit Test (`gui.test_mod_005`) |
 | GUI-MOD-006 | XML Attribute Preservation | XML attributes not modified unless explicitly changed. | Python Unit Test (`gui.test_mod_006`) |
 | GUI-MOD-007 | No Change No Diff | When no actual changes made, diff shows "No changes detected". | Playwright (`gui.test_mod_007`) |
@@ -150,6 +151,7 @@ The following requirements define the interactive register address assignment be
 | GUI-GEN-012 | Markdown Doc Toggle | Markdown docs checkbox toggles Markdown generation, enabled by default. | Playwright (`gui.test_gen_012`) |
 | GUI-GEN-013 | HTML Doc Toggle | HTML docs checkbox toggles HTML generation, enabled by default. | Playwright (`gui.test_gen_013`) |
 | GUI-GEN-014 | YAML Format Toggle | YAML output checkbox toggles YAML generation. | Playwright (`gui.test_gen_014`) |
+| GUI-GEN-014a | TOML Format Toggle | TOML output checkbox toggles TOML generation. | Playwright (`gui.test_gen_014a`) |
 | GUI-GEN-015 | XML Format Toggle | XML output checkbox toggles XML generation. | Playwright (`gui.test_gen_015`) |
 | GUI-GEN-016 | All Formats Default | All generation formats enabled by default. | Playwright (`gui.test_gen_016`) |
 

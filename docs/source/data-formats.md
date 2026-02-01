@@ -10,6 +10,7 @@ Axion-HDL supports multiple input formats for defining register interfaces. This
 | **YAML** | `.yaml`, `.yml` | Human-readable, version control friendly |
 | **XML** | `.xml` | IP-XACT compatible, tool integration |
 | **JSON** | `.json` | Automation and scripting |
+| **TOML** | `.toml` | Clean syntax, Python ecosystem standard |
 
 ---
 
@@ -25,14 +26,14 @@ Module-level configuration is defined with `@axion_def` comment anywhere in the 
 -- @axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3
 ```
 
-### YAML/JSON/XML
+### YAML/TOML/XML/JSON
 
-| Attribute | YAML | JSON | XML | Description | Default |
-|-----------|------|------|-----|-------------|---------|
-| Module Name | `module:` | `"module":` | `module=""` | Module/entity name | Required |
-| Base Address | `base_addr:` | `"base_addr":` | `base_addr=""` | Starting address (hex string) | `0x0000` |
-| CDC Enable | `config.cdc_en:` | `"config":{"cdc_en":}` | `<config cdc_en=""/>` | Enable clock domain crossing | `false` |
-| CDC Stages | `config.cdc_stage:` | `"config":{"cdc_stage":}` | `<config cdc_stage=""/>` | Synchronizer stages (2-5) | `2` |
+| Attribute | YAML | TOML | XML | JSON | Description | Default |
+|-----------|------|------|-----|------|-------------|---------|
+| Module Name | `module:` | `module =` | `module=""` | `"module":` | Module/entity name | Required |
+| Base Address | `base_addr:` | `base_addr =` | `base_addr=""` | `"base_addr":` | Starting address (hex string) | `0x0000` |
+| CDC Enable | `config.cdc_en:` | `[config]`<br/>`cdc_en =` | `<config cdc_en=""/>` | `"config":{"cdc_en":}` | Enable clock domain crossing | `false` |
+| CDC Stages | `config.cdc_stage:` | `[config]`<br/>`cdc_stage =` | `<config cdc_stage=""/>` | `"config":{"cdc_stage":}` | Synchronizer stages (2-5) | `2` |
 
 ### VHDL Module Attributes Table
 
@@ -152,6 +153,35 @@ registers:
 | `w_strobe` | boolean | Generate write strobe | `false` |
 | `fields` | array | Subregister fields | None |
 
+#### TOML Register Attributes
+
+```toml
+[[registers]]
+name = "register_name"
+addr = "0x00"           # Optional: manual address
+access = "RW"           # Required: RO, WO, RW
+width = 32              # Optional: bit width (default: 32)
+default = "0x00"        # Optional: reset value
+description = "text"    # Optional: documentation
+r_strobe = true         # Optional: read strobe
+w_strobe = true         # Optional: write strobe
+reg_name = "packed"     # Optional: packed register name
+bit_offset = 0          # Optional: bit position in packed reg
+```
+
+| Attribute | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `name` | string | Register/signal name | Required |
+| `addr` | string | Address in hex (e.g., "0x04") | Auto-assigned |
+| `access` | string | `"RO"`, `"WO"`, or `"RW"` | Required |
+| `width` | integer | Bit width (1-1024) | `32` |
+| `default` | string/int | Reset value | `0` |
+| `description` | string | Documentation text | Empty |
+| `r_strobe` | boolean | Generate read strobe | `false` |
+| `w_strobe` | boolean | Generate write strobe | `false` |
+| `reg_name` | string | Packed register name | None |
+| `bit_offset` | integer | Bit position for packed | `0` |
+
 ---
 
 ## Advanced Features
@@ -193,6 +223,16 @@ config:
 }
 ```
 
+**TOML:**
+```toml
+module = "my_module"
+base_addr = "0x1000"
+
+[config]
+cdc_en = true
+cdc_stage = 3
+```
+
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `CDC_EN` / `cdc_en` | Enable CDC synchronizers | `false` |
@@ -232,6 +272,16 @@ signal irq_status : std_logic_vector(31 downto 0); -- @axion RW R_STROBE W_STROB
   "w_strobe": true,
   "description": "Interrupt status"
 }
+```
+
+**TOML:**
+```toml
+[[registers]]
+name = "irq_status"
+access = "RW"
+r_strobe = true
+w_strobe = true
+description = "Interrupt status"
 ```
 
 **Use Cases:**
@@ -292,6 +342,36 @@ signal speed  : std_logic_vector(7 downto 0);     -- @axion RW REG_NAME=control 
     {"name": "speed", "bit_offset": 8, "width": 8, "access": "RW", "description": "Speed value"}
   ]
 }
+```
+
+**TOML:**
+```toml
+[[registers]]
+name = "enable"
+reg_name = "control"
+addr = "0x00"
+width = 1
+access = "RW"
+bit_offset = 0
+description = "Enable bit"
+
+[[registers]]
+name = "mode"
+reg_name = "control"
+addr = "0x00"
+width = 2
+access = "RW"
+bit_offset = 4
+description = "Mode select"
+
+[[registers]]
+name = "speed"
+reg_name = "control"
+addr = "0x00"
+width = 8
+access = "RW"
+bit_offset = 8
+description = "Speed value"
 ```
 
 This creates individual signals for each field while sharing one address.
@@ -361,6 +441,15 @@ signal counter : std_logic_vector(63 downto 0); -- @axion RO DESC="64-bit counte
 }
 ```
 
+**TOML:**
+```toml
+[[registers]]
+name = "counter"
+access = "RO"
+width = 64
+description = "64-bit counter"
+```
+
 This creates two consecutive 32-bit registers:
 - `counter[31:0]` at offset 0x00
 - `counter[63:32]` at offset 0x04
@@ -401,6 +490,16 @@ signal config : std_logic_vector(31 downto 0); -- @axion RW DEFAULT=0xCAFEBABE D
 }
 ```
 
+**TOML:**
+```toml
+[[registers]]
+name = "config"
+access = "RW"
+width = 32
+default = "0xCAFEBABE"
+description = "Configuration"
+```
+
 ---
 
 ### Manual Address Assignment
@@ -435,18 +534,28 @@ signal debug_reg : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x100 DESC="
 }
 ```
 
+**TOML:**
+```toml
+[[registers]]
+name = "debug_reg"
+addr = "0x100"
+access = "RW"
+description = "Debug register"
+```
+
 ---
 
 ## Format Comparison
 
-| Feature | VHDL | YAML | XML | JSON |
-|---------|------|------|-----|------|
-| Human readable | ✓ | ✓✓ | ✓ | ✓ |
-| Version control friendly | ✓ | ✓✓ | ✓ | - |
-| Embedded in RTL | ✓✓ | - | - | - |
-| Automation friendly | - | ✓ | ✓ | ✓✓ |
-| Comment support | ✓ | ✓ | ✓ | - |
-| IP-XACT compatible | - | - | ✓ | - |
+| Feature | VHDL | YAML | TOML | XML | JSON |
+|---------|------|------|------|-----|------|
+| Human readable | ✓ | ✓✓ | ✓✓ | ✓ | ✓ |
+| Version control friendly | ✓ | ✓✓ | ✓✓ | ✓ | - |
+| Embedded in RTL | ✓✓ | - | - | - | - |
+| Automation friendly | - | ✓ | ✓ | ✓ | ✓✓ |
+| Comment support | ✓ | ✓ | ✓ | ✓ | - |
+| IP-XACT compatible | - | - | - | ✓ | - |
+| Python ecosystem standard | - | - | ✓ | - | - |
 
 ---
 
@@ -516,4 +625,25 @@ registers:
     }
   ]
 }
+```
+
+### TOML Structure
+
+```toml
+module = "module_name"
+base_addr = "0x0000"
+
+[config]
+cdc_en = false
+cdc_stage = 2
+
+[[registers]]
+name = "reg_name"
+addr = "0x00"
+access = "RW"
+width = 32
+default = 0
+description = "Description"
+r_strobe = false
+w_strobe = false
 ```

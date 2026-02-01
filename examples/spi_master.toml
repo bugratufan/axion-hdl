@@ -1,0 +1,54 @@
+# SPI Master Controller Register Definitions
+# TOML format example for Axion HDL
+
+module = "spi_master"
+base_addr = "0x0000"
+
+[config]
+cdc_en = true
+cdc_stage = 2
+
+[[registers]]
+name = "control"
+addr = "0x00"
+access = "RW"
+width = 32
+w_strobe = true
+description = "SPI control register"
+
+[[registers]]
+name = "status"
+addr = "0x04"
+access = "RO"
+width = 32
+r_strobe = true
+description = "SPI status register"
+
+[[registers]]
+name = "tx_data"
+addr = "0x08"
+access = "WO"
+width = 32
+description = "Transmit data register"
+
+[[registers]]
+name = "rx_data"
+addr = "0x0C"
+access = "RO"
+width = 32
+description = "Receive data register"
+
+[[registers]]
+name = "clock_div"
+addr = "0x10"
+access = "RW"
+width = 32
+default = "0x00000008"
+description = "Clock divider (SPI clock = system clock / (2 * clock_div))"
+
+[[registers]]
+name = "chip_select"
+addr = "0x14"
+access = "RW"
+width = 32
+description = "Chip select control (one-hot encoding)"

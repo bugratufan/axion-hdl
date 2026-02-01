@@ -20,6 +20,9 @@ axion-hdl -s <source> -o <output> [options]
 # Generate all outputs from a YAML file
 axion-hdl -s registers.yaml -o ./output --all
 
+# Generate from TOML file
+axion-hdl -s registers.toml -o ./output --all
+
 # Generate from VHDL with annotations
 axion-hdl -s ./src/my_module.vhd -o ./generated --all
 
@@ -42,17 +45,18 @@ axion-hdl -s ./src --gui
 **Examples:**
 
 ```bash
-# Single file
+# Single file (YAML, TOML, XML, or JSON)
 axion-hdl -s controller.yaml -o ./output --all
+axion-hdl -s controller.toml -o ./output --all
 
 # Multiple files
-axion-hdl -s cpu_regs.yaml -s dma_regs.xml -o ./output --all
+axion-hdl -s cpu_regs.yaml -s dma_regs.xml -s spi_regs.toml -o ./output --all
 
 # Entire directory (recursive scan)
 axion-hdl -s ./rtl -o ./generated --all
 
 # Mixed files and directories
-axion-hdl -s ./rtl -s extra_regs.json -o ./output --all
+axion-hdl -s ./rtl -s extra_regs.toml -o ./output --all
 ```
 
 ### Output Options
@@ -423,6 +427,6 @@ axion-hdl --all
 1. **Use `--all` for quick generation** - generates everything in one command
 2. **Exclude patterns** - great for skipping testbenches and deprecated files
 3. **Config files** - store project-specific settings for consistent generation
-4. **Combine sources** - mix VHDL, YAML, XML, JSON in a single run
+4. **Combine sources** - mix VHDL, YAML, TOML, XML, JSON in a single run
 5. **CI/CD artifacts** - upload generated files for downstream jobs
 
