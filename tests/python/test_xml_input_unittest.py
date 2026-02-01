@@ -119,10 +119,12 @@ class TestXMLInputRequirements(unittest.TestCase):
         self.assertTrue(result['registers'][1].get('write_strobe', False))
 
     # XML-INPUT-008: CDC configuration
-    @unittest.skip("XML parser CDC parsing not yet implemented - existing issue")
     def test_xml_input_008_cdc_config(self):
-        """XML-INPUT-008: Parses CDC configuration attributes"""
-        content = '<register_map module="test" cdc_en="true" cdc_stages="3"><register name="r1" access="RW"/></register_map>'
+        """XML-INPUT-008: Parses CDC configuration via <config> element"""
+        content = '''<register_map module="test">
+            <config cdc_en="true" cdc_stage="3"/>
+            <register name="r1" access="RW"/>
+        </register_map>'''
         xml_file = self.write_xml(content)
 
         result = self.parser.parse_file(xml_file)
