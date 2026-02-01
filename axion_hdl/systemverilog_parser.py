@@ -79,9 +79,12 @@ class SystemVerilogParser:
             'file': result.get('file'),
             'signals': signals,
             'registers': result.get('registers', []),
-            'base_addr': result.get('base_address', 0),
-            'cdc_en': result.get('cdc_enabled', False),
-            'cdc_stage': result.get('cdc_stages', 2),
+            'base_address': result.get('base_address', 0),  # Use full name for tests
+            'base_addr': result.get('base_address', 0),      # Keep for compatibility
+            'cdc_enabled': result.get('cdc_enabled', False), # Use full name for tests
+            'cdc_en': result.get('cdc_enabled', False),      # Keep for compatibility
+            'cdc_stages': result.get('cdc_stages', 2),       # Use full name for tests
+            'cdc_stage': result.get('cdc_stages', 2),        # Keep for compatibility
             'packed_registers': result.get('packed_registers', [])
         }
 
@@ -244,22 +247,18 @@ class SystemVerilogParser:
                 self.errors.append(f"Invalid access mode '{access_mode}' for signal {signal_name}")
                 access_mode = 'RW'
 
-            # Parse strobes
-            read_strobe = 'R_STROBE' in attrs
-            write_strobe = 'W_STROBE' in attrs
+            # Parse strobes (AnnotationParser returns standardized names)
+            read_strobe = attrs.get('read_strobe', False)
+            write_strobe = attrs.get('write_strobe', False)
 
-            # Parse description
-            description = attrs.get('DESC', '')
+            # Parse description (AnnotationParser returns standardized name)
+            description = attrs.get('description', '')
 
-            # Handle address allocation
-            if 'ADDR' in attrs:
-                # Manual address
+            # Handle address allocation (AnnotationParser returns standardized name and converts to int)
+            if 'address' in attrs:
+                # Manual address (already converted to int by AnnotationParser)
                 try:
-                    addr_str = attrs['ADDR']
-                    if addr_str.startswith('0x'):
-                        manual_addr = int(addr_str, 16)
-                    else:
-                        manual_addr = int(addr_str)
+                    manual_addr = attrs['address']
 
                     try:
                         address_int = address_manager.allocate_address(manual_addr, signal_width, signal_name)
