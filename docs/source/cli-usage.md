@@ -45,7 +45,7 @@ axion-hdl -s ./src --gui
 **Examples:**
 
 ```bash
-# Single file (YAML, JSON, XML, or TOML)
+# Single file (YAML, TOML, XML, or JSON)
 axion-hdl -s controller.yaml -o ./output --all
 axion-hdl -s controller.toml -o ./output --all
 
@@ -427,6 +427,6 @@ axion-hdl --all
 1. **Use `--all` for quick generation** - generates everything in one command
 2. **Exclude patterns** - great for skipping testbenches and deprecated files
 3. **Config files** - store project-specific settings for consistent generation
-4. **Combine sources** - mix VHDL, YAML, XML, JSON in a single run
+4. **Combine sources** - mix VHDL, YAML, TOML, XML, JSON in a single run
 5. **CI/CD artifacts** - upload generated files for downstream jobs
 

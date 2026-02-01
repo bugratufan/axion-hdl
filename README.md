@@ -1,6 +1,6 @@
 # Axion-HDL
 
-**AXI4-Lite register interfaces from VHDL, YAML, XML, JSON, or TOML. One command.**
+**AXI4-Lite register interfaces from VHDL, YAML, TOML, XML, or JSON. One command.**
 
 [![PyPI](https://img.shields.io/pypi/v/axion-hdl.svg)](https://pypi.org/project/axion-hdl/)
 [![Tests](https://github.com/bugratufan/axion-hdl/actions/workflows/tests.yml/badge.svg)](https://github.com/bugratufan/axion-hdl/actions/workflows/tests.yml)
@@ -31,12 +31,12 @@ pip install -e ".[dev]"  # Includes pytest, cocotb, etc.
 # From VHDL with @axion annotations
 axion-hdl -s my_module.vhd -o output/
 
-# From YAML/XML/JSON/TOML
+# From YAML/TOML/XML/JSON
 axion-hdl -s registers.yaml -o output/
 axion-hdl -s registers.toml -o output/
 ```
 
-**Output:** VHDL module, C header, documentation, XML/YAML/JSON exports.
+**Output:** VHDL module, C header, documentation, YAML/TOML/XML/JSON exports.
 
 ## Define Registers
 
@@ -90,11 +90,11 @@ description = "SPI status register"
 axion-hdl -s spi_master.toml -o output --all
 ```
 
-Generates: VHDL module (21KB), C header (3.8KB), HTML docs, XML/YAML/JSON exports
+Generates: VHDL module (21KB), C header (3.8KB), HTML docs, YAML/TOML/XML/JSON exports
 
 ## Features
 
-- **Multi-format input** — VHDL annotations, YAML, XML, JSON, TOML
+- **Multi-format input** — VHDL annotations, YAML, TOML, XML, JSON
 - **CDC support** — built-in clock domain crossing synchronizers
 - **Subregisters** — pack multiple fields into one address
 - **Wide signals** — auto-split 64-bit+ signals across addresses

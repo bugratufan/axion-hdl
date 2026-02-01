@@ -11,7 +11,7 @@ Testing is automated via Playwright browser tests mapped back to these requireme
 | **GUI-DASH** | Dashboard | Module listing and summary display |
 | **GUI-EDIT** | Editor | Register editing functionality |
 | **GUI-SAVE** | Save & Changes | Unsaved changes tracking and warnings |
-| **GUI-MOD** | File Modification | YAML/JSON/XML/TOML/VHDL file modification |
+| **GUI-MOD** | File Modification | VHDL/YAML/TOML/XML/JSON file modification |
 | **GUI-GEN** | Generation | Output generation interface |
 | **GUI-RULE** | Rule Check | Design rule checking interface |
 | **GUI-DIFF** | Diff/Review | Change preview and confirmation |

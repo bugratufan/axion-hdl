@@ -131,7 +131,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 |----|------------|---------------------|-------------|
 | CLI-001 | Help Options (-h, --help) | Prints usage information and exits with 0. | Python Unit Test (`cli.test_cli_001`) |
 | CLI-002 | Version Option (--version) | Prints tool version and exits with 0. | Python Unit Test (`cli.test_cli_002`) |
-| CLI-003 | Source Path Options (-s, --source) | Accepts source files (.vhd, .vhdl, .xml, .yaml, .yml, .json, .toml) or directories with auto-detection by extension. | Python Unit Test (`cli.test_cli_003`) |
+| CLI-003 | Source Path Options (-s, --source) | Accepts source files (.vhd, .vhdl, .yaml, .yml, .toml, .xml, .json) or directories with auto-detection by extension. | Python Unit Test (`cli.test_cli_003`) |
 | CLI-004 | Multiple Source Paths | Accepts multiple `-s` flags for any combination of files and directories. | Python Unit Test (`cli.test_cli_004`) |
 | CLI-005 | Output Directory Options (-o, --output) | Accepts output path argument. | Python Unit Test (`cli.test_cli_005`) |
 | CLI-006 | Exclude Options (-e) | Excludes matching patterns from processing. | Python Unit Test (`cli.test_cli_006`) |
@@ -230,7 +230,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 
 | ID | Definition | Acceptance Criteria | Test Method |
 |----|------------|---------------------|-------------|
-| VAL-001 | Required Field Validation | Missing 'module' or other required fields in source files (YAML/JSON/XML/TOML) must be reported as Errors. | Python Unit Test (`val.test_val_001`) |
+| VAL-001 | Required Field Validation | Missing 'module' or other required fields in source files (YAML/TOML/XML/JSON) must be reported as Errors. | Python Unit Test (`val.test_val_001`) |
 | VAL-002 | Format Error Visibility | Parsing errors (malformed syntax) must be visible in Rule Check results. | Python Unit Test (`val.test_val_002`) |
 | VAL-003 | Logical Integrity Check | Validates integrity of loaded modules (e.g. non-empty register lists). | Python Unit Test (`val.test_val_003`) |
 | VAL-004 | Description Presence | Warns if registers are missing descriptions/documentation. | Python Unit Test (`val.test_val_004`) |

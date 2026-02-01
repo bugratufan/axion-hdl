@@ -26,14 +26,14 @@ Module-level configuration is defined with `@axion_def` comment anywhere in the 
 -- @axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3
 ```
 
-### YAML/JSON/XML/TOML
+### YAML/TOML/XML/JSON
 
-| Attribute | YAML | JSON | XML | TOML | Description | Default |
+| Attribute | YAML | TOML | XML | JSON | Description | Default |
 |-----------|------|------|-----|------|-------------|---------|
-| Module Name | `module:` | `"module":` | `module=""` | `module =` | Module/entity name | Required |
-| Base Address | `base_addr:` | `"base_addr":` | `base_addr=""` | `base_addr =` | Starting address (hex string) | `0x0000` |
-| CDC Enable | `config.cdc_en:` | `"config":{"cdc_en":}` | `<config cdc_en=""/>` | `[config]`<br/>`cdc_en =` | Enable clock domain crossing | `false` |
-| CDC Stages | `config.cdc_stage:` | `"config":{"cdc_stage":}` | `<config cdc_stage=""/>` | `[config]`<br/>`cdc_stage =` | Synchronizer stages (2-5) | `2` |
+| Module Name | `module:` | `module =` | `module=""` | `"module":` | Module/entity name | Required |
+| Base Address | `base_addr:` | `base_addr =` | `base_addr=""` | `"base_addr":` | Starting address (hex string) | `0x0000` |
+| CDC Enable | `config.cdc_en:` | `[config]`<br/>`cdc_en =` | `<config cdc_en=""/>` | `"config":{"cdc_en":}` | Enable clock domain crossing | `false` |
+| CDC Stages | `config.cdc_stage:` | `[config]`<br/>`cdc_stage =` | `<config cdc_stage=""/>` | `"config":{"cdc_stage":}` | Synchronizer stages (2-5) | `2` |
 
 ### VHDL Module Attributes Table
 
@@ -547,15 +547,15 @@ description = "Debug register"
 
 ## Format Comparison
 
-| Feature | VHDL | YAML | XML | JSON | TOML |
-|---------|------|------|-----|------|------|
-| Human readable | ✓ | ✓✓ | ✓ | ✓ | ✓✓ |
-| Version control friendly | ✓ | ✓✓ | ✓ | - | ✓✓ |
+| Feature | VHDL | YAML | TOML | XML | JSON |
+|---------|------|------|------|-----|------|
+| Human readable | ✓ | ✓✓ | ✓✓ | ✓ | ✓ |
+| Version control friendly | ✓ | ✓✓ | ✓✓ | ✓ | - |
 | Embedded in RTL | ✓✓ | - | - | - | - |
-| Automation friendly | - | ✓ | ✓ | ✓✓ | ✓ |
-| Comment support | ✓ | ✓ | ✓ | - | ✓ |
-| IP-XACT compatible | - | - | ✓ | - | - |
-| Python ecosystem standard | - | - | - | - | ✓ |
+| Automation friendly | - | ✓ | ✓ | ✓ | ✓✓ |
+| Comment support | ✓ | ✓ | ✓ | ✓ | - |
+| IP-XACT compatible | - | - | - | ✓ | - |
+| Python ecosystem standard | - | - | ✓ | - | - |
 
 ---
 

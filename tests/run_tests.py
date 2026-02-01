@@ -1150,7 +1150,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "xml_input", "yaml_input", "json_input", "toml_input", "equiv"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "yaml_input", "toml_input", "xml_input", "json_input", "equiv"]:
         if cat not in categories:
             continue
         
@@ -2321,7 +2321,7 @@ def run_cocotb_tests() -> List[TestResult]:
 
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, XML-INPUT, YAML-INPUT, JSON-INPUT, TOML-INPUT, EQUIV + Cocotb\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV + Cocotb\n")
 
     all_results = []
 
@@ -2373,21 +2373,21 @@ def main():
     print(f"  [12/20] Running validation tests...", flush=True)
     all_results.extend(run_validation_tests())
 
-    # Run XML-INPUT tests
-    print(f"  [13/20] Running XML input parser tests...", flush=True)
-    all_results.extend(run_xml_input_tests())
-
     # Run YAML-INPUT tests
-    print(f"  [14/20] Running YAML input parser tests...", flush=True)
+    print(f"  [13/20] Running YAML input parser tests...", flush=True)
     all_results.extend(run_yaml_input_tests())
 
-    # Run JSON-INPUT tests
-    print(f"  [15/20] Running JSON input parser tests...", flush=True)
-    all_results.extend(run_json_input_tests())
-
     # Run TOML-INPUT tests
-    print(f"  [16/20] Running TOML input parser tests...", flush=True)
+    print(f"  [14/20] Running TOML input parser tests...", flush=True)
     all_results.extend(run_toml_input_tests())
+
+    # Run XML-INPUT tests
+    print(f"  [15/20] Running XML input parser tests...", flush=True)
+    all_results.extend(run_xml_input_tests())
+
+    # Run JSON-INPUT tests
+    print(f"  [16/20] Running JSON input parser tests...", flush=True)
+    all_results.extend(run_json_input_tests())
 
     # Run EQUIV tests (format equivalence)
     print(f"  [17/20] Running format equivalence tests...", flush=True)
