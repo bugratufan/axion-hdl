@@ -673,7 +673,7 @@ function updateFileExtension() {
     const format = document.getElementById('saveFormat').value;
     const pathInput = document.getElementById('saveFilePath');
     let path = pathInput.value;
-    path = path.replace(/\.(json|yaml|yml|xml)$/i, '.' + (format === 'yaml' ? 'yaml' : format));
+    path = path.replace(/\.(json|yaml|yml|xml|toml)$/i, '.' + (format === 'yaml' ? 'yaml' : format));
     pathInput.value = path;
 }
 

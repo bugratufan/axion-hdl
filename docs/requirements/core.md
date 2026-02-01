@@ -12,6 +12,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | **PARSER** | VHDL Parsing | Parsing of VHDL entities, signals, and `@axion` annotations. |
 | **YAML-INPUT** | YAML Parsing | Parsing of YAML register definition files. |
 | **JSON-INPUT** | JSON Parsing | Parsing of JSON register definition files. |
+| **TOML-INPUT** | TOML Parsing | Parsing of TOML register definition files. |
 | **GEN** | Code Generation | Generation of VHDL register wrappers, C headers, and data formats. |
 | **ERR** | Error Handling | Detection and reporting of invalid configurations or conflicts. |
 | **CLI** | Interface | Command-line interface arguments and behavior. |
@@ -106,6 +107,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | GEN-012 | Markdown Documentation Generation | Generates `.md` file with register tables. | Python Unit Test (`gen.test_gen_012`) |
 | GEN-013 | YAML Map Generation | Generates `{module}_regs.yaml` with valid YAML syntax. | Python Unit Test (`gen.test_gen_013`) |
 | GEN-014 | JSON Map Generation | Generates `{module}_regs.json` with valid JSON syntax. | Python Unit Test (`gen.test_gen_014`) |
+| GEN-014a | TOML Map Generation | Generates `{module}_regs.toml` with valid TOML syntax. | Python Unit Test (`gen.test_gen_014a`) |
 | GEN-015 | HTML Documentation Generation | Generates styled `register_map.html` with embedded CSS. | Python Unit Test (`gen.test_gen_015`) |
 | GEN-016 | PDF Documentation Generation | Generates `register_map.pdf` file (optional, requires weasyprint). | Python Unit Test (`gen.test_gen_016`) |
 | GEN-017 | Address Range Calculation | Calculates and displays address range (start-end) for each module. | Python Unit Test (`gen.test_gen_017`) |
@@ -129,7 +131,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 |----|------------|---------------------|-------------|
 | CLI-001 | Help Options (-h, --help) | Prints usage information and exits with 0. | Python Unit Test (`cli.test_cli_001`) |
 | CLI-002 | Version Option (--version) | Prints tool version and exits with 0. | Python Unit Test (`cli.test_cli_002`) |
-| CLI-003 | Source Path Options (-s, --source) | Accepts source files (.vhd, .vhdl, .xml, .yaml, .yml, .json) or directories with auto-detection by extension. | Python Unit Test (`cli.test_cli_003`) |
+| CLI-003 | Source Path Options (-s, --source) | Accepts source files (.vhd, .vhdl, .yaml, .yml, .toml, .xml, .json) or directories with auto-detection by extension. | Python Unit Test (`cli.test_cli_003`) |
 | CLI-004 | Multiple Source Paths | Accepts multiple `-s` flags for any combination of files and directories. | Python Unit Test (`cli.test_cli_004`) |
 | CLI-005 | Output Directory Options (-o, --output) | Accepts output path argument. | Python Unit Test (`cli.test_cli_005`) |
 | CLI-006 | Exclude Options (-e) | Excludes matching patterns from processing. | Python Unit Test (`cli.test_cli_006`) |
@@ -137,6 +139,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | CLI-010 | Output Directory Creation | Creates output directory if it doesn't exist. | Python Unit Test (`cli.test_cli_010`) |
 | CLI-011 | YAML Output Flag (--yaml) | `--yaml` generates YAML register map output. | Python Unit Test (`cli.test_cli_011`) |
 | CLI-012 | JSON Output Flag (--json) | `--json` generates JSON register map output. | Python Unit Test (`cli.test_cli_012`) |
+| CLI-012a | TOML Output Flag (--toml) | `--toml` generates TOML register map output. | Python Unit Test (`cli.test_cli_012a`) |
 | CLI-013 | Configuration File Support (-c, --config) | `--config <file>` loads settings (sources, excludes) from JSON file. | Python Unit Test (`cli.test_cli_013`) |
 | CLI-014 | Save Configuration to Persistent File | The tool must provide a mechanism to save the current configuration to a persistent file (e.g., `.axion_conf`). | GUI Integration Test |
 | CLI-015 | Auto-load Configuration | The tool must automatically load configuration from `.axion_conf` in the current working directory if it exists and no specific config file is provided via `--config`. | Python Unit Test (`cli.test_cli_015`) |
@@ -203,11 +206,31 @@ Testing and verification are automated via `make test`, which maps tests back to
 | DEF-009 | Combine Subregister Defaults | Packed register default is OR-combination of field defaults. | Python Unit Test (`def.test_def_009`) |
 | DEF-010 | Backward Compatibility | Existing modules unaffected. | Python Unit Test (`def.test_def_010`) |
 
-## 12. Validation & Diagnostics (VAL)
+## 12. TOML Input Parsing (TOML-INPUT)
 
 | ID | Definition | Acceptance Criteria | Test Method |
 |----|------------|---------------------|-------------|
-| VAL-001 | Required Field Validation | Missing 'module' or other required fields in source files (YAML/JSON/XML) must be reported as Errors. | Python Unit Test (`val.test_val_001`) |
+| TOML-INPUT-001 | TOML File Detection | Parser detects and loads `.toml` files. | Python Unit Test (`toml_input.test_toml_input_001`) |
+| TOML-INPUT-002 | Module Name Extraction | Correctly extracts `module` field from TOML. | Python Unit Test (`toml_input.test_toml_input_002`) |
+| TOML-INPUT-003 | Hex Base Address Parsing | Parses hex string base addresses (e.g., "0x1000"). | Python Unit Test (`toml_input.test_toml_input_003`) |
+| TOML-INPUT-004 | Table Format Module | Parses `[module]` table format with name and base_addr. | Python Unit Test (`toml_input.test_toml_input_004`) |
+| TOML-INPUT-005 | Register Array Parsing | Parses `[[registers]]` array correctly with all attributes. | Python Unit Test (`toml_input.test_toml_input_005`) |
+| TOML-INPUT-006 | Access Mode Parsing | Correctly parses RO, WO, RW access modes. | Python Unit Test (`toml_input.test_toml_input_006`) |
+| TOML-INPUT-007 | CDC Configuration | Parses `[config]` with `cdc_en` and `cdc_stage`. | Python Unit Test (`toml_input.test_toml_input_007`) |
+| TOML-INPUT-008 | Description Field | Preserves register descriptions. | Python Unit Test (`toml_input.test_toml_input_008`) |
+| TOML-INPUT-009 | Read Strobe Flag | Correctly handles `r_strobe` boolean. | Python Unit Test (`toml_input.test_toml_input_009`) |
+| TOML-INPUT-010 | Write Strobe Flag | Correctly handles `w_strobe` boolean. | Python Unit Test (`toml_input.test_toml_input_010`) |
+| TOML-INPUT-011 | Register Width | Parses register width correctly. | Python Unit Test (`toml_input.test_toml_input_011`) |
+| TOML-INPUT-012 | Default Values | Parses `default` field (hex and decimal). | Python Unit Test (`toml_input.test_toml_input_012`) |
+| TOML-INPUT-013 | Packed Registers | Handles `reg_name` and `bit_offset` for subregisters. | Python Unit Test (`toml_input.test_toml_input_013`) |
+| TOML-INPUT-014 | Directory Scanning | `parse_toml_files()` scans directories recursively. | Python Unit Test (`toml_input.test_toml_input_014`) |
+| TOML-INPUT-015 | AxionHDL Integration | `add_toml_src()` works correctly with AxionHDL. | Python Unit Test (`toml_input.test_toml_input_015`) |
+
+## 13. Validation & Diagnostics (VAL)
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| VAL-001 | Required Field Validation | Missing 'module' or other required fields in source files (YAML/TOML/XML/JSON) must be reported as Errors. | Python Unit Test (`val.test_val_001`) |
 | VAL-002 | Format Error Visibility | Parsing errors (malformed syntax) must be visible in Rule Check results. | Python Unit Test (`val.test_val_002`) |
 | VAL-003 | Logical Integrity Check | Validates integrity of loaded modules (e.g. non-empty register lists). | Python Unit Test (`val.test_val_003`) |
 | VAL-004 | Description Presence | Warns if registers are missing descriptions/documentation. | Python Unit Test (`val.test_val_004`) |

@@ -45,6 +45,35 @@ registers:
     description: "Blink period in milliseconds"
 ```
 
+Or use TOML format `led_blinker.toml`:
+
+```toml
+module = "led_blinker"
+base_addr = "0x0000"
+
+[[registers]]
+name = "control"
+addr = "0x00"
+access = "RW"
+width = 32
+description = "LED control register"
+
+[[registers]]
+name = "led_state"
+addr = "0x04"
+access = "RO"
+width = 32
+description = "Current LED state"
+
+[[registers]]
+name = "period_ms"
+addr = "0x08"
+access = "RW"
+width = 32
+default = 500
+description = "Blink period in milliseconds"
+```
+
 ### Step 2: Generate Output
 
 ```bash

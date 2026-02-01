@@ -57,6 +57,7 @@ async function runGenerate() {
             xml: document.getElementById('fmtXml').checked,
             yaml: document.getElementById('fmtYaml').checked,
             json: document.getElementById('fmtJson').checked,
+            toml: document.getElementById('fmtToml').checked,
             header: document.getElementById('fmtHeader').checked,
             doc_md: document.getElementById('fmtDocMd').checked,
             doc_html: document.getElementById('fmtDocHtml').checked

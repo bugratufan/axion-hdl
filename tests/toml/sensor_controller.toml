@@ -1,0 +1,105 @@
+module = "sensor_controller"
+base_addr = "0x0000"
+
+[config]
+cdc_en = true
+cdc_stage = 3
+
+[[registers]]
+name = "status_reg"
+addr = "0x00"
+access = "RO"
+width = 32
+description = "System status flags"
+
+[[registers]]
+name = "temperature_reg"
+addr = "0x04"
+access = "RO"
+width = 32
+r_strobe = true
+description = "Temperature sensor reading"
+
+[[registers]]
+name = "pressure_reg"
+addr = "0x08"
+access = "RO"
+width = 32
+r_strobe = true
+description = "Pressure sensor value"
+
+[[registers]]
+name = "humidity_reg"
+addr = "0x0C"
+access = "RO"
+width = 32
+description = "Humidity sensor value"
+
+[[registers]]
+name = "error_count_reg"
+addr = "0x10"
+access = "RO"
+width = 32
+description = "Total error count"
+
+[[registers]]
+name = "control_reg"
+addr = "0x14"
+access = "WO"
+width = 32
+w_strobe = true
+description = "Main control register"
+
+[[registers]]
+name = "threshold_high_reg"
+addr = "0x18"
+access = "WO"
+width = 32
+description = "High threshold value"
+
+[[registers]]
+name = "threshold_low_reg"
+addr = "0x20"
+access = "WO"
+width = 32
+description = "Low threshold value"
+
+[[registers]]
+name = "config_reg"
+addr = "0x24"
+access = "RW"
+width = 32
+
+[[registers]]
+name = "calibration_reg"
+addr = "0x28"
+access = "RW"
+width = 32
+r_strobe = true
+w_strobe = true
+
+[[registers]]
+name = "mode_reg"
+addr = "0x30"
+access = "RW"
+width = 32
+
+[[registers]]
+name = "debug_reg"
+addr = "0x100"
+access = "RW"
+width = 32
+
+[[registers]]
+name = "timestamp_reg"
+addr = "0x104"
+access = "RO"
+width = 32
+
+[[registers]]
+name = "interrupt_status_reg"
+addr = "0x200"
+access = "RW"
+width = 32
+r_strobe = true
+w_strobe = true

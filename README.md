@@ -1,6 +1,6 @@
 # Axion-HDL
 
-**AXI4-Lite register interfaces from VHDL, YAML, XML, or JSON. One command.**
+**AXI4-Lite register interfaces from VHDL, YAML, TOML, XML, or JSON. One command.**
 
 [![PyPI](https://img.shields.io/pypi/v/axion-hdl.svg)](https://pypi.org/project/axion-hdl/)
 [![Tests](https://github.com/bugratufan/axion-hdl/actions/workflows/tests.yml/badge.svg)](https://github.com/bugratufan/axion-hdl/actions/workflows/tests.yml)
@@ -31,11 +31,12 @@ pip install -e ".[dev]"  # Includes pytest, cocotb, etc.
 # From VHDL with @axion annotations
 axion-hdl -s my_module.vhd -o output/
 
-# From YAML/XML/JSON
+# From YAML/TOML/XML/JSON
 axion-hdl -s registers.yaml -o output/
+axion-hdl -s registers.toml -o output/
 ```
 
-**Output:** VHDL module, C header, documentation, XML/YAML/JSON exports.
+**Output:** VHDL module, C header, documentation, YAML/TOML/XML/JSON exports.
 
 ## Define Registers
 
@@ -60,13 +61,44 @@ registers:
     w_strobe: true
 ```
 
+**TOML** — clean, readable syntax:
+```toml
+module = "spi_master"
+base_addr = "0x0000"
+
+[config]
+cdc_en = true
+cdc_stage = 2
+
+[[registers]]
+name = "control"
+addr = "0x00"
+access = "RW"
+w_strobe = true
+description = "SPI control register"
+
+[[registers]]
+name = "status"
+addr = "0x04"
+access = "RO"
+r_strobe = true
+description = "SPI status register"
+```
+
+**Output** — one command:
+```bash
+axion-hdl -s spi_master.toml -o output --all
+```
+
+Generates: VHDL module (21KB), C header (3.8KB), HTML docs, YAML/TOML/XML/JSON exports
+
 ## Features
 
-- **Multi-format input** — VHDL annotations, YAML, XML, JSON
+- **Multi-format input** — VHDL annotations, YAML, TOML, XML, JSON
 - **CDC support** — built-in clock domain crossing synchronizers
 - **Subregisters** — pack multiple fields into one address
 - **Wide signals** — auto-split 64-bit+ signals across addresses
-- **Tested** — 230+ tests, GHDL simulation verified
+- **Tested** — 307+ tests, GHDL simulation verified
 
 ## Documentation
 
@@ -84,7 +116,7 @@ make test  # Auto-installs dependencies and runs all tests
 The `make test` command automatically:
 - Creates a virtual environment if needed
 - Installs all test dependencies
-- Runs 200+ tests (Python + VHDL + cocotb)
+- Runs 307+ tests (Python + VHDL + cocotb)
 
 **Manual setup (optional):**
 ```bash

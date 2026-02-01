@@ -52,6 +52,7 @@ axion.add_source("registers.yaml")
 axion.add_source("registers.yaml")
 axion.add_source("controller.xml")
 axion.add_source("gpio.json")
+axion.add_source("spi.toml")
 axion.add_source("spi_master.vhd")
 
 # Add directory (recursive scan)
@@ -61,6 +62,7 @@ axion.add_source("./rtl")
 axion.add_yaml_src("registers.yaml")
 axion.add_xml_src("controller.xml")
 axion.add_json_src("gpio.json")
+axion.add_toml_src("spi.toml")
 
 # List current sources
 sources = axion.list_src()
