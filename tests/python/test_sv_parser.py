@@ -3,13 +3,18 @@ Unit tests for SystemVerilog parser
 Tests SV-AXION-001 through SV-AXION-029 requirements
 """
 
-import pytest
+import unittest
 import os
 import tempfile
+import sys
+
+# Add project root to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
 from axion_hdl.systemverilog_parser import SystemVerilogParser
 
 
-class TestSystemVerilogParser:
+class TestSystemVerilogParser(unittest.TestCase):
     """Test suite for SystemVerilog annotation parsing"""
 
     def test_sv_axion_001_parse_ro_register(self):
@@ -528,4 +533,4 @@ endmodule
 
 
 if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+    unittest.main()

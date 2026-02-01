@@ -3,14 +3,19 @@ Unit tests for SystemVerilog generator
 Tests SV-GEN-001 through SV-GEN-016 requirements
 """
 
-import pytest
+import unittest
 import os
 import tempfile
 import re
+import sys
+
+# Add project root to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
 from axion_hdl.systemverilog_generator import SystemVerilogGenerator
 
 
-class TestSystemVerilogGenerator:
+class TestSystemVerilogGenerator(unittest.TestCase):
     """Test suite for SystemVerilog code generation"""
 
     def test_sv_gen_001_generate_basic_module(self):
@@ -513,4 +518,4 @@ class TestSystemVerilogGenerator:
 
 
 if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+    unittest.main()
