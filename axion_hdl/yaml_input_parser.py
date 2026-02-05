@@ -146,10 +146,29 @@ class YAMLInputParser:
         
         # Parse config
         config = data.get('config', {})
-        cdc_en = config.get('cdc_en', False)
+        
+        # Check config block first, then top-level
+        cdc_en = config.get('cdc_en')
+        if cdc_en is None:
+            cdc_en = config.get('cdc_enabled')
+        if cdc_en is None:
+            cdc_en = data.get('cdc_en')
+        if cdc_en is None:
+            cdc_en = data.get('cdc_enabled', False)
         if isinstance(cdc_en, str):
             cdc_en = cdc_en.lower() == 'true'
-        cdc_stage = config.get('cdc_stage', 2)
+        if isinstance(cdc_en, str):
+            cdc_en = cdc_en.lower() == 'true'
+            
+        # Check config block first, then top-level for stages
+        cdc_stage = config.get('cdc_stage')
+        if cdc_stage is None:
+            cdc_stage = config.get('cdc_stages')
+        if cdc_stage is None:
+            cdc_stage = data.get('cdc_stage')
+        if cdc_stage is None:
+            cdc_stage = data.get('cdc_stages', 2)
+            
         if isinstance(cdc_stage, str):
             try:
                 cdc_stage = int(cdc_stage)

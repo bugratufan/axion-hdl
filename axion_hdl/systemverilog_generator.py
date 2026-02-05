@@ -277,29 +277,77 @@ class SystemVerilogGenerator:
             ""
         ]
 
-        # Generate synchronizers for each register that needs CDC
+        # 1. Input Synchronizers (RO): Module -> AXI (axi_aclk domain)
+        # ---------------------------------------------------------------------
+        lines.append("    // Input Synchronizers (Module -> AXI)")
+        lines.append("    // -----------------------------------")
+        
+        has_ro = False
         for reg in registers:
-            signal_name = reg['signal_name']
-            signal_type = reg['signal_type']
-            access_mode = reg['access_mode']
-
-            # Only RO registers need CDC from module_clk to axi_aclk
-            if access_mode == 'RO':
+            if reg['access_mode'] == 'RO':
+                has_ro = True
+                signal_name = reg['signal_name']
+                signal_type = reg['signal_type']
                 sv_type = self._signal_type_to_sv(signal_type)
 
-                lines.append(f"    // CDC synchronizer for {signal_name}")
+                lines.append(f"    // CDC for {signal_name} (RO)")
                 lines.append(f"    {sv_type:30} {signal_name}_sync [{cdc_stages}];")
-                lines.append("")
-                lines.append(f"    always_ff @(posedge axi_aclk or negedge axi_aresetn) begin")
-                lines.append(f"        if (!axi_aresetn) begin")
-                lines.append(f"            {signal_name}_sync <= '{'{'}0{'}'};")
-                lines.append(f"        end else begin")
-                lines.append(f"            {signal_name}_sync[0] <= {signal_name};")
-                for i in range(1, cdc_stages):
-                    lines.append(f"            {signal_name}_sync[{i}] <= {signal_name}_sync[{i-1}];")
-                lines.append(f"        end")
-                lines.append(f"    end")
-                lines.append("")
+        
+        if has_ro:
+            lines.append("")
+            lines.append(f"    always_ff @(posedge axi_aclk or negedge axi_aresetn) begin")
+            lines.append(f"        if (!axi_aresetn) begin")
+            for reg in registers:
+                if reg['access_mode'] == 'RO':
+                     lines.append(f"            {reg['signal_name']}_sync <= '{{default: '0}};")
+            lines.append(f"        end else begin")
+            for reg in registers:
+                if reg['access_mode'] == 'RO':
+                    lines.append(f"            {reg['signal_name']}_sync[0] <= {reg['signal_name']};")
+                    for i in range(1, cdc_stages):
+                        lines.append(f"            {reg['signal_name']}_sync[{i}] <= {reg['signal_name']}_sync[{i-1}];")
+            lines.append(f"        end")
+            lines.append(f"    end")
+        else:
+             lines.append("    // No RO registers found")
+        
+        lines.append("")
+
+        # 2. Output Synchronizers (RW/WO): AXI -> Module (module_clk domain)
+        # ----------------------------------------------------------------------
+        lines.append("    // Output Synchronizers (AXI -> Module)")
+        lines.append("    // ------------------------------------")
+        
+        has_out = False
+        for reg in registers:
+            if reg['access_mode'] in ['RW', 'WO']:
+                has_out = True
+                signal_name = reg['signal_name']
+                signal_type = reg['signal_type']
+                sv_type = self._signal_type_to_sv(signal_type)
+
+                lines.append(f"    // CDC for {signal_name} ({reg['access_mode']})")
+                lines.append(f"    {sv_type:30} {signal_name}_sync [{cdc_stages}];")
+
+        if has_out:
+            lines.append("")
+            lines.append(f"    always_ff @(posedge module_clk or negedge axi_aresetn) begin")
+            lines.append(f"        if (!axi_aresetn) begin")
+            for reg in registers:
+                if reg['access_mode'] in ['RW', 'WO']:
+                    # Use '0 because SystemVerilog unpacked arrays rely on default: '0 or strict loop
+                    # Using {default: '0} is safer for unpacked
+                    lines.append(f"            {reg['signal_name']}_sync <= '{{default: '0}};")
+            lines.append(f"        end else begin")
+            for reg in registers:
+                if reg['access_mode'] in ['RW', 'WO']:
+                    lines.append(f"            {reg['signal_name']}_sync[0] <= {reg['signal_name']}_reg;")
+                    for i in range(1, cdc_stages):
+                        lines.append(f"            {reg['signal_name']}_sync[{i}] <= {reg['signal_name']}_sync[{i-1}];")
+            lines.append(f"        end")
+            lines.append(f"    end")
+        else:
+             lines.append("    // No RW/WO registers found")
 
         return '\n'.join(lines)
 
@@ -533,6 +581,8 @@ class SystemVerilogGenerator:
     def _generate_output_assignments(self, module_data: Dict) -> str:
         """Generate output port assignments."""
         registers = module_data.get('registers', [])
+        cdc_enabled = module_data.get('cdc_enabled', False)
+        cdc_stages = module_data.get('cdc_stages', 2)
 
         lines = [
             "    //-------------------------------------------------------------------------",
@@ -546,8 +596,11 @@ class SystemVerilogGenerator:
             access_mode = reg['access_mode']
 
             if access_mode in ['RW', 'WO']:
-                # Output the internal register
-                lines.append(f"    assign {signal_name} = {signal_name}_reg;")
+                if cdc_enabled:
+                     # Use the last stage of the synchronizer
+                     lines.append(f"    assign {signal_name} = {signal_name}_sync[{cdc_stages-1}];")
+                else:
+                     lines.append(f"    assign {signal_name} = {signal_name}_reg;")
 
             # Strobe assignments
             if reg.get('write_strobe'):
