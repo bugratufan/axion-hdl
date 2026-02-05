@@ -312,10 +312,14 @@ class VHDLParser:
         
         # Ensure base_address is an integer
         if isinstance(base_address, str):
-            if base_address.startswith('0x') or base_address.startswith('0X'):
-                base_address = int(base_address, 16)
-            else:
-                base_address = int(base_address)
+            try:
+                if base_address.startswith('0x') or base_address.startswith('0X'):
+                    base_address = int(base_address, 16)
+                else:
+                    base_address = int(base_address)
+            except ValueError:
+                self.errors.append({'msg': f"Invalid base_address value '{base_address}'"})
+                base_address = 0x00
             
         return cdc_enabled, cdc_stages, base_address
     

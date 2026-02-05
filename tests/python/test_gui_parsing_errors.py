@@ -70,3 +70,74 @@ class TestGUIParsingErrors:
         assert "stat-value-error" in html
         assert "1</span>" in html or "1 </span>" in html # The count value 
 
+    def test_gui_rule_check_integration(self, test_env):
+        """GUI-RULE-006: Parsing errors are included in Rule Check report"""
+        src_dir = os.path.join(test_env, "src")
+        axion = AxionHDL()
+        axion.add_src(src_dir)
+        axion.analyze()
+        
+        gui = AxionGUI(axion)
+        gui.setup_app()
+        client = gui.app.test_client()
+        
+        # Run rule check via API
+        response = client.get('/api/run_check')
+        assert response.status_code == 200
+        data = response.get_json()
+        
+        # Verify parsing errors are in the results
+        # Parsing Errors from AddressManager raise AddressConflictError which VHDLParser catches
+        errors = data.get('errors', [])
+        assert any(e.get('type') == 'Parsing Error' or e.get('type') == 'Format Error' for e in errors)
+        assert any("Address Conflict" in e.get('msg', '') for e in errors)
+
+    def test_gui_blocks_generation_on_error(self, test_env):
+        """GUI-GEN-017: Generation is blocked if module has parsing errors"""
+        src_dir = os.path.join(test_env, "src")
+        out_dir = os.path.join(test_env, "out")
+        os.makedirs(out_dir, exist_ok=True)
+        
+        axion = AxionHDL(output_dir=out_dir)
+        axion.add_src(src_dir)
+        axion.analyze()
+        
+        gui = AxionGUI(axion)
+        gui.setup_app()
+        client = gui.app.test_client()
+        
+        # Request generation via API
+        payload = {
+            'output_dir': out_dir,
+            'formats': {'vhdl': True, 'xml': True},
+            'modules': ['conflict_guitest']
+        }
+        response = client.post('/api/generate', json=payload)
+        assert response.status_code == 200
+        data = response.get_json()
+        
+        # Should report failure
+        assert data.get('success') is False
+        assert any("Cannot proceed due to parsing errors" in log for log in data.get('logs', []))
+        
+        # Verify no files generated
+        assert len(os.listdir(out_dir)) == 0
+
+    def test_gui_dashboard_parsing_error_indicator(self, test_env):
+        """GUI-DASH-011: Modules with parsing errors show error indicator"""
+        src_dir = os.path.join(test_env, "src")
+        axion = AxionHDL()
+        axion.add_src(src_dir)
+        axion.analyze()
+        
+        gui = AxionGUI(axion)
+        gui.setup_app()
+        client = gui.app.test_client()
+        
+        response = client.get('/')
+        html = response.data.decode('utf-8')
+        
+        # Should have a badge or indicator for the module with error
+        assert "badge-error" in html
+        assert "Error" in html
+

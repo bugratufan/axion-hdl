@@ -1,4 +1,3 @@
-import pytest
 import os
 from axion_hdl.json_input_parser import JSONInputParser
 from axion_hdl.yaml_input_parser import YAMLInputParser

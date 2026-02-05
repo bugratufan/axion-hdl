@@ -225,6 +225,8 @@ Testing and verification are automated via `make test`, which maps tests back to
 | VAL-003 | Logical Integrity Check | Validates integrity of loaded modules (e.g. non-empty register lists). | Python Unit Test (`val.test_val_003`) |
 | VAL-004 | Description Presence | Warns if registers are missing descriptions/documentation. | Python Unit Test (`val.test_val_004`) |
 | VAL-005 | Duplicate Module Name | Error if multiple modules share the same name. | Python Unit Test (`val.test_val_005`) |
+| VAL-006 | Numeric Attribute Validation | Invalid numeric values for `base_addr`, `addr`, `width`, `bit_offset`, and `cdc_stage` must be reported as Parsing Errors. | Python Unit Test |
+| VAL-007 | Generation Safety Lock | The tool must block all code and documentation generation if any analyzed module contains parsing errors. | Python Unit Test |
 
 ## 13. XML Input (XML-INPUT)
 
