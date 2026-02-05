@@ -8,13 +8,15 @@ with individual test results for each sub-test.
 Covers requirements:
 - AXION-001 to AXION-029
 - AXI-LITE-001 to AXI-LITE-018
-- PARSER-001 to PARSER-008
-- GEN-001 to GEN-016
+- PARSER-001 to PARSER-009
+- GEN-001 to GEN-028
+- SUB-007, SUB-008
 - CDC-001 to CDC-007
 - ADDR-001 to ADDR-008
 - ERR-001 to ERR-006
 - CLI-001 to CLI-010
 - STRESS-001 to STRESS-006
+- YAML-INPUT-016
 """
 
 import subprocess
@@ -889,6 +891,88 @@ def run_vhdl_tests() -> List[TestResult]:
     results.append(TestResult(test_id, name, status, duration, output,
                               category="vhdl", subcategory="xml"))
 
+    # ========================================================================
+    # YAML Subregister Tests (analogous to XML tests above)
+    # ========================================================================
+
+    # Test YAML-1: Generate VHDL from YAML
+    test_id = "vhdl.yaml.generate"
+    name = "YAML: Generate VHDL from tests/yaml/subregister_test.yaml"
+    start = time.time()
+    success_yaml_gen = False
+    try:
+        # Generate into temp dir
+        axion = AxionHDL(output_dir=str(GEN_OUTPUT_DIR))
+        axion.add_yaml_src(str(PROJECT_ROOT / "tests" / "yaml"))
+        axion.analyze()
+        axion.generate_vhdl()
+        axion.generate_c_header()
+
+        gen_file = GEN_OUTPUT_DIR / "subregister_test_yaml_axion_reg.vhd"
+        if gen_file.exists():
+            duration = time.time() - start
+            results.append(TestResult(test_id, name, "passed", duration, f"Generated {gen_file}",
+                                      category="vhdl", subcategory="yaml"))
+            success_yaml_gen = True
+        else:
+            duration = time.time() - start
+            results.append(TestResult(test_id, name, "failed", duration, "File not generated",
+                                      category="vhdl", subcategory="yaml"))
+            success_yaml_gen = False
+    except Exception as e:
+        duration = time.time() - start
+        results.append(TestResult(test_id, name, "failed", duration, str(e),
+                                  category="vhdl", subcategory="yaml"))
+        success_yaml_gen = False
+
+    # Test YAML-2: Analyze Generated VHDL
+    test_id = "vhdl.yaml.analyze_gen"
+    name = "YAML: Analyze generated subregister_test_yaml_axion_reg.vhd"
+    vhdl_file = GEN_OUTPUT_DIR / "subregister_test_yaml_axion_reg.vhd"
+    if success_yaml_gen and vhdl_file.exists():
+        success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
+        status = "passed" if success else "failed"
+    else:
+        success, duration, output = False, 0, "Skipped because generation failed"
+        status = "failed"
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="yaml"))
+
+    # Test YAML-3: Analyze YAML Testbench
+    test_id = "vhdl.yaml.analyze_tb"
+    name = "YAML: Analyze subregister_yaml_test_tb.vhd"
+    vhdl_file = PROJECT_ROOT / "tests" / "vhdl" / "subregister_yaml_test_tb.vhd"
+    success, duration, output = run_command(["ghdl", "-a"] + ghdl_opts + [str(vhdl_file)])
+    status = "passed" if success else "failed"
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="yaml"))
+
+    # Test YAML-4: Elaborate YAML Testbench
+    test_id = "vhdl.yaml.elaborate"
+    name = "YAML: Elaborate subregister_yaml_test_tb"
+    success, duration, output = run_command(["ghdl", "-e"] + ghdl_opts + ["subregister_yaml_test_tb"])
+    status = "passed" if success else "failed"
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="yaml"))
+
+    # Test YAML-5: Run YAML Testbench
+    test_id = "vhdl.yaml.run"
+    name = "YAML: Run subregister_yaml_test_tb"
+    success, duration, output = run_command(["ghdl", "-r"] + ghdl_opts + ["subregister_yaml_test_tb"])
+
+    if success:
+        if "FAIL" in output or "error" in output.lower():
+            status = "failed"
+            fail_line = next((line for line in output.split('\n') if "FAIL" in line), "Unknown failure")
+            output = f"Simulation failed: {fail_line}\n{output}"
+        else:
+            status = "passed"
+    else:
+        status = "failed"
+
+    results.append(TestResult(test_id, name, status, duration, output,
+                              category="vhdl", subcategory="yaml"))
+
     # Test 10: Run simulation and parse individual test results
     test_id = "vhdl.simulate.testbench"
     name = "Run multi_module_tb Simulation"
@@ -1607,13 +1691,16 @@ def run_stress_tests() -> List[TestResult]:
 def run_subregister_tests() -> List[TestResult]:
     """Run SUB-xxx requirement tests for subregister support"""
     results = []
-    
+
     try:
         from tests.python.test_subregister import TestSubregisterRequirements
+        from tests.python.test_yaml_sub import TestYAMLSubregisters
         import io
         import sys
-        
+
         loader = unittest.TestLoader()
+
+        # Run original subregister tests
         suite = loader.loadTestsFromTestCase(TestSubregisterRequirements)
         
         for test in suite:
@@ -1647,9 +1734,44 @@ def run_subregister_tests() -> List[TestResult]:
                     category="sub",
                     subcategory="requirements"
                 ))
+
+        # Run YAML subregister tests
+        suite_yaml = loader.loadTestsFromTestCase(TestYAMLSubregisters)
+
+        for test in suite_yaml:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_sub_', 'SUB-').replace('_', '-').upper()
+
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+
+                results.append(TestResult(
+                    f"sub.yaml.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="sub",
+                    subcategory="yaml"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"sub.yaml.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="sub",
+                    subcategory="yaml"
+                ))
     except ImportError as e:
         results.append(TestResult("sub.import", "SUB: Import test module", "failed", 0, str(e), category="sub", subcategory="setup"))
-    
+
     return results
 
 
@@ -2069,6 +2191,107 @@ def run_equivalence_tests() -> List[TestResult]:
     return results
 
 
+def run_width_propagation_tests() -> List[TestResult]:
+    """Run width-propagation requirement tests
+    (YAML-INPUT-016, PARSER-009, GEN-019…028, SUB-007, SUB-008, ADDR-006)"""
+    results = []
+
+    try:
+        from tests.python.test_width_propagation import (
+            TestCHeaderGetSignalWidth,
+            TestYAMLSignalTypeParseable,
+            TestVHDLSignalTypeParseable,
+            TestCHeaderWidthMacrosYAML,
+            TestCHeaderWidthMacrosVHDL,
+            TestCHeaderStructLayoutYAML,
+            TestMarkdownWidthColumnYAML,
+            TestMarkdownWidthColumnVHDL,
+            TestPackedFieldMasksYAML,
+            TestPackedFieldMasksVHDL,
+            TestPackedContainerWidth,
+            TestVHDLPortWidthYAML,
+            TestVHDLPortWidthVHDL,
+            TestAutoAddressWideRegisters,
+            TestE2EConsistencyYAML,
+            TestE2EConsistencyVHDL,
+        )
+        import io
+        import sys
+
+        test_classes = [
+            TestCHeaderGetSignalWidth,
+            TestYAMLSignalTypeParseable,
+            TestVHDLSignalTypeParseable,
+            TestCHeaderWidthMacrosYAML,
+            TestCHeaderWidthMacrosVHDL,
+            TestCHeaderStructLayoutYAML,
+            TestMarkdownWidthColumnYAML,
+            TestMarkdownWidthColumnVHDL,
+            TestPackedFieldMasksYAML,
+            TestPackedFieldMasksVHDL,
+            TestPackedContainerWidth,
+            TestVHDLPortWidthYAML,
+            TestVHDLPortWidthVHDL,
+            TestAutoAddressWideRegisters,
+            TestE2EConsistencyYAML,
+            TestE2EConsistencyVHDL,
+        ]
+
+        loader = unittest.TestLoader()
+        for cls in test_classes:
+            suite = loader.loadTestsFromTestCase(cls)
+            for test in suite:
+                test_name = str(test).split()[0]
+                # Extract the requirement ID from the docstring (first token like "GEN-019:")
+                desc = test.shortDescription() or test_name
+                req_match = re.match(r'((?:YAML-INPUT|PARSER|GEN|SUB|ADDR|E2E)-\d+\S*)', desc)
+                req_id = req_match.group(1).rstrip(':') if req_match else "GEN-019"
+
+                # Derive category from the requirement prefix
+                _cat_map = {
+                    'YAML-INPUT': 'yaml_input',
+                    'PARSER':     'parser',
+                    'SUB':        'sub',
+                    'ADDR':       'addr',
+                    'GEN':        'gen',
+                    'E2E':        'e2e',
+                }
+                _prefix = re.sub(r'-\d+.*$', '', req_id)
+                category = _cat_map.get(_prefix, 'gen')
+
+                start = time.time()
+                try:
+                    old_stdout = sys.stdout
+                    sys.stdout = io.StringIO()
+                    try:
+                        test.debug()
+                    finally:
+                        sys.stdout = old_stdout
+
+                    results.append(TestResult(
+                        f"{category}.{test_name}",
+                        f"{req_id}: {desc}",
+                        "passed",
+                        time.time() - start,
+                        category=category,
+                        subcategory="width_propagation"
+                    ))
+                except Exception as e:
+                    results.append(TestResult(
+                        f"{category}.{test_name}",
+                        f"{req_id}: {desc}",
+                        "failed",
+                        time.time() - start,
+                        str(e),
+                        category=category,
+                        subcategory="width_propagation"
+                    ))
+    except ImportError as e:
+        results.append(TestResult("gen.width_prop.import", "GEN-019: Import width propagation tests", "failed", 0, str(e), category="gen", subcategory="setup"))
+
+    return results
+
+
 def run_cocotb_tests() -> List[TestResult]:
     """Run cocotb VHDL simulation tests"""
     results = []
@@ -2321,88 +2544,92 @@ def run_cocotb_tests() -> List[TestResult]:
 
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV + Cocotb\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..026 + Cocotb\n")
 
     all_results = []
 
     # Run Python unit tests (core functionality)
-    print(f"  [1/20] Running Python unit tests...", flush=True)
+    print(f"  [1/21] Running Python unit tests...", flush=True)
     all_results.extend(run_python_unit_tests())
 
     # Run address conflict tests (ADDR requirements)
-    print(f"  [2/20] Running address conflict tests...", flush=True)
+    print(f"  [2/21] Running address conflict tests...", flush=True)
     all_results.extend(run_address_conflict_tests())
 
     # Run Parser tests (PARSER requirements)
-    print(f"  [3/20] Running parser tests...", flush=True)
+    print(f"  [3/21] Running parser tests...", flush=True)
     all_results.extend(run_parser_tests())
 
     # Run Generator tests (GEN requirements)
-    print(f"  [4/20] Running generator tests...", flush=True)
+    print(f"  [4/21] Running generator tests...", flush=True)
     all_results.extend(run_generator_tests())
 
     # Run Error handling tests (ERR requirements)
-    print(f"  [5/20] Running error handling tests...", flush=True)
+    print(f"  [5/21] Running error handling tests...", flush=True)
     all_results.extend(run_error_handling_tests())
 
     # Run CLI tests (CLI requirements)
-    print(f"  [6/20] Running CLI tests...", flush=True)
+    print(f"  [6/21] Running CLI tests...", flush=True)
     all_results.extend(run_cli_tests())
 
     # Run CDC tests (CDC requirements)
-    print(f"  [7/20] Running CDC tests...", flush=True)
+    print(f"  [7/21] Running CDC tests...", flush=True)
     all_results.extend(run_cdc_tests())
 
     # Run ADDR tests (ADDR requirements)
-    print(f"  [8/20] Running address management tests...", flush=True)
+    print(f"  [8/21] Running address management tests...", flush=True)
     all_results.extend(run_addr_tests())
 
     # Run STRESS tests (STRESS requirements)
-    print(f"  [9/20] Running stress tests...", flush=True)
+    print(f"  [9/21] Running stress tests...", flush=True)
     all_results.extend(run_stress_tests())
 
     # Run SUB tests (Subregister requirements)
-    print(f"  [10/20] Running subregister tests...", flush=True)
+    print(f"  [10/21] Running subregister tests...", flush=True)
     all_results.extend(run_subregister_tests())
 
     # Run DEF tests (DEFAULT attribute requirements)
-    print(f"  [11/20] Running default attribute tests...", flush=True)
+    print(f"  [11/21] Running default attribute tests...", flush=True)
     all_results.extend(run_default_tests())
 
     # Run VAL tests (Validation & Diagnostics requirements)
-    print(f"  [12/20] Running validation tests...", flush=True)
+    print(f"  [12/21] Running validation tests...", flush=True)
     all_results.extend(run_validation_tests())
 
     # Run YAML-INPUT tests
-    print(f"  [13/20] Running YAML input parser tests...", flush=True)
+    print(f"  [13/21] Running YAML input parser tests...", flush=True)
     all_results.extend(run_yaml_input_tests())
 
     # Run TOML-INPUT tests
-    print(f"  [14/20] Running TOML input parser tests...", flush=True)
+    print(f"  [14/21] Running TOML input parser tests...", flush=True)
     all_results.extend(run_toml_input_tests())
 
     # Run XML-INPUT tests
-    print(f"  [15/20] Running XML input parser tests...", flush=True)
+    print(f"  [15/21] Running XML input parser tests...", flush=True)
     all_results.extend(run_xml_input_tests())
 
     # Run JSON-INPUT tests
-    print(f"  [16/20] Running JSON input parser tests...", flush=True)
+    print(f"  [16/21] Running JSON input parser tests...", flush=True)
     all_results.extend(run_json_input_tests())
 
     # Run EQUIV tests (format equivalence)
-    print(f"  [17/20] Running format equivalence tests...", flush=True)
+    print(f"  [17/21] Running format equivalence tests...", flush=True)
     all_results.extend(run_equivalence_tests())
 
+    # Run width-propagation tests (YAML-INPUT-016, PARSER-009, GEN-019..026, SUB-007/008)
+    print(f"  [18/21] Running width propagation tests...", flush=True)
+    all_results.extend(run_width_propagation_tests())
+
     # Run VHDL tests (AXION, AXI-LITE requirements)
-    print(f"  [18/20] Running VHDL simulation tests...", flush=True)
+    print(f"  [19/21] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
 
     # Run C tests
-    print(f"  [19/20] Running C header tests...", flush=True)
+    print(f"  [20/21] Running C header tests...", flush=True)
     all_results.extend(run_c_tests())
 
     # Run Cocotb tests (comprehensive VHDL verification)
-    print(f"  [20/20] Running Cocotb VHDL tests...", flush=True)
+    print(f"  [21/21] Running Cocotb VHDL tests...", flush=True)
     all_results.extend(run_cocotb_tests())
     
     # Save and generate reports

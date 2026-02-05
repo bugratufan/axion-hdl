@@ -189,6 +189,28 @@ class XMLInputParser:
             if reg_elem.get('w_strobe', '').lower() == 'true':
                 reg_dict['w_strobe'] = True
             
+            if reg_elem.get('w_strobe', '').lower() == 'true':
+                reg_dict['w_strobe'] = True
+            
+            # Parse nested fields (Issue #88 fix)
+            fields = []
+            for field_elem in reg_elem.findall('field'):
+                f_name = field_elem.get('name')
+                if not f_name:
+                    continue
+                
+                f_dict = {
+                    'name': f_name,
+                    'bit_offset': field_elem.get('bit_offset'),
+                    'width': field_elem.get('width', 1),
+                    'access': field_elem.get('access', 'RW'),
+                    'description': field_elem.get('description', '')
+                }
+                fields.append(f_dict)
+            
+            if fields:
+                reg_dict['fields'] = fields
+            
             registers.append(reg_dict)
         
         return {
@@ -282,6 +304,65 @@ class XMLInputParser:
                 reg_dict['r_strobe'] = True
             if reg_elem.get('w_strobe', '').lower() == 'true':
                 reg_dict['w_strobe'] = True
+            
+            if reg_elem.get('w_strobe', '').lower() == 'true':
+                reg_dict['w_strobe'] = True
+            
+            # Parse nested fields (spirit:field) - Issue #88 fix
+            fields = []
+            field_elems = reg_elem.findall('spirit:field', ns)
+            if not field_elems:
+                field_elems = reg_elem.findall('field')
+            
+            for field_elem in field_elems:
+                # Name
+                f_name_elem = field_elem.find('spirit:name', ns)
+                if f_name_elem is None:
+                    f_name_elem = field_elem.find('name')
+                
+                if f_name_elem is None or not f_name_elem.text:
+                    continue
+                
+                f_dict = {'name': f_name_elem.text}
+                
+                # Bit Offset
+                f_offset_elem = field_elem.find('spirit:bitOffset', ns)
+                if f_offset_elem is None:
+                    f_offset_elem = field_elem.find('bitOffset')
+                if f_offset_elem is not None and f_offset_elem.text:
+                    f_dict['bit_offset'] = f_offset_elem.text
+                    
+                # Width (bitWidth)
+                f_width_elem = field_elem.find('spirit:bitWidth', ns)
+                if f_width_elem is None:
+                    f_width_elem = field_elem.find('bitWidth')
+                if f_width_elem is not None and f_width_elem.text:
+                    f_dict['width'] = f_width_elem.text
+                else:
+                    f_dict['width'] = 1
+                    
+                # Access
+                f_access_elem = field_elem.find('spirit:access', ns)
+                if f_access_elem is None:
+                    f_access_elem = field_elem.find('access')
+                if f_access_elem is not None and f_access_elem.text:
+                   # Map spirit access to simplified access
+                   amap = {'read-only': 'RO', 'write-only': 'WO', 'read-write': 'RW'}
+                   f_dict['access'] = amap.get(f_access_elem.text.lower(), 'RW')
+                else:
+                    f_dict['access'] = 'RW'
+
+                # Description
+                f_desc_elem = field_elem.find('spirit:description', ns)
+                if f_desc_elem is None:
+                    f_desc_elem = field_elem.find('description')
+                if f_desc_elem is not None and f_desc_elem.text:
+                    f_dict['description'] = f_desc_elem.text
+                
+                fields.append(f_dict)
+
+            if fields:
+                reg_dict['fields'] = fields
             
             registers.append(reg_dict)
         

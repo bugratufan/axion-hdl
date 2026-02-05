@@ -205,6 +205,10 @@ class TOMLInputParser:
                         reg_dict['reg_name'] = reg['reg_name']
                     if 'bit_offset' in reg:
                         reg_dict['bit_offset'] = reg['bit_offset']
+                    
+                    # Fix for Issue #88: Nested fields support
+                    if 'fields' in reg:
+                        reg_dict['fields'] = reg['fields']
 
                     registers.append(reg_dict)
 
