@@ -87,6 +87,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | PARSER-006 | Parse Descriptions | Extracts description string from comments, handling quotes. | Python Unit Test (`parser.test_parser_006`) |
 | PARSER-007 | Exclude directories | Skips directories specified in exclude list. | Python Unit Test (`parser.test_parser_007`) |
 | PARSER-008 | Recursive scanning | Recursively finds `.vhd` files in subfolders. | Python Unit Test (`parser.test_parser_008`) |
+| PARSER-009 | signal_type Format Compatibility | The `signal_type` field in the register dict produced by VHDLParser must be parseable by downstream generators (CHeaderGenerator, DocGenerator) to extract the correct bit width. | Python Unit Test (`parser.test_parser_009`) |
 
 ## 4. Code Generation (GEN)
 
@@ -110,6 +111,16 @@ Testing and verification are automated via `make test`, which maps tests back to
 | GEN-016 | PDF Documentation Generation | Generates `register_map.pdf` file (optional, requires weasyprint). | Python Unit Test (`gen.test_gen_016`) |
 | GEN-017 | Address Range Calculation | Calculates and displays address range (start-end) for each module. | Python Unit Test (`gen.test_gen_017`) |
 | GEN-018 | Base Address Generic | VHDL entity includes `BASE_ADDR` generic used for offset calculation. | Python Unit Test (`gen.test_gen_018`) |
+| GEN-019 | C Header Width Propagation (YAML) | `CHeaderGenerator._get_signal_width` must correctly extract width from `signal_type` strings produced by the YAML parser (`std_logic`, `std_logic_vector(N downto 0)`). WIDTH and NUM_REGS macros must reflect the declared width. | Python Unit Test (`gen.test_gen_019`) |
+| GEN-020 | C Header Width Propagation (VHDL Annotation) | Same as GEN-019 but for `signal_type` strings produced by the VHDL-annotation parser (`[N:0]` format). WIDTH and NUM_REGS macros must reflect the declared width. | Python Unit Test (`gen.test_gen_020`) |
+| GEN-021 | C Header Struct Layout for Wide Signals | Registers wider than 32 bits must appear as multiple `_reg0`, `_reg1` … members in the generated struct. Registers ≤ 32 bits must appear as a single member with no suffix. | Python Unit Test (`gen.test_gen_021`) |
+| GEN-022 | Markdown Width Column Accuracy (YAML) | The Width column in the generated `register_map.md` table must show the actual declared register width, not a hardcoded value, for registers defined via YAML. | Python Unit Test (`gen.test_gen_022`) |
+| GEN-023 | Markdown Width Column Accuracy (VHDL Annotation) | Same as GEN-022 but for registers defined via VHDL `@axion` annotations. | Python Unit Test (`gen.test_gen_023`) |
+| GEN-024 | Packed Register MASK/SHIFT Macros (YAML) | For packed (subregister) fields defined via YAML, the generated header must contain correct MASK and SHIFT `#define` macros matching each field's `bit_offset` and `width`. | Python Unit Test (`gen.test_gen_024`) |
+| GEN-025 | Packed Register MASK/SHIFT Macros (VHDL Annotation) | Same as GEN-024 but for packed fields defined via VHDL `@axion` annotations with `REG_NAME`/`BIT_OFFSET`. | Python Unit Test (`gen.test_gen_025`) |
+| GEN-026 | Packed Register Container is 32-bit | A packed register container must appear as exactly one `uint32_t` member in the struct (no `_reg0` split). | Python Unit Test (`gen.test_gen_026`) |
+| GEN-027 | VHDL Entity Port Width – YAML source | For registers defined via YAML, the generated VHDL entity port must use the declared width (e.g. `std_logic` for 1-bit, `std_logic_vector(4 downto 0)` for 5-bit). Must not default to 32-bit. | Python Unit Test (`gen.test_gen_027`) |
+| GEN-028 | VHDL Entity Port Width – VHDL-annotation source | Same as GEN-027 but for registers defined via VHDL `@axion` annotations. | Python Unit Test (`gen.test_gen_028`) |
 
 ## 5. Error Handling (ERR)
 
@@ -190,6 +201,8 @@ Testing and verification are automated via `make test`, which maps tests back to
 | SUB-004 | Auto-calculate Register Width | Register width determined by fields (always 32-bit container). | Python Unit Test (`sub.test_sub_004`) |
 | SUB-005 | Detect Bit Overlaps | Overlapping bit ranges raise `BitOverlapError`. | Python Unit Test (`sub.test_sub_005`) |
 | SUB-006 | Auto-pack signals | Fields without `BIT_OFFSET` pack sequentially. | Python Unit Test (`sub.test_sub_006`) |
+| SUB-007 | Subregister Field Width in Header (VHDL) | MASK and SHIFT macros generated for packed fields defined via VHDL `@axion` annotations must match the declared `BIT_OFFSET` and signal width exactly. | Python Unit Test (`sub.test_sub_007`) |
+| SUB-008 | Subregister Field Width in Header (YAML) | MASK and SHIFT macros generated for packed fields defined via YAML `reg_name` / `bit_offset` must match the declared `bit_offset` and `width` exactly. | Python Unit Test (`sub.test_sub_008`) |
 | SUB-011 | Backward Compatibility | Standard signals still processed correctly mixed with subregs. | Python Unit Test (`sub.test_sub_011`) |
 
 ## 11. Default Values (DEF)
@@ -232,4 +245,25 @@ Testing and verification are automated via `make test`, which maps tests back to
 | XML-INPUT-013 | Generator Compatibility | Parses XML files generated by XMLGenerator (SPIRIT format). | Python Unit Test (`xml_input.test_xml_input_013`) |
 | XML-INPUT-014 | Roundtrip Integrity | Parse → Generate → Parse produces identical module dictionary. | Python Unit Test (`xml_input.test_xml_input_014`) |
 | XML-INPUT-015 | Unified Attribute Naming | Uses consistent attribute names between parser and generator. | Python Unit Test (`xml_input.test_xml_input_015`) |
+
+## 14. YAML Input (YAML-INPUT)
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| YAML-INPUT-001 | YAML File Detection | Parser detects and loads `.yaml` and `.yml` files. | Python Unit Test (`yaml_input.test_yaml_input_001`) |
+| YAML-INPUT-002 | Module Name Extraction | Correctly extracts `module` field. | Python Unit Test (`yaml_input.test_yaml_input_002`) |
+| YAML-INPUT-003 | Hex Base Address Parsing | Parses `base_addr` as hex string. | Python Unit Test (`yaml_input.test_yaml_input_003`) |
+| YAML-INPUT-004 | Decimal Base Address Parsing | Parses `base_addr` as decimal integer. | Python Unit Test (`yaml_input.test_yaml_input_004`) |
+| YAML-INPUT-005 | Register List Parsing | Parses registers array with name, addr, access, width. | Python Unit Test (`yaml_input.test_yaml_input_005`) |
+| YAML-INPUT-006 | Access Mode Support | Handles RO, RW, WO (case-insensitive). | Python Unit Test (`yaml_input.test_yaml_input_006`) |
+| YAML-INPUT-007 | Strobe Signal Parsing | Parses `r_strobe` and `w_strobe` boolean flags. | Python Unit Test (`yaml_input.test_yaml_input_007`) |
+| YAML-INPUT-008 | CDC Configuration Parsing | Parses `config.cdc_en` and `config.cdc_stage`. | Python Unit Test (`yaml_input.test_yaml_input_008`) |
+| YAML-INPUT-009 | Description Field | Parses register description string. | Python Unit Test (`yaml_input.test_yaml_input_009`) |
+| YAML-INPUT-010 | Auto Address Assignment | Assigns sequential 4-byte addresses when `addr` omitted. | Python Unit Test (`yaml_input.test_yaml_input_010`) |
+| YAML-INPUT-011 | Invalid YAML Handling | Returns None for malformed YAML syntax. | Python Unit Test (`yaml_input.test_yaml_input_011`) |
+| YAML-INPUT-012 | Missing Module Name | Returns None when `module` field is absent. | Python Unit Test (`yaml_input.test_yaml_input_012`) |
+| YAML-INPUT-013 | Packed Register Parsing | Parses `reg_name` and `bit_offset` for subregister fields. | Python Unit Test (`yaml_input.test_yaml_input_013`) |
+| YAML-INPUT-014 | Default Value Parsing | Parses `default` as hex string or decimal integer. | Python Unit Test (`yaml_input.test_yaml_input_014`) |
+| YAML-INPUT-015 | Wide Signal Width Storage | Stores `width > 32` correctly in the register dict. | Python Unit Test (`yaml_input.test_yaml_input_015`) |
+| YAML-INPUT-016 | signal_type Format Compatibility | The `signal_type` field produced by YAMLInputParser must be parseable by downstream generators (CHeaderGenerator, DocGenerator) to extract the correct bit width for all register widths (1, sub-32, 32, >32). | Python Unit Test (`yaml_input.test_yaml_input_016`) |
 
