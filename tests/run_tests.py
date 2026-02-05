@@ -1125,6 +1125,9 @@ def generate_markdown_report(results: List[TestResult]):
         "val": ("✅ Validation Tests (VAL-xxx)", {
             "requirements": "VAL Requirements"
         }),
+        "gui": ("🌐 GUI Tests (GUI-xxx)", {
+            "parsing": "Parsing Error Handling"
+        }),
         "xml-input": ("📄 XML Input Tests (XML-INPUT-xxx)", {
             "requirements": "XML-INPUT Requirements"
         }),
@@ -1142,7 +1145,7 @@ def generate_markdown_report(results: List[TestResult]):
         })
     }
     
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml-input", "json-input", "equiv"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "gui", "yaml_input", "json_input", "equiv"]:
         if cat not in categories:
             continue
         
@@ -1234,7 +1237,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "yaml_input", "toml_input", "xml_input", "json_input", "equiv"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "gui", "yaml_input", "toml_input", "xml_input", "json_input", "equiv"]:
         if cat not in categories:
             continue
         
@@ -1922,6 +1925,50 @@ def run_validation_tests() -> List[TestResult]:
         except Exception as e:
             results.append(TestResult(test_id, name, "failed", time.time() - start,
                                      str(e), category="val", subcategory="requirements"))
+
+        # VAL-006: Numeric Attribute Validation
+        from tests.python.test_validation_numeric import (
+            test_val_006_yaml_numeric_validation,
+            test_val_006_xml_numeric_validation,
+            test_val_007_generation_safety_lock
+        )
+        
+        test_id = "val.val_006_yaml"
+        name = "VAL-006: YAML Numeric Validation"
+        start = time.time()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                test_val_006_yaml_numeric_validation(Path(tmp))
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+
+        test_id = "val.val_006_xml"
+        name = "VAL-006: XML Numeric Validation"
+        start = time.time()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                test_val_006_xml_numeric_validation(Path(tmp))
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+
+        # VAL-007: Generation Safety Lock
+        test_id = "val.val_007"
+        name = "VAL-007: Generation Safety Lock"
+        start = time.time()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                test_val_007_generation_safety_lock(Path(tmp))
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
                                      
     except ImportError as e:
         results.append(TestResult("val.import", "VAL: Import test module", "failed", 0, str(e),
@@ -2292,6 +2339,50 @@ def run_width_propagation_tests() -> List[TestResult]:
     return results
 
 
+def run_gui_parsing_tests() -> List[TestResult]:
+    """Run GUI-xxx requirement tests for parsing error handling"""
+    results = []
+    
+    try:
+        from tests.python.test_gui_parsing_errors import TestGUIParsingErrors
+        import tempfile
+        import shutil
+        from pathlib import Path
+        
+        test_case = TestGUIParsingErrors()
+        
+        # Helper to run a test with environment
+        def run_test(test_method, test_id, name):
+            start = time.time()
+            try:
+                with test_case.test_env() as tmp_dir:
+                    # Execute test method
+                    test_method(test_case, tmp_dir)
+                
+                results.append(TestResult(test_id, name, "passed", time.time() - start, 
+                                         category="gui", subcategory="parsing"))
+            except Exception as e:
+                results.append(TestResult(test_id, name, "failed", time.time() - start, 
+                                         str(e), category="gui", subcategory="parsing"))
+
+        # GUI-DASH-011
+        run_test(TestGUIParsingErrors.test_gui_dashboard_parsing_error_indicator, 
+                 "gui.parsing.dashboard", "GUI-DASH-011: Parsing error indicator")
+        
+        # GUI-GEN-017
+        run_test(TestGUIParsingErrors.test_gui_blocks_generation_on_error, 
+                 "gui.parsing.generation", "GUI-GEN-017: Block generation on error")
+        
+        # GUI-RULE-006
+        run_test(TestGUIParsingErrors.test_gui_rule_check_integration, 
+                 "gui.parsing.rule_check", "GUI-RULE-006: Parsing error integration")
+                 
+    except ImportError as e:
+        results.append(TestResult("gui.import", "GUI: Import test module", "failed", 0, str(e), 
+                                 category="gui", subcategory="setup"))
+    
+    return results
+
 def run_cocotb_tests() -> List[TestResult]:
     """Run cocotb VHDL simulation tests"""
     results = []
@@ -2595,6 +2686,7 @@ def main():
     # Run VAL tests (Validation & Diagnostics requirements)
     print(f"  [12/21] Running validation tests...", flush=True)
     all_results.extend(run_validation_tests())
+    all_results.extend(run_gui_parsing_tests())
 
     # Run YAML-INPUT tests
     print(f"  [13/21] Running YAML input parser tests...", flush=True)
@@ -2629,8 +2721,12 @@ def main():
     all_results.extend(run_c_tests())
 
     # Run Cocotb tests (comprehensive VHDL verification)
-    print(f"  [21/21] Running Cocotb VHDL tests...", flush=True)
+    print(f"  [21/22] Running Cocotb VHDL tests...", flush=True)
     all_results.extend(run_cocotb_tests())
+
+    # Run GUI parsing error tests
+    print(f"  [22/22] Running GUI parsing error tests...", flush=True)
+    all_results.extend(run_gui_parsing_tests())
     
     # Save and generate reports
     save_results(all_results)

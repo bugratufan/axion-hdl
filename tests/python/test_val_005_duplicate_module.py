@@ -1,4 +1,3 @@
-import pytest
 from axion_hdl.rule_checker import RuleChecker
 
 def test_val_005_duplicate_module_names():
