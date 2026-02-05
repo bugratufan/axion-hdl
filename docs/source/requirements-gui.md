@@ -44,6 +44,7 @@ Testing is automated via Playwright browser tests mapped back to these requireme
 | GUI-DASH-008 | Empty State | Shows appropriate message when no modules loaded. | Playwright (`gui.test_dash_008`) |
 | GUI-DASH-009 | Statistics Cards | Dashboard shows summary cards for modules, registers, CDC count, and sources. | Playwright (`gui.test_dash_009`) |
 | GUI-DASH-010 | CDC Count Display | Dashboard statistics show count of CDC-enabled modules. | Playwright (`gui.test_dash_010`) |
+| GUI-DASH-011 | Parsing Error Visibility | Modules with parsing errors show a prominent error indicator on the dashboard. | Playwright |
 
 ---
 
@@ -154,6 +155,7 @@ The following requirements define the interactive register address assignment be
 | GUI-GEN-014 | YAML Format Toggle | YAML output checkbox toggles YAML generation. | Playwright (`gui.test_gen_014`) |
 | GUI-GEN-015 | XML Format Toggle | XML output checkbox toggles XML generation. | Playwright (`gui.test_gen_015`) |
 | GUI-GEN-016 | All Formats Default | All generation formats enabled by default. | Playwright (`gui.test_gen_016`) |
+| GUI-GEN-017 | Block Generation on Error | Generation is blocked if any module has parsing errors, with descriptive errors shown in the activity log. | Playwright |
 
 ---
 
@@ -166,6 +168,7 @@ The following requirements define the interactive register address assignment be
 | GUI-RULE-003 | Warning Display | Warnings are listed separately from errors. | Playwright (`gui.test_rule_003`) |
 | GUI-RULE-004 | Summary Display | Shows total error/warning counts. | Playwright (`gui.test_rule_004`) |
 | GUI-RULE-005 | Pass Indication | Shows clear pass indicator when no errors. | Playwright (`gui.test_rule_005`) |
+| GUI-RULE-006 | Parsing Error Integration | Parsing errors from source analysis are included in the Rule Check report. | Playwright |
 
 ---
 
