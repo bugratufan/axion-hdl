@@ -182,8 +182,79 @@ class YAMLInputParser:
                     width = int(width)
                 except ValueError:
                     width = 32
-            
-            # Packed register attributes
+
+            # Check if this register has packed fields (fields: array format)
+            fields_list = reg_data.get('fields')
+            if fields_list:
+                # Process packed register with fields array
+                addr_val = reg_data.get('addr')
+                if addr_val is not None:
+                    addr = self._parse_address(addr_val)
+                else:
+                    addr = next_auto_addr
+
+                # Process each field
+                for field_data in fields_list:
+                    field_name = field_data.get('name')
+                    if not field_name:
+                        continue
+
+                    field_width = field_data.get('width', 1)
+                    if isinstance(field_width, str):
+                        try:
+                            field_width = int(field_width)
+                        except ValueError:
+                            field_width = 1
+
+                    field_access = str(field_data.get('access', access)).upper()
+                    if field_access not in ('RO', 'RW', 'WO'):
+                        field_access = access
+
+                    field_bit_offset = field_data.get('bit_offset')
+                    if field_bit_offset is not None:
+                        if isinstance(field_bit_offset, str):
+                            try:
+                                field_bit_offset = int(field_bit_offset)
+                            except ValueError:
+                                field_bit_offset = None
+
+                    field_default_val = 0
+                    field_default_str = field_data.get('default')
+                    if field_default_str is not None:
+                        field_default_val = self._parse_address(field_default_str)
+
+                    if field_width > 1:
+                        sig_type = f"[{field_width-1}:0]"
+                    else:
+                        sig_type = "[0:0]"
+
+                    try:
+                        bit_field_manager.add_field(
+                            reg_name=reg_name,
+                            address=addr,
+                            field_name=field_name,
+                            width=field_width,
+                            access_mode=field_access,
+                            signal_type=sig_type,
+                            bit_offset=field_bit_offset,
+                            description=field_data.get('description', ''),
+                            source_file=filepath,
+                            default_value=field_default_val,
+                            read_strobe=field_data.get('r_strobe', False),
+                            write_strobe=field_data.get('w_strobe', False),
+                            allow_overlap=True
+                        )
+                    except Exception as e:
+                        msg = f"Error processing field {field_name} in {reg_name}: {e}"
+                        print(f"  {msg}")
+                        self.errors.append({'file': filepath, 'msg': msg})
+
+                if addr >= next_auto_addr:
+                    next_auto_addr = addr + 4
+
+                continue
+
+            # Packed register attributes (legacy reg_name format)
             packed_reg_name = reg_data.get('reg_name')
             bit_offset = reg_data.get('bit_offset')
             if bit_offset is not None:
