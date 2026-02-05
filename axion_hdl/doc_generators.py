@@ -129,7 +129,7 @@ class DocGenerator:
                 )
             else:
                 lines.append(
-                    f"| {info['address']} | {offset} | `{display_name}` | {info['signal_type']} | 32 | "
+                    f"| {info['address']} | {offset} | `{display_name}` | {info['signal_type']} | {info.get('width', 32)} | "
                     f"{access} | {default_val} | {desc} |"
                 )
         
@@ -159,20 +159,44 @@ class DocGenerator:
                 lines.append("| Field | Bits | Type | Access | Default | Description |")
                 lines.append("|-------|------|------|--------|---------|-------------|")
                 
-                # Sort fields by bit offset (high to low usually preferred in docs, or low to high)
-                # Let's do High to Low (MSB first)
-                sorted_fields = sorted(group['fields'], key=lambda r: int(r.get('bit_offset', 0)), reverse=True)
-                
-                for field in sorted_fields:
-                    fname = field['signal_name']
-                    offset = int(field.get('bit_offset', 0))
-                    width = int(field.get('width', 1))
-                    bit_range = f"[{offset}]" if width == 1 else f"[{offset+width-1}:{offset}]"
-                    fdefault = field.get('default_value', '-')
-                    if fdefault != '-': fdefault = f"0x{int(fdefault):X}"
-                    fdesc = field.get('description', '-')
+                # Check if register has embedded 'fields' array (YAML/JSON input)
+                # This array contains actual subfields with bit_low/bit_high info
+                embedded_fields = info.get('fields', [])
+                if embedded_fields and isinstance(embedded_fields, list) and len(embedded_fields) > 0:
+                    # Use embedded fields from YAML/JSON parser - sort by bit_low (high to low)
+                    sorted_fields = sorted(embedded_fields, key=lambda f: int(f.get('bit_low', 0)), reverse=True)
                     
-                    lines.append(f"| `{fname}` | {bit_range} | {field['signal_type']} | {field['access_mode']} | {fdefault} | {fdesc} |")
+                    for field in sorted_fields:
+                        fname = field.get('name', 'unknown')
+                        bit_low = int(field.get('bit_low', 0))
+                        bit_high = int(field.get('bit_high', bit_low))
+                        width = int(field.get('width', 1))
+                        bit_range = f"[{bit_low}]" if width == 1 else f"[{bit_high}:{bit_low}]"
+                        fdefault = field.get('default_value', '-')
+                        if fdefault != '-' and fdefault != 0: 
+                            fdefault = f"0x{int(fdefault):X}"
+                        elif fdefault == 0:
+                            fdefault = "0x0"
+                        fdesc = field.get('description', '-')
+                        ftype = field.get('signal_type', f"[{width-1}:0]" if width > 1 else "[0:0]")
+                        faccess = field.get('access_mode', info['access_mode'])
+                        
+                        lines.append(f"| `{fname}` | {bit_range} | {ftype} | {faccess} | {fdefault} | {fdesc} |")
+                else:
+                    # Fallback: use grouped fields from VHDL parser
+                    # Sort fields by bit offset (high to low - MSB first)
+                    sorted_fields = sorted(group['fields'], key=lambda r: int(r.get('bit_offset', 0)), reverse=True)
+                    
+                    for field in sorted_fields:
+                        fname = field['signal_name']
+                        offset = int(field.get('bit_offset', 0))
+                        width = int(field.get('width', 1))
+                        bit_range = f"[{offset}]" if width == 1 else f"[{offset+width-1}:{offset}]"
+                        fdefault = field.get('default_value', '-')
+                        if fdefault != '-': fdefault = f"0x{int(fdefault):X}"
+                        fdesc = field.get('description', '-')
+                        
+                        lines.append(f"| `{fname}` | {bit_range} | {field['signal_type']} | {field['access_mode']} | {fdefault} | {fdesc} |")
                 lines.append("")
                 
             else:
@@ -1588,14 +1612,23 @@ class CHeaderGenerator:
         return output_path
     
     def _get_signal_width(self, signal_type: str) -> int:
-        """Extract signal width from type string like '[31:0]' or '[47:0]'."""
+        """Extract signal width from type string.
+
+        Supported formats:
+            '[31:0]'                          (VHDL-annotation path)
+            'std_logic_vector(31 downto 0)'   (YAML-input path)
+            'std_logic'                       (YAML-input, 1-bit)
+        """
         import re
         match = re.match(r'\[(\d+):(\d+)\]', signal_type)
         if match:
-            high = int(match.group(1))
-            low = int(match.group(2))
-            return high - low + 1
-        return 32  # Default to 32-bit
+            return int(match.group(1)) - int(match.group(2)) + 1
+        match = re.match(r'std_logic_vector\((\d+)\s+downto\s+(\d+)\)', signal_type)
+        if match:
+            return int(match.group(1)) - int(match.group(2)) + 1
+        if signal_type.strip() == 'std_logic':
+            return 1
+        return 32
     
     def _get_num_regs(self, signal_width: int) -> int:
         """Calculate number of 32-bit registers needed for a signal."""

@@ -67,3 +67,6 @@ None/
 tests/cocotb/results.xml
 tests/cocotb/sim_build/
 tests/cocotb/*.vcd
+
+# Manual verification
+manuel-verif/

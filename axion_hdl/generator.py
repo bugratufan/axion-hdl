@@ -30,47 +30,51 @@ class VHDLGenerator:
     def _signal_type_to_vhdl(signal_type: str) -> str:
         """
         Convert internal signal type format to VHDL type.
-        
-        Args:
-            signal_type: Internal format like "[31:0]", "[5:0]", "[0:0]"
-            
+
+        Supported input formats:
+            '[31:0]'                          (VHDL-annotation path)
+            'std_logic_vector(31 downto 0)'   (YAML-input path)
+            'std_logic'                       (1-bit)
+
         Returns:
             VHDL type string like "std_logic_vector(31 downto 0)" or "std_logic"
-            
-        Examples:
-            "[31:0]" -> "std_logic_vector(31 downto 0)"
-            "[5:0]"  -> "std_logic_vector(5 downto 0)"
-            "[0:0]"  -> "std_logic"
         """
         import re
+        # Already a valid VHDL type — return as-is
+        if signal_type.startswith('std_logic_vector(') or signal_type.strip() == 'std_logic':
+            return signal_type
+        # Bracket format [high:low] → convert
         match = re.match(r'\[(\d+):(\d+)\]', signal_type)
         if match:
             high = int(match.group(1))
             low = int(match.group(2))
             if high == 0 and low == 0:
                 return "std_logic"
-            else:
-                return f"std_logic_vector({high} downto {low})"
-        # Default fallback
+            return f"std_logic_vector({high} downto {low})"
         return "std_logic_vector(31 downto 0)"
     
     @staticmethod
     def _get_signal_width(signal_type: str) -> int:
         """
         Get the width of a signal from its type.
-        
-        Args:
-            signal_type: Internal format like "[31:0]", "[5:0]", "[0:0]"
-            
+
+        Supported formats:
+            '[31:0]'                          (VHDL-annotation path)
+            'std_logic_vector(31 downto 0)'   (YAML-input path)
+            'std_logic'                       (YAML-input, 1-bit)
+
         Returns:
             Width in bits
         """
         import re
         match = re.match(r'\[(\d+):(\d+)\]', signal_type)
         if match:
-            high = int(match.group(1))
-            low = int(match.group(2))
-            return high - low + 1
+            return int(match.group(1)) - int(match.group(2)) + 1
+        match = re.match(r'std_logic_vector\((\d+)\s+downto\s+(\d+)\)', signal_type)
+        if match:
+            return int(match.group(1)) - int(match.group(2)) + 1
+        if signal_type.strip() == 'std_logic':
+            return 1
         return 32
     
     @staticmethod
