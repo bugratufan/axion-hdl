@@ -1125,6 +1125,7 @@ def generate_markdown_report(results: List[TestResult]):
         "val": ("✅ Validation Tests (VAL-xxx)", {
             "requirements": "VAL Requirements"
         }),
+        "xml-input": ("📄 XML Input Tests (XML-INPUT-xxx)", {
             "requirements": "XML-INPUT Requirements"
         }),
         "yaml-input": ("📄 YAML Input Tests (YAML-INPUT-xxx)", {
@@ -2335,6 +2336,19 @@ def run_width_propagation_tests() -> List[TestResult]:
     return results
 
 
+def run_cocotb_tests() -> List[TestResult]:
+    """Run Cocotb VHDL simulation tests"""
+    results = []
+    
+    # Check if cocotb is available
+    try:
+        import cocotb
+    except ImportError:
+        results.append(TestResult("cocotb.setup.import", "Cocotb Available", "skipped", 0, 
+                                 "cocotb not found", category="cocotb", subcategory="setup"))
+        return results
+
+    cocotb_tests = [
         ("test_axion_003_wo_write", "AXION-003: Write-Only Register Write Access"),
         ("test_axion_004_wo_read_protection", "AXION-004: Write-Only Register Read Protection"),
         ("test_axion_005_rw_full_access", "AXION-005: Read-Write Register Full Access"),
@@ -2468,7 +2482,7 @@ def run_width_propagation_tests() -> List[TestResult]:
         axi_results[test_func] = status
 
     # Map results to our test list
-    for test_id, desc in cocotb_axi_tests:
+    for test_id, desc in cocotb_tests:
         if test_id in axi_results:
             status = axi_results[test_id]
             if status == "pass":
