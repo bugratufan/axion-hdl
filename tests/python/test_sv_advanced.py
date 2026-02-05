@@ -181,6 +181,113 @@ class TestSystemVerilogLint(unittest.TestCase):
             assert result.returncode == 0, f"Verilator lint failed:\n{result.stderr}"
 
 
+class TestSystemVerilogSyntax(unittest.TestCase):
+    """
+    Basic syntax validation using regex patterns.
+    Used as a fallback when Verilator is not installed.
+    """
+
+    def _check_syntax(self, content):
+        import re
+        
+        # 1. Module declaration
+        assert re.search(r'module\s+\w+\s*#\(', content), "Missing module declaration"
+        assert re.search(r'endmodule', content), "Missing endmodule"
+        
+        # 2. Parameters
+        assert re.search(r'parameter\s+int\s+ADDR_WIDTH\s*=', content), "Missing ADDR_WIDTH parameter"
+        assert re.search(r'parameter\s+int\s+DATA_WIDTH\s*=', content), "Missing DATA_WIDTH parameter"
+        
+        # 3. Port list
+        assert re.search(r'input\s+logic\s+axi_aclk', content), "Missing axi_aclk port"
+        assert re.search(r'input\s+logic\s+axi_aresetn', content), "Missing axi_aresetn port"
+        
+        # 4. State machine
+        assert re.search(r'typedef\s+enum\s+logic\s*\[2:0\]\s*{', content), "Missing state typedef"
+        assert re.search(r'case\s*\(state\)', content), "Missing state machine case statement"
+        
+        # 5. Logic blocks
+        assert re.search(r'always_ff\s*@\(posedge\s+axi_aclk', content), "Missing always_ff block"
+        assert re.search(r'always_comb\s*begin', content), "Missing always_comb block"
+
+    def test_sv_syntax_001_structure(self):
+        """SV-SYNTAX-001: Validate basic SystemVerilog structure"""
+        module_data = {
+            'name': 'syntax_test',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': [
+                {'signal_name': 'reg1', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RW', 'read_strobe': False, 'write_strobe': False,
+                 'description': 'Test Reg', 'address_int': 0x00}
+            ]
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gen = SystemVerilogGenerator(tmpdir)
+            output_path = gen.generate_module(module_data)
+            
+            with open(output_path, 'r') as f:
+                content = f.read()
+                
+            self._check_syntax(content)
+
+    def test_sv_syntax_002_cdc_logic(self):
+        """SV-SYNTAX-002: Validate CDC syntax when enabled"""
+        module_data = {
+            'name': 'syntax_cdc_test',
+            'base_address': 0,
+            'cdc_enabled': True,
+            'cdc_stages': 3,
+            'registers': [
+                {'signal_name': 'cdc_reg', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RW', 'read_strobe': False, 'write_strobe': False,
+                 'description': 'CDC Reg', 'address_int': 0x00}
+            ]
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gen = SystemVerilogGenerator(tmpdir)
+            output_path = gen.generate_module(module_data)
+            
+            with open(output_path, 'r') as f:
+                content = f.read()
+            
+            # Check CDC specific syntax
+            assert 'input  logic                      module_clk' in content
+            assert 'always_ff @(posedge module_clk' in content
+            
+    def test_sv_syntax_003_access_modes(self):
+        """SV-SYNTAX-003: Validate syntax for different access modes"""
+        module_data = {
+            'name': 'syntax_access',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': [
+                {'signal_name': 'ro_reg', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RO', 'read_strobe': False, 'write_strobe': False, 
+                 'description': 'RO', 'address_int': 0x00},
+                {'signal_name': 'wo_reg', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'WO', 'read_strobe': False, 'write_strobe': False,
+                 'description': 'WO', 'address_int': 0x04}
+            ]
+        }
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gen = SystemVerilogGenerator(tmpdir)
+            output_path = gen.generate_module(module_data)
+            
+            with open(output_path, 'r') as f:
+                content = f.read()
+            
+            # Check for RO logic (input from module)
+            assert 'input  logic [31:0]                   ro_reg' in content
+            # Check for WO logic (output to module)
+            assert 'output logic [31:0]                   wo_reg' in content
+
+
 class TestFormatEquivalence(unittest.TestCase):
     """VHDL vs SystemVerilog format equivalence tests"""
 
