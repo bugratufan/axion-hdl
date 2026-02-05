@@ -86,7 +86,8 @@ The `output/` directory will contain:
 
 | File | Description |
 |------|-------------|
-| `led_blinker_axion_reg.vhd` | AXI4-Lite slave module |
+| `led_blinker_axion_reg.vhd` | AXI4-Lite slave module (VHDL) |
+| `led_blinker_axion_reg.sv` | AXI4-Lite slave module (SystemVerilog) |
 | `led_blinker_regs.h` | C header with macros |
 | `index.html` | Register documentation (main page) |
 | `html/` | Module documentation pages |

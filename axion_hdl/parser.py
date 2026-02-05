@@ -41,20 +41,14 @@ class VHDLParser:
             filepath: Path to the VHDL file
             
         Returns:
-            Dictionary with parsed data or None if no valid data found.
-            Keys:
-                - entity_name: Name of the VHDL entity
-                - signals: List of signal dictionaries with:
-                    - name: Signal name
-                    - width: Signal bit width  
-                    - access: Access mode (RO, RW, WO)
-                    - address: Integer address
-                    - r_strobe: Read strobe flag
-                    - w_strobe: Write strobe flag
-                    - description: Signal description
-                - base_addr: Base address for the module
-                - cdc_en: CDC enabled flag
-                - cdc_stage: CDC stage count
+            Optional[Dict]: Dictionary with parsed data or None if no valid data found.
+            
+            The dictionary keys include:
+            - entity_name: Name of the VHDL entity
+            - signals: List of signal dictionaries
+            - base_addr: Base address for the module
+            - cdc_en: CDC enabled flag
+            - cdc_stage: CDC stage count
         """
         result = self._parse_vhdl_file(filepath)
         if result is None:

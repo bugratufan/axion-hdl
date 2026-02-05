@@ -677,5 +677,112 @@ class TestStressAndEdgeCases(unittest.TestCase):
             assert 'FFC' in content.upper() or 'FFFF0FFC' in content.upper()
 
 
+    def test_sv_db_001_reset_values(self):
+        """SV-GEN-002: Registers initialize to default values"""
+        module_data = {
+            'name': 'reset_val_test',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': [
+                {'signal_name': 'def_reg_0', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RW', 'default': '0xDEADBEEF', 'description': 'Default Hex', 'address_int': 0x00},
+                {'signal_name': 'def_reg_1', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RW', 'default': 12345, 'description': 'Default Dec', 'address_int': 0x04},
+                {'signal_name': 'no_def_reg', 'signal_type': '[31:0]', 'signal_width': 32,
+                 'access_mode': 'RW', 'description': 'No Default', 'address_int': 0x08}
+            ]
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gen = SystemVerilogGenerator(tmpdir)
+            output_path = gen.generate_module(module_data)
+            
+            with open(output_path, 'r') as f:
+                content = f.read()
+            
+            # Check for reset values in the code
+            # Note: SystemVerilog generator currently defaults to '0
+            assert "def_reg_0_reg <= 32'hDEADBEEF;" in content, "Missing hex default value in reset block"
+            assert "def_reg_1_reg <= 32'd12345;" in content, "Missing decimal default value in reset block"
+            assert "no_def_reg_reg <= '0;" in content, "Missing zero default for undefined reset value"
+
+    def test_sv_wide_001_upper_bits(self):
+        """SV-GEN-003: Wide registers mapped to multiple addresses"""
+        module_data = {
+            'name': 'wide_reg_test',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': [
+                {'signal_name': 'wide_64', 'signal_type': '[63:0]', 'signal_width': 64,
+                 'access_mode': 'RW', 'description': '64-bit Reg', 'address_int': 0x00}
+            ]
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gen = SystemVerilogGenerator(tmpdir)
+            output_path = gen.generate_module(module_data)
+            
+            with open(output_path, 'r') as f:
+                content = f.read()
+
+            # Check that localparam exists for base address
+            assert "localparam [ADDR_WIDTH-1:0] ADDR_WIDE_64 = 32'h00000000;" in content
+            
+            # Check for upper word write access (address + 4)
+            # The exact implementation detail might vary (e.g., ADDR_WIDE_64 + 4), 
+            # but we generally look for logic that writes to wide_64_reg[63:32]
+            
+            # This is what we expect to FAIL currently:
+            has_upper_write = "wide_64_reg[63:32] <= axi_wdata" in content
+            has_upper_addr_case = "ADDR_WIDE_64 + 32'h4" in content or "case (write_addr)" in content and "32'h00000004" in content
+            
+            if not has_upper_write:
+                 self.fail("Missing write logic for upper 32 bits of 64-bit register")
+
+    def test_sv_struct_001_generation(self):
+        """SV-GEN-004: Packed registers generate struct definitions"""
+        module_data = {
+            'name': 'struct_test',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': [
+                {
+                    'signal_name': 'ctrl_reg', 'signal_type': '[31:0]', 'signal_width': 32,
+                    'access_mode': 'RW', 'description': 'Control Register', 'address_int': 0x00,
+                    'fields': [
+                        {'name': 'enable', 'width': 1, 'bit_offset': 0},
+                        {'name': 'mode', 'width': 3, 'bit_offset': 1},
+                        {'name': 'reserved', 'width': 28, 'bit_offset': 4}
+                    ]
+                }
+            ]
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gen = SystemVerilogGenerator(tmpdir)
+            output_path = gen.generate_module(module_data)
+            
+            with open(output_path, 'r') as f:
+                content = f.read()
+
+            # Check for struct definition
+            assert "typedef struct packed {" in content, "Missing struct definition"
+            assert "} ctrl_reg_t;" in content, "Missing struct type name"
+            
+            # Check fields (order often matters for packed, MSB first)
+            # reserved is bit 4+28=32 -> [31:4]
+            # mode is bit 1+3=4 -> [3:1]
+            # enable is bit 0 -> [0]
+            assert "logic [27:0] reserved;" in content
+            assert "logic [2:0] mode;" in content
+            assert "logic        enable;" in content
+            
+            # Check register declaration uses struct type
+            import re
+            assert re.search(r'ctrl_reg_t\s+ctrl_reg_reg;', content), "Register declaration does not use struct type"
+
 if __name__ == '__main__':
     unittest.main()

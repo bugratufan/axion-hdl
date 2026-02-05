@@ -11,6 +11,7 @@ axion-hdl/
 │   ├── axion.py            # Core AxionHDL class
 │   ├── cli.py              # Command-line interface
 │   ├── parser.py           # VHDL parser (@axion annotations)
+│   ├── systemverilog_parser.py # SystemVerilog parser
 │   ├── yaml_parser.py      # YAML register definition parser
 │   ├── json_parser.py      # JSON register definition parser  
 │   ├── xml_parser.py       # XML register definition parser
@@ -20,6 +21,7 @@ axion-hdl/
 │   ├── static/             # CSS, JS for GUI
 │   └── generators/         # Output generators
 │       ├── vhdl_generator.py
+│       ├── systemverilog_generator.py
 │       ├── c_header_generator.py
 │       ├── doc_generator.py
 │       ├── xml_generator.py

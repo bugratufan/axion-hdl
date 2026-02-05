@@ -139,7 +139,7 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     )
 
     gen_group.add_argument(
-        '--systemverilog',
+        '--systemverilog', '--sv',
         action='store_true',
         help='Generate SystemVerilog register interface modules (*_axion_reg.sv)'
     )

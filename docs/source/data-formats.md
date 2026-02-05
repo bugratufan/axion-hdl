@@ -7,6 +7,7 @@ Axion-HDL supports multiple input formats for defining register interfaces. This
 | Format | Extension | Use Case |
 |--------|-----------|----------|
 | **VHDL** | `.vhd`, `.vhdl` | Embedded in existing RTL code |
+| **SystemVerilog** | `.sv`, `.svh` | Embedded in existing RTL code |
 | **YAML** | `.yaml`, `.yml` | Human-readable, version control friendly |
 | **XML** | `.xml` | IP-XACT compatible, tool integration |
 | **JSON** | `.json` | Automation and scripting |
@@ -24,6 +25,25 @@ Module-level configuration is defined with `@axion_def` comment anywhere in the 
 
 ```vhdl
 -- @axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3
+```
+
+### SystemVerilog (`@axion_def`)
+
+Use `//` comments for module configuration:
+
+```systemverilog
+// @axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3
+```
+
+-- @axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3
+```
+
+### SystemVerilog (`@axion_def`)
+
+Use `//` comments for module configuration:
+
+```systemverilog
+// @axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3
 ```
 
 ### YAML/TOML/XML/JSON
@@ -61,6 +81,12 @@ Module-level configuration is defined with `@axion_def` comment anywhere in the 
 
 ```vhdl
 signal reg_name : std_logic_vector(31 downto 0); -- @axion ACCESS [OPTIONS]
+```
+
+#### SystemVerilog Register Attributes (`@axion`)
+
+```systemverilog
+logic [31:0] reg_name; // @axion ACCESS [OPTIONS]
 ```
 
 | Attribute | Syntax | Description | Default |
@@ -569,6 +595,14 @@ description = "Debug register"
 
 -- Register definition (on signal line)
 signal name : type; -- @axion ACCESS [ADDR=0xNN] [DESC="..."] [R_STROBE] [W_STROBE] [DEFAULT=0xNN] [REG_NAME=name] [BIT_OFFSET=N]
+```
+
+### SystemVerilog Annotation Syntax
+
+```systemverilog
+// @axion_def BASE_ADDR=0xNNNN ...
+
+logic [31:0] name; // @axion ACCESS ...
 ```
 
 ### YAML Structure

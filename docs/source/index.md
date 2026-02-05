@@ -37,7 +37,7 @@ api-reference
 
 ## Features
 
-- **Multi-Format Input**: Define registers in VHDL comments, YAML, TOML, XML, or JSON
+- **Multi-Format Input**: Define registers in VHDL/SystemVerilog comments, YAML, TOML, XML, or JSON
 - **Automated Generation**: One command generates VHDL, C headers, and docs
 - **Interactive GUI**: Web-based interface for visual register management
 - **Clock Domain Crossing**: Automatic CDC synchronizers

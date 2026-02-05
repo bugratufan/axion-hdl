@@ -85,6 +85,7 @@ axion-hdl -s ./src -e "*_tb.vhd" -e "test_*" -e "deprecated" -o ./output --all
 |------|-------------|
 | `--all` | Generate all output types |
 | `--vhdl` | Generate VHDL register module |
+| `--sv`, `--systemverilog` | Generate SystemVerilog register module |
 | `--c-header` | Generate C header file |
 | `--xml` | Generate XML register map |
 | `--yaml` | Generate YAML register map |
@@ -100,6 +101,9 @@ axion-hdl -s regs.yaml -o ./output --all
 
 # Only VHDL and C header
 axion-hdl -s regs.yaml -o ./output --vhdl --c-header
+
+# Generate SystemVerilog with Structs
+axion-hdl -s regs.yaml -o ./output --sv
 
 # Only documentation in HTML format
 axion-hdl -s regs.yaml -o ./docs --doc --doc-format html

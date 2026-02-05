@@ -129,6 +129,8 @@ The `make test` command automatically:
 - Installs all test dependencies
 - Runs 307+ tests (Python + VHDL + cocotb)
 
+> **Note:** For SystemVerilog linting tests, you need `verilator` installed on your system (`sudo apt install verilator`). These tests are skipped if unavailable.
+
 **Manual setup (optional):**
 ```bash
 make setup-dev  # Create venv + install dependencies

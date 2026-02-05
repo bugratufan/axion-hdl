@@ -267,3 +267,15 @@ Testing and verification are automated via `make test`, which maps tests back to
 | YAML-INPUT-015 | Wide Signal Width Storage | Stores `width > 32` correctly in the register dict. | Python Unit Test (`yaml_input.test_yaml_input_015`) |
 | YAML-INPUT-016 | signal_type Format Compatibility | The `signal_type` field produced by YAMLInputParser must be parseable by downstream generators (CHeaderGenerator, DocGenerator) to extract the correct bit width for all register widths (1, sub-32, 32, >32). | Python Unit Test (`yaml_input.test_yaml_input_016`) |
 
+
+## 15. SystemVerilog Generation (SV-GEN)
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| SV-GEN-001 | Valid SystemVerilog Output | Generates syntactically correct `.sv` files compilable by Verilator/Vivado. | Syntax Test (`test_sv_syntax`) |
+| SV-GEN-002 | Reset Value Support | Registers initialize to `default` value defined in source (or 0 if undefined) upon reset. | SystemVerilog Test (`test_sv_db_001`) |
+| SV-GEN-003 | Wide Register Access | Registers >32 bits are mapped to multiple 32-bit addresses for full access. | SystemVerilog Test (`test_sv_wide_001`) |
+| SV-GEN-004 | Native Struct Support | Packed registers are generated as `struct packed` types for bitfield access. | SystemVerilog Test (`test_sv_struct_001`) |
+| SV-GEN-005 | Functional Verification | Generated modules support signal driving/sampling in Cocotb simulation. | Cocotb Test (`test_sv_cocotb`) |
+| SV-GEN-006 | Lint Compliance | Generated code passes `verilator --lint-only -Wall` with zero errors. | Lint Test (`test_sv_lint`) |
+| SV-GEN-007 | Equivalence with VHDL | SystemVerilog behavior (address map, reset, strobe) matches VHDL implementation. | Equivalence Test (`test_sv_equiv`) |

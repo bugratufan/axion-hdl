@@ -122,6 +122,7 @@ axion.generate_all(doc_format="pdf")  # Use PDF (requires weasyprint)
 
 # Generate specific formats only
 axion.generate_vhdl()
+axion.generate_systemverilog()
 axion.generate_c_header()
 axion.generate_documentation(format="html")  # HTML (default)
 axion.generate_documentation(format="md")    # Markdown

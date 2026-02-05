@@ -45,15 +45,16 @@ class SystemVerilogParser:
             filepath: Path to the SystemVerilog file
 
         Returns:
-            Dictionary with parsed data or None if no valid data found.
-            Keys:
-                - name: Name of the SystemVerilog module
-                - file: Path to source file
-                - signals: List of signal dictionaries
-                - registers: List of register dictionaries
-                - base_address: Base address for the module
-                - cdc_enabled: CDC enabled flag
-                - cdc_stages: CDC stage count
+            Optional[Dict]: Dictionary with parsed data or None if no valid data found.
+            
+            The dictionary keys include:
+            - name: Name of the SystemVerilog module
+            - file: Path to source file
+            - signals: List of signal dictionaries
+            - registers: List of register dictionaries
+            - base_address: Base address for the module
+            - cdc_enabled: CDC enabled flag
+            - cdc_stages: CDC stage count
         """
         result = self._parse_sv_file(filepath)
         if result is None:

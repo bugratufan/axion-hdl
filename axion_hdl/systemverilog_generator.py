@@ -50,7 +50,7 @@ class SystemVerilogGenerator:
         output_path = os.path.join(self.output_dir, output_filename)
 
         # Generate module content
-        content = self._generate_module_content(module_data)
+        content = self._generate_module_content(module_data) + "\n"
 
         # Write to file
         os.makedirs(self.output_dir, exist_ok=True)
@@ -184,7 +184,7 @@ class SystemVerilogGenerator:
             # Add strobe signals
             if read_strobe:
                 comma = ',' if write_strobe or i < len(registers) - 1 else ''
-                lines.append(f"    input  logic                      {signal_name}_rd_strobe{comma}")
+                lines.append(f"    output logic                      {signal_name}_rd_strobe{comma}")
 
             if write_strobe:
                 comma = ',' if i < len(registers) - 1 else ''
@@ -192,6 +192,37 @@ class SystemVerilogGenerator:
 
         lines.append(");")
 
+        return '\n'.join(lines)
+
+    def _generate_struct_definitions(self, registers: List[Dict]) -> str:
+        """Generate struct types for packed registers."""
+        lines = []
+        lines.append("    //-------------------------------------------------------------------------")
+        lines.append("    // Struct Definitions")
+        lines.append("    //-------------------------------------------------------------------------")
+        lines.append("")
+
+        for reg in registers:
+            fields = reg.get('fields', [])
+            if fields:
+                signal_name = reg['signal_name']
+                lines.append(f"    typedef struct packed {{")
+                
+                # Sort fields by bit_offset descending (MSB first for packed struct)
+                sorted_fields = sorted(fields, key=lambda x: x.get('bit_offset', 0), reverse=True)
+                
+                for field in sorted_fields:
+                    f_name = field['name']
+                    f_width = int(field['width'])
+                    
+                    if f_width == 1:
+                        lines.append(f"        logic        {f_name};")
+                    else:
+                        lines.append(f"        logic [{f_width-1}:0] {f_name};")
+                
+                lines.append(f"    }} {signal_name}_t;")
+                lines.append("")
+        
         return '\n'.join(lines)
 
     def _generate_internals(self, module_data: Dict) -> str:
@@ -213,6 +244,12 @@ class SystemVerilogGenerator:
             lines.append(f"    localparam [ADDR_WIDTH-1:0] ADDR_{signal_name} = 32'h{address:08X};")
 
         lines.append("")
+        
+        # Generate struct definitions
+        has_structs = any(reg.get('fields') for reg in registers)
+        if has_structs:
+            lines.append(self._generate_struct_definitions(registers))
+            lines.append("")
 
         # State machine enum
         lines.extend([
@@ -235,9 +272,12 @@ class SystemVerilogGenerator:
         for reg in registers:
             if reg['access_mode'] in ['RW', 'WO']:
                 signal_name = reg['signal_name']
-                signal_type = reg['signal_type']
-                sv_type = self._signal_type_to_sv(signal_type)
-                lines.append(f"    {sv_type:30} {signal_name}_reg;")
+                if reg.get('fields'):
+                     lines.append(f"    {signal_name}_t{' '*20} {signal_name}_reg;")
+                else:
+                    signal_type = reg['signal_type']
+                    sv_type = self._signal_type_to_sv(signal_type)
+                    lines.append(f"    {sv_type:30} {signal_name}_reg;")
 
         lines.append("")
 
@@ -249,6 +289,10 @@ class SystemVerilogGenerator:
             "    logic [1:0]            bresp_reg;",
             "    logic [ADDR_WIDTH-1:0] write_addr;",
             "    logic [ADDR_WIDTH-1:0] read_addr;",
+            "",
+            "    // Sink for unused signals to silence lint warnings",
+            "    logic _unused_ok;",
+            "    assign _unused_ok = &{1'b0, axi_awprot, axi_arprot, axi_wstrb, axi_wdata, 1'b0};",
             ""
         ])
 
@@ -259,8 +303,6 @@ class SystemVerilogGenerator:
             for reg in registers:
                 if reg.get('write_strobe'):
                     lines.append(f"    logic {reg['signal_name']}_wr_strobe_int;")
-                if reg.get('read_strobe'):
-                    lines.append(f"    logic {reg['signal_name']}_rd_strobe_int;")
             lines.append("")
 
         return '\n'.join(lines)
@@ -430,6 +472,7 @@ class SystemVerilogGenerator:
         """Generate register read/write logic."""
         registers = module_data.get('registers', [])
         cdc_enabled = module_data.get('cdc_enabled', False)
+        cdc_stages = module_data.get('cdc_stages', 2)
 
         lines = [
             "    //-------------------------------------------------------------------------",
@@ -463,7 +506,19 @@ class SystemVerilogGenerator:
         # Reset all writable registers
         for reg in registers:
             if reg['access_mode'] in ['RW', 'WO']:
-                lines.append(f"            {reg['signal_name']}_reg <= '0;")
+                default_val = reg.get('default')
+                width = reg.get('signal_width', 32)
+
+                if default_val is not None:
+                    if isinstance(default_val, str) and (default_val.startswith('0x') or default_val.startswith('0X')):
+                        # Hex string
+                        hex_val = default_val[2:]
+                        lines.append(f"            {reg['signal_name']}_reg <= {width}'h{hex_val};")
+                    else:
+                        # Decimal/Integer
+                        lines.append(f"            {reg['signal_name']}_reg <= {width}'d{default_val};")
+                else:
+                    lines.append(f"            {reg['signal_name']}_reg <= '0;")
 
         # Reset write strobes
         for reg in registers:
@@ -489,28 +544,41 @@ class SystemVerilogGenerator:
             signal_name = reg['signal_name']
             signal_name_upper = signal_name.upper()
             access_mode = reg['access_mode']
+            width = reg.get('signal_width', 32)
+            num_words = (width + 31) // 32
 
-            lines.append(f"                    ADDR_{signal_name_upper}: begin")
+            for i in range(num_words):
+                # Calculate address offset for this word
+                addr_suffix = f" + 32'h{i*4:X}" if i > 0 else ""
+                lines.append(f"                    ADDR_{signal_name_upper}{addr_suffix}: begin")
 
-            if access_mode == 'RO':
-                # Read-only: return error
-                lines.append("                        bresp_reg <= SLVERR;")
-            elif access_mode in ['RW', 'WO']:
-                # Writable: update register
-                width = reg.get('signal_width', 32)
-                if width == 32:
-                    lines.append(f"                        {signal_name}_reg <= axi_wdata;")
-                elif width < 32:
-                    lines.append(f"                        {signal_name}_reg <= axi_wdata[{width-1}:0];")
-                else:
-                    lines.append(f"                        {signal_name}_reg <= axi_wdata;")
+                if access_mode == 'RO':
+                    # Read-only: return error
+                    lines.append("                        bresp_reg <= SLVERR;")
+                elif access_mode in ['RW', 'WO']:
+                    # Writable: update register
+                    low = i * 32
+                    high = min((i + 1) * 32 - 1, width - 1)
+                    slice_width = high - low + 1
 
-                if reg.get('write_strobe'):
-                    lines.append(f"                        {signal_name}_wr_strobe_int <= 1'b1;")
+                    if width <= 32:
+                        if width == 32:
+                            lines.append(f"                        {signal_name}_reg <= axi_wdata;")
+                        else:
+                            lines.append(f"                        {signal_name}_reg <= axi_wdata[{width-1}:0];")
+                    else:
+                        # Wide register logic
+                        if slice_width == 32:
+                            lines.append(f"                        {signal_name}_reg[{high}:{low}] <= axi_wdata;")
+                        else:
+                            lines.append(f"                        {signal_name}_reg[{high}:{low}] <= axi_wdata[{slice_width-1}:0];")
 
-                lines.append("                        bresp_reg <= OKAY;")
+                    if reg.get('write_strobe'):
+                        lines.append(f"                        {signal_name}_wr_strobe_int <= 1'b1;")
 
-            lines.append("                    end")
+                    lines.append("                        bresp_reg <= OKAY;")
+
+                lines.append("                    end")
 
         lines.extend([
             "                    default: begin",
@@ -538,34 +606,43 @@ class SystemVerilogGenerator:
             signal_name = reg['signal_name']
             signal_name_upper = signal_name.upper()
             access_mode = reg['access_mode']
-            signal_width = reg.get('signal_width', 32)
+            width = reg.get('signal_width', 32)
+            num_words = (width + 31) // 32
 
-            lines.append(f"            ADDR_{signal_name_upper}: begin")
+            for i in range(num_words):
+                addr_suffix = f" + 32'h{i*4:X}" if i > 0 else ""
+                lines.append(f"            ADDR_{signal_name_upper}{addr_suffix}: begin")
 
-            if access_mode == 'WO':
-                # Write-only: return error
-                lines.append("                rresp_reg = SLVERR;")
-            else:
-                # Readable: return value
-                if cdc_enabled and access_mode == 'RO':
-                    # Use CDC synchronized value
-                    cdc_stages = module_data.get('cdc_stages', 2)
-                    source = f"{signal_name}_sync[{cdc_stages-1}]"
-                elif access_mode == 'RO':
-                    # Direct read
-                    source = signal_name
+                if access_mode == 'WO':
+                    # Write-only: return error
+                    lines.append("                rresp_reg = SLVERR;")
                 else:
-                    # RW: read from internal register
-                    source = f"{signal_name}_reg"
+                    # Determine source signal
+                    if cdc_enabled and access_mode == 'RO':
+                        source = f"{signal_name}_sync[{cdc_stages-1}]"
+                    elif access_mode == 'RO':
+                        source = signal_name
+                    else:
+                        source = f"{signal_name}_reg"
 
-                if signal_width == 32:
-                    lines.append(f"                rdata_reg = {source};")
-                elif signal_width < 32:
-                    lines.append(f"                rdata_reg = {{{{{32 - signal_width}'{{1'b0}}}}, {source}}};")
-                else:
-                    lines.append(f"                rdata_reg = {source};")
+                    low = i * 32
+                    high = min((i + 1) * 32 - 1, width - 1)
+                    slice_width = high - low + 1
 
-            lines.append("            end")
+                    if width <= 32:
+                        if width == 32:
+                            lines.append(f"                rdata_reg = {source};")
+                        else:
+                            lines.append(f"                rdata_reg = {{{{{32 - width}'{{1'b0}}}}, {source}}};")
+                    else:
+                        # Wide register logic
+                        if slice_width == 32:
+                             lines.append(f"                rdata_reg = {source}[{high}:{low}];")
+                        else:
+                             padding = 32 - slice_width
+                             lines.append(f"                rdata_reg = {{{{{padding}'{{1'b0}}}}, {source}[{high}:{low}]}};")
+
+                lines.append("            end")
 
         lines.extend([
             "            default: begin",

@@ -843,7 +843,7 @@ class AxionHDL:
         
     def generate_vhdl(self):
         """
-        Generate VHDL register interface modules (*_axion_reg.vhd) for all analyzed modules.
+        Generate VHDL register interface modules (\*_axion_reg.vhd) for all analyzed modules.
         """
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")
@@ -867,7 +867,7 @@ class AxionHDL:
 
     def generate_systemverilog(self):
         """
-        Generate SystemVerilog register interface modules (*_axion_reg.sv) for all analyzed modules.
+        Generate SystemVerilog register interface modules (\*_axion_reg.sv) for all analyzed modules.
         """
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")
