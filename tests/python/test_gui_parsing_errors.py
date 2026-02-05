@@ -1,13 +1,13 @@
+import pytest
 import os
 import shutil
 import tempfile
-import contextlib
 from axion_hdl import AxionHDL
 from axion_hdl.gui import AxionGUI
 
 class TestGUIParsingErrors:
     
-    @contextlib.contextmanager
+    @pytest.fixture
     def test_env(self):
         """Setup temporary test environment with conflicting VHDL"""
         tmp_dir = tempfile.mkdtemp()

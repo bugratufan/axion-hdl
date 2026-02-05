@@ -1125,10 +1125,6 @@ def generate_markdown_report(results: List[TestResult]):
         "val": ("✅ Validation Tests (VAL-xxx)", {
             "requirements": "VAL Requirements"
         }),
-        "gui": ("🌐 GUI Tests (GUI-xxx)", {
-            "parsing": "Parsing Error Handling"
-        }),
-        "xml-input": ("📄 XML Input Tests (XML-INPUT-xxx)", {
             "requirements": "XML-INPUT Requirements"
         }),
         "yaml-input": ("📄 YAML Input Tests (YAML-INPUT-xxx)", {
@@ -1145,7 +1141,7 @@ def generate_markdown_report(results: List[TestResult]):
         })
     }
     
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "gui", "yaml_input", "json_input", "equiv"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "json_input", "equiv"]:
         if cat not in categories:
             continue
         
@@ -1237,7 +1233,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "gui", "yaml_input", "toml_input", "xml_input", "json_input", "equiv"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv"]:
         if cat not in categories:
             continue
         
@@ -2339,58 +2335,6 @@ def run_width_propagation_tests() -> List[TestResult]:
     return results
 
 
-def run_gui_parsing_tests() -> List[TestResult]:
-    """Run GUI-xxx requirement tests for parsing error handling"""
-    results = []
-    
-    try:
-        from tests.python.test_gui_parsing_errors import TestGUIParsingErrors
-        import tempfile
-        import shutil
-        from pathlib import Path
-        
-        test_case = TestGUIParsingErrors()
-        
-        # Helper to run a test with environment
-        def run_test(test_method, test_id, name):
-            start = time.time()
-            try:
-                with test_case.test_env() as tmp_dir:
-                    # Execute test method
-                    test_method(test_case, tmp_dir)
-                
-                results.append(TestResult(test_id, name, "passed", time.time() - start, 
-                                         category="gui", subcategory="parsing"))
-            except Exception as e:
-                results.append(TestResult(test_id, name, "failed", time.time() - start, 
-                                         str(e), category="gui", subcategory="parsing"))
-
-        # GUI-DASH-011
-        run_test(TestGUIParsingErrors.test_gui_dashboard_parsing_error_indicator, 
-                 "gui.parsing.dashboard", "GUI-DASH-011: Parsing error indicator")
-        
-        # GUI-GEN-017
-        run_test(TestGUIParsingErrors.test_gui_blocks_generation_on_error, 
-                 "gui.parsing.generation", "GUI-GEN-017: Block generation on error")
-        
-        # GUI-RULE-006
-        run_test(TestGUIParsingErrors.test_gui_rule_check_integration, 
-                 "gui.parsing.rule_check", "GUI-RULE-006: Parsing error integration")
-                 
-    except ImportError as e:
-        results.append(TestResult("gui.import", "GUI: Import test module", "failed", 0, str(e), 
-                                 category="gui", subcategory="setup"))
-    
-    return results
-
-def run_cocotb_tests() -> List[TestResult]:
-    """Run cocotb VHDL simulation tests"""
-    results = []
-
-    # Define all cocotb tests with their descriptions
-    cocotb_axi_tests = [
-        ("test_axion_001_ro_read", "AXION-001: Read-Only Register Read Access"),
-        ("test_axion_002_ro_write_protection", "AXION-002: Read-Only Register Write Protection"),
         ("test_axion_003_wo_write", "AXION-003: Write-Only Register Write Access"),
         ("test_axion_004_wo_read_protection", "AXION-004: Write-Only Register Read Protection"),
         ("test_axion_005_rw_full_access", "AXION-005: Read-Write Register Full Access"),
@@ -2686,7 +2630,6 @@ def main():
     # Run VAL tests (Validation & Diagnostics requirements)
     print(f"  [12/21] Running validation tests...", flush=True)
     all_results.extend(run_validation_tests())
-    all_results.extend(run_gui_parsing_tests())
 
     # Run YAML-INPUT tests
     print(f"  [13/21] Running YAML input parser tests...", flush=True)
@@ -2721,12 +2664,8 @@ def main():
     all_results.extend(run_c_tests())
 
     # Run Cocotb tests (comprehensive VHDL verification)
-    print(f"  [21/22] Running Cocotb VHDL tests...", flush=True)
+    print(f"  [21/21] Running Cocotb VHDL tests...", flush=True)
     all_results.extend(run_cocotb_tests())
-
-    # Run GUI parsing error tests
-    print(f"  [22/22] Running GUI parsing error tests...", flush=True)
-    all_results.extend(run_gui_parsing_tests())
     
     # Save and generate reports
     save_results(all_results)
