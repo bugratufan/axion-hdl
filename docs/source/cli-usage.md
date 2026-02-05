@@ -418,7 +418,9 @@ axion-hdl --all
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Error (invalid input, failed generation, conflicts) |
+| 1 | Error (invalid input, failed generation, conflicts, or parsing errors) |
+
+**Note:** If any parsing errors are detected during analysis, the generation process will be blocked for safety. You must fix these errors before generating outputs.
 
 ---
 

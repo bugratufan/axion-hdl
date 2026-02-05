@@ -134,6 +134,9 @@ class YAMLInputParser:
     
     def _parse_yaml_data(self, data: Dict, filepath: str) -> Optional[Dict]:
         """Parse YAML data structure (internal implementation)."""
+        # Store current file for _parse_address error reporting
+        self._current_file = filepath
+        
         module_name = data.get('module')
         if not module_name:
             msg = f"Missing 'module' field in {filepath}"
@@ -142,7 +145,7 @@ class YAMLInputParser:
             return None
         
         base_addr_val = data.get('base_addr', '0x0000')
-        base_addr = self._parse_address(base_addr_val)
+        base_addr = self._parse_address(base_addr_val, context=f"module '{module_name}' base_addr")
         
         # Parse config
         config = data.get('config', {})
@@ -154,6 +157,7 @@ class YAMLInputParser:
             try:
                 cdc_stage = int(cdc_stage)
             except ValueError:
+                self.errors.append({'file': filepath, 'msg': f"Invalid cdc_stage value '{cdc_stage}' in module '{module_name}', using default 2"})
                 cdc_stage = 2
         
         # Parse registers
@@ -181,6 +185,7 @@ class YAMLInputParser:
                 try:
                     width = int(width)
                 except ValueError:
+                    self.errors.append({'file': filepath, 'msg': f"Invalid width value '{width}' for register '{reg_name}', using default 32"})
                     width = 32
 
             # Check if this register has packed fields (fields: array format)
@@ -189,7 +194,7 @@ class YAMLInputParser:
                 # Process packed register with fields array
                 addr_val = reg_data.get('addr')
                 if addr_val is not None:
-                    addr = self._parse_address(addr_val)
+                    addr = self._parse_address(addr_val, context=f"register '{reg_name}' addr")
                 else:
                     addr = next_auto_addr
 
@@ -204,6 +209,7 @@ class YAMLInputParser:
                         try:
                             field_width = int(field_width)
                         except ValueError:
+                            self.errors.append({'file': filepath, 'msg': f"Invalid width value '{field_width}' for field '{field_name}' in register '{reg_name}', using default 1"})
                             field_width = 1
 
                     field_access = str(field_data.get('access', access)).upper()
@@ -216,12 +222,13 @@ class YAMLInputParser:
                             try:
                                 field_bit_offset = int(field_bit_offset)
                             except ValueError:
+                                self.errors.append({'file': filepath, 'msg': f"Invalid bit_offset value '{field_bit_offset}' for field '{field_name}' in register '{reg_name}'"})
                                 field_bit_offset = None
 
                     field_default_val = 0
                     field_default_str = field_data.get('default')
                     if field_default_str is not None:
-                        field_default_val = self._parse_address(field_default_str)
+                        field_default_val = self._parse_address(field_default_str, context=f"field '{field_name}' default value")
 
                     if field_width > 1:
                         sig_type = f"[{field_width-1}:0]"
@@ -262,19 +269,20 @@ class YAMLInputParser:
                     try:
                         bit_offset = int(bit_offset)
                     except ValueError:
+                        self.errors.append({'file': filepath, 'msg': f"Invalid bit_offset value '{bit_offset}' for register '{reg_name}'"})
                         bit_offset = None
             
             # Default value
             default_val = 0
             default_str = reg_data.get('default')
             if default_str is not None:
-                default_val = self._parse_address(default_str)
+                default_val = self._parse_address(default_str, context=f"register '{reg_name}' default value")
             
             # If REG_NAME is present, handle packed registers
             if packed_reg_name:
                 addr_val = reg_data.get('addr')
                 if addr_val is not None:
-                    addr = self._parse_address(addr_val)
+                    addr = self._parse_address(addr_val, context=f"register '{reg_name}' addr")
                 else:
                     existing_reg = bit_field_manager.get_register(packed_reg_name)
                     if existing_reg:
@@ -317,7 +325,7 @@ class YAMLInputParser:
             # Standard register
             addr_val = reg_data.get('addr')
             if addr_val is not None:
-                addr = self._parse_address(addr_val)
+                addr = self._parse_address(addr_val, context=f"register '{reg_name}' addr")
             else:
                 addr = next_auto_addr
             
@@ -405,6 +413,9 @@ class YAMLInputParser:
         # Sort registers by address
         registers.sort(key=lambda x: x['relative_address_int'])
         
+        # Collect errors for this module
+        module_errors = [e for e in self.errors if e.get('file') == filepath]
+        
         return {
             'entity_name': module_name,
             'name': module_name,
@@ -417,11 +428,21 @@ class YAMLInputParser:
             'cdc_stage': cdc_stage,
             'registers': registers,
             'packed_registers': packed_regs_data,
-            'source_file': filepath
+            'source_file': filepath,
+            'parsing_errors': module_errors
         }
     
-    def _parse_address(self, addr_val) -> int:
-        """Parse address value (hex string, decimal string, or integer)."""
+    def _parse_address(self, addr_val, context: str = "") -> int:
+        """
+        Parse address value (hex string, decimal string, or integer).
+        
+        Args:
+            addr_val: Value to parse
+            context: Context for error reporting (e.g., register name)
+            
+        Returns:
+            Parsed integer or 0 if parsing fails (after recording error)
+        """
         if isinstance(addr_val, int):
             return addr_val
         
@@ -432,6 +453,12 @@ class YAMLInputParser:
             else:
                 return int(addr_str)
         except ValueError:
+            msg = f"Invalid numeric value '{addr_val}'"
+            if context:
+                msg += f" in {context}"
+            # We still return 0 to allow parsing to continue, 
+            # but we've recorded the error
+            self.errors.append({'file': getattr(self, '_current_file', 'Unknown'), 'msg': msg})
             return 0
     
     def parse_yaml_files(self, source_dirs: List[str]) -> List[Dict]:
