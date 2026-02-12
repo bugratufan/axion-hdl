@@ -260,10 +260,10 @@ IP-XACT compatible format for EDA tool integration:
 
 | Flag | Output | Default |
 |------|--------|---------|
-| `--vhdl` | VHDL register module | Enabled |
+| `--vhdl` | VHDL register module | Disabled |
 | `--c-header` | C header file | Disabled |
-| `--md` | Markdown documentation | Disabled |
-| `--html` | HTML documentation | Disabled |
+| `--doc` | Documentation (default: Markdown) | Disabled |
+| `--doc-format FORMAT` | Documentation format: `md`, `html`, `pdf` | `md` |
 | `--xml` | XML register map | Disabled |
 | `--yaml` | YAML register map | Disabled |
 | `--json` | JSON register map | Disabled |
@@ -272,8 +272,8 @@ IP-XACT compatible format for EDA tool integration:
 ### Example Commands
 
 ```bash
-# Generate only VHDL (default)
-axion-hdl -s input.yaml -o output
+# Generate only VHDL
+axion-hdl -s input.yaml -o output --vhdl
 
 # Generate VHDL and C headers
 axion-hdl -s input.yaml -o output --vhdl --c-header
@@ -281,8 +281,8 @@ axion-hdl -s input.yaml -o output --vhdl --c-header
 # Generate all formats
 axion-hdl -s input.yaml -o output --all
 
-# Generate documentation only
-axion-hdl -s input.yaml -o output --md --html
+# Generate documentation in HTML format
+axion-hdl -s input.yaml -o output --doc --doc-format html
 ```
 
 ---

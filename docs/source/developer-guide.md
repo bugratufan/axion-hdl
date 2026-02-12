@@ -11,20 +11,22 @@ axion-hdl/
 │   ├── axion.py            # Core AxionHDL class
 │   ├── cli.py              # Command-line interface
 │   ├── parser.py           # VHDL parser (@axion annotations)
-│   ├── yaml_parser.py      # YAML register definition parser
-│   ├── json_parser.py      # JSON register definition parser  
-│   ├── xml_parser.py       # XML register definition parser
+│   ├── annotation_parser.py # Annotation parsing utilities
+│   ├── yaml_input_parser.py # YAML register definition parser
+│   ├── json_input_parser.py # JSON register definition parser
+│   ├── xml_input_parser.py  # XML register definition parser
+│   ├── toml_input_parser.py # TOML register definition parser
+│   ├── address_manager.py  # Address conflict detection
+│   ├── bit_field_manager.py # Bit field/subregister management
+│   ├── code_formatter.py   # Code formatting utilities
+│   ├── source_modifier.py  # Source file modification (GUI)
+│   ├── vhdl_utils.py       # VHDL utility functions
 │   ├── rule_checker.py     # Design rule validation
+│   ├── generator.py        # VHDL generator (VHDLGenerator)
+│   ├── doc_generators.py   # Output generators (Doc, CHeader, XML, YAML, JSON, TOML)
 │   ├── gui.py              # Flask-based web GUI
 │   ├── templates/          # HTML templates for GUI
-│   ├── static/             # CSS, JS for GUI
-│   └── generators/         # Output generators
-│       ├── vhdl_generator.py
-│       ├── c_header_generator.py
-│       ├── doc_generator.py
-│       ├── xml_generator.py
-│       ├── yaml_generator.py
-│       └── json_generator.py
+│   └── static/             # CSS, JS for GUI
 ├── tests/                  # Test suite
 │   ├── python/             # Python unit tests
 │   ├── vhdl/               # VHDL simulation tests
