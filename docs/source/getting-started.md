@@ -117,5 +117,5 @@ led_blinker_regs : entity work.led_blinker_axion_reg
 ## Next Steps
 
 - [Data Formats](data-formats) - Learn about all input formats
-- [CLI Reference](cli-reference) - Master the command-line
+- [CLI Usage](cli-usage) - Master the command-line
 - [GUI](gui) - Interactive web-based register management
