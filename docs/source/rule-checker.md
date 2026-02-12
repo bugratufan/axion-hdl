@@ -24,10 +24,10 @@ Navigate to the **Rule Check** page and click **Run Rule Check**.
 
 ```python
 from axion_hdl.rule_checker import RuleChecker
-from axion_hdl.axion import AxionHDL
+from axion_hdl import AxionHDL
 
 axion = AxionHDL()
-axion.add_source_path("./rtl")
+axion.add_source("./rtl")
 modules = axion.analyze()
 
 checker = RuleChecker()
