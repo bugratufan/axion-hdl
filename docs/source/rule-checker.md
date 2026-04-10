@@ -1,6 +1,6 @@
 # Rule Checker
 
-Axion-HDL includes a comprehensive rule checker that validates register definitions before generation. This helps catch errors early and ensures generated outputs are correct and consistent.
+Axion-HDL includes a comprehensive rule checker that validates register definitions before generation. This helps catch errors early and ensures generated outputs are correct and consistent. The rule checker applies to all input formats — VHDL, SystemVerilog, YAML, TOML, XML, and JSON.
 
 ## Running Rule Check
 

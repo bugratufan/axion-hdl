@@ -2,7 +2,7 @@
 
 Welcome to the **Axion-HDL** documentation!
 
-Axion-HDL is a powerful Python-based automation tool that generates AXI4-Lite register interfaces for VHDL modules.
+Axion-HDL is a powerful Python-based automation tool that generates AXI4-Lite register interfaces for VHDL and SystemVerilog modules.
 
 ## Quick Links
 
@@ -38,7 +38,7 @@ api-reference
 ## Features
 
 - **Multi-Format Input**: Define registers in VHDL/SystemVerilog comments, YAML, TOML, XML, or JSON
-- **Automated Generation**: One command generates VHDL, C headers, and docs
+- **Automated Generation**: One command generates VHDL, SystemVerilog, C headers, and docs
 - **Interactive GUI**: Web-based interface for visual register management
 - **Clock Domain Crossing**: Automatic CDC synchronizers
 - **Auto-Addressing**: Smart conflict detection and address assignment

@@ -218,10 +218,12 @@ on:
     paths:
       - 'regs/**'
       - 'rtl/**/*.vhd'
+      - 'rtl/**/*.sv'
   pull_request:
     paths:
       - 'regs/**'
       - 'rtl/**/*.vhd'
+      - 'rtl/**/*.sv'
 
 jobs:
   generate:

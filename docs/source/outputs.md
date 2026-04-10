@@ -106,7 +106,7 @@ end entity;
 
 A modern SystemVerilog AXI4-Lite slave module optimized for verification and integration.
 
-### Entity Structure
+### Module Structure
 
 ```systemverilog
 module sensor_controller_axion_reg #(
