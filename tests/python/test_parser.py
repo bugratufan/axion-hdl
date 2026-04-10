@@ -615,14 +615,89 @@ end architecture;
         self.assertEqual(len(fields), 2)
 
 
+    # PARSER-010: Bare @axion Annotation (No Attributes)
+    def test_parser_010_bare_annotation_detected(self):
+        """PARSER-010: Signal with bare -- @axion (no attributes) is detected"""
+        vhdl = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x0000
+entity bare_axion_test is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of bare_axion_test is
+    signal my_register : std_logic_vector(31 downto 0); -- @axion
+begin
+end architecture;
+'''
+        filepath = self._write_temp_vhdl("bare_axion_test.vhd", vhdl)
+        result = self.parser.parse_file(filepath)
+        self.assertIsNotNone(result, "Parser should return a result even with bare @axion")
+        signals = result.get('signals', [])
+        self.assertEqual(len(signals), 1, "Should detect exactly one signal")
+        sig = signals[0]
+        self.assertEqual(sig['name'], 'my_register')
+
+    def test_parser_010_bare_annotation_defaults(self):
+        """PARSER-010: Bare @axion annotation produces RW access and 32-bit width by default"""
+        vhdl = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x0000
+entity bare_defaults_test is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of bare_defaults_test is
+    signal ctrl_reg : std_logic_vector(31 downto 0); -- @axion
+begin
+end architecture;
+'''
+        filepath = self._write_temp_vhdl("bare_defaults_test.vhd", vhdl)
+        result = self.parser.parse_file(filepath)
+        self.assertIsNotNone(result)
+        signals = result.get('signals', [])
+        self.assertEqual(len(signals), 1)
+        sig = signals[0]
+        self.assertEqual(sig.get('access', '').upper(), 'RW',
+                         "Default access mode should be RW")
+        self.assertEqual(sig.get('width'), 32,
+                         "Width should be 32 for std_logic_vector(31 downto 0)")
+
+    def test_parser_010_bare_and_attributed_coexist(self):
+        """PARSER-010: Bare and attributed @axion annotations coexist in same file"""
+        vhdl = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x0000
+entity mixed_axion_test is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of mixed_axion_test is
+    signal ctrl_reg   : std_logic_vector(31 downto 0); -- @axion
+    signal status_reg : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x04
+begin
+end architecture;
+'''
+        filepath = self._write_temp_vhdl("mixed_axion_test.vhd", vhdl)
+        result = self.parser.parse_file(filepath)
+        self.assertIsNotNone(result)
+        signals = result.get('signals', [])
+        self.assertEqual(len(signals), 2, "Both bare and attributed signals should be detected")
+        names = {s['name'] for s in signals}
+        self.assertIn('ctrl_reg', names)
+        self.assertIn('status_reg', names)
+        status = self._get_signal_by_name(signals, 'status_reg')
+        self.assertEqual(status.get('access', '').upper(), 'RO')
+
+
 def run_parser_tests():
     """Run all parser tests and return results"""
     loader = unittest.TestLoader()
     suite = loader.loadTestsFromTestCase(TestParserRequirements)
-    
+
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
-    
+
     return result.wasSuccessful()
 
 

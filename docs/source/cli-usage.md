@@ -172,6 +172,11 @@ generated/
 ├── module_b_axion_reg.vhd
 ├── module_b_regs.h
 ├── module_b_regs.yaml
+├── register_map.md
+├── index.html
+└── ...
+```
+
 ---
 
 ## CI/CD Integration
@@ -410,6 +415,7 @@ axion-hdl --all
 | `.yaml`, `.yml` | YAML | Human-readable register definitions |
 | `.json` | JSON | Machine-readable register definitions |
 | `.xml` | XML | IP-XACT style register definitions |
+| `.toml` | TOML | Human-readable register definitions |
 
 ---
 
