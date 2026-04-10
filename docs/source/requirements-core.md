@@ -279,3 +279,5 @@ Testing and verification are automated via `make test`, which maps tests back to
 | SV-GEN-005 | Functional Verification | Generated modules support signal driving/sampling in Cocotb simulation. | Cocotb Test (`test_sv_cocotb`) |
 | SV-GEN-006 | Lint Compliance | Generated code passes `verilator --lint-only -Wall` with zero errors. | Lint Test (`test_sv_lint`) |
 | SV-GEN-007 | Equivalence with VHDL | SystemVerilog behavior (address map, reset, strobe) matches VHDL implementation. | Equivalence Test (`test_sv_equiv`) |
+| SV-GEN-008 | Bare Annotation Support | A bare `// @axion` annotation with no attributes is recognized and defaults to RW access, auto-assigned address, no strobes. | SystemVerilog Test (`test_sv_axion_033`, `test_sv_axion_034`) |
+| SV-GEN-009 | Address Conflict Recovery | When two signals are manually assigned the same address, the conflicting register is reassigned to the next available address instead of being dropped. A warning is recorded in `parsing_errors`. | SystemVerilog Test (`test_sv_axion_027`) |

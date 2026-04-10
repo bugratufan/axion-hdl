@@ -128,6 +128,7 @@ if axion.is_analyzed:
 | `set_output_dir(path)` | Set output directory for generated files |
 | `generate_all(doc_format="md")` | Generate all output formats |
 | `generate_vhdl()` | Generate VHDL register modules |
+| `generate_systemverilog()` | Generate SystemVerilog register modules |
 | `generate_c_header()` | Generate C header files |
 | `generate_documentation(format="md")` | Generate documentation (md, html, pdf) |
 | `generate_xml()` | Generate XML register maps |

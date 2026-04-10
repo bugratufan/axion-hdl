@@ -54,6 +54,7 @@ axion.add_source("controller.xml")
 axion.add_source("gpio.json")
 axion.add_source("spi.toml")
 axion.add_source("spi_master.vhd")
+axion.add_source("design.sv")
 
 # Add directory (recursive scan)
 axion.add_source("./rtl")
@@ -63,6 +64,8 @@ axion.add_yaml_src("registers.yaml")
 axion.add_xml_src("controller.xml")
 axion.add_json_src("gpio.json")
 axion.add_toml_src("spi.toml")
+axion.add_sv_src("design.sv")      # SystemVerilog source file
+axion.add_sv_src("./rtl/sv")       # Directory of .sv/.svh files
 
 # List current sources
 sources = axion.list_src()
@@ -821,6 +824,40 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+```
+
+### Example 7: SystemVerilog Project
+
+```python
+from axion_hdl import AxionHDL
+
+axion = AxionHDL(output_dir="./output")
+
+# Add SystemVerilog source files
+axion.add_sv_src("./rtl/sensor_ctrl.sv")
+axion.add_sv_src("./rtl/dma_engine.sv")
+
+# Analyze
+modules = axion.analyze()
+print(f"Found {len(modules)} modules")
+
+# Generate SystemVerilog register modules + C headers
+axion.generate_systemverilog()
+axion.generate_c_header()
+axion.generate_documentation()
+```
+
+You can also mix VHDL and SystemVerilog sources in a single run:
+
+```python
+axion.add_src("./rtl/legacy_block.vhd")   # VHDL source
+axion.add_sv_src("./rtl/new_block.sv")    # SystemVerilog source
+axion.add_yaml_src("./regs/shared.yaml")  # YAML definitions
+
+axion.analyze()
+axion.generate_vhdl()            # VHDL output for legacy_block
+axion.generate_systemverilog()   # SV output for new_block
+axion.generate_c_header()        # C headers for all modules
 ```
 
 ---

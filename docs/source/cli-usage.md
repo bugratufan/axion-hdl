@@ -26,6 +26,9 @@ axion-hdl -s registers.toml -o ./output --all
 # Generate from VHDL with annotations
 axion-hdl -s ./src/my_module.vhd -o ./generated --all
 
+# Generate from SystemVerilog with annotations
+axion-hdl -s ./src/my_module.sv -o ./generated --sv
+
 # Start the interactive GUI
 axion-hdl -s ./src --gui
 ```
@@ -165,6 +168,27 @@ output/
 ```bash
 # Process entire RTL directory
 axion-hdl -s ./rtl -o ./generated --all -e "*_tb.vhd"
+```
+
+### 3. SystemVerilog Module
+
+```bash
+# Input: design.sv with // @axion annotations
+# Output: SystemVerilog module, C header, docs
+axion-hdl -s design.sv -o ./output --sv --c-header --doc
+```
+
+Output files:
+```
+output/
+├── design_axion_reg.sv    # AXI4-Lite slave module (SystemVerilog)
+├── design_regs.h          # C header with macros
+└── register_map.md        # Documentation
+```
+
+```bash
+# Mix VHDL and SystemVerilog sources, generate both outputs
+axion-hdl -s ./rtl -o ./generated --vhdl --sv -e "*_tb.*"
 ```
 
 Output files:
@@ -410,10 +434,12 @@ axion-hdl --all
 
 | Extension | Format | Description |
 |-----------|--------|-------------|
-| `.vhd`, `.vhdl` | VHDL | Source with `@axion` annotations |
+| `.vhd`, `.vhdl` | VHDL | Source with `-- @axion` annotations |
+| `.sv`, `.svh` | SystemVerilog | Source with `// @axion` annotations |
 | `.yaml`, `.yml` | YAML | Human-readable register definitions |
 | `.json` | JSON | Machine-readable register definitions |
 | `.xml` | XML | IP-XACT style register definitions |
+| `.toml` | TOML | Clean syntax register definitions |
 
 ---
 
@@ -431,6 +457,7 @@ axion-hdl --all
 1. **Use `--all` for quick generation** - generates everything in one command
 2. **Exclude patterns** - great for skipping testbenches and deprecated files
 3. **Config files** - store project-specific settings for consistent generation
-4. **Combine sources** - mix VHDL, YAML, TOML, XML, JSON in a single run
+4. **Combine sources** - mix VHDL, SystemVerilog, YAML, TOML, XML, JSON in a single run
 5. **CI/CD artifacts** - upload generated files for downstream jobs
+6. **Bare annotations** - `-- @axion` (VHDL) or `// @axion` (SV) with no attributes defaults to RW access and auto-assigned address
 

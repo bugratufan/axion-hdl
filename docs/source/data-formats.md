@@ -35,17 +35,6 @@ Use `//` comments for module configuration:
 // @axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3
 ```
 
--- @axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3
-```
-
-### SystemVerilog (`@axion_def`)
-
-Use `//` comments for module configuration:
-
-```systemverilog
-// @axion_def BASE_ADDR=0x1000 CDC_EN CDC_STAGE=3
-```
-
 ### YAML/TOML/XML/JSON
 
 | Attribute | YAML | TOML | XML | JSON | Description | Default |
@@ -83,15 +72,29 @@ Use `//` comments for module configuration:
 signal reg_name : std_logic_vector(31 downto 0); -- @axion ACCESS [OPTIONS]
 ```
 
+Attributes are optional — a bare `-- @axion` annotation is valid and uses all defaults:
+
+```vhdl
+signal my_reg : std_logic_vector(31 downto 0); -- @axion
+-- Defaults to: RW access, auto-assigned address, no strobes
+```
+
 #### SystemVerilog Register Attributes (`@axion`)
 
 ```systemverilog
 logic [31:0] reg_name; // @axion ACCESS [OPTIONS]
 ```
 
+Attributes are optional — a bare `// @axion` annotation is valid and uses all defaults:
+
+```systemverilog
+logic [31:0] my_reg; // @axion
+// Defaults to: RW access, auto-assigned address, no strobes
+```
+
 | Attribute | Syntax | Description | Default |
 |-----------|--------|-------------|---------|
-| Access Mode | `RO`, `WO`, `RW` | Register access type | Required |
+| Access Mode | `RO`, `WO`, `RW` | Register access type | `RW` |
 | Address | `ADDR=0xNN` | Manual address assignment | Auto-assigned |
 | Description | `DESC="text"` | Register description | Empty |
 | Read Strobe | `R_STROBE` | Generate read strobe signal | `false` |
@@ -537,6 +540,8 @@ Override automatic address allocation.
 signal debug_reg : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x100 DESC="Debug register"
 ```
 
+> **Address Conflict Recovery:** If two registers are assigned the same manual address, the second one is automatically reassigned to the next available address. A warning is recorded in `parsing_errors` but neither register is dropped.
+
 **YAML:**
 ```yaml
 - name: debug_reg
@@ -593,16 +598,24 @@ description = "Debug register"
 -- Module definition (anywhere in file)
 -- @axion_def BASE_ADDR=0xNNNN [CDC_EN] [CDC_STAGE=N]
 
--- Register definition (on signal line)
+-- Register with full attributes
 signal name : type; -- @axion ACCESS [ADDR=0xNN] [DESC="..."] [R_STROBE] [W_STROBE] [DEFAULT=0xNN] [REG_NAME=name] [BIT_OFFSET=N]
+
+-- Bare annotation (all defaults: RW, auto address)
+signal name : type; -- @axion
 ```
 
 ### SystemVerilog Annotation Syntax
 
 ```systemverilog
-// @axion_def BASE_ADDR=0xNNNN ...
+// Module definition (anywhere in file)
+// @axion_def BASE_ADDR=0xNNNN [CDC_EN] [CDC_STAGE=N]
 
-logic [31:0] name; // @axion ACCESS ...
+// Register with full attributes
+logic [31:0] name; // @axion ACCESS [ADDR=0xNN] [DESC="..."] [R_STROBE] [W_STROBE] [DEFAULT=0xNN]
+
+// Bare annotation (all defaults: RW, auto address)
+logic [31:0] name; // @axion
 ```
 
 ### YAML Structure
