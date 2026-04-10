@@ -126,3 +126,84 @@ end architecture;
     
     assert "wide_reg" in conflict_error['msg']
     assert "conflict_reg" in conflict_error['msg']
+
+
+def test_conflicting_register_still_saved_with_new_address(temp_test_env):
+    """
+    Test that a register with a conflicting manual address is still saved
+    but reassigned to the next available address instead of being dropped.
+    """
+    conflict_vhdl = """
+library ieee;
+use ieee.std_logic_1164.all;
+
+-- @axion_def BASE_ADDR=0x0000
+
+entity conflict_recovery_test is
+    port (clk : in std_logic);
+end entity;
+
+architecture rtl of conflict_recovery_test is
+    signal reg_first  : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x00
+    signal reg_second : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x00
+begin
+end architecture;
+"""
+    vhdl_file = os.path.join(temp_test_env, "conflict_recovery.vhd")
+    with open(vhdl_file, 'w') as f:
+        f.write(conflict_vhdl)
+
+    axion = AxionHDL(output_dir=os.path.join(temp_test_env, "out"))
+    axion.add_src(temp_test_env)
+    axion.analyze()
+
+    assert len(axion.analyzed_modules) == 1
+    module = axion.analyzed_modules[0]
+
+    # Both registers must be present — conflict should not drop a register
+    register_names = [r['name'] for r in module.get('registers', [])]
+    assert 'reg_first' in register_names, f"reg_first missing from registers: {register_names}"
+    assert 'reg_second' in register_names, f"reg_second missing from registers: {register_names}"
+
+    # The two registers must have different addresses
+    regs = {r['name']: r for r in module.get('registers', [])}
+    assert regs['reg_first']['relative_address_int'] != regs['reg_second']['relative_address_int'], (
+        "Conflicting register should be reassigned to a different address"
+    )
+
+
+def test_conflict_warning_recorded_in_errors(temp_test_env):
+    """
+    Test that a manual address conflict produces an entry in module parsing_errors.
+    """
+    conflict_vhdl = """
+library ieee;
+use ieee.std_logic_1164.all;
+
+-- @axion_def BASE_ADDR=0x0000
+
+entity conflict_warning_test is
+    port (clk : in std_logic);
+end entity;
+
+architecture rtl of conflict_warning_test is
+    signal reg_a : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x08
+    signal reg_b : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x08
+begin
+end architecture;
+"""
+    vhdl_file = os.path.join(temp_test_env, "conflict_warning.vhd")
+    with open(vhdl_file, 'w') as f:
+        f.write(conflict_vhdl)
+
+    axion = AxionHDL(output_dir=os.path.join(temp_test_env, "out"))
+    axion.add_src(temp_test_env)
+    axion.analyze()
+
+    module = axion.analyzed_modules[0]
+    errors = module.get('parsing_errors', [])
+
+    # A conflict error must be recorded
+    assert any("Address Conflict" in e['msg'] for e in errors), (
+        f"Expected Address Conflict in parsing_errors, got: {errors}"
+    )
