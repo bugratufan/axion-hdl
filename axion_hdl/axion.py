@@ -841,6 +841,15 @@ class AxionHDL:
         
         return len(checker.errors) == 0
         
+    def _has_parsing_errors(self) -> bool:
+        """Helper to check if any analyzed module has parsing errors."""
+        error_modules = [m['name'] for m in self.analyzed_modules if m.get('parsing_errors')]
+        if error_modules:
+            print(f"\nError: Cannot proceed due to parsing errors in modules: {', '.join(error_modules)}")
+            print("Please fix the errors reported in --rule-check or the GUI activity log first.")
+            return True
+        return False
+
     def generate_vhdl(self):
         """
         Generate VHDL register interface modules (\*_axion_reg.vhd) for all analyzed modules.
@@ -849,6 +858,9 @@ class AxionHDL:
             print("Error: Analysis not performed. Call analyze() first.")
             return False
             
+        if self._has_parsing_errors():
+            return False
+
         print(f"\n{'='*60}")
         print("Generating VHDL register modules...")
         print(f"{'='*60}")
@@ -900,6 +912,9 @@ class AxionHDL:
             print("Error: Analysis not performed. Call analyze() first.")
             return False
             
+        if self._has_parsing_errors():
+            return False
+
         print(f"\n{'='*60}")
         print(f"Generating documentation ({format.upper()})...")
         print(f"{'='*60}")
@@ -934,6 +949,9 @@ class AxionHDL:
             print("Error: Analysis not performed. Call analyze() first.")
             return False
             
+        if self._has_parsing_errors():
+            return False
+
         print(f"\n{'='*60}")
         print("Generating XML register map...")
         print(f"{'='*60}")
@@ -959,6 +977,9 @@ class AxionHDL:
             print("Error: Analysis not performed. Call analyze() first.")
             return False
             
+        if self._has_parsing_errors():
+            return False
+
         print(f"\n{'='*60}")
         print("Generating C header files...")
         print(f"{'='*60}")
@@ -986,6 +1007,8 @@ class AxionHDL:
             print("Error: Analysis not performed. Call analyze() first.")
             return False
 
+        # No need to check parsing errors here, as each individual generate_* method will check
+
         success = True
         success &= self.generate_vhdl()
         success &= self.generate_systemverilog()
@@ -1012,6 +1035,9 @@ class AxionHDL:
             print("Error: Analysis not performed. Call analyze() first.")
             return False
             
+        if self._has_parsing_errors():
+            return False
+
         print(f"\n{'='*60}")
         print("Generating YAML register map...")
         print(f"{'='*60}")
@@ -1038,6 +1064,9 @@ class AxionHDL:
             print("Error: Analysis not performed. Call analyze() first.")
             return False
 
+        if self._has_parsing_errors():
+            return False
+
         print(f"\n{'='*60}")
         print("Generating JSON register map...")
         print(f"{'='*60}")
@@ -1062,6 +1091,9 @@ class AxionHDL:
         """
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")
+            return False
+
+        if self._has_parsing_errors():
             return False
 
         print(f"\n{'='*60}")

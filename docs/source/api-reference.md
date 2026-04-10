@@ -181,13 +181,6 @@ except AddressConflictError as e:
     print(f"Overlap: {e}")
 ```
 
-```{eval-rst}
-.. autoclass:: axion_hdl.AxionHDL
-   :members:
-   :undoc-members:
-   :show-inheritance:
-```
-
 ---
 
 ## RuleChecker
@@ -268,12 +261,6 @@ if results["errors"]:
 | Documentation | `missing_description` | No description field |
 | Structure | `empty_module` | Module has no registers |
 
-```{eval-rst}
-.. autoclass:: axion_hdl.rule_checker.RuleChecker
-   :members:
-   :undoc-members:
-```
-
 ---
 
 ## Parsers
@@ -335,6 +322,17 @@ parser = XMLInputParser()
 module = parser.parse_file("registers.xml")
 ```
 
+### TOMLInputParser
+
+Parses TOML register definition files.
+
+```python
+from axion_hdl.toml_input_parser import TOMLInputParser
+
+parser = TOMLInputParser()
+module = parser.parse_file("registers.toml")
+```
+
 ---
 
 ## Generators
@@ -371,7 +369,9 @@ Generates documentation (Markdown, HTML, PDF).
 from axion_hdl.doc_generators import DocGenerator
 
 generator = DocGenerator(output_dir="./output")
-output_path = generator.generate_doc(modules, format="md")  # or "html"
+output_path = generator.generate_markdown(modules)
+output_path = generator.generate_html(modules)
+output_path = generator.generate_pdf(modules)
 ```
 
 ### CHeaderGenerator
@@ -416,6 +416,17 @@ from axion_hdl.doc_generators import JSONGenerator
 
 generator = JSONGenerator(output_dir="./output")
 output_path = generator.generate_json(module)
+```
+
+### TOMLGenerator
+
+Generates TOML register maps.
+
+```python
+from axion_hdl.doc_generators import TOMLGenerator
+
+generator = TOMLGenerator(output_dir="./output")
+output_path = generator.generate_toml(module)
 ```
 
 ---
@@ -491,17 +502,6 @@ try:
 except AddressConflictError as e:
     print(f"Conflict at address {e.address}")
     print(f"Between: {e.existing_signal} and {e.new_signal}")
-```
-
----
-
-## Module Reference
-
-```{eval-rst}
-.. automodule:: axion_hdl
-   :members:
-   :undoc-members:
-   :show-inheritance:
 ```
 
 ---

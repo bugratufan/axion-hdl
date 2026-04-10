@@ -200,6 +200,11 @@ generated/
 ├── module_b_axion_reg.vhd
 ├── module_b_regs.h
 ├── module_b_regs.yaml
+├── register_map.md
+├── index.html
+└── ...
+```
+
 ---
 
 ## CI/CD Integration
@@ -441,7 +446,7 @@ axion-hdl --all
 | `.yaml`, `.yml` | YAML | Human-readable register definitions |
 | `.json` | JSON | Machine-readable register definitions |
 | `.xml` | XML | IP-XACT style register definitions |
-| `.toml` | TOML | Clean syntax register definitions |
+| `.toml` | TOML | Human-readable register definitions |
 
 ---
 
@@ -450,7 +455,9 @@ axion-hdl --all
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Error (invalid input, failed generation, conflicts) |
+| 1 | Error (invalid input, failed generation, conflicts, or parsing errors) |
+
+**Note:** If any parsing errors are detected during analysis, the generation process will be blocked for safety. You must fix these errors before generating outputs.
 
 ---
 

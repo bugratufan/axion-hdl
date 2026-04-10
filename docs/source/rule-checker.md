@@ -24,10 +24,10 @@ Navigate to the **Rule Check** page and click **Run Rule Check**.
 
 ```python
 from axion_hdl.rule_checker import RuleChecker
-from axion_hdl.axion import AxionHDL
+from axion_hdl import AxionHDL
 
 axion = AxionHDL()
-axion.add_source_path("./rtl")
+axion.add_source("./rtl")
 modules = axion.analyze()
 
 checker = RuleChecker()
@@ -238,6 +238,32 @@ Checks source file formats for common mistakes.
 ```
 Missing 'module' field. Did you mean 'module' instead of 'name'?
 ```
+
+---
+
+### Register Attribute Validation
+
+**Type:** `Parsing Error`  
+**Severity:** Error
+
+Validates that numeric attributes in register definitions are valid. This applies to YAML, JSON, TOML, and XML formats.
+
+Checks include:
+- `base_addr`: Must be a valid hex or decimal integer.
+- `addr`: Must be a valid hex or decimal integer.
+- `width`: Must be a valid integer.
+- `bit_offset`: Must be a valid integer.
+- `cdc_stage`: Must be a valid integer.
+
+**Example Error:**
+```
+Invalid numeric value 'not_an_address' in register 'status' addr
+Invalid width value 'not_a_width' for register 'control', using default 32
+```
+
+**Resolution:**
+- Correct the invalid value in the source file.
+- Ensure hex values use the `0x` prefix.
 
 ---
 

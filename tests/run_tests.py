@@ -1142,7 +1142,7 @@ def generate_markdown_report(results: List[TestResult]):
         })
     }
     
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml-input", "json-input", "equiv"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "json_input", "equiv"]:
         if cat not in categories:
             continue
         
@@ -1235,7 +1235,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "systemverilog"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "systemverilog"]:
         if cat not in categories:
             continue
         
@@ -1923,6 +1923,50 @@ def run_validation_tests() -> List[TestResult]:
         except Exception as e:
             results.append(TestResult(test_id, name, "failed", time.time() - start,
                                      str(e), category="val", subcategory="requirements"))
+
+        # VAL-006: Numeric Attribute Validation
+        from tests.python.test_validation_numeric import (
+            test_val_006_yaml_numeric_validation,
+            test_val_006_xml_numeric_validation,
+            test_val_007_generation_safety_lock
+        )
+        
+        test_id = "val.val_006_yaml"
+        name = "VAL-006: YAML Numeric Validation"
+        start = time.time()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                test_val_006_yaml_numeric_validation(Path(tmp))
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+
+        test_id = "val.val_006_xml"
+        name = "VAL-006: XML Numeric Validation"
+        start = time.time()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                test_val_006_xml_numeric_validation(Path(tmp))
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
+
+        # VAL-007: Generation Safety Lock
+        test_id = "val.val_007"
+        name = "VAL-007: Generation Safety Lock"
+        start = time.time()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                test_val_007_generation_safety_lock(Path(tmp))
+            results.append(TestResult(test_id, name, "passed", time.time() - start,
+                                     category="val", subcategory="requirements"))
+        except Exception as e:
+            results.append(TestResult(test_id, name, "failed", time.time() - start,
+                                     str(e), category="val", subcategory="requirements"))
                                      
     except ImportError as e:
         results.append(TestResult("val.import", "VAL: Import test module", "failed", 0, str(e),
@@ -2294,13 +2338,18 @@ def run_width_propagation_tests() -> List[TestResult]:
 
 
 def run_cocotb_tests() -> List[TestResult]:
-    """Run cocotb VHDL simulation tests"""
+    """Run Cocotb VHDL simulation tests"""
     results = []
+    
+    # Check if cocotb is available
+    try:
+        import cocotb
+    except ImportError:
+        results.append(TestResult("cocotb.setup.import", "Cocotb Available", "skipped", 0, 
+                                 "cocotb not found", category="cocotb", subcategory="setup"))
+        return results
 
-    # Define all cocotb tests with their descriptions
-    cocotb_axi_tests = [
-        ("test_axion_001_ro_read", "AXION-001: Read-Only Register Read Access"),
-        ("test_axion_002_ro_write_protection", "AXION-002: Read-Only Register Write Protection"),
+    cocotb_tests = [
         ("test_axion_003_wo_write", "AXION-003: Write-Only Register Write Access"),
         ("test_axion_004_wo_read_protection", "AXION-004: Write-Only Register Read Protection"),
         ("test_axion_005_rw_full_access", "AXION-005: Read-Write Register Full Access"),
@@ -2434,7 +2483,7 @@ def run_cocotb_tests() -> List[TestResult]:
         axi_results[test_func] = status
 
     # Map results to our test list
-    for test_id, desc in cocotb_axi_tests:
+    for test_id, desc in cocotb_tests:
         if test_id in axi_results:
             status = axi_results[test_id]
             if status == "pass":

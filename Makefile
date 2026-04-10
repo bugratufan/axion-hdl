@@ -207,12 +207,12 @@ test-full:
 ## Run GUI tests (requires playwright) - Chrome only for speed
 test-gui: ensure-playwright
 	@echo "Running GUI tests on Chrome (4 parallel workers)..."
-	@$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py $(TESTS_DIR)/python/test_gui_property_changes.py $(TESTS_DIR)/python/test_gui_address_assignment.py -v --tb=short --browser chromium -n 4 --reruns 2 --reruns-delay 1
+	@$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py $(TESTS_DIR)/python/test_gui_property_changes.py $(TESTS_DIR)/python/test_gui_address_assignment.py $(TESTS_DIR)/python/test_gui_parsing_errors.py -v --tb=short --browser chromium -n 4 --reruns 2 --reruns-delay 1
 
 ## Run GUI tests on all browsers (Chrome, Firefox, WebKit)
 test-gui-full: ensure-playwright
 	@echo "Running GUI tests on all browsers (4 parallel workers)..."
-	@$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py $(TESTS_DIR)/python/test_gui_property_changes.py $(TESTS_DIR)/python/test_gui_address_assignment.py -v --tb=short --browser chromium --browser firefox --browser webkit -n 4 --reruns 2 --reruns-delay 1
+	@$(PYTHON) -m pytest $(TESTS_DIR)/python/test_gui.py $(TESTS_DIR)/python/test_file_modification.py $(TESTS_DIR)/python/test_gui_property_changes.py $(TESTS_DIR)/python/test_gui_address_assignment.py $(TESTS_DIR)/python/test_gui_parsing_errors.py -v --tb=short --browser chromium --browser firefox --browser webkit -n 4 --reruns 2 --reruns-delay 1
 
 #------------------------------------------------------------------------------
 # Code Generation

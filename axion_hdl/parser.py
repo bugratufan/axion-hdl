@@ -24,7 +24,7 @@ class VHDLParser:
         self.annotation_parser = AnnotationParser(annotation_prefix='@axion')
         self.vhdl_utils = VHDLUtils()
         self.axion_signal_pattern = re.compile(
-            r'signal\s+(\w+)\s*:\s*([^;]+);\s*--\s*@axion(?::?)\s+(.+)',
+            r'signal\s+(\w+)\s*:\s*([^;]+);\s*--\s*@axion(?::?)(?:\s+(.*))?',
             re.IGNORECASE
         )
         # Exclusion patterns (files, directories, or glob patterns)
@@ -306,10 +306,14 @@ class VHDLParser:
         
         # Ensure base_address is an integer
         if isinstance(base_address, str):
-            if base_address.startswith('0x') or base_address.startswith('0X'):
-                base_address = int(base_address, 16)
-            else:
-                base_address = int(base_address)
+            try:
+                if base_address.startswith('0x') or base_address.startswith('0X'):
+                    base_address = int(base_address, 16)
+                else:
+                    base_address = int(base_address)
+            except ValueError:
+                self.errors.append({'msg': f"Invalid base_address value '{base_address}'"})
+                base_address = 0x00
             
         return cdc_enabled, cdc_stages, base_address
     
@@ -350,7 +354,7 @@ class VHDLParser:
                 
             signal_name = match.group(1)
             signal_type_str = match.group(2).strip()
-            attrs_str = match.group(3).strip()
+            attrs_str = (match.group(3) or '').strip()
             
             # Parse signal type using common utilities
             type_name, high_bit, low_bit = self.vhdl_utils.parse_signal_type(signal_type_str)
@@ -404,9 +408,7 @@ class VHDLParser:
                     except AddressConflictError as e:
                         print(f"Warning: {e}")
                         self.errors.append({'file': filepath, 'line': line_num, 'msg': str(e)})
-                        # Assign special error value or just continue with collision?
-                        # Using mapped_addr ensures it appears in the list, even if conflicting
-                        relative_addr = mapped_addr 
+                        relative_addr = addr_mgr.get_next_available_address()
                 else:
                     try:
                         relative_addr = addr_mgr.allocate_address(signal_width=signal_width, signal_name=signal_name)
@@ -523,7 +525,7 @@ class VHDLParser:
                         read_strobe=sig_info['attrs'].get('read_strobe', False),
                         write_strobe=sig_info['attrs'].get('write_strobe', False),
                         default_value=field_default,
-                        allow_overlap=True
+                        allow_overlap=False
                     )
                     
                     fields.append({

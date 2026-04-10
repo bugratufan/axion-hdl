@@ -381,6 +381,7 @@ The GUI modifies source files differently based on format:
 | **YAML** | Preserves comments and structure |
 | **JSON** | Preserves structure, updates only changed fields |
 | **XML** | Preserves comments and attributes |
+| **TOML** | Preserves comments and structure |
 | **VHDL** | Minimal edits, only changed signals updated |
 | **SystemVerilog** | Minimal edits, only changed signals updated |
 

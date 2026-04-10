@@ -157,7 +157,8 @@ class XMLInputParser:
             try:
                 config['cdc_stage'] = int(cdc_stage_str)
             except ValueError:
-                config['cdc_stage'] = 2
+                # Pass the raw string so YAMLInputParser can report the error
+                config['cdc_stage'] = cdc_stage_str
         
         # Parse registers
         registers = []
