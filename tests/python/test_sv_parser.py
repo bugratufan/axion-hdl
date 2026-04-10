@@ -622,7 +622,7 @@ endmodule
             os.unlink(f.name)
 
     def test_sv_axion_027_error_duplicate_address(self):
-        """SV-AXION-027: Detect duplicate manual addresses"""
+        """SV-AXION-027: Detect duplicate manual addresses — conflicting register is reassigned"""
         content = """
 module test_module (
     input logic clk
@@ -638,11 +638,15 @@ endmodule
             parser = SystemVerilogParser()
             result = parser.parse_file(f.name)
 
-            # Should only have 1 register (second should be rejected)
+            # Both registers should be present — conflict triggers recovery, not drop
             assert result is not None
-            assert len(result['registers']) == 1
+            assert len(result['registers']) == 2
 
-            # Should have an error
+            # The two registers must have different addresses
+            addrs = [r['address_int'] for r in result['registers']]
+            assert addrs[0] != addrs[1], "Conflicting register should be reassigned to a new address"
+
+            # Should have a conflict error recorded
             errors = parser.get_errors()
             assert len(errors) > 0
 
@@ -766,6 +770,53 @@ endmodule
             assert result['registers'][4]['write_strobe'] == True
             assert result['registers'][5]['read_strobe'] == True
             assert result['registers'][5]['write_strobe'] == True
+
+            os.unlink(f.name)
+
+
+    def test_sv_axion_033_bare_annotation_detected(self):
+        """SV-AXION-033: Bare @axion without attributes should be detected"""
+        content = """
+module test_module (
+    input logic clk
+);
+    logic [31:0] my_register; // @axion
+endmodule
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sv', delete=False) as f:
+            f.write(content)
+            f.flush()
+
+            parser = SystemVerilogParser()
+            result = parser.parse_file(f.name)
+
+            assert result is not None, "Bare @axion annotation should be detected"
+            assert len(result['registers']) == 1, "Should find exactly 1 register"
+            assert result['registers'][0]['signal_name'] == 'my_register'
+
+            os.unlink(f.name)
+
+    def test_sv_axion_034_bare_annotation_defaults(self):
+        """SV-AXION-034: Bare @axion should default to RW, auto address, correct width"""
+        content = """
+module test_module (
+    input logic clk
+);
+    logic [31:0] ctrl_reg; // @axion
+endmodule
+"""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sv', delete=False) as f:
+            f.write(content)
+            f.flush()
+
+            parser = SystemVerilogParser()
+            result = parser.parse_file(f.name)
+
+            assert result is not None
+            reg = result['registers'][0]
+            assert reg['access_mode'] == 'RW', f"Expected RW, got {reg['access_mode']}"
+            assert reg['signal_width'] == 32, f"Expected 32, got {reg['signal_width']}"
+            assert reg['address_int'] >= 0
 
             os.unlink(f.name)
 

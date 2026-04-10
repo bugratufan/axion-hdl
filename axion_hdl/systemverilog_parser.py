@@ -27,7 +27,7 @@ class SystemVerilogParser:
         # Pattern for signal with annotation
         # Matches: logic [31:0] status; // @axion RO DESC="Status register"
         self.axion_signal_pattern = re.compile(
-            r'(logic|reg|wire)\s*(\[[^\]]+\])?\s+(\w+)\s*;\s*//\s*@axion(?::?)\s+(.+)',
+            r'(logic|reg|wire)\s*(\[[^\]]+\])?\s+(\w+)\s*;\s*//\s*@axion(?::?)(?:\s+(.*))?',
             re.IGNORECASE
         )
 
@@ -220,7 +220,7 @@ class SystemVerilogParser:
             signal_base_type = match.group(1)  # logic, reg, or wire
             signal_range = match.group(2)  # [31:0] or None
             signal_name = match.group(3)
-            annotation_str = match.group(4).strip()
+            annotation_str = (match.group(4) or '').strip()
 
             # Parse annotation attributes
             attrs = self.annotation_parser.parse_attributes(annotation_str)
@@ -265,7 +265,7 @@ class SystemVerilogParser:
                         address_int = address_manager.allocate_address(manual_addr, signal_width, signal_name)
                     except AddressConflictError as e:
                         self.errors.append(str(e))
-                        continue
+                        address_int = address_manager.get_next_available_address()
                 except ValueError:
                     self.errors.append(f"Invalid address value: {attrs['ADDR']}")
                     continue

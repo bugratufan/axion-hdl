@@ -1283,7 +1283,7 @@ def print_results(results: List[TestResult]):
     print(f"{'═' * 80}")
     print()
     
-    return total_failed == 0
+    return total_failed == 0 and total_skipped == 0
 
 
 def save_results(results: List[TestResult]):
@@ -2714,17 +2714,21 @@ def run_systemverilog_advanced_tests() -> List[TestResult]:
         # Count passed tests
         passed_count = result.testsRun - len(result.failures) - len(result.errors) - len(result.skipped)
 
+        # Skips are treated as failures — all tests must pass
+        has_failures = len(result.failures) > 0 or len(result.errors) > 0 or len(result.skipped) > 0
+
         # Add summary result
-        if result.wasSuccessful():
+        if not has_failures:
             results.append(TestResult("sv.advanced.summary",
                                      f"SystemVerilog Advanced Tests ({passed_count} tests)",
                                      "passed", 0, "",
                                      category="systemverilog", subcategory="advanced"))
         else:
+            skip_msg = f", {len(result.skipped)} skipped (required)" if result.skipped else ""
             results.append(TestResult("sv.advanced.summary",
                                      f"SystemVerilog Advanced Tests ({passed_count}/{result.testsRun} passed)",
                                      "failed", 0,
-                                     f"{len(result.failures)} failures, {len(result.errors)} errors",
+                                     f"{len(result.failures)} failures, {len(result.errors)} errors{skip_msg}",
                                      category="systemverilog", subcategory="advanced"))
 
     except Exception as e:
