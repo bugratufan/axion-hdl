@@ -23,8 +23,8 @@ def reset_vhdl_files():
 
 
 def reset_all_test_files():
-    """Reset all test source files (VHDL, XML, YAML, JSON) to their git state"""
-    for subdir in ["vhdl", "xml", "yaml", "json"]:
+    """Reset all test source files (VHDL, XML, YAML, JSON, SV) to their git state"""
+    for subdir in ["vhdl", "xml", "yaml", "json", "systemverilog"]:
         test_dir = PROJECT_ROOT / "tests" / subdir
         if test_dir.exists():
             subprocess.run(["git", "checkout", str(test_dir)], cwd=PROJECT_ROOT, capture_output=True)
@@ -60,6 +60,9 @@ class FlaskTestServer:
         axion.add_source(str(PROJECT_ROOT / "tests" / "xml"))
         axion.add_source(str(PROJECT_ROOT / "tests" / "yaml"))
         axion.add_source(str(PROJECT_ROOT / "tests" / "json"))
+        sv_dir = PROJECT_ROOT / "tests" / "systemverilog" / "sv_input"
+        if sv_dir.exists():
+            axion.add_sv_src(str(sv_dir))
         axion.exclude("error_cases")
         axion.analyze()
         
