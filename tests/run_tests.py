@@ -1221,7 +1221,8 @@ def print_results(results: List[TestResult]):
         "yaml_input": "📄 YAML-INPUT",
         "json_input": "📄 JSON-INPUT",
         "toml_input": "📄 TOML-INPUT",
-        "equiv": "🔀 EQUIV"
+        "equiv": "🔀 EQUIV",
+        "systemverilog": "⚡ SYSTEMVERILOG"
     }
     
     total_passed = 0
@@ -1234,7 +1235,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "systemverilog"]:
         if cat not in categories:
             continue
         
@@ -1282,7 +1283,7 @@ def print_results(results: List[TestResult]):
     print(f"{'═' * 80}")
     print()
     
-    return total_failed == 0
+    return total_failed == 0 and total_skipped == 0
 
 
 def save_results(results: List[TestResult]):
@@ -2591,96 +2592,305 @@ def run_cocotb_tests() -> List[TestResult]:
     return results
 
 
+def run_systemverilog_parser_tests() -> List[TestResult]:
+    """Run SystemVerilog parser unit tests"""
+    results = []
+    test_file = PROJECT_ROOT / "tests" / "python" / "test_sv_parser.py"
+
+    if not test_file.exists():
+        results.append(TestResult("sv.parser.not_found", "SystemVerilog Parser Tests",
+                                 "skipped", 0, "Test file not found",
+                                 category="systemverilog", subcategory="parser"))
+        return results
+
+    # Import and run tests
+    try:
+        # Add tests directory to path
+        sys.path.insert(0, str(PROJECT_ROOT / "tests" / "python"))
+
+        # Import test module
+        import test_sv_parser
+
+        # Create test suite
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromModule(test_sv_parser)
+
+        # Run tests
+        runner = unittest.TextTestRunner(verbosity=0, stream=open(os.devnull, 'w'))
+        result = runner.run(suite)
+
+        # Process results
+        for test, traceback in result.failures + result.errors:
+            test_name = str(test).split()[0]
+            test_id = f"sv.parser.{test_name}"
+            results.append(TestResult(test_id, test_name, "failed", 0,
+                                     traceback, category="systemverilog", subcategory="parser"))
+
+        for test in result.skipped:
+            test_name = str(test[0]).split()[0]
+            test_id = f"sv.parser.{test_name}"
+            results.append(TestResult(test_id, test_name, "skipped", 0,
+                                     test[1], category="systemverilog", subcategory="parser"))
+
+        # Count passed tests
+        passed_count = result.testsRun - len(result.failures) - len(result.errors) - len(result.skipped)
+
+        # Add summary result
+        if result.wasSuccessful():
+            results.append(TestResult("sv.parser.summary",
+                                     f"SystemVerilog Parser Tests ({passed_count} tests)",
+                                     "passed", 0, "",
+                                     category="systemverilog", subcategory="parser"))
+        else:
+            results.append(TestResult("sv.parser.summary",
+                                     f"SystemVerilog Parser Tests ({passed_count}/{result.testsRun} passed)",
+                                     "failed", 0,
+                                     f"{len(result.failures)} failures, {len(result.errors)} errors",
+                                     category="systemverilog", subcategory="parser"))
+
+    except Exception as e:
+        results.append(TestResult("sv.parser.error", "SystemVerilog Parser Tests",
+                                 "error", 0, str(e),
+                                 category="systemverilog", subcategory="parser"))
+
+    return results
+
+
+def run_systemverilog_generator_tests() -> List[TestResult]:
+    """Run SystemVerilog generator unit tests"""
+    results = []
+    test_file = PROJECT_ROOT / "tests" / "python" / "test_sv_generator.py"
+
+    if not test_file.exists():
+        results.append(TestResult("sv.generator.not_found", "SystemVerilog Generator Tests",
+                                 "skipped", 0, "Test file not found",
+                                 category="systemverilog", subcategory="generator"))
+        return results
+
+    # Import and run tests
+    try:
+        # Add tests directory to path
+        sys.path.insert(0, str(PROJECT_ROOT / "tests" / "python"))
+
+        # Import test module
+        import test_sv_generator
+
+        # Create test suite
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromModule(test_sv_generator)
+
+        # Run tests
+        runner = unittest.TextTestRunner(verbosity=0, stream=open(os.devnull, 'w'))
+        result = runner.run(suite)
+
+        # Process results
+        for test, traceback in result.failures + result.errors:
+            test_name = str(test).split()[0]
+            test_id = f"sv.generator.{test_name}"
+            results.append(TestResult(test_id, test_name, "failed", 0,
+                                     traceback, category="systemverilog", subcategory="generator"))
+
+        for test in result.skipped:
+            test_name = str(test[0]).split()[0]
+            test_id = f"sv.generator.{test_name}"
+            results.append(TestResult(test_id, test_name, "skipped", 0,
+                                     test[1], category="systemverilog", subcategory="generator"))
+
+        # Count passed tests
+        passed_count = result.testsRun - len(result.failures) - len(result.errors) - len(result.skipped)
+
+        # Add summary result
+        if result.wasSuccessful():
+            results.append(TestResult("sv.generator.summary",
+                                     f"SystemVerilog Generator Tests ({passed_count} tests)",
+                                     "passed", 0, "",
+                                     category="systemverilog", subcategory="generator"))
+        else:
+            results.append(TestResult("sv.generator.summary",
+                                     f"SystemVerilog Generator Tests ({passed_count}/{result.testsRun} passed)",
+                                     "failed", 0,
+                                     f"{len(result.failures)} failures, {len(result.errors)} errors",
+                                     category="systemverilog", subcategory="generator"))
+
+    except Exception as e:
+        results.append(TestResult("sv.generator.error", "SystemVerilog Generator Tests",
+                                 "error", 0, str(e),
+                                 category="systemverilog", subcategory="generator"))
+
+    return results
+
+
+def run_systemverilog_advanced_tests() -> List[TestResult]:
+    """Run SystemVerilog advanced tests (lint, equivalence, stress)"""
+    results = []
+    test_file = PROJECT_ROOT / "tests" / "python" / "test_sv_advanced.py"
+
+    if not test_file.exists():
+        results.append(TestResult("sv.advanced.not_found", "SystemVerilog Advanced Tests",
+                                 "skipped", 0, "Test file not found",
+                                 category="systemverilog", subcategory="advanced"))
+        return results
+
+    # Import and run tests
+    try:
+        # Add tests directory to path
+        sys.path.insert(0, str(PROJECT_ROOT / "tests" / "python"))
+
+        # Import test module
+        import test_sv_advanced
+
+        # Create test suite
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromModule(test_sv_advanced)
+
+        # Run tests
+        runner = unittest.TextTestRunner(verbosity=0, stream=open(os.devnull, 'w'))
+        result = runner.run(suite)
+
+        # Process results
+        for test, traceback in result.failures + result.errors:
+            test_name = str(test).split()[0]
+            test_id = f"sv.advanced.{test_name}"
+            results.append(TestResult(test_id, test_name, "failed", 0,
+                                     traceback, category="systemverilog", subcategory="advanced"))
+
+        for test in result.skipped:
+            test_name = str(test[0]).split()[0]
+            test_id = f"sv.advanced.{test_name}"
+            results.append(TestResult(test_id, test_name, "skipped", 0,
+                                     test[1], category="systemverilog", subcategory="advanced"))
+
+        # Count passed tests
+        passed_count = result.testsRun - len(result.failures) - len(result.errors) - len(result.skipped)
+
+        # Skips are treated as failures — all tests must pass
+        has_failures = len(result.failures) > 0 or len(result.errors) > 0 or len(result.skipped) > 0
+
+        # Add summary result
+        if not has_failures:
+            results.append(TestResult("sv.advanced.summary",
+                                     f"SystemVerilog Advanced Tests ({passed_count} tests)",
+                                     "passed", 0, "",
+                                     category="systemverilog", subcategory="advanced"))
+        else:
+            skip_msg = f", {len(result.skipped)} skipped (required)" if result.skipped else ""
+            results.append(TestResult("sv.advanced.summary",
+                                     f"SystemVerilog Advanced Tests ({passed_count}/{result.testsRun} passed)",
+                                     "failed", 0,
+                                     f"{len(result.failures)} failures, {len(result.errors)} errors{skip_msg}",
+                                     category="systemverilog", subcategory="advanced"))
+
+    except Exception as e:
+        results.append(TestResult("sv.advanced.error", "SystemVerilog Advanced Tests",
+                                 "error", 0, str(e),
+                                 category="systemverilog", subcategory="advanced"))
+
+    return results
+
+
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..026 + Cocotb\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..026, SV-PARSER, SV-GEN, SV-ADV + Cocotb\n")
 
     all_results = []
+    total_steps = 24
 
     # Run Python unit tests (core functionality)
-    print(f"  [1/21] Running Python unit tests...", flush=True)
+    print(f"  [1/{total_steps}] Running Python unit tests...", flush=True)
     all_results.extend(run_python_unit_tests())
 
     # Run address conflict tests (ADDR requirements)
-    print(f"  [2/21] Running address conflict tests...", flush=True)
+    print(f"  [2/{total_steps}] Running address conflict tests...", flush=True)
     all_results.extend(run_address_conflict_tests())
 
     # Run Parser tests (PARSER requirements)
-    print(f"  [3/21] Running parser tests...", flush=True)
+    print(f"  [3/{total_steps}] Running parser tests...", flush=True)
     all_results.extend(run_parser_tests())
 
     # Run Generator tests (GEN requirements)
-    print(f"  [4/21] Running generator tests...", flush=True)
+    print(f"  [4/{total_steps}] Running generator tests...", flush=True)
     all_results.extend(run_generator_tests())
 
     # Run Error handling tests (ERR requirements)
-    print(f"  [5/21] Running error handling tests...", flush=True)
+    print(f"  [5/{total_steps}] Running error handling tests...", flush=True)
     all_results.extend(run_error_handling_tests())
 
     # Run CLI tests (CLI requirements)
-    print(f"  [6/21] Running CLI tests...", flush=True)
+    print(f"  [6/{total_steps}] Running CLI tests...", flush=True)
     all_results.extend(run_cli_tests())
 
     # Run CDC tests (CDC requirements)
-    print(f"  [7/21] Running CDC tests...", flush=True)
+    print(f"  [7/{total_steps}] Running CDC tests...", flush=True)
     all_results.extend(run_cdc_tests())
 
     # Run ADDR tests (ADDR requirements)
-    print(f"  [8/21] Running address management tests...", flush=True)
+    print(f"  [8/{total_steps}] Running address management tests...", flush=True)
     all_results.extend(run_addr_tests())
 
     # Run STRESS tests (STRESS requirements)
-    print(f"  [9/21] Running stress tests...", flush=True)
+    print(f"  [9/{total_steps}] Running stress tests...", flush=True)
     all_results.extend(run_stress_tests())
 
     # Run SUB tests (Subregister requirements)
-    print(f"  [10/21] Running subregister tests...", flush=True)
+    print(f"  [10/{total_steps}] Running subregister tests...", flush=True)
     all_results.extend(run_subregister_tests())
 
     # Run DEF tests (DEFAULT attribute requirements)
-    print(f"  [11/21] Running default attribute tests...", flush=True)
+    print(f"  [11/{total_steps}] Running default attribute tests...", flush=True)
     all_results.extend(run_default_tests())
 
     # Run VAL tests (Validation & Diagnostics requirements)
-    print(f"  [12/21] Running validation tests...", flush=True)
+    print(f"  [12/{total_steps}] Running validation tests...", flush=True)
     all_results.extend(run_validation_tests())
 
     # Run YAML-INPUT tests
-    print(f"  [13/21] Running YAML input parser tests...", flush=True)
+    print(f"  [13/{total_steps}] Running YAML input parser tests...", flush=True)
     all_results.extend(run_yaml_input_tests())
 
     # Run TOML-INPUT tests
-    print(f"  [14/21] Running TOML input parser tests...", flush=True)
+    print(f"  [14/{total_steps}] Running TOML input parser tests...", flush=True)
     all_results.extend(run_toml_input_tests())
 
     # Run XML-INPUT tests
-    print(f"  [15/21] Running XML input parser tests...", flush=True)
+    print(f"  [15/{total_steps}] Running XML input parser tests...", flush=True)
     all_results.extend(run_xml_input_tests())
 
     # Run JSON-INPUT tests
-    print(f"  [16/21] Running JSON input parser tests...", flush=True)
+    print(f"  [16/{total_steps}] Running JSON input parser tests...", flush=True)
     all_results.extend(run_json_input_tests())
 
     # Run EQUIV tests (format equivalence)
-    print(f"  [17/21] Running format equivalence tests...", flush=True)
+    print(f"  [17/{total_steps}] Running format equivalence tests...", flush=True)
     all_results.extend(run_equivalence_tests())
 
     # Run width-propagation tests (YAML-INPUT-016, PARSER-009, GEN-019..026, SUB-007/008)
-    print(f"  [18/21] Running width propagation tests...", flush=True)
+    print(f"  [18/{total_steps}] Running width propagation tests...", flush=True)
     all_results.extend(run_width_propagation_tests())
 
     # Run VHDL tests (AXION, AXI-LITE requirements)
-    print(f"  [19/21] Running VHDL simulation tests...", flush=True)
+    print(f"  [19/{total_steps}] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
 
     # Run C tests
-    print(f"  [20/21] Running C header tests...", flush=True)
+    print(f"  [20/{total_steps}] Running C header tests...", flush=True)
     all_results.extend(run_c_tests())
 
     # Run Cocotb tests (comprehensive VHDL verification)
-    print(f"  [21/21] Running Cocotb VHDL tests...", flush=True)
+    print(f"  [21/{total_steps}] Running Cocotb VHDL tests...", flush=True)
     all_results.extend(run_cocotb_tests())
-    
+
+    # Run SystemVerilog parser tests
+    print(f"  [22/{total_steps}] Running SystemVerilog parser tests...", flush=True)
+    all_results.extend(run_systemverilog_parser_tests())
+
+    # Run SystemVerilog generator tests
+    print(f"  [23/{total_steps}] Running SystemVerilog generator tests...", flush=True)
+    all_results.extend(run_systemverilog_generator_tests())
+
+    # Run SystemVerilog advanced tests (lint, equivalence, stress)
+    print(f"  [24/{total_steps}] Running SystemVerilog advanced tests...", flush=True)
+    all_results.extend(run_systemverilog_advanced_tests())
+
     # Save and generate reports
     save_results(all_results)
     generate_markdown_report(all_results)

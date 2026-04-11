@@ -1,6 +1,6 @@
 # Axion-HDL
 
-**AXI4-Lite register interfaces from VHDL, YAML, TOML, XML, or JSON. One command.**
+**AXI4-Lite register interfaces from VHDL, SystemVerilog, YAML, TOML, XML, or JSON. One command.**
 
 [![PyPI](https://img.shields.io/pypi/v/axion-hdl.svg)](https://pypi.org/project/axion-hdl/)
 [![Tests](https://github.com/bugratufan/axion-hdl/actions/workflows/tests.yml/badge.svg)](https://github.com/bugratufan/axion-hdl/actions/workflows/tests.yml)
@@ -31,12 +31,15 @@ pip install -e ".[dev]"  # Includes pytest, cocotb, etc.
 # From VHDL with @axion annotations
 axion-hdl -s my_module.vhd -o output/
 
+# From SystemVerilog with @axion annotations
+axion-hdl -s my_module.sv -o output/
+
 # From YAML/TOML/XML/JSON
 axion-hdl -s registers.yaml -o output/
 axion-hdl -s registers.toml -o output/
 ```
 
-**Output:** VHDL module, C header, documentation, YAML/TOML/XML/JSON exports.
+**Output:** VHDL/SystemVerilog modules, C headers, documentation, YAML/TOML/XML/JSON exports.
 
 ## Define Registers
 
@@ -45,6 +48,13 @@ axion-hdl -s registers.toml -o output/
 -- @axion_def BASE_ADDR=0x1000 CDC_EN
 signal status  : std_logic_vector(31 downto 0); -- @axion RO
 signal control : std_logic_vector(31 downto 0); -- @axion RW W_STROBE
+```
+
+**SystemVerilog** — same annotations, different syntax:
+```systemverilog
+// @axion_def BASE_ADDR=0x1000 CDC_EN
+logic [31:0] status;  // @axion RO
+logic [31:0] control; // @axion RW W_STROBE
 ```
 
 **YAML** — standalone file:
@@ -90,11 +100,12 @@ description = "SPI status register"
 axion-hdl -s spi_master.toml -o output --all
 ```
 
-Generates: VHDL module (21KB), C header (3.8KB), HTML docs, YAML/TOML/XML/JSON exports
+Generates: VHDL + SystemVerilog modules, C header, HTML docs, YAML/TOML/XML/JSON exports
 
 ## Features
 
-- **Multi-format input** — VHDL annotations, YAML, TOML, XML, JSON
+- **Multi-format input** — VHDL/SystemVerilog annotations, YAML, TOML, XML, JSON
+- **Multi-HDL output** — Generate both VHDL and SystemVerilog register interfaces
 - **CDC support** — built-in clock domain crossing synchronizers
 - **Subregisters** — pack multiple fields into one address
 - **Wide signals** — auto-split 64-bit+ signals across addresses
@@ -117,6 +128,8 @@ The `make test` command automatically:
 - Creates a virtual environment if needed
 - Installs all test dependencies
 - Runs 307+ tests (Python + VHDL + cocotb)
+
+> **Note:** For SystemVerilog linting tests, `verilator` must be installed on your system (`sudo apt install verilator`) for `make test` to pass.
 
 **Manual setup (optional):**
 ```bash

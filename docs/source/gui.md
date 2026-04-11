@@ -383,7 +383,8 @@ The GUI modifies source files differently based on format:
 | **XML** | Preserves comments and attributes |
 | **TOML** | Preserves comments and structure |
 | **VHDL** | Minimal edits, only changed signals updated |
+| **SystemVerilog** | Minimal edits, only changed signals updated |
 
 ```{note}
-VHDL modification is currently experimental and mainly supports appending new signals. Renaming existing VHDL registers is restricted.
+VHDL and SystemVerilog modification is currently experimental and mainly supports appending new signals. Renaming existing registers is restricted.
 ```

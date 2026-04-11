@@ -673,16 +673,25 @@ class TestGUIGenerationFormats:
         """GUI-GEN-016: All generation formats enabled by default"""
         gui_page.goto(f"{gui_server.url}/generate")
         gui_page.wait_for_load_state("networkidle")
-        
+
         checkboxes = [
-            "#fmtVhdl", "#fmtJson", "#fmtYaml", "#fmtXml",
+            "#fmtVhdl", "#fmtSystemVerilog", "#fmtJson", "#fmtYaml", "#fmtXml",
             "#fmtHeader", "#fmtDocMd", "#fmtDocHtml"
         ]
-        
+
         for checkbox_id in checkboxes:
             checkbox = gui_page.locator(checkbox_id)
             if checkbox.is_visible():
                 assert checkbox.is_checked(), f"{checkbox_id} should be checked by default"
+
+    def test_gen_017_sv_toggle(self, gui_page, gui_server):
+        """GUI-GEN-017: SystemVerilog output checkbox exists and is checked by default"""
+        gui_page.goto(f"{gui_server.url}/generate")
+        gui_page.wait_for_load_state("networkidle")
+
+        sv_checkbox = gui_page.locator("#fmtSystemVerilog")
+        assert sv_checkbox.is_visible(), "SystemVerilog checkbox (#fmtSystemVerilog) not visible"
+        assert sv_checkbox.is_checked(), "SystemVerilog checkbox should be checked by default"
 
 
 class TestGUIRuleCheck:

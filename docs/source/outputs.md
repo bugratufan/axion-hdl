@@ -7,6 +7,7 @@ Axion-HDL generates multiple output formats from a single input definition. This
 | Output | File Pattern | Description |
 |--------|--------------|-------------|
 | **VHDL Module** | `<module>_axion_reg.vhd` | AXI4-Lite slave entity |
+| **SystemVerilog** | `<module>_axion_reg.sv` | AXI4-Lite slave module with structs |
 | **C Header** | `<module>_regs.h` | Register macros and addresses |
 | **Markdown** | `register_map.md` | Human-readable documentation |
 | **HTML** | `<module>.html`, `index.html` | Styled web documentation |
@@ -96,6 +97,44 @@ end entity;
 | `RW` | `signal_name` | `out` | `_rd_strobe`, `_wr_strobe : out` |
 
 ---
+
+## SystemVerilog Register Module
+
+**File:** `<module>_axion_reg.sv`
+
+A modern SystemVerilog AXI4-Lite slave module optimized for verification and integration.
+
+### Module Structure
+
+```systemverilog
+module sensor_controller_axion_reg #(
+    parameter int ADDR_WIDTH = 32,
+    parameter int DATA_WIDTH = 32
+) (
+    // AXI4-Lite Interface
+    input  logic                      axi_aclk,
+    input  logic                      axi_aresetn,
+    // ... AXI channels ...
+
+    // Module Clock (CDC enabled)
+    input  logic                      module_clk,
+
+    // Register Interface using Packed Structs
+    output ctrl_reg_t                 control_reg,
+    input  logic [31:0]               status_reg
+);
+```
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Packed Structs** | Generates `typedef struct packed` for registers with subfields, enabling clean access (e.g., `ctrl.enable`). |
+| **Wide Registers** | Automatically maps registers >32 bits to multiple address offsets. |
+| **Reset Values** | Initializes registers to defined defaults (hex/dec) upon reset. |
+| **Lint Clean** | Passes `verilator --lint-only -Wall` validation. |
+| **CDC Support** | Built-in synchronization for both Read-Only and Read-Write registers across clock domains. |
+
 
 ## C Header File
 

@@ -496,5 +496,127 @@ class TestJSONPropertyChanges:
             f"Diff doesn't contain new CDC stages value '{new_stages}'. Diff:\n{diff_text[:1000]}"
 
 
+class TestSVPropertyChanges:
+    """Tests for property changes on SystemVerilog modules"""
+
+    def _navigate_to_sv_module(self, gui_page, gui_server):
+        """Navigate to a SystemVerilog module card"""
+        gui_page.goto(gui_server.url)
+        gui_page.wait_for_load_state("networkidle")
+
+        sv_card = gui_page.locator(".module-card", has_text=re.compile(r"\.sv", re.IGNORECASE))
+        if sv_card.count() > 0:
+            sv_card.first.click()
+            gui_page.wait_for_url(re.compile(r"/module/"), timeout=5000)
+            gui_page.wait_for_load_state("networkidle")
+            gui_page.wait_for_function("() => window.initialState !== undefined")
+            return True
+        return False
+
+    def test_sv_base_address_change_in_diff(self, gui_page, gui_server):
+        """SV: Base address change MUST appear in diff with correct value"""
+        if not self._navigate_to_sv_module(gui_page, gui_server):
+            pytest.skip("SV module not found")
+
+        base_input = gui_page.locator("input[name='base_address']")
+        original_value = base_input.input_value()
+        new_value = "C000" if original_value.upper() != "C000" else "D000"
+
+        base_input.fill(new_value)
+        gui_page.wait_for_timeout(500)
+
+        gui_page.locator("button", has_text="Review").click()
+        gui_page.wait_for_url(re.compile(r"/diff"), timeout=5000)
+        gui_page.wait_for_load_state("networkidle")
+
+        has_diff = gui_page.locator(".diff-line").count() > 0
+        no_changes = gui_page.locator(".no-changes").is_visible() if gui_page.locator(".no-changes").count() > 0 else False
+
+        assert has_diff, f"SV base_address change did NOT produce a diff! Original: {original_value}, New: {new_value}. no-changes visible: {no_changes}"
+
+        diff_text = gui_page.locator("#diff-unified").text_content() or ""
+        assert new_value.upper() in diff_text.upper(), \
+            f"Diff does NOT contain new base address '{new_value}':\n{diff_text[:1000]}"
+
+        # SV files must NOT use -- style comments in diff
+        assert "-- @axion_def" not in diff_text, \
+            f"Diff contains VHDL-style '-- @axion_def' in an SV file:\n{diff_text[:1000]}"
+
+    def test_sv_cdc_enable_change_in_diff(self, gui_page, gui_server):
+        """SV: CDC enable toggle change MUST appear in diff using // comment style"""
+        if not self._navigate_to_sv_module(gui_page, gui_server):
+            pytest.skip("SV module not found")
+
+        cdc_checkbox = gui_page.locator("#cdcEnable")
+        was_checked = cdc_checkbox.is_checked()
+
+        if was_checked:
+            cdc_checkbox.uncheck()
+        else:
+            cdc_checkbox.check()
+
+        gui_page.wait_for_timeout(500)
+
+        gui_page.locator("button", has_text="Review").click()
+        gui_page.wait_for_url(re.compile(r"/diff"), timeout=5000)
+        gui_page.wait_for_load_state("networkidle")
+
+        has_diff = gui_page.locator(".diff-line").count() > 0
+        no_changes = gui_page.locator(".no-changes").is_visible() if gui_page.locator(".no-changes").count() > 0 else False
+
+        assert has_diff, f"SV CDC enable change did NOT produce a diff! Was checked: {was_checked}. no-changes visible: {no_changes}"
+
+        diff_text = gui_page.locator("#diff-unified").text_content() or ""
+        assert "cdc" in diff_text.lower(), f"Diff doesn't mention CDC:\n{diff_text[:1000]}"
+        assert "-- @axion_def" not in diff_text, \
+            "Diff uses VHDL '-- @axion_def' style in SV file"
+
+    def test_sv_cdc_stages_change_in_diff(self, gui_page, gui_server):
+        """SV: CDC stages change MUST appear in diff with correct value"""
+        if not self._navigate_to_sv_module(gui_page, gui_server):
+            pytest.skip("SV module not found")
+
+        cdc_checkbox = gui_page.locator("#cdcEnable")
+        if not cdc_checkbox.is_checked():
+            cdc_checkbox.check()
+            gui_page.wait_for_timeout(300)
+
+        cdc_stages = gui_page.locator("#cdcStages")
+        original_stages = cdc_stages.input_value()
+        new_stages = "4" if original_stages != "4" else "3"
+
+        cdc_stages.fill(new_stages)
+        gui_page.wait_for_timeout(500)
+
+        gui_page.locator("button", has_text="Review").click()
+        gui_page.wait_for_url(re.compile(r"/diff"), timeout=5000)
+        gui_page.wait_for_load_state("networkidle")
+
+        has_diff = gui_page.locator(".diff-line").count() > 0
+        assert has_diff, f"SV CDC stages change did NOT produce a diff! Original: {original_stages}, New: {new_stages}"
+
+        diff_text = gui_page.locator("#diff-unified").text_content() or ""
+        assert new_stages in diff_text, \
+            f"Diff doesn't contain new CDC stages value '{new_stages}':\n{diff_text[:1000]}"
+
+    def test_sv_dashboard_shows_sv_module(self, gui_page, gui_server):
+        """Dashboard must show at least one SV module card"""
+        gui_page.goto(gui_server.url)
+        gui_page.wait_for_load_state("networkidle")
+
+        sv_card = gui_page.locator(".module-card", has_text=re.compile(r"\.sv", re.IGNORECASE))
+        assert sv_card.count() > 0, \
+            "No SV module card found on dashboard — SV sources may not be loaded in test server"
+
+    def test_sv_generate_toggle_exists(self, gui_page, gui_server):
+        """Generate page must have a SystemVerilog output toggle"""
+        gui_page.goto(gui_server.url + "/generate")
+        gui_page.wait_for_load_state("networkidle")
+
+        sv_checkbox = gui_page.locator("#fmtSystemVerilog")
+        assert sv_checkbox.count() > 0, "No #fmtSystemVerilog checkbox found on generate page"
+        assert sv_checkbox.is_visible(), "SystemVerilog checkbox not visible on generate page"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

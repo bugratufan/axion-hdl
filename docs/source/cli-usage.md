@@ -26,6 +26,9 @@ axion-hdl -s registers.toml -o ./output --all
 # Generate from VHDL with annotations
 axion-hdl -s ./src/my_module.vhd -o ./generated --all
 
+# Generate from SystemVerilog with annotations
+axion-hdl -s ./src/my_module.sv -o ./generated --sv
+
 # Start the interactive GUI
 axion-hdl -s ./src --gui
 ```
@@ -85,6 +88,7 @@ axion-hdl -s ./src -e "*_tb.vhd" -e "test_*" -e "deprecated" -o ./output --all
 |------|-------------|
 | `--all` | Generate all output types |
 | `--vhdl` | Generate VHDL register module |
+| `--sv`, `--systemverilog` | Generate SystemVerilog register module |
 | `--c-header` | Generate C header file |
 | `--xml` | Generate XML register map |
 | `--yaml` | Generate YAML register map |
@@ -100,6 +104,9 @@ axion-hdl -s regs.yaml -o ./output --all
 
 # Only VHDL and C header
 axion-hdl -s regs.yaml -o ./output --vhdl --c-header
+
+# Generate SystemVerilog with Structs
+axion-hdl -s regs.yaml -o ./output --sv
 
 # Only documentation in HTML format
 axion-hdl -s regs.yaml -o ./docs --doc --doc-format html
@@ -163,6 +170,27 @@ output/
 axion-hdl -s ./rtl -o ./generated --all -e "*_tb.vhd"
 ```
 
+### 3. SystemVerilog Module
+
+```bash
+# Input: design.sv with // @axion annotations
+# Output: SystemVerilog module, C header, docs
+axion-hdl -s design.sv -o ./output --sv --c-header --doc
+```
+
+Output files:
+```
+output/
+├── design_axion_reg.sv    # AXI4-Lite slave module (SystemVerilog)
+├── design_regs.h          # C header with macros
+└── register_map.md        # Documentation
+```
+
+```bash
+# Mix VHDL and SystemVerilog sources, generate both outputs
+axion-hdl -s ./rtl -o ./generated --vhdl --sv -e "*_tb.*"
+```
+
 Output files:
 ```
 generated/
@@ -195,10 +223,12 @@ on:
     paths:
       - 'regs/**'
       - 'rtl/**/*.vhd'
+      - 'rtl/**/*.sv'
   pull_request:
     paths:
       - 'regs/**'
       - 'rtl/**/*.vhd'
+      - 'rtl/**/*.sv'
 
 jobs:
   generate:
@@ -411,7 +441,8 @@ axion-hdl --all
 
 | Extension | Format | Description |
 |-----------|--------|-------------|
-| `.vhd`, `.vhdl` | VHDL | Source with `@axion` annotations |
+| `.vhd`, `.vhdl` | VHDL | Source with `-- @axion` annotations |
+| `.sv`, `.svh` | SystemVerilog | Source with `// @axion` annotations |
 | `.yaml`, `.yml` | YAML | Human-readable register definitions |
 | `.json` | JSON | Machine-readable register definitions |
 | `.xml` | XML | IP-XACT style register definitions |
@@ -435,6 +466,7 @@ axion-hdl --all
 1. **Use `--all` for quick generation** - generates everything in one command
 2. **Exclude patterns** - great for skipping testbenches and deprecated files
 3. **Config files** - store project-specific settings for consistent generation
-4. **Combine sources** - mix VHDL, YAML, TOML, XML, JSON in a single run
+4. **Combine sources** - mix VHDL, SystemVerilog, YAML, TOML, XML, JSON in a single run
 5. **CI/CD artifacts** - upload generated files for downstream jobs
+6. **Bare annotations** - `-- @axion` (VHDL) or `// @axion` (SV) with no attributes defaults to RW access and auto-assigned address
 

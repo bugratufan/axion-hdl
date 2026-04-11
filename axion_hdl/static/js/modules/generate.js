@@ -54,6 +54,7 @@ async function runGenerate() {
         modules: selectedModules,
         formats: {
             vhdl: document.getElementById('fmtVhdl').checked,
+            systemverilog: document.getElementById('fmtSystemVerilog').checked,
             xml: document.getElementById('fmtXml').checked,
             yaml: document.getElementById('fmtYaml').checked,
             json: document.getElementById('fmtJson').checked,
