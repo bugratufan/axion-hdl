@@ -160,8 +160,6 @@ class YAMLInputParser:
             cdc_en = data.get('cdc_enabled', False)
         if isinstance(cdc_en, str):
             cdc_en = cdc_en.lower() == 'true'
-        if isinstance(cdc_en, str):
-            cdc_en = cdc_en.lower() == 'true'
             
         # Check config block first, then top-level for stages
         cdc_stage = config.get('cdc_stage')

@@ -194,8 +194,8 @@ class SystemVerilogParser:
                 if 'cdc_stages' in attrs:
                     config['cdc_stages'] = attrs['cdc_stages']
 
-                # Check for packed register definitions
-                if 'PACK' in attrs:
+                # Check for packed register definitions (AnnotationParser normalizes to lowercase)
+                if 'pack' in attrs or 'PACK' in attrs:
                     config['packed_registers'].append(attrs)
 
         return config
@@ -265,9 +265,17 @@ class SystemVerilogParser:
                         address_int = address_manager.allocate_address(manual_addr, signal_width, signal_name)
                     except AddressConflictError as e:
                         self.errors.append(str(e))
-                        address_int = address_manager.get_next_available_address()
-                except ValueError:
-                    self.errors.append(f"Invalid address value: {attrs['ADDR']}")
+                        # Re-allocate so the address is properly tracked
+                        try:
+                            address_int = address_manager.allocate_address(
+                                address_manager.get_next_available_address(),
+                                signal_width,
+                                signal_name
+                            )
+                        except AddressConflictError:
+                            address_int = address_manager.get_next_available_address()
+                except (ValueError, TypeError):
+                    self.errors.append(f"Invalid address value: {attrs.get('address', attrs.get('ADDR', '?'))}")
                     continue
             else:
                 # Auto-allocate address
@@ -282,18 +290,18 @@ class SystemVerilogParser:
             bit_range = None
             parent_register = None
 
-            if 'BITS' in attrs:
+            if 'bits' in attrs or 'BITS' in attrs:
                 is_packed = True
-                # Parse bit range
-                bits_str = attrs['BITS']
+                # Parse bit range (AnnotationParser normalizes to lowercase)
+                bits_str = attrs.get('bits', attrs.get('BITS', ''))
                 bit_match = re.match(r'(\d+):(\d+)', bits_str)
                 if bit_match:
                     bit_high = int(bit_match.group(1))
                     bit_low = int(bit_match.group(2))
                     bit_range = (bit_high, bit_low)
 
-                    # Find parent register (same address)
-                    parent_register = attrs.get('REG', signal_name)
+                    # Find parent register (normalized key is 'reg')
+                    parent_register = attrs.get('reg', attrs.get('REG', signal_name))
 
                     try:
                         bit_field_manager.allocate_bits(
@@ -315,6 +323,7 @@ class SystemVerilogParser:
                 'read_strobe': read_strobe,
                 'write_strobe': write_strobe,
                 'description': description,
+                'default_value': attrs.get('default_value'),
                 'address': f"0x{address_int:08X}",
                 'address_int': address_int,
                 'relative_address_int': address_int - module_config['base_address'],

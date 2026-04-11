@@ -96,8 +96,6 @@ end entity;
 | `WO` | `signal_name` | `out` | `_wr_strobe : out` |
 | `RW` | `signal_name` | `out` | `_rd_strobe`, `_wr_strobe : out` |
 
-| `RW` | `signal_name` | `out` | `_rd_strobe`, `_wr_strobe : out` |
-
 ---
 
 ## SystemVerilog Register Module

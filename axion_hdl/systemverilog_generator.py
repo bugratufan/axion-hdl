@@ -506,7 +506,9 @@ class SystemVerilogGenerator:
         # Reset all writable registers
         for reg in registers:
             if reg['access_mode'] in ['RW', 'WO']:
-                default_val = reg.get('default')
+                default_val = reg.get('default_value')
+                if default_val is None:
+                    default_val = reg.get('default')
                 width = reg.get('signal_width', 32)
 
                 if default_val is not None:

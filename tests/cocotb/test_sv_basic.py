@@ -108,5 +108,7 @@ async def test_sv_basic_access(dut):
     
     # Read back (if RW)
     data, resp = await helper.read(0x20)
-    
+
     dut._log.info(f"Read Match: {data == val} (Got 0x{data:X})")
+    assert resp == 0, f"Expected OKAY response (0), got {resp}"
+    assert data == val, f"Read-back mismatch: wrote 0x{val:X}, got 0x{data:X}"
