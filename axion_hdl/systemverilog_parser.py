@@ -141,6 +141,7 @@ class SystemVerilogParser:
         return {
             'name': module_name,
             'file': filepath,
+            'source_type': 'systemverilog',
             'base_address': module_config.get('base_address', 0),
             'cdc_enabled': module_config.get('cdc_enabled', False),
             'cdc_stages': module_config.get('cdc_stages', 2),
