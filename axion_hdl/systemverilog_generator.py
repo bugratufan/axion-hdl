@@ -46,6 +46,9 @@ class SystemVerilogGenerator:
             Path to generated file
         """
         module_name = module_data.get('name', 'unnamed_module')
+        # Sanitize: strip any path components and extensions that don't belong
+        module_name = os.path.basename(module_name)
+        module_name = os.path.splitext(module_name)[0] if '.' in module_name else module_name
         output_filename = f"{module_name}_axion_reg.sv"
         output_path = os.path.join(self.output_dir, output_filename)
 

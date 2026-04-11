@@ -894,7 +894,11 @@ class AxionHDL:
 
         # Generate SystemVerilog modules (only for SV-sourced modules)
         generator = SystemVerilogGenerator(self.output_dir)
-        sv_modules = [m for m in self.analyzed_modules if m.get('source_type') == 'systemverilog']
+        sv_modules = [
+            m for m in self.analyzed_modules
+            if m.get('source_type') == 'systemverilog'
+            or str(m.get('file', '')).endswith(('.sv', '.svh'))
+        ]
         for module in sv_modules:
             output_path = generator.generate_module(module)
             print(f"  Generated: {os.path.basename(output_path)}")
