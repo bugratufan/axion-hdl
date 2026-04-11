@@ -758,7 +758,7 @@ class VHDLGenerator:
                 continue
             if reg['access_mode'] in ['WO', 'RW']:
                 num_regs = self._get_num_regs(reg['signal_type'])
-                default_val = reg.get('default_value', 0)
+                default_val = reg.get('default_value') or 0
                 if num_regs == 1:
                     if default_val != 0:
                         lines.append(f"                {reg['signal_name']}_reg <= x\"{default_val:08X}\";")
@@ -779,7 +779,7 @@ class VHDLGenerator:
             if packed_reg['access_mode'] == 'RO':
                 continue
                 
-            default_val = packed_reg.get('default_value', 0)
+            default_val = packed_reg.get('default_value') or 0
             if default_val != 0:
                 lines.append(f"                {packed_reg['reg_name']}_reg <= x\"{default_val:08X}\";  -- Combined default from subregisters")
             else:

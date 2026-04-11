@@ -115,7 +115,7 @@ class DocGenerator:
             # Let's show the combined default if available processing, or just Listing
             # Actually, generator logic combines defaults into the main register default.
             # But here we might not have that easily. Let's just default to '-' for packed row, and details in description.
-            default_val = info.get('default_value', '-')
+            default_val = info.get('default_value') or '-'
             if default_val != '-':
                  default_val = f"0x{int(default_val):X}"
             
@@ -208,7 +208,7 @@ class DocGenerator:
                 lines.append(f"- **Address:** {info['address']}")
                 lines.append(f"- **Offset:** {info.get('relative_address', info['address'])}")
                 lines.append(f"- **Access Mode:** {info['access_mode']}")
-                defs = info.get('default_value', '-')
+                defs = info.get('default_value') or '-'
                 if defs != '-': defs = f"0x{int(defs):X}"
                 lines.append(f"- **Default:** {defs}")
                 lines.append(f"- **Type:** `std_logic_vector(31 downto 0)`")
@@ -1813,7 +1813,7 @@ class CHeaderGenerator:
                 if reg_name not in packed_defaults:
                     packed_defaults[reg_name] = 0
                 
-                default_val = reg.get('default_value', '0')
+                default_val = reg.get('default_value') or '0'
                 bit_offset = int(reg.get('bit_offset', 0))
                 
                 # Check if default is hex or dec
@@ -1845,7 +1845,7 @@ class CHeaderGenerator:
             else:
                 # Standalone
                 reg_name_upper = reg['signal_name'].upper()
-                default_val = reg.get('default_value', '0')
+                default_val = reg.get('default_value') or '0'
                 try:
                     if isinstance(default_val, int):
                         val = default_val
@@ -2052,7 +2052,7 @@ class YAMLGenerator:
             offset = reg.get('relative_address_int', reg['address_int'])
             r_strobe = reg.get('read_strobe', reg.get('r_strobe', False))
             w_strobe = reg.get('write_strobe', reg.get('w_strobe', False))
-            default_val = reg.get('default_value', 0)
+            default_val = reg.get('default_value') or 0
             
             reg_entry = {
                 'name': reg['signal_name'],
@@ -2130,7 +2130,7 @@ class JSONGenerator:
             offset = reg.get('relative_address_int', reg['address_int'])
             r_strobe = reg.get('read_strobe', reg.get('r_strobe', False))
             w_strobe = reg.get('write_strobe', reg.get('w_strobe', False))
-            default_val = reg.get('default_value', 0)
+            default_val = reg.get('default_value') or 0
             
             reg_entry = {
                 'name': reg['signal_name'],
@@ -2212,7 +2212,7 @@ class TOMLGenerator:
             offset = reg.get('relative_address_int', reg['address_int'])
             r_strobe = reg.get('read_strobe', reg.get('r_strobe', False))
             w_strobe = reg.get('write_strobe', reg.get('w_strobe', False))
-            default_val = reg.get('default_value', 0)
+            default_val = reg.get('default_value') or 0
 
             reg_entry = {
                 'name': reg['signal_name'],
