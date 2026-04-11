@@ -49,6 +49,10 @@ class SystemVerilogGenerator:
         # Sanitize: strip any path components and extensions that don't belong
         module_name = os.path.basename(module_name)
         module_name = os.path.splitext(module_name)[0] if '.' in module_name else module_name
+        # Skip modules with invalid SystemVerilog identifiers (e.g. names with hyphens from JS files)
+        import re as _re
+        if not _re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', module_name):
+            return None
         output_filename = f"{module_name}_axion_reg.sv"
         output_path = os.path.join(self.output_dir, output_filename)
 

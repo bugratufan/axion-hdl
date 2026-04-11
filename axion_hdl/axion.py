@@ -892,16 +892,12 @@ class AxionHDL:
         # Create output directory if it doesn't exist
         os.makedirs(self.output_dir, exist_ok=True)
 
-        # Generate SystemVerilog modules (only for SV-sourced modules)
+        # Generate SystemVerilog modules for all analyzed modules
         generator = SystemVerilogGenerator(self.output_dir)
-        sv_modules = [
-            m for m in self.analyzed_modules
-            if m.get('source_type') == 'systemverilog'
-            or str(m.get('file', '')).endswith(('.sv', '.svh'))
-        ]
-        for module in sv_modules:
+        for module in self.analyzed_modules:
             output_path = generator.generate_module(module)
-            print(f"  Generated: {os.path.basename(output_path)}")
+            if output_path is not None:
+                print(f"  Generated: {os.path.basename(output_path)}")
 
         print(f"\nSystemVerilog files generated in: {self.output_dir}")
         return True
