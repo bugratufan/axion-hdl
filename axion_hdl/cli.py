@@ -74,7 +74,7 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         dest='sources',
         metavar='PATH',
         default=[],
-        help='Source file (.vhd, .vhdl, .xml, .yaml, .yml, .json, .toml) or directory. '
+        help='Source file (.vhd, .vhdl, .sv, .svh, .xml, .yaml, .yml, .json, .toml) or directory. '
              'File type is auto-detected by extension. '
              'Can be specified multiple times.'
     )
@@ -137,7 +137,13 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         action='store_true',
         help='Generate VHDL register interface modules (*_axion_reg.vhd)'
     )
-    
+
+    gen_group.add_argument(
+        '--systemverilog', '--sv',
+        action='store_true',
+        help='Generate SystemVerilog register interface modules (*_axion_reg.sv)'
+    )
+
     gen_group.add_argument(
         '--doc',
         action='store_true',
@@ -342,12 +348,14 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     success = True
     
     if args.all:
-        # Generate all output types: VHDL, docs, XML, YAML, JSON, and C headers
+        # Generate all output types: VHDL, SystemVerilog, docs, XML, YAML, JSON, and C headers
         success = axion.generate_all(doc_format=args.doc_format)
     else:
         # Generate only selected output types
         if args.vhdl:
             success &= axion.generate_vhdl()
+        if args.systemverilog:
+            success &= axion.generate_systemverilog()
         if args.doc:
             success &= axion.generate_documentation(format=args.doc_format)
         if args.xml:

@@ -517,6 +517,7 @@ class AxionGUI:
                     
                     res = True
                     if formats.get('vhdl'): res &= self.axion.generate_vhdl()
+                    if formats.get('systemverilog'): res &= self.axion.generate_systemverilog()
                     if formats.get('xml'): res &= self.axion.generate_xml()
                     if formats.get('yaml'): res &= self.axion.generate_yaml()
                     if formats.get('json'): res &= self.axion.generate_json()

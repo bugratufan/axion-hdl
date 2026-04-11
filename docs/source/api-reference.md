@@ -128,6 +128,7 @@ if axion.is_analyzed:
 | `set_output_dir(path)` | Set output directory for generated files |
 | `generate_all(doc_format="md")` | Generate all output formats |
 | `generate_vhdl()` | Generate VHDL register modules |
+| `generate_systemverilog()` | Generate SystemVerilog register modules |
 | `generate_c_header()` | Generate C header files |
 | `generate_documentation(format="md")` | Generate documentation (md, html, pdf) |
 | `generate_xml()` | Generate XML register maps |
@@ -277,6 +278,17 @@ parser = VHDLParser()
 modules = parser.parse_file("module.vhd")
 ```
 
+### SystemVerilogParser
+
+Parses SystemVerilog files with `@axion` annotations.
+
+```python
+from axion_hdl.systemverilog_parser import SystemVerilogParser
+
+parser = SystemVerilogParser()
+modules = parser.parse_file("module.sv")
+```
+
 ### YAMLInputParser
 
 Parses YAML register definition files.
@@ -335,6 +347,17 @@ Generates AXI4-Lite slave VHDL modules.
 from axion_hdl.generator import VHDLGenerator
 
 generator = VHDLGenerator(output_dir="./output")
+output_path = generator.generate(module)
+```
+
+### SystemVerilogGenerator
+
+Generates SystemVerilog register interface modules.
+
+```python
+from axion_hdl.systemverilog_generator import SystemVerilogGenerator
+
+generator = SystemVerilogGenerator(output_dir="./output")
 output_path = generator.generate(module)
 ```
 

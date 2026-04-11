@@ -285,6 +285,8 @@ class SourceModifier:
             return self._modify_json_content(module, new_registers, properties)
         elif filepath.endswith('.xml'):
             return self._modify_xml_content(module, new_registers, properties)
+        elif filepath.endswith(('.sv', '.svh')):
+            return self._modify_sv_content(module, new_registers, properties)
         
         # VHDL files - original logic
         with open(filepath, 'r') as f:
@@ -1131,6 +1133,132 @@ class SourceModifier:
                 return False
             
         return True
+
+    def _modify_sv_content(self, module: Dict, new_registers: List[Dict], properties: Dict = None) -> Tuple[str, str]:
+        """Modify SystemVerilog source file: update existing @axion signals and append new ones."""
+        filepath = module['file']
+        with open(filepath, 'r') as f:
+            content = f.read()
+
+        # --- Update @axion_def (module-level config) using // style ---
+        if properties:
+            content = self._update_sv_module_definition(content, properties)
+
+        # Build set of existing signal names
+        existing_names = set()
+        for r in module.get('registers', []):
+            existing_names.add(r.get('signal_name', r.get('name', '')))
+
+        lines_to_add = []
+        for reg in new_registers:
+            reg_name = reg.get('name', '')
+            if reg_name in existing_names:
+                # UPDATE: replace the existing @axion annotation on that signal's line
+                access = reg.get('access', 'RW').upper()
+                desc = reg.get('description', '')
+                width = int(reg.get('width', 32))
+                tag_parts = [access]
+                if desc:
+                    tag_parts.append(f'DESC="{desc}"')
+                default_val = reg.get('default_value') or reg.get('default', '')
+                if default_val not in (None, '', 0):
+                    tag_parts.append(f'DEFAULT={default_val}')
+                new_tag = '// @axion ' + ' '.join(tag_parts)
+
+                pattern = r'((?:logic|reg|wire)\s*(?:\[[^\]]+\])?\s*' + re.escape(reg_name) + r'\s*;)\s*//.*$'
+                replacement = r'\1  ' + new_tag
+                new_content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
+                if new_content != content:
+                    content = new_content
+            else:
+                # NEW register — collect to inject before endmodule
+                access = reg.get('access', 'RW').upper()
+                desc = reg.get('description', '')
+                width = int(reg.get('width', 32))
+                tag_parts = [access]
+                if desc:
+                    tag_parts.append(f'DESC="{desc}"')
+                default_val = reg.get('default_value') or reg.get('default', '')
+                if default_val not in (None, '', 0):
+                    tag_parts.append(f'DEFAULT={default_val}')
+                tag = '// @axion ' + ' '.join(tag_parts)
+                if width == 1:
+                    decl = f'    logic {reg_name};'
+                else:
+                    decl = f'    logic [{width-1}:0] {reg_name};'
+                if desc:
+                    lines_to_add.append(f'    // {desc}')
+                lines_to_add.append(f'{decl}  {tag}')
+
+        if lines_to_add:
+            # Insert before endmodule
+            endmodule_match = re.search(r'^endmodule\b', content, re.MULTILINE | re.IGNORECASE)
+            if endmodule_match:
+                injection = '\n    // Axion-HDL Auto-Injected Signals\n' + '\n'.join(lines_to_add) + '\n'
+                pos = endmodule_match.start()
+                content = content[:pos] + injection + content[pos:]
+            else:
+                content += '\n    // Axion-HDL Auto-Injected Signals\n' + '\n'.join(lines_to_add) + '\n'
+
+        return content, filepath
+
+    def _update_sv_module_definition(self, content: str, properties: Dict) -> str:
+        """Updates or injects // @axion_def annotation in a SystemVerilog file."""
+        if not properties:
+            return content
+
+        cdc_en = properties.get('cdc_enabled')
+        cdc_stages = properties.get('cdc_stages')
+        base_address = properties.get('base_address')
+
+        # Look for existing // @axion_def line
+        def_pattern = r'(//\s*@axion_def\s+)(.+)'
+        match = re.search(def_pattern, content, re.IGNORECASE)
+
+        def _build_attrs(attrs_str):
+            cdc_kv_pattern = r'\bCDC_EN(?:=(?:true|false|yes|no|1|0))?\b'
+            if cdc_en is True:
+                if re.search(cdc_kv_pattern, attrs_str, re.IGNORECASE):
+                    attrs_str = re.sub(cdc_kv_pattern, 'CDC_EN=true', attrs_str, flags=re.IGNORECASE)
+                else:
+                    attrs_str += ' CDC_EN=true'
+            elif cdc_en is False:
+                if re.search(cdc_kv_pattern, attrs_str, re.IGNORECASE):
+                    attrs_str = re.sub(cdc_kv_pattern, 'CDC_EN=false', attrs_str, flags=re.IGNORECASE)
+            if cdc_stages:
+                if re.search(r'\bCDC_STAGE=\d+', attrs_str):
+                    attrs_str = re.sub(r'\bCDC_STAGE=\d+', f'CDC_STAGE={cdc_stages}', attrs_str)
+                elif cdc_en is True:
+                    attrs_str += f' CDC_STAGE={cdc_stages}'
+            if base_address:
+                try:
+                    base_int = int(str(base_address).replace('0x', '').replace('0X', ''), 16) if isinstance(base_address, str) else int(base_address)
+                    base_hex = f'0x{base_int:04X}'
+                    if re.search(r'\bBASE_ADDR=0x[0-9A-Fa-f]+', attrs_str):
+                        attrs_str = re.sub(r'\bBASE_ADDR=0x[0-9A-Fa-f]+', f'BASE_ADDR={base_hex}', attrs_str)
+                    else:
+                        attrs_str += f' BASE_ADDR={base_hex}'
+                except (ValueError, TypeError):
+                    pass
+            return attrs_str.strip()
+
+        if match:
+            new_attrs = _build_attrs(match.group(2))
+            updated_line = f'{match.group(1)}{new_attrs}'
+            return re.sub(def_pattern, updated_line, content, count=1)
+        else:
+            if cdc_en or base_address:
+                new_attrs = _build_attrs('')
+                if new_attrs:
+                    new_line = f'// @axion_def {new_attrs}'
+                    # Insert before module declaration
+                    mod_match = re.search(r'^module\s+', content, re.MULTILINE | re.IGNORECASE)
+                    if mod_match:
+                        pos = mod_match.start()
+                        return content[:pos] + new_line + '\n' + content[pos:]
+                    else:
+                        return new_line + '\n' + content
+        return content
 
     def _update_module_definition(self, content: str, properties: Dict) -> str:
         """Updates or injects @axion_def annotation for module properties."""
