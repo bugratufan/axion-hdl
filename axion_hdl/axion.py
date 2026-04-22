@@ -873,7 +873,10 @@ class AxionHDL:
         for module in self.analyzed_modules:
             output_path = generator.generate_module(module)
             print(f"  Generated: {os.path.basename(output_path)}")
-        
+            pkg_path = generator.generate_vhdl_pkg(module)
+            if pkg_path:
+                print(f"  Generated: {os.path.basename(pkg_path)}")
+
         print(f"\nVHDL files generated in: {self.output_dir}")
         return True
 
@@ -898,6 +901,9 @@ class AxionHDL:
             output_path = generator.generate_module(module)
             if output_path is not None:
                 print(f"  Generated: {os.path.basename(output_path)}")
+            pkg_path = generator.generate_sv_pkg(module)
+            if pkg_path is not None:
+                print(f"  Generated: {os.path.basename(pkg_path)}")
 
         print(f"\nSystemVerilog files generated in: {self.output_dir}")
         return True

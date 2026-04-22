@@ -372,3 +372,72 @@ output/
 1. Generate HTML/Markdown outputs
 2. Publish to documentation server or include in project wiki
 3. Re-export YAML/JSON for version control tracking
+
+---
+
+## Enumerated Values in Outputs
+
+### Docs (Markdown/HTML/PDF)
+
+When a packed register field has `enum_values`, the field table includes an "Enum Values" column:
+
+| Field | Bits | Type | Access | Default | Description | Enum Values |
+|-------|------|------|--------|---------|-------------|-------------|
+| `status` | [1:0] | [1:0] | RW | 0x0 | Status | 0:IDLE, 1:WAITING, 3:READY |
+
+### C Header
+
+Enum macros are generated after the field mask/shift definitions:
+
+```c
+/* status enumerated values */
+#define MYMOD_STATUS_REG_STATUS_IDLE       0x0
+#define MYMOD_STATUS_REG_STATUS_WAITING    0x1
+#define MYMOD_STATUS_REG_STATUS_READY      0x3
+```
+
+### YAML / JSON Export
+
+`enum_values` is included in the field entry with string keys:
+
+```yaml
+fields:
+  - name: status
+    bit_offset: 0
+    width: 2
+    enum_values:
+      "0": IDLE
+      "1": WAITING
+      "3": READY
+```
+
+### XML (SPIRIT) Export
+
+`<spirit:enumeratedValues>` is emitted inside each field element with enum values.
+
+### VHDL Package (`*_regs_pkg.vhd`)
+
+Generated when any field has `enum_values`:
+
+```vhdl
+package mymod_regs_pkg is
+    -- status_reg.status enumerated values
+    constant C_STATUS_REG_STATUS_IDLE    : std_logic_vector(1 downto 0) := "00";
+    constant C_STATUS_REG_STATUS_WAITING : std_logic_vector(1 downto 0) := "01";
+    constant C_STATUS_REG_STATUS_READY   : std_logic_vector(1 downto 0) := "11";
+end package mymod_regs_pkg;
+```
+
+### SystemVerilog Package (`*_regs_pkg.sv`)
+
+Generated when any field has `enum_values`:
+
+```systemverilog
+package mymod_regs_pkg;
+    typedef enum logic [1:0] {
+        IDLE    = 2'b00,
+        WAITING = 2'b01,
+        READY   = 2'b11
+    } t_status_reg_status_e;
+endpackage // mymod_regs_pkg
+```

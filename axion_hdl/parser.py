@@ -439,7 +439,8 @@ class VHDLParser:
                     'default_value': attrs.get('default_value', 0),
                     'manual_address': True if manual_addr is not None else False,
                     'signal_width': signal_width,
-                    'width': signal_width  # Standardize on 'width' for modifiers
+                    'width': signal_width,  # Standardize on 'width' for modifiers
+                    'enum_values': attrs.get('enum_values')
                 }
                 
                 registers.append(reg_data)
@@ -525,9 +526,10 @@ class VHDLParser:
                         read_strobe=sig_info['attrs'].get('read_strobe', False),
                         write_strobe=sig_info['attrs'].get('write_strobe', False),
                         default_value=field_default,
-                        allow_overlap=False
+                        allow_overlap=False,
+                        enum_values=sig_info['attrs'].get('enum_values')
                     )
-                    
+
                     fields.append({
                         'name': field.name,
                         'bit_low': field.bit_low,
@@ -539,7 +541,8 @@ class VHDLParser:
                         'read_strobe': field.read_strobe,
                         'write_strobe': field.write_strobe,
                         'mask': field.mask,
-                        'default_value': field.default_value
+                        'default_value': field.default_value,
+                        'enum_values': field.enum_values
                     })
                     
                     # Use first field's access mode for register

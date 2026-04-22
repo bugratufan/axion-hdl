@@ -97,6 +97,78 @@ class SystemVerilogGenerator:
 
         return '\n\n'.join(sections)
 
+    def generate_sv_pkg(self, module_data: Dict) -> str:
+        """
+        Generate a SystemVerilog typedef enum package for enumerated field values.
+
+        Generates <module>_regs_pkg.sv if any packed register field has enum_values.
+
+        Args:
+            module_data: Parsed module dictionary
+
+        Returns:
+            Path to generated package file, or None if no enum_values present
+        """
+        module_name = module_data.get('name', 'unnamed_module')
+
+        # Collect all fields with enum_values
+        enum_fields = []
+        for reg in module_data.get('registers', []):
+            if reg.get('is_packed'):
+                reg_name = reg.get('reg_name', reg.get('signal_name', ''))
+                for field in reg.get('fields', []):
+                    if field.get('enum_values'):
+                        enum_fields.append((reg_name, field))
+
+        if not enum_fields:
+            return None
+
+        output_filename = f"{module_name}_regs_pkg.sv"
+        output_path = os.path.join(self.output_dir, output_filename)
+
+        lines = [
+            f"// Package: {module_name}_regs_pkg",
+            f"// Enumerated typedefs for {module_name} register fields",
+            "",
+            f"package {module_name}_regs_pkg;",
+            "",
+        ]
+
+        for reg_name, field in enum_fields:
+            width = int(field.get('width', 1))
+            field_name = field['name']
+            enum_dict = field.get('enum_values', {})
+            typedef_name = f"t_{reg_name}_{field_name}_e"
+
+            enum_entries = []
+            for val, name in sorted(enum_dict.items()):
+                bin_literal = format(int(val), f'0{width}b')
+                if width == 1:
+                    entry = f"    {name} = 1'b{bin_literal}"
+                else:
+                    entry = f"    {name} = {width}'b{bin_literal}"
+                enum_entries.append(entry)
+
+            if width == 1:
+                lines.append(f"    typedef enum logic {{")
+            else:
+                lines.append(f"    typedef enum logic [{width - 1}:0] {{")
+
+            lines.append(',\n'.join(enum_entries))
+            lines.append(f"    }} {typedef_name};")
+            lines.append("")
+
+        lines.extend([
+            f"endpackage // {module_name}_regs_pkg",
+            "",
+        ])
+
+        os.makedirs(self.output_dir, exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines))
+
+        return output_path
+
     def _generate_header(self, module_data: Dict) -> str:
         """Generate file header with metadata."""
         module_name = module_data.get('name', 'unnamed_module')
@@ -184,9 +256,14 @@ class SystemVerilogGenerator:
                 # Input for reading current value, output for writing
                 direction = 'output'
 
-            # Add signal port
+            # Add signal port (with enum comment if applicable)
+            enum_dict = reg.get('enum_values')
             comma = ',' if i < len(registers) - 1 or read_strobe or write_strobe else ''
-            lines.append(f"    {direction} {sv_type:30} {signal_name}{comma}")
+            if enum_dict:
+                enum_comment = ' // ' + ', '.join(f"{n}={v}" for v, n in sorted(enum_dict.items()))
+                lines.append(f"    {direction} {sv_type:30} {signal_name}{comma}{enum_comment}")
+            else:
+                lines.append(f"    {direction} {sv_type:30} {signal_name}{comma}")
 
             # Add strobe signals
             if read_strobe:

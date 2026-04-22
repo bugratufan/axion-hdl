@@ -1,0 +1,41 @@
+module = "enum_test_mod"
+base_addr = "0x0000"
+
+[config]
+cdc_en = false
+cdc_stage = 2
+
+[[registers]]
+name = "control_reg"
+addr = "0x00"
+access = "RW"
+
+[[registers.fields]]
+name = "enable"
+bit_offset = 0
+width = 1
+access = "RW"
+description = "Enable bit"
+
+[registers.fields.enum_values]
+"0" = "INACTIVE"
+"1" = "ACTIVE"
+
+[[registers.fields]]
+name = "status"
+bit_offset = 1
+width = 2
+access = "RO"
+description = "Status field"
+
+[registers.fields.enum_values]
+"0" = "IDLE"
+"1" = "WAITING"
+"3" = "READY"
+
+[[registers.fields]]
+name = "reserved"
+bit_offset = 3
+width = 1
+access = "RO"
+description = "Reserved"

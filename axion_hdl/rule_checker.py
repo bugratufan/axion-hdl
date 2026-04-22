@@ -551,11 +551,38 @@ class RuleChecker:
                     msg
                 )
 
+    def check_enum_value_overflow(self, modules: List[Dict]) -> None:
+        """
+        Check that each enum value in a packed register field fits within the field width.
+
+        For a field with width W, each enum value must satisfy: value <= 2**W - 1.
+        """
+        for module in modules:
+            for reg in module.get('registers', []):
+                if not reg.get('is_packed'):
+                    continue
+                reg_name = reg.get('reg_name', reg.get('signal_name', 'unknown'))
+                for field in reg.get('fields', []):
+                    enum_dict = field.get('enum_values')
+                    if not enum_dict:
+                        continue
+                    width = int(field.get('width', 1))
+                    max_val = (2 ** width) - 1
+                    for val, name in enum_dict.items():
+                        if int(val) > max_val:
+                            self._add_error(
+                                "Enum Value Overflow",
+                                module['name'],
+                                f"In register '{reg_name}', field '{field['name']}': "
+                                f"enum value {val} ({name}) exceeds max value {max_val} "
+                                f"for {width}-bit field"
+                            )
+
     def run_all_checks(self, modules: List[Dict]) -> Dict[str, List]:
         self.errors = []
         self.warnings = []
-        
-        self.check_parsing_errors(modules) # Check pre-existing parsing errors first
+
+        self.check_parsing_errors(modules)  # Check pre-existing parsing errors first
         self.check_logical_integrity(modules)
         self.check_documentation(modules)
         self.check_address_overlaps(modules)
@@ -566,7 +593,8 @@ class RuleChecker:
         self.check_address_alignment(modules)
         self.check_duplicate_names(modules)
         self.check_unique_module_names(modules)
-        
+        self.check_enum_value_overflow(modules)
+
         return {
             'errors': self.errors,
             'warnings': self.warnings

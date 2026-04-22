@@ -1,0 +1,42 @@
+module: enum_test_mod
+base_addr: "0x0000"
+config:
+  cdc_en: false
+  cdc_stage: 2
+registers:
+  - name: control_reg
+    addr: "0x00"
+    access: RW
+    fields:
+      - name: enable
+        bit_offset: 0
+        width: 1
+        access: RW
+        description: Enable bit
+        enum_values:
+          0: INACTIVE
+          1: ACTIVE
+      - name: status
+        bit_offset: 1
+        width: 2
+        access: RO
+        description: Status field
+        enum_values:
+          0: IDLE
+          1: WAITING
+          3: READY
+      - name: mode
+        bit_offset: 3
+        width: 4
+        access: RW
+        description: Operation mode
+        enum_values:
+          0: MODE_OFF
+          5: MODE_FAST
+          10: MODE_SLOW
+          15: MODE_MAX
+      - name: reserved
+        bit_offset: 7
+        width: 1
+        access: RO
+        description: Reserved

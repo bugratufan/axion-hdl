@@ -156,16 +156,22 @@ class DocGenerator:
             if group['type'] == 'packed':
                 lines.append(f"**Packed Register** - Address: {info['address']} (Offset: {info.get('relative_address', info['address'])})")
                 lines.append("")
-                lines.append("| Field | Bits | Type | Access | Default | Description |")
-                lines.append("|-------|------|------|--------|---------|-------------|")
-                
+
                 # Check if register has embedded 'fields' array (YAML/JSON input)
                 # This array contains actual subfields with bit_low/bit_high info
                 embedded_fields = info.get('fields', [])
                 if embedded_fields and isinstance(embedded_fields, list) and len(embedded_fields) > 0:
                     # Use embedded fields from YAML/JSON parser - sort by bit_low (high to low)
                     sorted_fields = sorted(embedded_fields, key=lambda f: int(f.get('bit_low', 0)), reverse=True)
-                    
+
+                    has_enum = any(f.get('enum_values') for f in sorted_fields)
+                    if has_enum:
+                        lines.append("| Field | Bits | Type | Access | Default | Description | Enum Values |")
+                        lines.append("|-------|------|------|--------|---------|-------------|-------------|")
+                    else:
+                        lines.append("| Field | Bits | Type | Access | Default | Description |")
+                        lines.append("|-------|------|------|--------|---------|-------------|")
+
                     for field in sorted_fields:
                         fname = field.get('name', 'unknown')
                         bit_low = int(field.get('bit_low', 0))
@@ -173,30 +179,55 @@ class DocGenerator:
                         width = int(field.get('width', 1))
                         bit_range = f"[{bit_low}]" if width == 1 else f"[{bit_high}:{bit_low}]"
                         fdefault = field.get('default_value', '-')
-                        if fdefault != '-' and fdefault != 0: 
+                        if fdefault != '-' and fdefault != 0:
                             fdefault = f"0x{int(fdefault):X}"
                         elif fdefault == 0:
                             fdefault = "0x0"
                         fdesc = field.get('description', '-')
                         ftype = field.get('signal_type', f"[{width-1}:0]" if width > 1 else "[0:0]")
                         faccess = field.get('access_mode', info['access_mode'])
-                        
-                        lines.append(f"| `{fname}` | {bit_range} | {ftype} | {faccess} | {fdefault} | {fdesc} |")
+
+                        if has_enum:
+                            enum_dict = field.get('enum_values')
+                            if enum_dict:
+                                enum_str = ', '.join(f"{k}:{v}" for k, v in sorted(enum_dict.items()))
+                            else:
+                                enum_str = '-'
+                            lines.append(f"| `{fname}` | {bit_range} | {ftype} | {faccess} | {fdefault} | {fdesc} | {enum_str} |")
+                        else:
+                            lines.append(f"| `{fname}` | {bit_range} | {ftype} | {faccess} | {fdefault} | {fdesc} |")
                 else:
                     # Fallback: use grouped fields from VHDL parser
                     # Sort fields by bit offset (high to low - MSB first)
                     sorted_fields = sorted(group['fields'], key=lambda r: int(r.get('bit_offset', 0)), reverse=True)
-                    
+
+                    has_enum = any(f.get('enum_values') for f in sorted_fields)
+                    if has_enum:
+                        lines.append("| Field | Bits | Type | Access | Default | Description | Enum Values |")
+                        lines.append("|-------|------|------|--------|---------|-------------|-------------|")
+                    else:
+                        lines.append("| Field | Bits | Type | Access | Default | Description |")
+                        lines.append("|-------|------|------|--------|---------|-------------|")
+
                     for field in sorted_fields:
                         fname = field['signal_name']
                         offset = int(field.get('bit_offset', 0))
                         width = int(field.get('width', 1))
                         bit_range = f"[{offset}]" if width == 1 else f"[{offset+width-1}:{offset}]"
                         fdefault = field.get('default_value', '-')
-                        if fdefault != '-': fdefault = f"0x{int(fdefault):X}"
+                        if fdefault != '-':
+                            fdefault = f"0x{int(fdefault):X}"
                         fdesc = field.get('description', '-')
-                        
-                        lines.append(f"| `{fname}` | {bit_range} | {field['signal_type']} | {field['access_mode']} | {fdefault} | {fdesc} |")
+
+                        if has_enum:
+                            enum_dict = field.get('enum_values')
+                            if enum_dict:
+                                enum_str = ', '.join(f"{k}:{v}" for k, v in sorted(enum_dict.items()))
+                            else:
+                                enum_str = '-'
+                            lines.append(f"| `{fname}` | {bit_range} | {field['signal_type']} | {field['access_mode']} | {fdefault} | {fdesc} | {enum_str} |")
+                        else:
+                            lines.append(f"| `{fname}` | {bit_range} | {field['signal_type']} | {field['access_mode']} | {fdefault} | {fdesc} |")
                 lines.append("")
                 
             else:
@@ -1858,6 +1889,23 @@ class CHeaderGenerator:
                 if self._get_signal_width(reg['signal_type']) <= 32:
                      lines.append(f"#define {module_prefix}{reg_name_upper}_DEFAULT    0x{val:08X}")
         
+        # Enumerated values macros for packed register fields
+        enum_macros_lines = []
+        for reg in module['registers']:
+            if reg.get('is_packed'):
+                reg_name_upper = reg.get('reg_name', reg.get('signal_name', '')).upper()
+                for field in reg.get('fields', []):
+                    enum_dict = field.get('enum_values')
+                    if enum_dict:
+                        field_name_upper = field['name'].upper()
+                        enum_macros_lines.append(f"/* {field['name']} enumerated values */")
+                        for val, name in sorted(enum_dict.items()):
+                            enum_macros_lines.append(
+                                f"#define {module_prefix}{reg_name_upper}_{field_name_upper}_{name.upper()}    0x{val:X}"
+                            )
+        if enum_macros_lines:
+            lines.extend(["", "/* Enumerated Field Values */"] + enum_macros_lines)
+
         lines.extend([
             "",
             "/* Register Structure */",
@@ -1961,14 +2009,14 @@ class XMLGenerator:
             description = reg.get('description', '')
             r_strobe = reg.get('read_strobe', reg.get('r_strobe', False))
             w_strobe = reg.get('write_strobe', reg.get('w_strobe', False))
-            
+
             # Build strobe attributes string for round-trip compatibility
             strobe_attrs = ''
             if r_strobe:
                 strobe_attrs += ' r_strobe="true"'
             if w_strobe:
                 strobe_attrs += ' w_strobe="true"'
-            
+
             lines.extend([
                 f'                <spirit:register{strobe_attrs}>',
                 f'                    <spirit:name>{reg["signal_name"]}</spirit:name>',
@@ -1979,13 +2027,42 @@ class XMLGenerator:
                 f'                    <spirit:addressOffset>{offset}</spirit:addressOffset>',
                 '                    <spirit:size>32</spirit:size>',
                 f'                    <spirit:access>{self._get_xml_access(reg["access_mode"])}</spirit:access>',
-                '                    <spirit:field>',
-                f'                        <spirit:name>{reg["signal_name"]}_data</spirit:name>',
-                '                        <spirit:bitOffset>0</spirit:bitOffset>',
-                '                        <spirit:bitWidth>32</spirit:bitWidth>',
-                '                    </spirit:field>',
-                '                </spirit:register>',
             ])
+
+            # Emit nested fields if packed (with enum support)
+            if reg.get('is_packed') and reg.get('fields'):
+                for field in reg.get('fields', []):
+                    bit_offset = int(field.get('bit_low', 0))
+                    bit_width = int(field.get('width', 1))
+                    f_access = self._get_xml_access(field.get('access_mode', reg['access_mode']))
+                    lines.extend([
+                        '                    <spirit:field>',
+                        f'                        <spirit:name>{field["name"]}</spirit:name>',
+                        f'                        <spirit:bitOffset>{bit_offset}</spirit:bitOffset>',
+                        f'                        <spirit:bitWidth>{bit_width}</spirit:bitWidth>',
+                        f'                        <spirit:access>{f_access}</spirit:access>',
+                    ])
+                    enum_dict = field.get('enum_values')
+                    if enum_dict:
+                        lines.append('                        <spirit:enumeratedValues>')
+                        for val, name in sorted(enum_dict.items()):
+                            lines.extend([
+                                '                            <spirit:enumeratedValue>',
+                                f'                                <spirit:name>{name}</spirit:name>',
+                                f'                                <spirit:value>{val}</spirit:value>',
+                                '                            </spirit:enumeratedValue>',
+                            ])
+                        lines.append('                        </spirit:enumeratedValues>')
+                    lines.append('                    </spirit:field>')
+            else:
+                lines.extend([
+                    '                    <spirit:field>',
+                    f'                        <spirit:name>{reg["signal_name"]}_data</spirit:name>',
+                    '                        <spirit:bitOffset>0</spirit:bitOffset>',
+                    '                        <spirit:bitWidth>32</spirit:bitWidth>',
+                    '                    </spirit:field>',
+                ])
+            lines.append('                </spirit:register>')
         
         lines.extend([
             '            </spirit:addressBlock>',
@@ -2082,10 +2159,13 @@ class YAMLGenerator:
                     }
                     if field.get('default_value', 0) != 0:
                         field_entry['default'] = f"0x{field['default_value']:X}"
+                    enum_dict = field.get('enum_values')
+                    if enum_dict:
+                        field_entry['enum_values'] = {str(k): v for k, v in sorted(enum_dict.items())}
                     reg_entry['fields'].append(field_entry)
-            
+
             data['registers'].append(reg_entry)
-        
+
         return data
 
 
@@ -2160,10 +2240,13 @@ class JSONGenerator:
                     }
                     if field.get('default_value', 0) != 0:
                         field_entry['default'] = f"0x{field['default_value']:X}"
+                    enum_dict = field.get('enum_values')
+                    if enum_dict:
+                        field_entry['enum_values'] = {str(k): v for k, v in sorted(enum_dict.items())}
                     reg_entry['fields'].append(field_entry)
-            
+
             data['registers'].append(reg_entry)
-        
+
         return data
 
 

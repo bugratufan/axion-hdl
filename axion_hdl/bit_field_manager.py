@@ -6,7 +6,7 @@ Handles bit overlap detection and auto-packing of signals.
 """
 
 from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 class BitOverlapError(Exception):
@@ -67,7 +67,8 @@ class BitField:
     read_strobe: bool = False
     write_strobe: bool = False
     default_value: int = 0
-    
+    enum_values: Optional[Dict[int, str]] = None
+
     @property
     def bit_range(self) -> Tuple[int, int]:
         """Return (low, high) bit range."""
@@ -157,7 +158,8 @@ class BitFieldManager:
         read_strobe: bool = False,
         write_strobe: bool = False,
         default_value: int = 0,
-        allow_overlap: bool = False
+        allow_overlap: bool = False,
+        enum_values: Optional[Dict[int, str]] = None
     ) -> BitField:
         """
         Add a bit field to a register.
@@ -222,7 +224,17 @@ class BitFieldManager:
                 f"Field '{field_name}' exceeds 32-bit register boundary "
                 f"(bits [{bit_high}:{bit_low}])"
             )
-        
+
+        # Validate enum_values: each value must fit in the field width
+        if enum_values:
+            max_val = (2 ** width) - 1
+            for val, name in enum_values.items():
+                if int(val) > max_val:
+                    raise ValueError(
+                        f"Enum value {val} exceeds max value {max_val} "
+                        f"for {width}-bit field '{field_name}'"
+                    )
+
         # Create field
         field = BitField(
             name=field_name,
@@ -236,7 +248,8 @@ class BitFieldManager:
             source_line=source_line,
             read_strobe=read_strobe,
             write_strobe=write_strobe,
-            default_value=default_value
+            default_value=default_value,
+            enum_values=enum_values
         )
         
         # Check for overlaps with existing fields

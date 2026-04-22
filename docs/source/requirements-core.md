@@ -283,3 +283,32 @@ Testing and verification are automated via `make test`, which maps tests back to
 | SV-GEN-007 | Equivalence with VHDL | SystemVerilog behavior (address map, reset, strobe) matches VHDL implementation. | Equivalence Test (`test_sv_equiv`) |
 | SV-GEN-008 | Bare Annotation Support | A bare `// @axion` annotation with no attributes is recognized and defaults to RW access, auto-assigned address, no strobes. | SystemVerilog Test (`test_sv_axion_033`, `test_sv_axion_034`) |
 | SV-GEN-009 | Address Conflict Recovery | When two signals are manually assigned the same address, the conflicting register is reassigned to the next available address instead of being dropped. A warning is recorded in `parsing_errors`. | SystemVerilog Test (`test_sv_axion_027`) |
+
+
+## 16. Enumerated Values Requirements
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| ENUM-001 | BitField Data Model | `BitField` dataclass includes optional `enum_values: Dict[int, str]` field. | Python Unit Test (`test_enum_001_bitfield_model`) |
+| ENUM-002 | VHDL Annotation Parsing | `ENUM=` attribute in `@axion` comment is parsed to `Dict[int, str]`. | Python Unit Test (`test_enum_002_vhdl_annotation_parse`) |
+| ENUM-003 | SV Annotation Parsing | `ENUM=` attribute in `// @axion` comment is parsed to `Dict[int, str]`. | Python Unit Test (`test_enum_003_sv_annotation_parse`) |
+| ENUM-004 | YAML Field Enum | YAML field `enum_values` dict (int or string keys) is parsed to `Dict[int, str]`. | Python Unit Test (`test_enum_004_yaml_field_enum`) |
+| ENUM-005 | JSON Field Enum | JSON field `enum_values` dict (string keys) is parsed to `Dict[int, str]`. | Python Unit Test (`test_enum_005_json_field_enum`) |
+| ENUM-006 | TOML Field Enum | TOML field `enum_values` dict (string keys) is parsed to `Dict[int, str]`. | Python Unit Test (`test_enum_006_toml_field_enum`) |
+| ENUM-007 | XML Flat Enum Attribute | Flat XML `enum` attribute is parsed via `parse_enum_values()`. | Python Unit Test (`test_enum_007_xml_flat_enum_attr`) |
+| ENUM-008 | XML Nested Enum Elements | `<enum_value value="..." name="..."/>` children within `<field>` are parsed to enum dict. | Python Unit Test (`test_enum_008_xml_nested_enum_elements`) |
+| ENUM-009 | XML SPIRIT Enum | `spirit:enumeratedValues/spirit:enumeratedValue` elements are parsed to enum dict. | Python Unit Test (`test_enum_009_xml_spirit_enum`) |
+| ENUM-010 | Markdown/HTML Enum Column | Doc generator adds "Enum Values" column to packed register field table when any field has enum_values. | Python Unit Test (`test_enum_010_markdown_enum_column`) |
+| ENUM-011 | C Header Enum Macros | C header generator emits `#define MODULE_REG_FIELD_NAME 0xVAL` for each enum value. | Python Unit Test (`test_enum_011_c_header_macros`) |
+| ENUM-012 | YAML Export Round-Trip | YAML generator includes `enum_values` with string keys; re-parsed result matches original. | Python Unit Test (`test_enum_012_yaml_export_roundtrip`) |
+| ENUM-013 | JSON Export Round-Trip | JSON generator includes `enum_values` with string keys; re-parsed result matches original. | Python Unit Test (`test_enum_013_json_export_roundtrip`) |
+| ENUM-014 | XML SPIRIT Export | XML generator emits `<spirit:enumeratedValues>` block for fields with enum_values. | Python Unit Test (`test_enum_014_xml_spirit_export`) |
+| ENUM-015 | VHDL Comment Annotation | VHDL generator appends `-- NAME=VALUE` comment for fields with enum_values. | Python Unit Test (`test_enum_015_vhdl_comment_only`) |
+| ENUM-016 | SV Comment Annotation | SV generator appends `// NAME=VALUE` comment for signals with enum_values. | Python Unit Test (`test_enum_016_sv_comment_only`) |
+| ENUM-018 | No-Enum Regression | Modules without enum_values generate identical output to pre-feature baseline. | Python Unit Test (`test_enum_018_no_enum_regression`) |
+| ENUM-019 | Numeric Notations | Enum values expressed as decimal, hex (`0x`), and binary (`0b`) in source are all parsed correctly. | Python Unit Test (`test_enum_019_numeric_notations`) |
+| ENUM-020 | VHDL Pkg Constants | `generate_vhdl_pkg()` produces a `.vhd` package file with `constant C_REG_FIELD_NAME` for each enum value. | Python Unit Test (`test_enum_020_vhdl_pkg_constants`) |
+| ENUM-021 | SV Pkg Typedef | `generate_sv_pkg()` produces a `.sv` package file with `typedef enum logic` for each field. | Python Unit Test (`test_enum_021_sv_pkg_typedef`) |
+| ENUM-022 | Value Overflow Validation | `add_field()` raises `ValueError` when an enum value exceeds `2**width - 1`; numeric notation length does not affect the check. | Python Unit Test (`test_enum_022_value_overflow_validation`) |
+| ENUM-023 | One-Bit Field | 1-bit fields with `{0: 'INACTIVE', 1: 'ACTIVE'}` enum produce correct VHDL `std_logic` constants and SV `typedef enum logic`. | Python Unit Test (`test_enum_023_one_bit_field`) |
+| ENUM-024 | Rule Checker Overflow | `RuleChecker.check_enum_value_overflow()` reports an error for each enum value exceeding field width. | Python Unit Test (`test_enum_024_rule_check_reports_overflow`) |
