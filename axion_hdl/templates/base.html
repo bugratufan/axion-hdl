@@ -176,7 +176,7 @@
     <script>
         (function () {
             var STORAGE_KEY = 'axion_hdl_beta_warning_seen';
-            if (!localStorage.getItem(STORAGE_KEY)) {
+            if (!sessionStorage.getItem(STORAGE_KEY)) {
                 document.addEventListener('DOMContentLoaded', function () {
                     var modal = new bootstrap.Modal(document.getElementById('betaWarningModal'), {
                         backdrop: 'static',
@@ -184,7 +184,7 @@
                     });
                     modal.show();
                     document.getElementById('betaWarningModal').addEventListener('hidden.bs.modal', function () {
-                        localStorage.setItem(STORAGE_KEY, '1');
+                        sessionStorage.setItem(STORAGE_KEY, '1');
                     });
                 });
             }
