@@ -674,6 +674,185 @@ class TestEnumValues(unittest.TestCase):
         checker2.check_enum_value_overflow(modules_ok)
         self.assertEqual(len(checker2.errors), 0)
 
+    # -------------------------------------------------------------------------
+    # ENUM-025: Rule checker catches overflow in standalone (non-packed) register
+    # -------------------------------------------------------------------------
+    def test_enum_025_rule_check_standalone_overflow(self):
+        """ENUM-025: RuleChecker detects enum overflow in standalone (non-packed) register."""
+        from axion_hdl.rule_checker import RuleChecker
+
+        # 4-bit standalone register: max=15, value 16 must be an error
+        modules_bad = [
+            {
+                'name': 'test_mod',
+                'registers': [
+                    {
+                        'signal_name': 'status_reg',
+                        'is_packed': None,
+                        'width': 4,
+                        'enum_values': {0: 'OK', 15: 'WARN', 16: 'OVERFLOW'}
+                    }
+                ],
+                'parsing_errors': []
+            }
+        ]
+        checker = RuleChecker()
+        checker.check_enum_value_overflow(modules_bad)
+        self.assertTrue(len(checker.errors) > 0)
+        msgs = [e['msg'] for e in checker.errors]
+        self.assertTrue(any('16' in m for m in msgs))
+        self.assertTrue(any('OVERFLOW' in m for m in msgs))
+
+        # 1-bit standalone: max=1, value 2 must be an error
+        modules_1bit = [
+            {
+                'name': 'test_mod',
+                'registers': [
+                    {
+                        'signal_name': 'flag_reg',
+                        'is_packed': False,
+                        'width': 1,
+                        'enum_values': {0: 'OFF', 1: 'ON', 2: 'BAD'}
+                    }
+                ],
+                'parsing_errors': []
+            }
+        ]
+        checker2 = RuleChecker()
+        checker2.check_enum_value_overflow(modules_1bit)
+        self.assertTrue(len(checker2.errors) > 0)
+        msgs2 = [e['msg'] for e in checker2.errors]
+        self.assertTrue(any('2' in m for m in msgs2))
+
+        # Valid standalone: no error
+        modules_ok = [
+            {
+                'name': 'test_mod',
+                'registers': [
+                    {
+                        'signal_name': 'code_reg',
+                        'is_packed': None,
+                        'width': 8,
+                        'enum_values': {0: 'RESET', 127: 'HALF', 255: 'MAX'}
+                    }
+                ],
+                'parsing_errors': []
+            }
+        ]
+        checker3 = RuleChecker()
+        checker3.check_enum_value_overflow(modules_ok)
+        self.assertEqual(len(checker3.errors), 0)
+
+    # -------------------------------------------------------------------------
+    # ENUM-026: Rule checker catches overflow in VHDL standalone signal (E2E)
+    # -------------------------------------------------------------------------
+    def test_enum_026_rule_check_vhdl_standalone_e2e(self):
+        """ENUM-026: Parsing VHDL with overflow enum on standalone signal triggers rule-check error."""
+        import tempfile, textwrap
+        from axion_hdl.parser import VHDLParser
+        from axion_hdl.rule_checker import RuleChecker
+
+        vhdl_src = textwrap.dedent("""\
+            -- @axion_def BASE_ADDR=0x0000
+            library ieee;
+            use ieee.std_logic_1164.all;
+            entity overflow_standalone_e2e is
+                port (clk : in std_logic);
+            end entity;
+            architecture rtl of overflow_standalone_e2e is
+                -- 1-bit: max=1, value 2 overflows
+                signal enable_sig : std_logic;  -- @axion RW ADDR=0x00 ENUM="0:OFF,1:ON,2:OVERFLOW" DESC="1-bit"
+                -- 2-bit: max=3, value 5 overflows
+                signal state_sig : std_logic_vector(1 downto 0);  -- @axion RO ADDR=0x04 ENUM="0:IDLE,3:BUSY,5:OVERFLOW" DESC="2-bit"
+            begin
+                enable_sig <= '0';
+                state_sig <= (others => '0');
+            end architecture;
+        """)
+        with tempfile.NamedTemporaryFile(suffix='.vhd', mode='w', delete=False) as f:
+            f.write(vhdl_src)
+            fpath = f.name
+
+        parser = VHDLParser()
+        result = parser.parse_file(fpath)
+        # Normalize: VHDLParser uses 'entity_name'; rule_checker expects 'name'
+        result.setdefault('name', result.get('entity_name', 'unknown'))
+        modules = [result]
+
+        checker = RuleChecker()
+        checker.check_enum_value_overflow(modules)
+
+        error_msgs = [e['msg'] for e in checker.errors]
+        # Both overflows must be reported
+        self.assertTrue(any('2' in m for m in error_msgs),
+                        f"Expected overflow=2 error, got: {error_msgs}")
+        self.assertTrue(any('5' in m for m in error_msgs),
+                        f"Expected overflow=5 error, got: {error_msgs}")
+
+    # -------------------------------------------------------------------------
+    # ENUM-027: Rule checker catches overflow in SV standalone signal (E2E)
+    # -------------------------------------------------------------------------
+    def test_enum_027_rule_check_sv_standalone_e2e(self):
+        """ENUM-027: Parsing SV with overflow enum on standalone signal triggers rule-check error."""
+        import tempfile, textwrap
+        from axion_hdl.systemverilog_parser import SystemVerilogParser
+        from axion_hdl.rule_checker import RuleChecker
+
+        sv_src = textwrap.dedent("""\
+            // @axion_def BASE_ADDR=0x0000
+            module overflow_sv_e2e (
+                input logic clk
+            );
+            // 1-bit: max=1, value 3 overflows
+            logic enable_sig; // @axion RW ADDR=0x00 ENUM="0:OFF,1:ON,3:OVERFLOW" DESC="1-bit"
+            // 3-bit: max=7, value 8 overflows
+            logic [2:0] level_sig; // @axion RO ADDR=0x04 ENUM="0:L0,7:L7,8:OVERFLOW" DESC="3-bit"
+            assign enable_sig = 1'b0;
+            assign level_sig = 3'b000;
+            endmodule
+        """)
+        with tempfile.NamedTemporaryFile(suffix='.sv', mode='w', delete=False) as f:
+            f.write(sv_src)
+            fpath = f.name
+
+        parser = SystemVerilogParser()
+        result = parser.parse_file(fpath)
+        modules = [result]
+
+        checker = RuleChecker()
+        checker.check_enum_value_overflow(modules)
+
+        error_msgs = [e['msg'] for e in checker.errors]
+        self.assertTrue(any('3' in m for m in error_msgs),
+                        f"Expected overflow=3 error, got: {error_msgs}")
+        self.assertTrue(any('8' in m for m in error_msgs),
+                        f"Expected overflow=8 error, got: {error_msgs}")
+
+    # -------------------------------------------------------------------------
+    # ENUM-028: BitFieldManager reports ALL overflowing values, not just first
+    # -------------------------------------------------------------------------
+    def test_enum_028_bit_field_manager_all_overflows(self):
+        """ENUM-028: add_field raises ValueError naming every overflowing enum value."""
+        from axion_hdl.bit_field_manager import BitFieldManager
+
+        mgr = BitFieldManager()
+        # 3-bit field (max=7): values 8 and 255 both overflow
+        with self.assertRaises(ValueError) as ctx:
+            mgr.add_field(
+                reg_name='test_reg',
+                address=0x00,
+                field_name='level',
+                width=3,
+                access_mode='RW',
+                signal_type='[2:0]',
+                enum_values={0: 'NONE', 7: 'MAX_OK', 8: 'BAD_8', 255: 'BAD_255'}
+            )
+        err_msg = str(ctx.exception)
+        self.assertIn('8', err_msg,
+                      f"Expected '8' in error message, got: {err_msg}")
+        self.assertIn('255', err_msg,
+                      f"Expected '255' in error message, got: {err_msg}")
+
 
 if __name__ == '__main__':
     unittest.main()

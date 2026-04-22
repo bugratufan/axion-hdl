@@ -225,15 +225,16 @@ class BitFieldManager:
                 f"(bits [{bit_high}:{bit_low}])"
             )
 
-        # Validate enum_values: each value must fit in the field width
+        # Validate enum_values: every value must fit in the field width
         if enum_values:
             max_val = (2 ** width) - 1
-            for val, name in enum_values.items():
-                if int(val) > max_val:
-                    raise ValueError(
-                        f"Enum value {val} exceeds max value {max_val} "
-                        f"for {width}-bit field '{field_name}'"
-                    )
+            bad = [(val, name) for val, name in enum_values.items() if int(val) > max_val]
+            if bad:
+                details = ', '.join(f"{val} ({name})" for val, name in bad)
+                raise ValueError(
+                    f"Enum value(s) exceed max value {max_val} "
+                    f"for {width}-bit field '{field_name}': {details}"
+                )
 
         # Create field
         field = BitField(
