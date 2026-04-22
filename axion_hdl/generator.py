@@ -12,8 +12,9 @@ Features:
 """
 
 import os
+import re
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # Import from axion_hdl (unified package)
 from axion_hdl.code_formatter import CodeFormatter
@@ -170,28 +171,46 @@ class VHDLGenerator:
             return (width + 31) // 32
         return 1
         
+    @staticmethod
+    def _sanitize_vhdl_identifier(name: str) -> str:
+        """Replace non-alphanumeric chars with '_'; prepend '_' if starts with digit."""
+        sanitized = re.sub(r'[^A-Za-z0-9_]', '_', name)
+        if sanitized and sanitized[0].isdigit():
+            sanitized = '_' + sanitized
+        return sanitized
+
     def generate_module(self, module_data: Dict) -> str:
         """
         Generate VHDL register module for a parsed module.
-        
+
+        When the module has enum fields, also generates the companion
+        _regs_pkg.vhd so the `use work.<module>_regs_pkg.all;` clause
+        added to the entity header is always resolvable.
+
         Args:
             module_data: Parsed module dictionary
-            
+
         Returns:
             Path to generated file
         """
         module_name = module_data['name']
         output_filename = f"{module_name}_axion_reg.vhd"
         output_path = os.path.join(self.output_dir, output_filename)
-        
+
         vhdl_code = self._generate_vhdl_code(module_data)
-        
+
+        os.makedirs(self.output_dir, exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(vhdl_code)
-            
+
+        # Always co-generate the package when enum fields exist so the
+        # `use work.<module>_regs_pkg.all;` in the entity header is satisfied.
+        if self._has_enum_fields(module_data):
+            self.generate_vhdl_pkg(module_data)
+
         return output_path
 
-    def generate_vhdl_pkg(self, module_data: Dict) -> str:
+    def generate_vhdl_pkg(self, module_data: Dict) -> Optional[str]:
         """
         Generate a VHDL constants package for enumerated field values.
 
@@ -237,7 +256,10 @@ class VHDLGenerator:
             enum_dict = field['enum_values']
             lines.append(f"    -- {reg_name}.{field_name} enumerated values")
             for val, name in sorted(enum_dict.items()):
-                const_name = f"C_{reg_name.upper()}_{field_name.upper()}_{name.upper()}"
+                safe_reg = self._sanitize_vhdl_identifier(reg_name).upper()
+                safe_field = self._sanitize_vhdl_identifier(field_name).upper()
+                safe_name = self._sanitize_vhdl_identifier(name).upper()
+                const_name = f"C_{safe_reg}_{safe_field}_{safe_name}"
                 if width == 1:
                     bit_literal = f"'{val}'"
                     lines.append(f"    constant {const_name} : std_logic := {bit_literal};")
@@ -455,7 +477,7 @@ class VHDLGenerator:
                     enum_dict = field.get('enum_values')
                     if enum_dict:
                         enum_str = ', '.join(f"{n}={v}" for v, n in sorted(enum_dict.items()))
-                        desc = f"{desc}  -- {enum_str}" if desc else f"-- {enum_str}"
+                        desc = f"{desc} ({enum_str})" if desc else enum_str
                     desc_comment = f"  -- {desc}" if desc else ""
                     # User requested <reg_name>_<field_name> format
                     sig_name = f"{packed_reg['reg_name']}_{field['name']}"

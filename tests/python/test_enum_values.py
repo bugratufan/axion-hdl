@@ -854,5 +854,463 @@ class TestEnumValues(unittest.TestCase):
                       f"Expected '255' in error message, got: {err_msg}")
 
 
+    # -------------------------------------------------------------------------
+    # ENUM-029: Negative enum values rejected by BitFieldManager
+    # -------------------------------------------------------------------------
+    def test_enum_029_negative_enum_value_rejected_by_add_field(self):
+        """ENUM-029: add_field raises ValueError when an enum value is negative."""
+        from axion_hdl.bit_field_manager import BitFieldManager
+
+        mgr = BitFieldManager()
+        with self.assertRaises(ValueError) as ctx:
+            mgr.add_field(
+                reg_name='test_reg',
+                address=0x00,
+                field_name='state',
+                width=4,
+                access_mode='RW',
+                signal_type='[3:0]',
+                enum_values={0: 'ZERO', -1: 'NEG_ONE', 15: 'MAX'}
+            )
+        self.assertIn('-1', str(ctx.exception))
+
+    # -------------------------------------------------------------------------
+    # ENUM-030: Negative enum values rejected by rule_checker
+    # -------------------------------------------------------------------------
+    def test_enum_030_negative_enum_value_rejected_by_rule_checker(self):
+        """ENUM-030: RuleChecker.check_enum_value_overflow reports error for negative enum value."""
+        from axion_hdl.rule_checker import RuleChecker
+
+        modules = [{
+            'name': 'test_mod',
+            'registers': [
+                {
+                    'signal_name': 'ctrl_reg',
+                    'is_packed': True,
+                    'fields': [{'name': 'status', 'width': 2,
+                                'enum_values': {0: 'OK', -1: 'NEG'}}]
+                },
+                {
+                    'signal_name': 'standalone_reg',
+                    'is_packed': False,
+                    'width': 4,
+                    'enum_values': {0: 'A', -5: 'NEG_STANDALONE'}
+                }
+            ],
+            'parsing_errors': []
+        }]
+
+        checker = RuleChecker()
+        checker.check_enum_value_overflow(modules)
+        msgs = [e['msg'] for e in checker.errors]
+        self.assertTrue(any('-1' in m for m in msgs),
+                        f"Expected '-1' in errors, got: {msgs}")
+        self.assertTrue(any('-5' in m for m in msgs),
+                        f"Expected '-5' in errors, got: {msgs}")
+
+    # -------------------------------------------------------------------------
+    # ENUM-031: YAML field-level invalid enum key reported as parsing error
+    # -------------------------------------------------------------------------
+    def test_enum_031_yaml_field_invalid_enum_key_reported(self):
+        """ENUM-031: YAML parser records error when a field enum key is not a valid integer."""
+        import tempfile, textwrap
+        from axion_hdl.yaml_input_parser import YAMLInputParser
+
+        yaml_src = textwrap.dedent("""\
+            module: bad_key_mod
+            base_addr: "0x0000"
+            registers:
+              - name: ctrl_reg
+                addr: "0x00"
+                access: RW
+                fields:
+                  - name: mode
+                    bit_offset: 0
+                    width: 2
+                    access: RW
+                    enum_values:
+                      0: IDLE
+                      not_an_int: BROKEN
+                      2: ACTIVE
+        """)
+        with tempfile.NamedTemporaryFile(suffix='.yaml', mode='w', delete=False) as f:
+            f.write(yaml_src)
+            fpath = f.name
+
+        parser = YAMLInputParser()
+        parser.parse_file(fpath)
+
+        error_msgs = [e['msg'] for e in parser.errors if e.get('file') == fpath]
+        self.assertTrue(
+            any('not_an_int' in m for m in error_msgs),
+            f"Expected error for 'not_an_int' key, got: {error_msgs}"
+        )
+
+    # -------------------------------------------------------------------------
+    # ENUM-032: YAML standalone register invalid enum key reported as parsing error
+    # -------------------------------------------------------------------------
+    def test_enum_032_yaml_standalone_invalid_enum_key_reported(self):
+        """ENUM-032: YAML parser records error when a standalone register enum key is not a valid integer."""
+        import tempfile, textwrap
+        from axion_hdl.yaml_input_parser import YAMLInputParser
+
+        yaml_src = textwrap.dedent("""\
+            module: bad_standalone_mod
+            base_addr: "0x0000"
+            registers:
+              - name: status_reg
+                addr: "0x00"
+                access: RO
+                width: 4
+                enum_values:
+                  0: OK
+                  not_a_number: BAD
+                  15: MAX
+        """)
+        with tempfile.NamedTemporaryFile(suffix='.yaml', mode='w', delete=False) as f:
+            f.write(yaml_src)
+            fpath = f.name
+
+        parser = YAMLInputParser()
+        parser.parse_file(fpath)
+
+        error_msgs = [e['msg'] for e in parser.errors if e.get('file') == fpath]
+        self.assertTrue(
+            any('not_a_number' in m for m in error_msgs),
+            f"Expected error for 'not_a_number' key, got: {error_msgs}"
+        )
+
+    # -------------------------------------------------------------------------
+    # ENUM-033: VHDL pkg sanitizes invalid identifier characters
+    # -------------------------------------------------------------------------
+    def test_enum_033_vhdl_pkg_identifier_sanitization(self):
+        """ENUM-033: generate_vhdl_pkg replaces non-alphanumeric chars with '_' in constant names."""
+        from axion_hdl.generator import VHDLGenerator
+
+        module = {
+            'name': 'san_mod',
+            'file': 'test.vhd',
+            'base_address': 0,
+            'registers': [{
+                'signal_name': 'ctrl-reg',
+                'reg_name': 'ctrl-reg',
+                'is_packed': True,
+                'width': 32,
+                'fields': [{
+                    'name': 'my-field',
+                    'width': 2,
+                    'bit_low': 0,
+                    'bit_high': 1,
+                    'access_mode': 'RW',
+                    'signal_type': '[1:0]',
+                    'enum_values': {0: '1st-state', 3: 'last state'}
+                }]
+            }]
+        }
+
+        gen = VHDLGenerator(self.output_dir)
+        pkg_path = gen.generate_vhdl_pkg(module)
+        self.assertIsNotNone(pkg_path)
+
+        with open(pkg_path) as f:
+            content = f.read()
+
+        # Constant names must not contain hyphens, spaces, or start with digit
+        import re
+        for line in content.splitlines():
+            if line.strip().startswith('constant '):
+                # Extract the constant name
+                m = re.match(r'\s*constant\s+(C_\S+)\s*:', line)
+                if m:
+                    cname = m.group(1)
+                    self.assertFalse(
+                        re.search(r'[^A-Za-z0-9_]', cname),
+                        f"Constant name contains invalid chars: {cname!r}"
+                    )
+                    self.assertFalse(
+                        cname[0].isdigit(),
+                        f"Constant name starts with digit: {cname!r}"
+                    )
+        # Verify expected sanitized forms appear
+        self.assertIn('CTRL_REG', content)
+        self.assertIn('MY_FIELD', content)
+        self.assertIn('_1ST_STATE', content)   # leading digit → prepend _
+        self.assertIn('LAST_STATE', content)
+
+    # -------------------------------------------------------------------------
+    # ENUM-034: SV pkg sanitizes invalid identifier characters
+    # -------------------------------------------------------------------------
+    def test_enum_034_sv_pkg_identifier_sanitization(self):
+        """ENUM-034: generate_sv_pkg replaces non-alphanumeric chars with '_' in typedef and member names."""
+        from axion_hdl.systemverilog_generator import SystemVerilogGenerator
+
+        module = {
+            'name': 'san_sv_mod',
+            'file': 'test.sv',
+            'base_address': 0,
+            'registers': [{
+                'signal_name': 'ctrl-reg',
+                'reg_name': 'ctrl-reg',
+                'is_packed': True,
+                'width': 32,
+                'fields': [{
+                    'name': 'my-field',
+                    'width': 2,
+                    'bit_low': 0,
+                    'bit_high': 1,
+                    'access_mode': 'RW',
+                    'signal_type': '[1:0]',
+                    'enum_values': {0: '2fast', 3: 'slow state'}
+                }]
+            }]
+        }
+
+        gen = SystemVerilogGenerator(self.output_dir)
+        pkg_path = gen.generate_sv_pkg(module)
+        self.assertIsNotNone(pkg_path)
+
+        with open(pkg_path) as f:
+            content = f.read()
+
+        # typedef name must not contain hyphens
+        self.assertIn('t_ctrl_reg_my_field_e', content)
+        # Member names must be valid SV identifiers
+        import re as _re
+        for line in content.splitlines():
+            m = _re.match(r'\s+(\w+)\s*=\s*\d', line)
+            if m:
+                ident = m.group(1)
+                self.assertFalse(
+                    _re.search(r'[^A-Za-z0-9_]', ident),
+                    f"SV enum member contains invalid chars: {ident!r}"
+                )
+        self.assertIn('_2fast', content)    # leading digit → prepend _
+        self.assertIn('slow_state', content)
+
+    # -------------------------------------------------------------------------
+    # ENUM-035: C header sanitizes invalid identifier characters
+    # -------------------------------------------------------------------------
+    def test_enum_035_c_header_identifier_sanitization(self):
+        """ENUM-035: C header generator sanitizes enum names to valid C identifiers."""
+        from axion_hdl.yaml_input_parser import YAMLInputParser
+        from axion_hdl.doc_generators import CHeaderGenerator
+
+        module = {
+            'name': 'san_c_mod',
+            'file': 'test.yaml',
+            'base_address': 0,
+            'base_addr': '0x0000',
+            'registers': [{
+                'signal_name': 'ctrl-reg',
+                'reg_name': 'ctrl-reg',
+                'is_packed': True,
+                'width': 32,
+                'signal_type': '[31:0]',
+                'address': '0x00000000',
+                'address_int': 0,
+                'relative_address': '0x00',
+                'relative_address_int': 0,
+                'access_mode': 'RW',
+                'read_strobe': False,
+                'write_strobe': False,
+                'r_strobe': False,
+                'w_strobe': False,
+                'default_value': 0,
+                'description': '',
+                'fields': [{
+                    'name': 'my field',
+                    'width': 2,
+                    'bit_low': 0,
+                    'bit_high': 1,
+                    'access_mode': 'RW',
+                    'signal_type': '[1:0]',
+                    'description': '',
+                    'read_strobe': False,
+                    'write_strobe': False,
+                    'default_value': 0,
+                    'enum_values': {0: '3bad-name', 3: 'good name'}
+                }]
+            }]
+        }
+
+        gen = CHeaderGenerator(self.output_dir)
+        header_path = gen.generate_header(module)
+        self.assertIsNotNone(header_path)
+
+        with open(header_path) as f:
+            content = f.read()
+
+        self.assertNotIn('3bad-name', content)
+        self.assertNotIn('good name', content)
+        self.assertIn('_3BAD_NAME', content)   # leading digit → prepend _
+        self.assertIn('GOOD_NAME', content)
+
+    # -------------------------------------------------------------------------
+    # ENUM-036: generate_vhdl_pkg returns None when no enum fields
+    # -------------------------------------------------------------------------
+    def test_enum_036_vhdl_pkg_returns_none_when_no_enums(self):
+        """ENUM-036: generate_vhdl_pkg returns None (Optional[str]) when module has no enum fields."""
+        from axion_hdl.generator import VHDLGenerator
+
+        module = {
+            'name': 'no_enum_mod',
+            'file': 'test.vhd',
+            'base_address': 0,
+            'registers': [{
+                'signal_name': 'data_reg',
+                'is_packed': False,
+                'width': 32,
+                'signal_type': '[31:0]',
+                'enum_values': None
+            }]
+        }
+
+        gen = VHDLGenerator(self.output_dir)
+        result = gen.generate_vhdl_pkg(module)
+        self.assertIsNone(result)
+
+    # -------------------------------------------------------------------------
+    # ENUM-037: generate_sv_pkg returns None when no enum fields
+    # -------------------------------------------------------------------------
+    def test_enum_037_sv_pkg_returns_none_when_no_enums(self):
+        """ENUM-037: generate_sv_pkg returns None (Optional[str]) when module has no enum fields."""
+        from axion_hdl.systemverilog_generator import SystemVerilogGenerator
+
+        module = {
+            'name': 'no_enum_sv_mod',
+            'file': 'test.sv',
+            'base_address': 0,
+            'registers': [{
+                'signal_name': 'data_reg',
+                'is_packed': False,
+                'width': 32,
+                'signal_type': '[31:0]',
+                'enum_values': None
+            }]
+        }
+
+        gen = SystemVerilogGenerator(self.output_dir)
+        result = gen.generate_sv_pkg(module)
+        self.assertIsNone(result)
+
+    # -------------------------------------------------------------------------
+    # ENUM-038: VHDL port comment does not contain double '--'
+    # -------------------------------------------------------------------------
+    def test_enum_038_vhdl_port_comment_no_double_dash(self):
+        """ENUM-038: VHDL port comment for enum field uses parentheses, not embedded '--'."""
+        from axion_hdl.yaml_input_parser import YAMLInputParser
+        from axion_hdl.generator import VHDLGenerator
+
+        module = {
+            'name': 'dash_test_mod',
+            'file': 'test.yaml',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': [{
+                'signal_name': 'ctrl_reg',
+                'reg_name': 'ctrl_reg',
+                'is_packed': True,
+                'width': 32,
+                'address': '0x00000000',
+                'address_int': 0,
+                'relative_address': '0x00',
+                'relative_address_int': 0,
+                'access_mode': 'RW',
+                'read_strobe': False,
+                'write_strobe': False,
+                'r_strobe': False,
+                'w_strobe': False,
+                'default_value': 0,
+                'description': 'Control register',
+                'fields': [{
+                    'name': 'enable',
+                    'width': 1,
+                    'bit_low': 0,
+                    'bit_high': 0,
+                    'access_mode': 'RW',
+                    'signal_type': 'std_logic',
+                    'description': 'Enable signal',
+                    'read_strobe': False,
+                    'write_strobe': False,
+                    'default_value': 0,
+                    'enum_values': {0: 'OFF', 1: 'ON'}
+                }]
+            }]
+        }
+
+        gen = VHDLGenerator(self.output_dir)
+        out_path = gen.generate_module(module)
+
+        with open(out_path) as f:
+            content = f.read()
+
+        # Must not have any line with two separate '--' occurrences
+        for line in content.splitlines():
+            stripped = line.lstrip()
+            if stripped.startswith('--'):
+                continue  # pure comment lines are fine
+            occurrences = line.count('--')
+            self.assertLessEqual(
+                occurrences, 1,
+                f"Double '--' in port line: {line!r}"
+            )
+
+    # -------------------------------------------------------------------------
+    # ENUM-039: generate_module co-generates _regs_pkg when enum fields exist
+    # -------------------------------------------------------------------------
+    def test_enum_039_generate_module_coproduces_pkg(self):
+        """ENUM-039: generate_module() produces _regs_pkg.vhd alongside the register module."""
+        import os
+        from axion_hdl.generator import VHDLGenerator
+
+        module = {
+            'name': 'copkg_mod',
+            'file': 'test.yaml',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': [{
+                'signal_name': 'ctrl_reg',
+                'reg_name': 'ctrl_reg',
+                'is_packed': True,
+                'width': 32,
+                'address': '0x00000000',
+                'address_int': 0,
+                'relative_address': '0x00',
+                'relative_address_int': 0,
+                'access_mode': 'RW',
+                'read_strobe': False,
+                'write_strobe': False,
+                'r_strobe': False,
+                'w_strobe': False,
+                'default_value': 0,
+                'description': '',
+                'fields': [{
+                    'name': 'status',
+                    'width': 2,
+                    'bit_low': 0,
+                    'bit_high': 1,
+                    'access_mode': 'RO',
+                    'signal_type': '[1:0]',
+                    'description': '',
+                    'read_strobe': False,
+                    'write_strobe': False,
+                    'default_value': 0,
+                    'enum_values': {0: 'IDLE', 3: 'BUSY'}
+                }]
+            }]
+        }
+
+        gen = VHDLGenerator(self.output_dir)
+        gen.generate_module(module)
+
+        pkg_path = os.path.join(self.output_dir, 'copkg_mod_regs_pkg.vhd')
+        self.assertTrue(
+            os.path.exists(pkg_path),
+            "generate_module() must co-produce _regs_pkg.vhd when enum fields exist"
+        )
+
+
 if __name__ == '__main__':
     unittest.main()

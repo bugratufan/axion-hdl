@@ -557,8 +557,26 @@ class RuleChecker:
 
         For packed registers: checks each field's enum_values against field width.
         For standalone registers: checks the register's own enum_values against register width.
-        For a width W, each enum value must satisfy: value <= 2**W - 1.
+        Each enum value must satisfy: 0 <= value <= 2**W - 1.
         """
+        def _check_enum_dict(enum_dict, width, module_name, location_msg):
+            max_val = (2 ** width) - 1
+            for val, name in enum_dict.items():
+                int_val = int(val)
+                if int_val < 0:
+                    self._add_error(
+                        "Enum Value Overflow",
+                        module_name,
+                        f"{location_msg}: enum value {val} ({name}) is negative"
+                    )
+                elif int_val > max_val:
+                    self._add_error(
+                        "Enum Value Overflow",
+                        module_name,
+                        f"{location_msg}: enum value {val} ({name}) exceeds max value "
+                        f"{max_val} for {width}-bit width"
+                    )
+
         for module in modules:
             for reg in module.get('registers', []):
                 if reg.get('is_packed'):
@@ -569,16 +587,10 @@ class RuleChecker:
                         if not enum_dict:
                             continue
                         width = int(field.get('width', 1))
-                        max_val = (2 ** width) - 1
-                        for val, name in enum_dict.items():
-                            if int(val) > max_val:
-                                self._add_error(
-                                    "Enum Value Overflow",
-                                    module['name'],
-                                    f"In register '{reg_name}', field '{field['name']}': "
-                                    f"enum value {val} ({name}) exceeds max value {max_val} "
-                                    f"for {width}-bit field"
-                                )
+                        _check_enum_dict(
+                            enum_dict, width, module['name'],
+                            f"Register '{reg_name}', field '{field['name']}'"
+                        )
                 else:
                     # Standalone register: validate the register's own enum_values
                     enum_dict = reg.get('enum_values')
@@ -586,16 +598,10 @@ class RuleChecker:
                         continue
                     reg_name = reg.get('signal_name', reg.get('name', 'unknown'))
                     width = int(reg.get('width', 32))
-                    max_val = (2 ** width) - 1
-                    for val, name in enum_dict.items():
-                        if int(val) > max_val:
-                            self._add_error(
-                                "Enum Value Overflow",
-                                module['name'],
-                                f"Standalone register '{reg_name}': "
-                                f"enum value {val} ({name}) exceeds max value {max_val} "
-                                f"for {width}-bit register"
-                            )
+                    _check_enum_dict(
+                        enum_dict, width, module['name'],
+                        f"Standalone register '{reg_name}'"
+                    )
 
     def run_all_checks(self, modules: List[Dict]) -> Dict[str, List]:
         self.errors = []

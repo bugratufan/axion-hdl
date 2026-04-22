@@ -13,9 +13,10 @@ Features:
 """
 
 import os
+import re
 import sys
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # Import from axion_hdl (unified package)
 from axion_hdl.code_formatter import CodeFormatter
@@ -97,7 +98,15 @@ class SystemVerilogGenerator:
 
         return '\n\n'.join(sections)
 
-    def generate_sv_pkg(self, module_data: Dict) -> str:
+    @staticmethod
+    def _sanitize_sv_identifier(name: str) -> str:
+        """Replace non-alphanumeric chars with '_'; prepend '_' if starts with digit."""
+        sanitized = re.sub(r'[^A-Za-z0-9_]', '_', name)
+        if sanitized and sanitized[0].isdigit():
+            sanitized = '_' + sanitized
+        return sanitized
+
+    def generate_sv_pkg(self, module_data: Dict) -> Optional[str]:
         """
         Generate a SystemVerilog typedef enum package for enumerated field values.
 
@@ -138,15 +147,18 @@ class SystemVerilogGenerator:
             width = int(field.get('width', 1))
             field_name = field['name']
             enum_dict = field.get('enum_values', {})
-            typedef_name = f"t_{reg_name}_{field_name}_e"
+            safe_reg = self._sanitize_sv_identifier(reg_name)
+            safe_field = self._sanitize_sv_identifier(field_name)
+            typedef_name = f"t_{safe_reg}_{safe_field}_e"
 
             enum_entries = []
             for val, name in sorted(enum_dict.items()):
+                safe_name = self._sanitize_sv_identifier(name)
                 bin_literal = format(int(val), f'0{width}b')
                 if width == 1:
-                    entry = f"    {name} = 1'b{bin_literal}"
+                    entry = f"    {safe_name} = 1'b{bin_literal}"
                 else:
-                    entry = f"    {name} = {width}'b{bin_literal}"
+                    entry = f"    {safe_name} = {width}'b{bin_literal}"
                 enum_entries.append(entry)
 
             if width == 1:

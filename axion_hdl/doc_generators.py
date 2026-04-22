@@ -6,6 +6,7 @@ Uses axion_hdl for code formatting utilities.
 """
 
 import os
+import re
 import sys
 from typing import Dict, List
 
@@ -1890,18 +1891,24 @@ class CHeaderGenerator:
                      lines.append(f"#define {module_prefix}{reg_name_upper}_DEFAULT    0x{val:08X}")
         
         # Enumerated values macros for packed register fields
+        def _sanitize_c_id(s: str) -> str:
+            sanitized = re.sub(r'[^A-Za-z0-9_]', '_', s).upper()
+            if sanitized and sanitized[0].isdigit():
+                sanitized = '_' + sanitized
+            return sanitized
+
         enum_macros_lines = []
         for reg in module['registers']:
             if reg.get('is_packed'):
-                reg_name_upper = reg.get('reg_name', reg.get('signal_name', '')).upper()
+                reg_name_upper = _sanitize_c_id(reg.get('reg_name', reg.get('signal_name', '')))
                 for field in reg.get('fields', []):
                     enum_dict = field.get('enum_values')
                     if enum_dict:
-                        field_name_upper = field['name'].upper()
+                        field_name_upper = _sanitize_c_id(field['name'])
                         enum_macros_lines.append(f"/* {field['name']} enumerated values */")
                         for val, name in sorted(enum_dict.items()):
                             enum_macros_lines.append(
-                                f"#define {module_prefix}{reg_name_upper}_{field_name_upper}_{name.upper()}    0x{val:X}"
+                                f"#define {module_prefix}{reg_name_upper}_{field_name_upper}_{_sanitize_c_id(name)}    0x{val:X}"
                             )
         if enum_macros_lines:
             lines.extend(["", "/* Enumerated Field Values */"] + enum_macros_lines)

@@ -264,7 +264,14 @@ class YAMLInputParser:
                                 else:
                                     parsed_enum[int(str(k), 0)] = str(v)
                             except (ValueError, TypeError):
-                                pass
+                                self.errors.append({
+                                    'file': filepath,
+                                    'msg': (
+                                        f"Invalid enum_values key '{k}' for field "
+                                        f"'{field_name}' in register '{reg_name}'; "
+                                        f"expected an integer value"
+                                    )
+                                })
                         if not parsed_enum:
                             parsed_enum = None
 
@@ -387,7 +394,13 @@ class YAMLInputParser:
                         else:
                             parsed_enum[int(str(k), 0)] = str(v)
                     except (ValueError, TypeError):
-                        pass
+                        self.errors.append({
+                            'file': filepath,
+                            'msg': (
+                                f"Invalid enum_values key '{k}' for register '{reg_name}'; "
+                                f"expected an integer value"
+                            )
+                        })
                 if not parsed_enum:
                     parsed_enum = None
 
