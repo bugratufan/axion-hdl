@@ -2850,7 +2850,7 @@ def run_enum_tests() -> List[TestResult]:
 
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..026, ENUM-001..028, SV-PARSER, SV-GEN, SV-ADV + Cocotb\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..026, ENUM-001..042, SV-PARSER, SV-GEN, SV-ADV + Cocotb\n")
 
     all_results = []
     total_steps = 25

@@ -98,14 +98,6 @@ class SystemVerilogGenerator:
 
         return '\n\n'.join(sections)
 
-    @staticmethod
-    def _sanitize_sv_identifier(name: str) -> str:
-        """Replace non-alphanumeric chars with '_'; prepend '_' if starts with digit."""
-        sanitized = re.sub(r'[^A-Za-z0-9_]', '_', name)
-        if sanitized and sanitized[0].isdigit():
-            sanitized = '_' + sanitized
-        return sanitized
-
     def generate_sv_pkg(self, module_data: Dict) -> Optional[str]:
         """
         Generate a SystemVerilog typedef enum package for enumerated field values.
@@ -120,14 +112,21 @@ class SystemVerilogGenerator:
         """
         module_name = module_data.get('name', 'unnamed_module')
 
-        # Collect all fields with enum_values
+        # Collect all registers/fields with enum_values
         enum_fields = []
         for reg in module_data.get('registers', []):
+            reg_name = reg.get('reg_name', reg.get('signal_name', ''))
             if reg.get('is_packed'):
-                reg_name = reg.get('reg_name', reg.get('signal_name', ''))
                 for field in reg.get('fields', []):
                     if field.get('enum_values'):
                         enum_fields.append((reg_name, field))
+            elif reg.get('enum_values'):
+                synthetic = {
+                    'name': reg_name,
+                    'width': reg.get('signal_width', reg.get('width', 32)),
+                    'enum_values': reg['enum_values'],
+                }
+                enum_fields.append((reg_name, synthetic))
 
         if not enum_fields:
             return None
@@ -147,13 +146,13 @@ class SystemVerilogGenerator:
             width = int(field.get('width', 1))
             field_name = field['name']
             enum_dict = field.get('enum_values', {})
-            safe_reg = self._sanitize_sv_identifier(reg_name)
-            safe_field = self._sanitize_sv_identifier(field_name)
+            safe_reg = SystemVerilogUtils.sanitize_identifier(reg_name)
+            safe_field = SystemVerilogUtils.sanitize_identifier(field_name)
             typedef_name = f"t_{safe_reg}_{safe_field}_e"
 
             enum_entries = []
             for val, name in sorted(enum_dict.items()):
-                safe_name = self._sanitize_sv_identifier(name)
+                safe_name = SystemVerilogUtils.sanitize_identifier(name)
                 bin_literal = format(int(val), f'0{width}b')
                 if width == 1:
                     entry = f"    {safe_name} = 1'b{bin_literal}"

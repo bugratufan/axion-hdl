@@ -217,7 +217,11 @@ class XMLInputParser:
                         try:
                             enum_vals[int(ev_val_str, 0)] = ev_name
                         except (ValueError, TypeError):
-                            pass
+                            self.errors.append({
+                                'file': filepath,
+                                'msg': (f"Invalid enum_value '{ev_val_str}' for name '{ev_name}' "
+                                        f"in field of register; expected an integer value")
+                            })
                 if enum_vals:
                     f_dict['enum_values'] = enum_vals
 
@@ -404,7 +408,11 @@ class XMLInputParser:
                                 try:
                                     enum_vals[int(ev_val_text, 0)] = ev_name_text
                                 except (ValueError, TypeError):
-                                    pass
+                                    self.errors.append({
+                                        'file': filepath,
+                                        'msg': (f"Invalid SPIRIT enum value '{ev_val_text}' "
+                                                f"for name '{ev_name_text}'; expected an integer value")
+                                    })
                 if enum_vals:
                     f_dict['enum_values'] = enum_vals
 

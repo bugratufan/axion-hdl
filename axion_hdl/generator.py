@@ -173,10 +173,14 @@ class VHDLGenerator:
         
     @staticmethod
     def _sanitize_vhdl_identifier(name: str) -> str:
-        """Replace non-alphanumeric chars with '_'; prepend '_' if starts with digit."""
+        """Return a valid VHDL basic identifier: letters/digits/single underscores, starts with letter."""
         sanitized = re.sub(r'[^A-Za-z0-9_]', '_', name)
-        if sanitized and sanitized[0].isdigit():
-            sanitized = '_' + sanitized
+        sanitized = re.sub(r'_+', '_', sanitized)
+        sanitized = sanitized.strip('_')
+        if not sanitized:
+            sanitized = 'v'
+        if sanitized[0].isdigit():
+            sanitized = 'v_' + sanitized
         return sanitized
 
     def generate_module(self, module_data: Dict) -> str:
@@ -224,14 +228,21 @@ class VHDLGenerator:
         """
         module_name = module_data['name']
 
-        # Collect all fields with enum_values
+        # Collect all registers/fields with enum_values
         enum_fields = []
         for reg in module_data.get('registers', []):
+            reg_name = reg.get('reg_name', reg.get('signal_name', ''))
             if reg.get('is_packed'):
-                reg_name = reg.get('reg_name', reg.get('signal_name', ''))
                 for field in reg.get('fields', []):
                     if field.get('enum_values'):
                         enum_fields.append((reg_name, field))
+            elif reg.get('enum_values'):
+                synthetic = {
+                    'name': reg_name,
+                    'width': reg.get('signal_width', reg.get('width', 32)),
+                    'enum_values': reg['enum_values'],
+                }
+                enum_fields.append((reg_name, synthetic))
 
         if not enum_fields:
             return None
@@ -298,8 +309,10 @@ class VHDLGenerator:
         return '\n'.join(lines)
     
     def _has_enum_fields(self, module_data: Dict) -> bool:
-        """Return True if any packed register field has enum_values defined."""
+        """Return True if any register or packed field has enum_values defined."""
         for reg in module_data.get('registers', []):
+            if reg.get('enum_values'):
+                return True
             if reg.get('is_packed'):
                 for field in reg.get('fields', []):
                     if field.get('enum_values'):

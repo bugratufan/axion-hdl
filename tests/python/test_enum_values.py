@@ -1034,7 +1034,7 @@ class TestEnumValues(unittest.TestCase):
         # Verify expected sanitized forms appear
         self.assertIn('CTRL_REG', content)
         self.assertIn('MY_FIELD', content)
-        self.assertIn('_1ST_STATE', content)   # leading digit → prepend _
+        self.assertIn('V_1ST_STATE', content)   # leading digit → prepend v_
         self.assertIn('LAST_STATE', content)
 
     # -------------------------------------------------------------------------
@@ -1310,6 +1310,122 @@ class TestEnumValues(unittest.TestCase):
             os.path.exists(pkg_path),
             "generate_module() must co-produce _regs_pkg.vhd when enum fields exist"
         )
+
+
+    # -------------------------------------------------------------------------
+    # ENUM-040: XML simple format records error for invalid enum_value
+    # -------------------------------------------------------------------------
+    def test_enum_040_xml_simple_invalid_enum_value_recorded(self):
+        """ENUM-040: XML parser records an error when a simple-format <enum_value> has a non-integer value."""
+        import tempfile
+        import os
+        from axion_hdl.xml_input_parser import XMLInputParser
+
+        xml_content = """\
+<register_map module="err_mod" base_addr="0x0000">
+  <register name="ctrl" addr="0x00" access="RW" width="2">
+    <field name="mode" bits="1:0">
+      <enum_value value="notanint" name="INVALID"/>
+      <enum_value value="1" name="RUN"/>
+    </field>
+  </register>
+</register_map>
+"""
+        with tempfile.NamedTemporaryFile(suffix='.xml', mode='w', delete=False) as f:
+            f.write(xml_content)
+            tmp_path = f.name
+
+        try:
+            parser = XMLInputParser()
+            parser.parse_file(tmp_path)
+            error_msgs = [e.get('msg', '') for e in parser.errors]
+            self.assertTrue(
+                any('notanint' in m or 'Invalid enum_value' in m or 'Invalid' in m
+                    for m in error_msgs),
+                f"Expected error for non-integer enum_value; got: {error_msgs}"
+            )
+        finally:
+            os.unlink(tmp_path)
+
+    # -------------------------------------------------------------------------
+    # ENUM-041: XML SPIRIT format records error for invalid spirit:value
+    # -------------------------------------------------------------------------
+    def test_enum_041_xml_spirit_invalid_enum_value_recorded(self):
+        """ENUM-041: XML parser records an error when a SPIRIT <spirit:value> has a non-integer value."""
+        import tempfile
+        import os
+        from axion_hdl.xml_input_parser import XMLInputParser
+
+        xml_content = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<spirit:component xmlns:spirit="http://www.spiritconsortium.org/XMLSchema/SPIRIT/1.5">
+  <spirit:name>spirit_err_mod</spirit:name>
+  <spirit:memoryMaps>
+    <spirit:memoryMap>
+      <spirit:addressBlock>
+        <spirit:baseAddress>0</spirit:baseAddress>
+        <spirit:register>
+          <spirit:name>ctrl</spirit:name>
+          <spirit:addressOffset>0</spirit:addressOffset>
+          <spirit:size>32</spirit:size>
+          <spirit:access>read-write</spirit:access>
+          <spirit:field>
+            <spirit:name>mode</spirit:name>
+            <spirit:bitOffset>0</spirit:bitOffset>
+            <spirit:bitWidth>2</spirit:bitWidth>
+            <spirit:enumeratedValues>
+              <spirit:enumeratedValue>
+                <spirit:name>BADVAL</spirit:name>
+                <spirit:value>notanint</spirit:value>
+              </spirit:enumeratedValue>
+            </spirit:enumeratedValues>
+          </spirit:field>
+        </spirit:register>
+      </spirit:addressBlock>
+    </spirit:memoryMap>
+  </spirit:memoryMaps>
+</spirit:component>
+"""
+        with tempfile.NamedTemporaryFile(suffix='.xml', mode='w', delete=False) as f:
+            f.write(xml_content)
+            tmp_path = f.name
+
+        try:
+            parser = XMLInputParser()
+            parser.parse_file(tmp_path)
+            error_msgs = [e.get('msg', '') for e in parser.errors]
+            self.assertTrue(
+                any('notanint' in m or 'SPIRIT' in m or 'Invalid' in m
+                    for m in error_msgs),
+                f"Expected error for non-integer spirit:value; got: {error_msgs}"
+            )
+        finally:
+            os.unlink(tmp_path)
+
+    # -------------------------------------------------------------------------
+    # ENUM-042: VHDL identifier sanitizer produces no adjacent underscores
+    # -------------------------------------------------------------------------
+    def test_enum_042_vhdl_identifier_no_adjacent_underscores(self):
+        """ENUM-042: _sanitize_vhdl_identifier collapses adjacent underscores and strips leading/trailing ones."""
+        from axion_hdl.generator import VHDLGenerator
+
+        cases = [
+            ('ctrl--reg', 'CTRL_REG'),      # adjacent underscores collapsed
+            ('-leading', 'LEADING'),          # leading underscore stripped
+            ('trailing-', 'TRAILING'),        # trailing underscore stripped
+            ('1st-thing', 'V_1ST_THING'),    # digit prefix → v_ prepended
+            ('--bad--name--', 'BAD_NAME'),   # multiple separators collapsed and stripped
+        ]
+
+        gen = VHDLGenerator.__new__(VHDLGenerator)
+        for raw, expected in cases:
+            result = gen._sanitize_vhdl_identifier(raw).upper()
+            self.assertEqual(result, expected, f"Input {raw!r}: expected {expected!r}, got {result!r}")
+            # Must not have adjacent underscores
+            self.assertNotIn('__', result, f"Adjacent underscores in result for {raw!r}: {result!r}")
+            # Must not start or end with underscore
+            self.assertFalse(result.startswith('_'), f"Starts with _ for {raw!r}: {result!r}")
+            self.assertFalse(result.endswith('_'), f"Ends with _ for {raw!r}: {result!r}")
 
 
 if __name__ == '__main__':
