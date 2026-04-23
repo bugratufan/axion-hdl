@@ -147,8 +147,34 @@ class AnnotationParser:
                 else:
                     attrs[self._normalize_key(token)] = True
         
+        # Post-process: convert raw enum_values string to Dict[int, str]
+        if 'enum_values' in attrs and isinstance(attrs['enum_values'], str):
+            attrs['enum_values'] = self.parse_enum_values(attrs['enum_values'])
+
         return attrs
-    
+
+    def parse_enum_values(self, raw: str) -> Optional[Dict[int, str]]:
+        """
+        Parse a comma-separated enum value string into a Dict[int, str].
+
+        Args:
+            raw: String like "0:IDLE, 1:WAITING, 3:READY"
+
+        Returns:
+            Dictionary mapping int values to names, or None if empty/invalid
+        """
+        result = {}
+        for item in raw.split(','):
+            item = item.strip()
+            if ':' not in item:
+                continue
+            val_str, name = item.split(':', 1)
+            try:
+                result[int(val_str.strip(), 0)] = name.strip()
+            except ValueError:
+                pass
+        return result if result else None
+
     def _normalize_key(self, key: str) -> str:
         """
         Normalize attribute key to Python naming convention.
@@ -172,7 +198,8 @@ class AnnotationParser:
             'reg_name': 'reg_name',
             'bit_offset': 'bit_offset',
             'default': 'default_value',
-            'cdc_en': 'cdc_enabled'
+            'cdc_en': 'cdc_enabled',
+            'enum': 'enum_values'
         }
         
         return replacements.get(key, key)

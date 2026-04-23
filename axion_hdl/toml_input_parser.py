@@ -209,6 +209,8 @@ class TOMLInputParser:
                     # Fix for Issue #88: Nested fields support
                     if 'fields' in reg:
                         reg_dict['fields'] = reg['fields']
+                    if 'enum_values' in reg:
+                        reg_dict['enum_values'] = reg['enum_values']
 
                     registers.append(reg_dict)
 

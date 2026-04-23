@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<register_map module="enum_test_mod" base_addr="0x0000">
+  <config cdc_en="false" cdc_stage="2"/>
+
+  <!-- Nested field format with enum_value children -->
+  <register name="control_reg" addr="0x00" access="RW">
+    <field name="enable" bit_offset="0" width="1" access="RW" description="Enable bit">
+      <enum_value value="0" name="INACTIVE"/>
+      <enum_value value="1" name="ACTIVE"/>
+    </field>
+    <field name="status" bit_offset="1" width="2" access="RO" description="Status field">
+      <enum_value value="0" name="IDLE"/>
+      <enum_value value="1" name="WAITING"/>
+      <enum_value value="3" name="READY"/>
+    </field>
+    <field name="reserved" bit_offset="3" width="1" access="RO" description="Reserved"/>
+  </register>
+
+  <!-- Flat format with enum attribute -->
+  <register name="flat_status" addr="0x04" access="RO" enum="0:STOPPED,1:RUNNING,2:ERROR" description="Flat status register"/>
+</register_map>

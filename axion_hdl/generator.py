@@ -12,8 +12,9 @@ Features:
 """
 
 import os
+import re
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # Import from axion_hdl (unified package)
 from axion_hdl.code_formatter import CodeFormatter
@@ -170,27 +171,128 @@ class VHDLGenerator:
             return (width + 31) // 32
         return 1
         
+    @staticmethod
+    def _sanitize_vhdl_identifier(name: str) -> str:
+        """Return a valid VHDL basic identifier: letters/digits/single underscores, starts with letter."""
+        sanitized = re.sub(r'[^A-Za-z0-9_]', '_', name)
+        sanitized = re.sub(r'_+', '_', sanitized)
+        sanitized = sanitized.strip('_')
+        if not sanitized:
+            sanitized = 'v'
+        if sanitized[0].isdigit():
+            sanitized = 'v_' + sanitized
+        return sanitized
+
     def generate_module(self, module_data: Dict) -> str:
         """
         Generate VHDL register module for a parsed module.
-        
+
+        When the module has enum fields, also generates the companion
+        _regs_pkg.vhd so the `use work.<module>_regs_pkg.all;` clause
+        added to the entity header is always resolvable.
+
         Args:
             module_data: Parsed module dictionary
-            
+
         Returns:
             Path to generated file
         """
         module_name = module_data['name']
         output_filename = f"{module_name}_axion_reg.vhd"
         output_path = os.path.join(self.output_dir, output_filename)
-        
+
         vhdl_code = self._generate_vhdl_code(module_data)
-        
+
+        os.makedirs(self.output_dir, exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(vhdl_code)
-            
+
+        # Always co-generate the package when enum fields exist so the
+        # `use work.<module>_regs_pkg.all;` in the entity header is satisfied.
+        if self._has_enum_fields(module_data):
+            self.generate_vhdl_pkg(module_data)
+
         return output_path
-    
+
+    def generate_vhdl_pkg(self, module_data: Dict) -> Optional[str]:
+        """
+        Generate a VHDL constants package for enumerated field values.
+
+        Generates <module>_regs_pkg.vhd if any packed register field has enum_values.
+
+        Args:
+            module_data: Parsed module dictionary
+
+        Returns:
+            Path to generated package file, or None if no enum_values present
+        """
+        module_name = module_data['name']
+
+        # Collect all registers/fields with enum_values
+        enum_fields = []
+        for reg in module_data.get('registers', []):
+            reg_name = reg.get('reg_name', reg.get('signal_name', ''))
+            if reg.get('is_packed'):
+                for field in reg.get('fields', []):
+                    if field.get('enum_values'):
+                        enum_fields.append((reg_name, field))
+            elif reg.get('enum_values'):
+                synthetic = {
+                    'name': reg_name,
+                    'width': reg.get('signal_width', reg.get('width', 32)),
+                    'enum_values': reg['enum_values'],
+                }
+                enum_fields.append((reg_name, synthetic))
+
+        if not enum_fields:
+            return None
+
+        output_filename = f"{module_name}_regs_pkg.vhd"
+        output_path = os.path.join(self.output_dir, output_filename)
+
+        lines = [
+            f"-- Package: {module_name}_regs_pkg",
+            f"-- Enumerated constants for {module_name} register fields",
+            "",
+            "library ieee;",
+            "use ieee.std_logic_1164.all;",
+            "",
+            f"package {module_name}_regs_pkg is",
+            "",
+        ]
+
+        for reg_name, field in enum_fields:
+            width = int(field.get('width', 1))
+            field_name = field['name']
+            enum_dict = field['enum_values']
+            lines.append(f"    -- {reg_name}.{field_name} enumerated values")
+            for val, name in sorted(enum_dict.items()):
+                safe_reg = self._sanitize_vhdl_identifier(reg_name).upper()
+                safe_field = self._sanitize_vhdl_identifier(field_name).upper()
+                safe_name = self._sanitize_vhdl_identifier(name).upper()
+                const_name = f"C_{safe_reg}_{safe_field}_{safe_name}"
+                if width == 1:
+                    bit_literal = f"'{val}'"
+                    lines.append(f"    constant {const_name} : std_logic := {bit_literal};")
+                else:
+                    bin_literal = format(int(val), f'0{width}b')
+                    lines.append(
+                        f"    constant {const_name} : std_logic_vector({width - 1} downto 0) "
+                        f":= \"{bin_literal}\";"
+                    )
+            lines.append("")
+
+        lines.extend([
+            f"end package {module_name}_regs_pkg;",
+            "",
+        ])
+
+        os.makedirs(self.output_dir, exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines))
+
+        return output_path
+
     def _generate_vhdl_code(self, module_data: Dict) -> str:
         """Generate complete VHDL code for register module."""
         lines = []
@@ -206,9 +308,20 @@ class VHDLGenerator:
         
         return '\n'.join(lines)
     
+    def _has_enum_fields(self, module_data: Dict) -> bool:
+        """Return True if any register or packed field has enum_values defined."""
+        for reg in module_data.get('registers', []):
+            if reg.get('enum_values'):
+                return True
+            if reg.get('is_packed'):
+                for field in reg.get('fields', []):
+                    if field.get('enum_values'):
+                        return True
+        return False
+
     def _generate_header(self, module_data: Dict) -> List[str]:
         """Generate file header using common formatter."""
-        return self.formatter.format_vhdl_header(
+        header = self.formatter.format_vhdl_header(
             filename=f"{module_data['name']}_axion_reg.vhd",
             description="AXI Register Interface Module",
             additional_info=[
@@ -221,8 +334,13 @@ class VHDLGenerator:
             "library ieee;",
             "use ieee.std_logic_1164.all;",
             "use ieee.numeric_std.all;",
-            ""
         ]
+
+        if self._has_enum_fields(module_data):
+            header.append(f"use work.{module_data['name']}_regs_pkg.all;")
+
+        header.append("")
+        return header
     
     def _generate_entity(self, module_data: Dict) -> List[str]:
         """Generate entity declaration."""
@@ -361,14 +479,18 @@ class VHDLGenerator:
                 for field in packed_reg.get('fields', []):
                     # Convert field signal type to VHDL
                     signal_type = self._signal_type_to_vhdl(field['signal_type'])
-                    
+
                     # Port direction based on access mode
                     if field['access_mode'] == 'RO':
                         port_dir = "in "
                     else:
                         port_dir = "out"
-                    
+
                     desc = field.get('description', '')
+                    enum_dict = field.get('enum_values')
+                    if enum_dict:
+                        enum_str = ', '.join(f"{n}={v}" for v, n in sorted(enum_dict.items()))
+                        desc = f"{desc} ({enum_str})" if desc else enum_str
                     desc_comment = f"  -- {desc}" if desc else ""
                     # User requested <reg_name>_<field_name> format
                     sig_name = f"{packed_reg['reg_name']}_{field['name']}"

@@ -694,3 +694,110 @@ description = "Description"
 r_strobe = false
 w_strobe = false
 ```
+
+---
+
+## Enumerated Values (`enum_values`)
+
+Bit fields can have named states using `enum_values`. Each value is an integer key mapped to a name string.
+
+### VHDL Annotation
+
+```vhdl
+signal status_field : std_logic_vector(1 downto 0);  -- @axion RW ADDR=0x00 REG_NAME=status_reg BIT_OFFSET=0 ENUM="0:IDLE,1:WAITING,3:READY"
+```
+
+### SystemVerilog Annotation
+
+```systemverilog
+logic [1:0] status_field; // @axion RW ADDR=0x00 ENUM="0:IDLE,1:WAITING,3:READY"
+```
+
+### YAML
+
+```yaml
+registers:
+  - name: status_reg
+    addr: "0x00"
+    access: RW
+    fields:
+      - name: status
+        bit_offset: 0
+        width: 2
+        enum_values:
+          0: IDLE
+          1: WAITING
+          3: READY
+```
+
+### JSON
+
+```json
+{
+  "registers": [
+    {
+      "name": "status_reg",
+      "addr": "0x00",
+      "access": "RW",
+      "fields": [
+        {
+          "name": "status",
+          "bit_offset": 0,
+          "width": 2,
+          "enum_values": {"0": "IDLE", "1": "WAITING", "3": "READY"}
+        }
+      ]
+    }
+  ]
+}
+```
+
+### TOML
+
+```toml
+[[registers]]
+name = "status_reg"
+addr = "0x00"
+access = "RW"
+
+  [[registers.fields]]
+  name = "status"
+  bit_offset = 0
+  width = 2
+  [registers.fields.enum_values]
+  "0" = "IDLE"
+  "1" = "WAITING"
+  "3" = "READY"
+```
+
+### XML (Simple, Nested)
+
+```xml
+<register name="status_reg" addr="0x00" access="RW">
+  <field name="status" bit_offset="0" width="2">
+    <enum_value value="0" name="IDLE"/>
+    <enum_value value="1" name="WAITING"/>
+    <enum_value value="3" name="READY"/>
+  </field>
+</register>
+```
+
+### XML (SPIRIT)
+
+```xml
+<spirit:field>
+  <spirit:name>status</spirit:name>
+  <spirit:bitOffset>0</spirit:bitOffset>
+  <spirit:bitWidth>2</spirit:bitWidth>
+  <spirit:enumeratedValues>
+    <spirit:enumeratedValue>
+      <spirit:name>IDLE</spirit:name>
+      <spirit:value>0</spirit:value>
+    </spirit:enumeratedValue>
+    <spirit:enumeratedValue>
+      <spirit:name>WAITING</spirit:name>
+      <spirit:value>1</spirit:value>
+    </spirit:enumeratedValue>
+  </spirit:enumeratedValues>
+</spirit:field>
+```

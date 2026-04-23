@@ -36,6 +36,7 @@ The [Core Requirements](requirements-core) document covers the fundamental tool 
 | **Default Values** | `DEF` | Support for reset values |
 | **Format Equivalence** | `EQUIV` | Cross-format parsing equivalence |
 | **Validation** | `VAL` | Input validation and diagnostics |
+| **Enumerated Values** | `ENUM` | Named bit-field states (`enum_values`); requirement range ENUM-001 to ENUM-042 |
 
 ---
 

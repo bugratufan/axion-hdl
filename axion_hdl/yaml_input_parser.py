@@ -252,6 +252,29 @@ class YAMLInputParser:
                     else:
                         sig_type = "[0:0]"
 
+                    # Parse enum_values: YAML may deliver int keys directly or str keys
+                    raw_enum = field_data.get('enum_values')
+                    parsed_enum = None
+                    if isinstance(raw_enum, dict) and raw_enum:
+                        parsed_enum = {}
+                        for k, v in raw_enum.items():
+                            try:
+                                if isinstance(k, int):
+                                    parsed_enum[k] = str(v)
+                                else:
+                                    parsed_enum[int(str(k), 0)] = str(v)
+                            except (ValueError, TypeError):
+                                self.errors.append({
+                                    'file': filepath,
+                                    'msg': (
+                                        f"Invalid enum_values key '{k}' for field "
+                                        f"'{field_name}' in register '{reg_name}'; "
+                                        f"expected an integer value"
+                                    )
+                                })
+                        if not parsed_enum:
+                            parsed_enum = None
+
                     try:
                         bit_field_manager.add_field(
                             reg_name=reg_name,
@@ -266,7 +289,8 @@ class YAMLInputParser:
                             default_value=field_default_val,
                             read_strobe=field_data.get('r_strobe', False),
                             write_strobe=field_data.get('w_strobe', False),
-                            allow_overlap=True
+                            allow_overlap=True,
+                            enum_values=parsed_enum
                         )
                     except Exception as e:
                         msg = f"Error processing field {field_name} in {reg_name}: {e}"
@@ -358,6 +382,28 @@ class YAMLInputParser:
                 w_strobe = w_strobe.lower() == 'true'
             description = reg_data.get('description', '')
             
+            # Parse enum_values for standalone registers (flat XML or direct YAML)
+            raw_enum = reg_data.get('enum_values')
+            parsed_enum = None
+            if isinstance(raw_enum, dict) and raw_enum:
+                parsed_enum = {}
+                for k, v in raw_enum.items():
+                    try:
+                        if isinstance(k, int):
+                            parsed_enum[k] = str(v)
+                        else:
+                            parsed_enum[int(str(k), 0)] = str(v)
+                    except (ValueError, TypeError):
+                        self.errors.append({
+                            'file': filepath,
+                            'msg': (
+                                f"Invalid enum_values key '{k}' for register '{reg_name}'; "
+                                f"expected an integer value"
+                            )
+                        })
+                if not parsed_enum:
+                    parsed_enum = None
+
             register = {
                 'signal_name': reg_name,
                 'name': reg_name,
@@ -375,7 +421,8 @@ class YAMLInputParser:
                 'write_strobe': w_strobe,
                 'description': description,
                 'default_value': default_val,
-                'default_value_hex': f"0x{default_val:X}"
+                'default_value_hex': f"0x{default_val:X}",
+                'enum_values': parsed_enum
             }
             registers.append(register)
         
@@ -420,7 +467,8 @@ class YAMLInputParser:
                         'default_value': f.default_value,
                         'read_strobe': f.read_strobe,
                         'write_strobe': f.write_strobe,
-                        'description': f.description
+                        'description': f.description,
+                        'enum_values': f.enum_values
                     } for f in packed.fields
                 ]
             }
