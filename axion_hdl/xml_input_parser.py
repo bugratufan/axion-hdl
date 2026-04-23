@@ -159,6 +159,7 @@ class XMLInputParser:
             except ValueError:
                 # Pass the raw string so YAMLInputParser can report the error
                 config['cdc_stage'] = cdc_stage_str
+            config['use_axion_types'] = config_elem.get('use_axion_types', '').lower() == 'true'
         
         # Parse registers
         registers = []

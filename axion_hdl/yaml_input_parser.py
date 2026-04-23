@@ -169,13 +169,20 @@ class YAMLInputParser:
             cdc_stage = data.get('cdc_stage')
         if cdc_stage is None:
             cdc_stage = data.get('cdc_stages', 2)
-            
+
         if isinstance(cdc_stage, str):
             try:
                 cdc_stage = int(cdc_stage)
             except ValueError:
                 self.errors.append({'file': filepath, 'msg': f"Invalid cdc_stage value '{cdc_stage}' in module '{module_name}', using default 2"})
                 cdc_stage = 2
+
+        # use_axion_types: check config block first, then top-level
+        use_axion_types = config.get('use_axion_types')
+        if use_axion_types is None:
+            use_axion_types = data.get('use_axion_types', False)
+        if isinstance(use_axion_types, str):
+            use_axion_types = use_axion_types.lower() == 'true'
         
         # Parse registers
         registers = []
@@ -491,6 +498,7 @@ class YAMLInputParser:
             'cdc_en': cdc_en,
             'cdc_stages': cdc_stage,
             'cdc_stage': cdc_stage,
+            'use_axion_types': use_axion_types,
             'registers': registers,
             'packed_registers': packed_regs_data,
             'source_file': filepath,
