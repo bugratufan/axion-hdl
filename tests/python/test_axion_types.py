@@ -2,6 +2,7 @@
 """
 test_axion_types.py – Typed AXI Port Generation Tests
 
+
 Maps to requirements in docs/source/requirements-core.md.
 
 Requirement ↔ test-class/method mapping
@@ -77,6 +78,7 @@ import tempfile
 import shutil
 import textwrap
 import unittest
+from typing import Optional
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, PROJECT_ROOT)
@@ -92,7 +94,7 @@ from axion_hdl.systemverilog_generator import SystemVerilogGenerator
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_yaml(module_name: str, use_axion_types: bool | None = None) -> str:
+def _make_yaml(module_name: str, use_axion_types: Optional[bool] = None) -> str:
     """Build a minimal YAML register definition string."""
     lines = [
         f"module: {module_name}",
