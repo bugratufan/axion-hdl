@@ -331,7 +331,8 @@ class SystemVerilogParser:
                 'is_packed': is_packed,
                 'bit_range': bit_range,
                 'parent_register': parent_register,
-                'width': signal_width
+                'width': signal_width,
+                'enum_values': attrs.get('enum_values')
             }
 
             registers.append(register)

@@ -177,7 +177,8 @@ class TOMLInputParser:
                 config = data['config']
                 yaml_dict['config'] = {
                     'cdc_en': config.get('cdc_en', False),
-                    'cdc_stage': config.get('cdc_stage', 2)
+                    'cdc_stage': config.get('cdc_stage', 2),
+                    'use_axion_types': config.get('use_axion_types', False),
                 }
 
             # Extract registers (required)
@@ -209,6 +210,8 @@ class TOMLInputParser:
                     # Fix for Issue #88: Nested fields support
                     if 'fields' in reg:
                         reg_dict['fields'] = reg['fields']
+                    if 'enum_values' in reg:
+                        reg_dict['enum_values'] = reg['enum_values']
 
                     registers.append(reg_dict)
 

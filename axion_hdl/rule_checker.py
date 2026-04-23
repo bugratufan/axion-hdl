@@ -551,11 +551,63 @@ class RuleChecker:
                     msg
                 )
 
+    def check_enum_value_overflow(self, modules: List[Dict]) -> None:
+        """
+        Check that each enum value fits within the register or field width.
+
+        For packed registers: checks each field's enum_values against field width.
+        For standalone registers: checks the register's own enum_values against register width.
+        Each enum value must satisfy: 0 <= value <= 2**W - 1.
+        """
+        def _check_enum_dict(enum_dict, width, module_name, location_msg):
+            max_val = (2 ** width) - 1
+            for val, name in enum_dict.items():
+                int_val = int(val)
+                if int_val < 0:
+                    self._add_error(
+                        "Enum Value Overflow",
+                        module_name,
+                        f"{location_msg}: enum value {val} ({name}) is negative"
+                    )
+                elif int_val > max_val:
+                    self._add_error(
+                        "Enum Value Overflow",
+                        module_name,
+                        f"{location_msg}: enum value {val} ({name}) exceeds max value "
+                        f"{max_val} for {width}-bit width"
+                    )
+
+        for module in modules:
+            for reg in module.get('registers', []):
+                if reg.get('is_packed'):
+                    # Packed register: validate each sub-field's enum_values
+                    reg_name = reg.get('reg_name', reg.get('signal_name', 'unknown'))
+                    for field in reg.get('fields', []):
+                        enum_dict = field.get('enum_values')
+                        if not enum_dict:
+                            continue
+                        width = int(field.get('width', 1))
+                        _check_enum_dict(
+                            enum_dict, width, module['name'],
+                            f"Register '{reg_name}', field '{field['name']}'"
+                        )
+                else:
+                    # Standalone register: validate the register's own enum_values
+                    enum_dict = reg.get('enum_values')
+                    if not enum_dict:
+                        continue
+                    reg_name = reg.get('signal_name', reg.get('name', 'unknown'))
+                    width = int(reg.get('width', 32))
+                    _check_enum_dict(
+                        enum_dict, width, module['name'],
+                        f"Standalone register '{reg_name}'"
+                    )
+
     def run_all_checks(self, modules: List[Dict]) -> Dict[str, List]:
         self.errors = []
         self.warnings = []
-        
-        self.check_parsing_errors(modules) # Check pre-existing parsing errors first
+
+        self.check_parsing_errors(modules)  # Check pre-existing parsing errors first
         self.check_logical_integrity(modules)
         self.check_documentation(modules)
         self.check_address_overlaps(modules)
@@ -566,7 +618,8 @@ class RuleChecker:
         self.check_address_alignment(modules)
         self.check_duplicate_names(modules)
         self.check_unique_module_names(modules)
-        
+        self.check_enum_value_overflow(modules)
+
         return {
             'errors': self.errors,
             'warnings': self.warnings

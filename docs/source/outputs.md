@@ -96,6 +96,52 @@ end entity;
 | `WO` | `signal_name` | `out` | `_wr_strobe : out` |
 | `RW` | `signal_name` | `out` | `_rd_strobe`, `_wr_strobe : out` |
 
+### Typed AXI Ports (axion_common_pkg)
+
+By default, AXI4-Lite signals are exposed as individual flat ports. When the `use_axion_types` option is enabled, the 19 flat AXI signals are replaced by two typed record ports from [axion-common](https://github.com/bugratufan/axion-common):
+
+```vhdl
+use work.axion_common_pkg.all;
+
+entity spi_master_axion_reg is
+    generic (
+        BASE_ADDR : std_logic_vector(31 downto 0) := x"00000000"
+    );
+    port (
+        axi_aclk    : in  std_logic;
+        axi_aresetn : in  std_logic;
+
+        -- AXI4-Lite typed record ports (axion_common_pkg)
+        axi_m2s     : in  t_axi_lite_m2s;   -- master-to-slave signals
+        axi_s2m     : out t_axi_lite_s2m;   -- slave-to-master signals
+
+        -- Register Signals
+        control_reg : out std_logic_vector(31 downto 0);
+        -- ...
+    );
+end entity;
+```
+
+The architecture body uses intermediate signals for every AXI channel signal. The record ports are automatically unpacked/packed via concurrent signal assignments — the internal state machine is unchanged.
+
+**Enable per module (YAML):**
+```yaml
+module: spi_master
+base_addr: "0x00000000"
+config:
+  use_axion_types: true
+registers:
+  - name: control
+    access: RW
+```
+
+**Enable globally (CLI):**
+```bash
+axion-hdl -s regs.yaml -o output/ --vhdl --use-axion-types
+```
+
+> **Note:** `axion_common_pkg` must be compiled into the `work` library before this module can be elaborated. See [axion-common](https://github.com/bugratufan/axion-common) for the package source.
+
 ---
 
 ## SystemVerilog Register Module
@@ -135,6 +181,42 @@ module sensor_controller_axion_reg #(
 | **Lint Clean** | Passes `verilator --lint-only -Wall` validation. |
 | **CDC Support** | Built-in synchronization for both Read-Only and Read-Write registers across clock domains. |
 
+### Typed AXI Ports (axion_common_pkg)
+
+When `use_axion_types` is enabled, the 19 flat AXI signals are replaced by two typed struct ports from `axion_common_pkg`:
+
+```systemverilog
+import axion_common_pkg::*;
+
+module spi_master_axion_reg #(
+    parameter int ADDR_WIDTH = 32,
+    parameter int DATA_WIDTH = 32
+) (
+    // AXI4-Lite Interface (typed record ports from axion_common_pkg)
+    input  logic          axi_aclk,
+    input  logic          axi_aresetn,
+    input  t_axi_lite_m2s axi_m2s,
+    output t_axi_lite_s2m axi_s2m,
+
+    // Register Interface
+    output logic [31:0]   control_reg
+);
+```
+
+Intermediate `logic` signals bridge the record ports to the existing state machine logic. The state machine itself is unchanged.
+
+**Enable per module (YAML):**
+```yaml
+config:
+  use_axion_types: true
+```
+
+**Enable globally (CLI):**
+```bash
+axion-hdl -s regs.yaml -o output/ --sv --use-axion-types
+```
+
+---
 
 ## C Header File
 
@@ -372,3 +454,72 @@ output/
 1. Generate HTML/Markdown outputs
 2. Publish to documentation server or include in project wiki
 3. Re-export YAML/JSON for version control tracking
+
+---
+
+## Enumerated Values in Outputs
+
+### Docs (Markdown/HTML/PDF)
+
+When a packed register field has `enum_values`, the field table includes an "Enum Values" column:
+
+| Field | Bits | Type | Access | Default | Description | Enum Values |
+|-------|------|------|--------|---------|-------------|-------------|
+| `status` | [1:0] | [1:0] | RW | 0x0 | Status | 0:IDLE, 1:WAITING, 3:READY |
+
+### C Header
+
+Enum macros are generated after the field mask/shift definitions:
+
+```c
+/* status enumerated values */
+#define MYMOD_STATUS_REG_STATUS_IDLE       0x0
+#define MYMOD_STATUS_REG_STATUS_WAITING    0x1
+#define MYMOD_STATUS_REG_STATUS_READY      0x3
+```
+
+### YAML / JSON Export
+
+`enum_values` is included in the field entry with string keys:
+
+```yaml
+fields:
+  - name: status
+    bit_offset: 0
+    width: 2
+    enum_values:
+      "0": IDLE
+      "1": WAITING
+      "3": READY
+```
+
+### XML (SPIRIT) Export
+
+`<spirit:enumeratedValues>` is emitted inside each field element with enum values.
+
+### VHDL Package (`*_regs_pkg.vhd`)
+
+Generated when any field has `enum_values`:
+
+```vhdl
+package mymod_regs_pkg is
+    -- status_reg.status enumerated values
+    constant C_STATUS_REG_STATUS_IDLE    : std_logic_vector(1 downto 0) := "00";
+    constant C_STATUS_REG_STATUS_WAITING : std_logic_vector(1 downto 0) := "01";
+    constant C_STATUS_REG_STATUS_READY   : std_logic_vector(1 downto 0) := "11";
+end package mymod_regs_pkg;
+```
+
+### SystemVerilog Package (`*_regs_pkg.sv`)
+
+Generated when any field has `enum_values`:
+
+```systemverilog
+package mymod_regs_pkg;
+    typedef enum logic [1:0] {
+        IDLE    = 2'b00,
+        WAITING = 2'b01,
+        READY   = 2'b11
+    } t_status_reg_status_e;
+endpackage // mymod_regs_pkg
+```

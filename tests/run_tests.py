@@ -1222,20 +1222,22 @@ def print_results(results: List[TestResult]):
         "json_input": "📄 JSON-INPUT",
         "toml_input": "📄 TOML-INPUT",
         "equiv": "🔀 EQUIV",
+        "enum": "🔢 ENUM",
+        "axion_types": "🔌 AXION-TYPES",
         "systemverilog": "⚡ SYSTEMVERILOG"
     }
-    
+
     total_passed = 0
     total_failed = 0
     total_skipped = 0
     total_time = 0.0
-    
+
     print()
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
-    
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "systemverilog"]:
+
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "enum", "axion_types", "systemverilog"]:
         if cat not in categories:
             continue
         
@@ -2337,6 +2339,69 @@ def run_width_propagation_tests() -> List[TestResult]:
     return results
 
 
+def run_axion_types_tests() -> List[TestResult]:
+    """Run axion-types (typed AXI port) requirement tests (AXION-TYPES-001..021)"""
+    results = []
+
+    try:
+        from tests.python.test_axion_types import (
+            TestAxionTypesConfigParsing,
+            TestAxionTypesVHDL,
+            TestAxionTypesSV,
+            TestAxionTypesPerModule,
+        )
+        import io
+        import sys
+
+        test_classes = [
+            TestAxionTypesConfigParsing,
+            TestAxionTypesVHDL,
+            TestAxionTypesSV,
+            TestAxionTypesPerModule,
+        ]
+
+        loader = unittest.TestLoader()
+        for cls in test_classes:
+            suite = loader.loadTestsFromTestCase(cls)
+            for test in suite:
+                test_name = str(test).split()[0]
+                desc = test.shortDescription() or test_name
+                req_match = re.match(r'(AXION-TYPES-\d+\S*)', desc)
+                req_id = req_match.group(1).rstrip(':') if req_match else "AXION-TYPES-001"
+
+                start = time.time()
+                try:
+                    old_stdout = sys.stdout
+                    sys.stdout = io.StringIO()
+                    try:
+                        test.debug()
+                    finally:
+                        sys.stdout = old_stdout
+
+                    results.append(TestResult(
+                        f"axion_types.{test_name}",
+                        f"{req_id}: {desc}",
+                        "passed",
+                        time.time() - start,
+                        category="axion_types",
+                        subcategory="axion_types"
+                    ))
+                except Exception as e:
+                    results.append(TestResult(
+                        f"axion_types.{test_name}",
+                        f"{req_id}: {desc}",
+                        "failed",
+                        time.time() - start,
+                        str(e),
+                        category="axion_types",
+                        subcategory="axion_types"
+                    ))
+    except ImportError as e:
+        results.append(TestResult("axion_types.import", "AXION-TYPES-001: Import axion types tests", "failed", 0, str(e), category="axion_types", subcategory="setup"))
+
+    return results
+
+
 def run_cocotb_tests() -> List[TestResult]:
     """Run Cocotb VHDL simulation tests"""
     results = []
@@ -2420,7 +2485,7 @@ def run_cocotb_tests() -> List[TestResult]:
         skip_msg = "pip install cocotb cocotb-bus cocotbext-axi" if not cocotb_config_available else "Install GHDL simulator"
 
         # List all tests as skipped
-        for test_id, desc in cocotb_axi_tests:
+        for test_id, desc in cocotb_tests:
             results.append(TestResult(f"cocotb.axi.{test_id}", desc, "skipped", 0,
                                       f"{skip_reason} ({skip_msg})",
                                       category="cocotb", subcategory="axi_lite"))
@@ -2788,12 +2853,71 @@ def run_systemverilog_advanced_tests() -> List[TestResult]:
     return results
 
 
+def run_enum_tests() -> List[TestResult]:
+    """Run ENUM-xxx requirement tests (enumerated values feature)."""
+    results = []
+
+    try:
+        from tests.python.test_enum_values import TestEnumValues
+        import io
+
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestEnumValues)
+
+        for test in suite:
+            test_name = str(test).split()[0]
+            desc = test.shortDescription() or test_name
+            req_match = re.match(r'(ENUM-\d+\S*)', desc)
+            req_id = req_match.group(1).rstrip(':') if req_match else "ENUM-???"
+
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+
+                results.append(TestResult(
+                    f"enum.{test_name}",
+                    f"{req_id}: {desc}",
+                    "passed",
+                    time.time() - start,
+                    category="enum",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                sys.stdout = old_stdout
+                results.append(TestResult(
+                    f"enum.{test_name}",
+                    f"{req_id}: {desc}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="enum",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult(
+            "enum.import",
+            "ENUM: Import test module",
+            "failed",
+            0,
+            str(e),
+            category="enum",
+            subcategory="setup"
+        ))
+
+    return results
+
+
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..026, SV-PARSER, SV-GEN, SV-ADV + Cocotb\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..026, ENUM-001..042, AXION-TYPES-001..021, SV-PARSER, SV-GEN, SV-ADV + Cocotb\n")
 
     all_results = []
-    total_steps = 24
+    total_steps = 26
 
     # Run Python unit tests (core functionality)
     print(f"  [1/{total_steps}] Running Python unit tests...", flush=True)
@@ -2867,29 +2991,37 @@ def main():
     print(f"  [18/{total_steps}] Running width propagation tests...", flush=True)
     all_results.extend(run_width_propagation_tests())
 
+    # Run enum-values tests (ENUM-001..028)
+    print(f"  [19/{total_steps}] Running enum values tests...", flush=True)
+    all_results.extend(run_enum_tests())
+
     # Run VHDL tests (AXION, AXI-LITE requirements)
-    print(f"  [19/{total_steps}] Running VHDL simulation tests...", flush=True)
+    print(f"  [20/{total_steps}] Running VHDL simulation tests...", flush=True)
     all_results.extend(run_vhdl_tests())
 
     # Run C tests
-    print(f"  [20/{total_steps}] Running C header tests...", flush=True)
+    print(f"  [21/{total_steps}] Running C header tests...", flush=True)
     all_results.extend(run_c_tests())
 
     # Run Cocotb tests (comprehensive VHDL verification)
-    print(f"  [21/{total_steps}] Running Cocotb VHDL tests...", flush=True)
+    print(f"  [22/{total_steps}] Running Cocotb VHDL tests...", flush=True)
     all_results.extend(run_cocotb_tests())
 
     # Run SystemVerilog parser tests
-    print(f"  [22/{total_steps}] Running SystemVerilog parser tests...", flush=True)
+    print(f"  [23/{total_steps}] Running SystemVerilog parser tests...", flush=True)
     all_results.extend(run_systemverilog_parser_tests())
 
     # Run SystemVerilog generator tests
-    print(f"  [23/{total_steps}] Running SystemVerilog generator tests...", flush=True)
+    print(f"  [24/{total_steps}] Running SystemVerilog generator tests...", flush=True)
     all_results.extend(run_systemverilog_generator_tests())
 
     # Run SystemVerilog advanced tests (lint, equivalence, stress)
-    print(f"  [24/{total_steps}] Running SystemVerilog advanced tests...", flush=True)
+    print(f"  [25/{total_steps}] Running SystemVerilog advanced tests...", flush=True)
     all_results.extend(run_systemverilog_advanced_tests())
+
+    # Run axion-types tests (AXION-TYPES-001..021)
+    print(f"  [26/{total_steps}] Running axion-types (typed AXI ports) tests...", flush=True)
+    all_results.extend(run_axion_types_tests())
 
     # Save and generate reports
     save_results(all_results)

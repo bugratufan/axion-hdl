@@ -159,6 +159,7 @@ class XMLInputParser:
             except ValueError:
                 # Pass the raw string so YAMLInputParser can report the error
                 config['cdc_stage'] = cdc_stage_str
+            config['use_axion_types'] = config_elem.get('use_axion_types', '').lower() == 'true'
         
         # Parse registers
         registers = []
@@ -199,7 +200,7 @@ class XMLInputParser:
                 f_name = field_elem.get('name')
                 if not f_name:
                     continue
-                
+
                 f_dict = {
                     'name': f_name,
                     'bit_offset': field_elem.get('bit_offset'),
@@ -207,11 +208,36 @@ class XMLInputParser:
                     'access': field_elem.get('access', 'RW'),
                     'description': field_elem.get('description', '')
                 }
+
+                # Parse <enum_value value="..." name="..."/> children
+                enum_vals = {}
+                for ev_elem in field_elem.findall('enum_value'):
+                    ev_val_str = ev_elem.get('value')
+                    ev_name = ev_elem.get('name')
+                    if ev_val_str is not None and ev_name:
+                        try:
+                            enum_vals[int(ev_val_str, 0)] = ev_name
+                        except (ValueError, TypeError):
+                            self.errors.append({
+                                'file': filepath,
+                                'msg': (f"Invalid enum_value '{ev_val_str}' for name '{ev_name}' "
+                                        f"in field of register; expected an integer value")
+                            })
+                if enum_vals:
+                    f_dict['enum_values'] = enum_vals
+
                 fields.append(f_dict)
-            
+
+            # Handle flat register-level enum attribute
+            flat_enum_attr = reg_elem.get('enum')
+            if flat_enum_attr and not fields:
+                from axion_hdl.annotation_parser import AnnotationParser
+                _ap = AnnotationParser()
+                reg_dict['enum_values'] = _ap.parse_enum_values(flat_enum_attr)
+
             if fields:
                 reg_dict['fields'] = fields
-            
+
             registers.append(reg_dict)
         
         return {
@@ -359,7 +385,38 @@ class XMLInputParser:
                     f_desc_elem = field_elem.find('description')
                 if f_desc_elem is not None and f_desc_elem.text:
                     f_dict['description'] = f_desc_elem.text
-                
+
+                # Parse spirit:enumeratedValues/spirit:enumeratedValue
+                enum_vals = {}
+                enum_vals_elem = field_elem.find('spirit:enumeratedValues', ns)
+                if enum_vals_elem is None:
+                    enum_vals_elem = field_elem.find('enumeratedValues')
+                if enum_vals_elem is not None:
+                    ev_elems = enum_vals_elem.findall('spirit:enumeratedValue', ns)
+                    if not ev_elems:
+                        ev_elems = enum_vals_elem.findall('enumeratedValue')
+                    for ev_elem in ev_elems:
+                        ev_name_elem = ev_elem.find('spirit:name', ns)
+                        if ev_name_elem is None:
+                            ev_name_elem = ev_elem.find('name')
+                        ev_val_elem = ev_elem.find('spirit:value', ns)
+                        if ev_val_elem is None:
+                            ev_val_elem = ev_elem.find('value')
+                        if ev_name_elem is not None and ev_val_elem is not None:
+                            ev_name_text = (ev_name_elem.text or '').strip()
+                            ev_val_text = (ev_val_elem.text or '').strip()
+                            if ev_name_text and ev_val_text:
+                                try:
+                                    enum_vals[int(ev_val_text, 0)] = ev_name_text
+                                except (ValueError, TypeError):
+                                    self.errors.append({
+                                        'file': filepath,
+                                        'msg': (f"Invalid SPIRIT enum value '{ev_val_text}' "
+                                                f"for name '{ev_name_text}'; expected an integer value")
+                                    })
+                if enum_vals:
+                    f_dict['enum_values'] = enum_vals
+
                 fields.append(f_dict)
 
             if fields:
