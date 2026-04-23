@@ -122,6 +122,49 @@
         </div>
     </footer>
 
+    <!-- Beta Warning Modal -->
+    <div class="modal fade" id="betaWarningModal" tabindex="-1" aria-labelledby="betaWarningModalLabel"
+        aria-modal="true" role="dialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border: 1px solid rgba(255, 193, 7, 0.4); background: var(--bg-secondary, #1e1e2e);">
+                <div class="modal-header" style="border-bottom: 1px solid rgba(255, 193, 7, 0.2);">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-exclamation-triangle-fill" style="color: #ffc107; font-size: 1.3rem;"></i>
+                        <h5 class="modal-title mb-0" id="betaWarningModalLabel" style="color: #ffc107;">
+                            GUI Beta Notice
+                        </h5>
+                    </div>
+                </div>
+                <div class="modal-body" style="color: var(--text-primary, #cdd6f4);">
+                    <p>
+                        The Axion-HDL graphical interface is currently in <strong style="color: #ffc107;">beta</strong>.
+                        You may encounter unexpected errors or features that are not yet fully supported.
+                    </p>
+                    <p>
+                        For stable and fully-featured usage, the <strong>CLI interface</strong> or <strong>Python API</strong> is recommended.
+                    </p>
+                    <div style="background: rgba(255, 193, 7, 0.08); border-left: 3px solid #ffc107; padding: 0.75rem 1rem; border-radius: 0 4px 4px 0; margin-top: 0.5rem;">
+                        <p class="mb-2" style="font-size: 0.9rem;">
+                            <i class="bi bi-bug me-1"></i>
+                            If you run into a bug, please report it on GitHub:
+                        </p>
+                        <a href="https://github.com/bugratufan/axion-hdl/issues/new?template=bug_report.md"
+                            target="_blank" rel="noopener" class="btn btn-sm"
+                            style="background: rgba(255,193,7,0.15); border: 1px solid rgba(255,193,7,0.5); color: #ffc107;">
+                            <i class="bi bi-github me-1"></i>
+                            Open a Bug Report
+                        </a>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid rgba(255, 193, 7, 0.2);">
+                    <button type="button" class="btn btn-warning btn-sm px-4" data-bs-dismiss="modal">
+                        Got it, Continue
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -130,6 +173,24 @@
 
     <!-- GUI Common Scripts -->
     <script src="{{ url_for('static', filename='js/gui.js') }}"></script>
+
+    <script>
+        (function () {
+            var STORAGE_KEY = 'axion_hdl_beta_warning_seen';
+            if (!sessionStorage.getItem(STORAGE_KEY)) {
+                document.addEventListener('DOMContentLoaded', function () {
+                    var modal = new bootstrap.Modal(document.getElementById('betaWarningModal'), {
+                        backdrop: 'static',
+                        keyboard: false
+                    });
+                    modal.show();
+                    document.getElementById('betaWarningModal').addEventListener('hidden.bs.modal', function () {
+                        sessionStorage.setItem(STORAGE_KEY, '1');
+                    });
+                });
+            }
+        })();
+    </script>
 
     {% block scripts %}{% endblock %}
 </body>
