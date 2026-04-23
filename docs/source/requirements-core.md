@@ -23,6 +23,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | **DEF** | Default Values | Support for reset values via `DEFAULT` attribute. |
 | **VAL** | Validation | Validation of inputs, error visibility, and diagnostics. |
 | **EQUIV** | Format Equivalence | Cross-format parsing and output equivalence. |
+| **AXION-TYPES** | Typed AXI Ports | Optional typed AXI4-Lite port generation using `axion_common_pkg` record types. |
 
 ---
 
@@ -330,3 +331,33 @@ Testing and verification are automated via `make test`, which maps tests back to
 | ENUM-040 | XML Simple Invalid Enum Value Reported | XML parser records an error when a simple-format `<enum_value>` has a non-integer `value` attribute instead of silently dropping it. | Python Unit Test (`test_enum_040_xml_simple_invalid_enum_value_recorded`) |
 | ENUM-041 | XML SPIRIT Invalid Enum Value Reported | XML parser records an error when a SPIRIT `<spirit:value>` element contains a non-integer string instead of silently dropping it. | Python Unit Test (`test_enum_041_xml_spirit_invalid_enum_value_recorded`) |
 | ENUM-042 | VHDL Identifier Adjacent Underscores | `_sanitize_vhdl_identifier()` collapses adjacent underscores to one, strips leading and trailing underscores, and prepends `v_` when the result starts with a digit. | Python Unit Test (`test_enum_042_vhdl_identifier_no_adjacent_underscores`) |
+
+---
+
+## Typed AXI Ports (AXION-TYPES)
+
+Covers optional generation of typed `t_axi_lite_m2s` / `t_axi_lite_s2m` record ports (VHDL) and struct ports (SystemVerilog) from `axion_common_pkg`, instead of the default flat individual signals.
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| AXION-TYPES-001 | YAML Config Parsing | `use_axion_types: true` in a YAML `config:` block sets `module_data['use_axion_types'] = True`; absence or `false` sets `False`. | Python Unit Test (`test_axion_types_001_yaml_config_parsing`) |
+| AXION-TYPES-002 | TOML Config Parsing | `use_axion_types = true` in a TOML `[config]` table sets `module_data['use_axion_types'] = True`. | Python Unit Test (`test_axion_types_002_toml_config_parsing`) |
+| AXION-TYPES-003 | XML Config Parsing | `use_axion_types="true"` attribute on the `<config>` element sets `module_data['use_axion_types'] = True`. | Python Unit Test (`test_axion_types_003_xml_config_parsing`) |
+| AXION-TYPES-004 | JSON Config Parsing | `"use_axion_types": true` in a JSON `config` object (passed through YAML parser) sets `module_data['use_axion_types'] = True`. | Python Unit Test (`test_axion_types_004_json_config_parsing`) |
+| AXION-TYPES-005 | Default Disabled | When `use_axion_types` is absent from all config blocks, `module_data['use_axion_types']` defaults to `False`. | Python Unit Test (`test_axion_types_005_default_disabled`) |
+| AXION-TYPES-006 | CLI Flag Override | `--use-axion-types` CLI flag sets `use_axion_types = True` on every analyzed module, overriding any per-module config value. | Python Unit Test (`test_axion_types_006_cli_flag_override`) |
+| AXION-TYPES-007 | VHDL Library Clause | When `use_axion_types` is enabled, generated VHDL includes `use work.axion_common_pkg.all;` in the library/use clause section. | Python Unit Test (`test_axion_types_007_vhdl_library_clause`) |
+| AXION-TYPES-008 | VHDL Entity Typed Ports | When `use_axion_types` is enabled, the VHDL entity port list contains `axi_m2s : in t_axi_lite_m2s` and `axi_s2m : out t_axi_lite_s2m` instead of the 19 flat individual AXI signals. | Python Unit Test (`test_axion_types_008_vhdl_entity_typed_ports`) |
+| AXION-TYPES-009 | VHDL No Flat AXI Ports | When `use_axion_types` is enabled, no flat AXI port names (`axi_awaddr`, `axi_wdata`, etc.) appear in the entity port list. | Python Unit Test (`test_axion_types_009_vhdl_no_flat_axi_ports`) |
+| AXION-TYPES-010 | VHDL Intermediate Signal Declarations | When `use_axion_types` is enabled, the architecture declaration region contains `signal axi_awaddr`, `signal axi_wdata`, and all other M2S and S2M intermediate signal declarations. | Python Unit Test (`test_axion_types_010_vhdl_intermediate_signals`) |
+| AXION-TYPES-011 | VHDL M2S Unpack Assignments | When `use_axion_types` is enabled, the architecture body contains concurrent signal assignments unpacking every `axi_m2s` record field to the corresponding intermediate signal (e.g. `axi_awaddr <= axi_m2s.awaddr`). | Python Unit Test (`test_axion_types_011_vhdl_m2s_unpack`) |
+| AXION-TYPES-012 | VHDL S2M Pack Assignments | When `use_axion_types` is enabled, the architecture body contains concurrent signal assignments packing every intermediate signal into the corresponding `axi_s2m` record field (e.g. `axi_s2m.awready <= axi_awready`). | Python Unit Test (`test_axion_types_012_vhdl_s2m_pack`) |
+| AXION-TYPES-013 | VHDL Default Unchanged | When `use_axion_types` is `False`, generated VHDL output is identical to the pre-feature baseline (flat individual AXI ports, no axion_common_pkg clause). | Python Unit Test (`test_axion_types_013_vhdl_default_unchanged`) |
+| AXION-TYPES-014 | SV Package Import | When `use_axion_types` is enabled, the generated SystemVerilog file includes `import axion_common_pkg::*;` before the module declaration. | Python Unit Test (`test_axion_types_014_sv_package_import`) |
+| AXION-TYPES-015 | SV Module Typed Ports | When `use_axion_types` is enabled, the SystemVerilog module port list contains `input t_axi_lite_m2s axi_m2s` and `output t_axi_lite_s2m axi_s2m` instead of the flat individual AXI signals. | Python Unit Test (`test_axion_types_015_sv_module_typed_ports`) |
+| AXION-TYPES-016 | SV No Flat AXI Ports | When `use_axion_types` is enabled, no flat AXI port names (`axi_awaddr`, `axi_wdata`, etc.) appear in the module port list. | Python Unit Test (`test_axion_types_016_sv_no_flat_axi_ports`) |
+| AXION-TYPES-017 | SV Intermediate Signal Declarations | When `use_axion_types` is enabled, the SystemVerilog module body contains `logic` declarations for all M2S and S2M intermediate signals. | Python Unit Test (`test_axion_types_017_sv_intermediate_signals`) |
+| AXION-TYPES-018 | SV M2S Unpack Assigns | When `use_axion_types` is enabled, the SystemVerilog module body contains `assign axi_awaddr = axi_m2s.awaddr;` and equivalent assigns for all M2S fields. | Python Unit Test (`test_axion_types_018_sv_m2s_unpack`) |
+| AXION-TYPES-019 | SV S2M Pack Assigns | When `use_axion_types` is enabled, the SystemVerilog module body contains `assign axi_s2m.awready = axi_awready;` and equivalent assigns for all S2M fields. | Python Unit Test (`test_axion_types_019_sv_s2m_pack`) |
+| AXION-TYPES-020 | SV Default Unchanged | When `use_axion_types` is `False`, generated SystemVerilog output is identical to the pre-feature baseline (flat individual AXI ports, no package import). | Python Unit Test (`test_axion_types_020_sv_default_unchanged`) |
+| AXION-TYPES-021 | Per-Module Independence | Setting `use_axion_types: true` on one module does not affect sibling modules parsed from the same source directory. | Python Unit Test (`test_axion_types_021_per_module_independence`) |

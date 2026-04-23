@@ -183,6 +183,15 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     )
 
     gen_group.add_argument(
+        '--use-axion-types',
+        dest='use_axion_types',
+        action='store_true',
+        default=False,
+        help='Generate typed AXI4-Lite ports (t_axi_lite_m2s/t_axi_lite_s2m from axion_common_pkg) '
+             'instead of flat individual signals. Overrides per-module use_axion_types config.'
+    )
+
+    gen_group.add_argument(
         '--gui',
         action='store_true',
         help='Launch interactive GUI editor for visualizing and modifying registers'
@@ -317,6 +326,11 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
     
+    # Apply global --use-axion-types override to all modules
+    if getattr(args, 'use_axion_types', False):
+        for module in axion.analyzed_modules:
+            module['use_axion_types'] = True
+
     # Check if any modules were found (skip for GUI mode with errors)
     if not axion.analyzed_modules and not args.gui:
         print("Warning: No modules with @axion annotations found in source directories.",

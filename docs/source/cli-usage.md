@@ -95,6 +95,7 @@ axion-hdl -s ./src -e "*_tb.vhd" -e "test_*" -e "deprecated" -o ./output --all
 | `--json` | Generate JSON register map |
 | `--doc` | Generate Markdown documentation |
 | `--doc-format FORMAT` | Documentation format: `md`, `html`, `pdf` |
+| `--use-axion-types` | Use typed `t_axi_lite_m2s`/`t_axi_lite_s2m` record ports from `axion_common_pkg` instead of flat AXI signals (VHDL and SV). Overrides any per-module `use_axion_types` config value. |
 
 **Examples:**
 
