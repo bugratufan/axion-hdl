@@ -79,6 +79,7 @@ import shutil
 import textwrap
 import unittest
 from typing import Optional
+from unittest.mock import patch
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, PROJECT_ROOT)
@@ -88,6 +89,7 @@ from axion_hdl.toml_input_parser import TOMLInputParser
 from axion_hdl.xml_input_parser import XMLInputParser
 from axion_hdl.generator import VHDLGenerator
 from axion_hdl.systemverilog_generator import SystemVerilogGenerator
+import axion_hdl.cli as cli_module
 
 
 # ---------------------------------------------------------------------------
@@ -261,13 +263,27 @@ class TestAxionTypesConfigParsing(unittest.TestCase):
     # AXION-TYPES-006
     def test_axion_types_006_cli_flag_override(self):
         """AXION-TYPES-006  CLI --use-axion-types overrides per-module False → True."""
-        data = _parse_yaml_str(_make_yaml('override_mod', use_axion_types=False), self.tmp)
-        self.assertIsNotNone(data)
-        modules = [data]
-        # Simulate what cli.py does when --use-axion-types is set
-        for m in modules:
-            m['use_axion_types'] = True
-        self.assertIs(modules[0]['use_axion_types'], True)
+        yaml_path = os.path.join(self.tmp, 'override_mod.yaml')
+        with open(yaml_path, 'w') as f:
+            f.write(_make_yaml('override_mod', use_axion_types=False))
+
+        out_dir = os.path.join(self.tmp, 'out')
+        os.makedirs(out_dir, exist_ok=True)
+
+        argv = ['axion-hdl', '-s', yaml_path, '-o', out_dir, '--vhdl', '--use-axion-types']
+        with patch.object(sys, 'argv', argv):
+            try:
+                cli_module.main()
+            except SystemExit:
+                pass
+
+        # The generated VHDL must contain the axion_common_pkg use-clause
+        vhdl_files = [f for f in os.listdir(out_dir) if f.endswith('.vhd')]
+        self.assertTrue(vhdl_files, "Expected at least one VHDL file to be generated")
+        with open(os.path.join(out_dir, vhdl_files[0])) as fh:
+            content = fh.read()
+        self.assertIn('use work.axion_common_pkg.all;', content,
+                      "--use-axion-types CLI flag must override per-module False and emit pkg clause")
 
 
 # ---------------------------------------------------------------------------
