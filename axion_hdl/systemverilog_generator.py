@@ -46,6 +46,11 @@ class SystemVerilogGenerator:
         Returns:
             Path to generated file
         """
+        effective_name = module_data.get('_effective_name')
+        if effective_name:
+            module_data = dict(module_data)
+            module_data['name'] = effective_name
+
         module_name = module_data.get('name', 'unnamed_module')
         # Sanitize: strip any path components and extensions that don't belong
         module_name = os.path.basename(module_name)
@@ -110,7 +115,7 @@ class SystemVerilogGenerator:
         Returns:
             Path to generated package file, or None if no enum_values present
         """
-        module_name = module_data.get('name', 'unnamed_module')
+        module_name = module_data.get('_effective_name', module_data.get('name', 'unnamed_module'))
 
         # Collect all registers/fields with enum_values
         enum_fields = []

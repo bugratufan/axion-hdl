@@ -1,0 +1,62 @@
+module: i2c_master
+base_addr: '0x40002000'
+config:
+  cdc_en: false
+  cdc_stage: 2
+registers:
+- name: CTRL
+  addr: '0x00'
+  access: RW
+  width: 32
+  description: 'Packed register: CTRL'
+  fields:
+  - name: ENABLE
+    bit_offset: 0
+    width: 1
+    access: RW
+  - name: START
+    bit_offset: 1
+    width: 1
+    access: RW
+  - name: STOP
+    bit_offset: 2
+    width: 1
+    access: RW
+- name: STATUS
+  addr: '0x04'
+  access: RO
+  width: 32
+  description: 'Packed register: STATUS'
+  fields:
+  - name: BUSY
+    bit_offset: 0
+    width: 1
+    access: RO
+  - name: ACK
+    bit_offset: 1
+    width: 1
+    access: RO
+  - name: ARBLOST
+    bit_offset: 2
+    width: 1
+    access: RO
+- name: PRESCALE
+  addr: '0x08'
+  access: RW
+  width: 32
+  description: 'Packed register: PRESCALE'
+  fields:
+  - name: VALUE
+    bit_offset: 0
+    width: 1
+    access: RW
+- name: DATA
+  addr: '0x0C'
+  access: RW
+  width: 32
+  description: 'Packed register: DATA'
+  fields:
+  - name: BYTE
+    bit_offset: 0
+    width: 1
+    access: RW

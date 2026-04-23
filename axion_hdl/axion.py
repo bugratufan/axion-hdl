@@ -77,7 +77,8 @@ class AxionHDL:
         self.is_analyzed = False
         self._exclude_patterns = set()
         self.parse_errors = []  # Track global parsing errors
-        
+        self._hierarchy = None  # Loaded via load_hierarchy()
+
     def set_output_dir(self, dir_path):
         """
         Set the output directory for generated files.
@@ -819,6 +820,10 @@ class AxionHDL:
             })
             
         checker.run_all_checks(self.analyzed_modules)
+
+        if self._hierarchy is not None:
+            checker.check_hierarchy(self._hierarchy, self.analyzed_modules)
+
         text_report = checker.generate_report()
         
         # Always print text summary to stdout
@@ -840,7 +845,101 @@ class AxionHDL:
                 print(f"Error writing report file: {e}")
         
         return len(checker.errors) == 0
-        
+
+    def load_hierarchy(self, hier_file: str) -> None:
+        """
+        Load a hierarchy file that maps module instances to base addresses.
+
+        Must be called before apply_hierarchy(). Supports YAML, JSON, TOML, and XML.
+
+        Args:
+            hier_file: Path to the hierarchy file.
+
+        Raises:
+            FileNotFoundError: If the file does not exist.
+            ValueError: If the file format is invalid or required fields are missing.
+        """
+        from .hierarchy_parser import HierarchyParser
+        self._hierarchy = HierarchyParser().parse(hier_file)
+        print(f"Loaded hierarchy: {len(self._hierarchy)} instance(s) from {hier_file}")
+
+    def apply_hierarchy(self) -> None:
+        """
+        Apply the loaded hierarchy to the analyzed modules.
+
+        Updates base addresses and, for multi-instance modules, expands each source
+        module into one copy per instance. Each copy receives '_effective_name' set
+        to the instance name, which generators use for output file/entity naming.
+
+        Must be called after analyze() and load_hierarchy().
+        Modules not referenced in the hierarchy are kept unchanged.
+        """
+        if self._hierarchy is None:
+            raise RuntimeError("No hierarchy loaded. Call load_hierarchy() first.")
+        if not self.is_analyzed:
+            raise RuntimeError("Analysis not performed. Call analyze() first.")
+
+        from collections import defaultdict
+
+        # Group hierarchy entries by module name
+        by_module: dict = defaultdict(list)
+        for entry in self._hierarchy:
+            by_module[entry['module']].append(entry)
+
+        new_modules = []
+        for module in self.analyzed_modules:
+            mod_name = module['name']
+            entries = by_module.get(mod_name)
+
+            if not entries:
+                # Module not in hierarchy — keep as-is; rule_checker will flag it
+                new_modules.append(module)
+                continue
+
+            if len(entries) == 1:
+                # Single instance: update base_address in place; use instance name if given
+                copy = dict(module)
+                copy['base_address'] = entries[0]['base_addr']
+                if entries[0]['instance']:
+                    copy['_effective_name'] = entries[0]['instance']
+                new_modules.append(copy)
+            else:
+                # Multiple instances: produce one copy per entry
+                for entry in entries:
+                    copy = dict(module)
+                    copy['base_address'] = entry['base_addr']
+                    copy['_effective_name'] = entry['instance']  # required; validated by parser
+                    new_modules.append(copy)
+
+        self.analyzed_modules = new_modules
+        print(f"Hierarchy applied: {len(new_modules)} module instance(s) ready for generation.")
+
+    def generate_address_map_html(self) -> Optional[str]:
+        """
+        Generate an HTML address map report for all instances.
+
+        Produces address_map.html in the output directory showing each instance,
+        its module, base address, end address, and size.
+
+        Returns:
+            Absolute path to the generated file, or None on failure.
+        """
+        if not self.is_analyzed:
+            print("Error: Analysis not performed. Call analyze() first.")
+            return None
+
+        if not self.output_dir:
+            print("Error: No output directory set.")
+            return None
+
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        from .doc_generators import AddressMapHTMLGenerator
+        gen = AddressMapHTMLGenerator(self.output_dir)
+        output_path = gen.generate(self.analyzed_modules)
+        print(f"  Generated: {os.path.basename(output_path)}")
+        return output_path
+
     def _has_parsing_errors(self) -> bool:
         """Helper to check if any analyzed module has parsing errors."""
         error_modules = [m['name'] for m in self.analyzed_modules if m.get('parsing_errors')]

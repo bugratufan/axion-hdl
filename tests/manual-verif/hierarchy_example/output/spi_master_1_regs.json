@@ -1,0 +1,115 @@
+{
+  "module": "spi_master_1",
+  "base_addr": "0x40001000",
+  "config": {
+    "cdc_en": false,
+    "cdc_stage": 2
+  },
+  "registers": [
+    {
+      "name": "CTRL",
+      "addr": "0x00",
+      "access": "RW",
+      "width": 32,
+      "description": "Packed register: CTRL",
+      "fields": [
+        {
+          "name": "ENABLE",
+          "bit_offset": 0,
+          "width": 1,
+          "access": "RW"
+        },
+        {
+          "name": "CPOL",
+          "bit_offset": 1,
+          "width": 1,
+          "access": "RW"
+        },
+        {
+          "name": "CPHA",
+          "bit_offset": 2,
+          "width": 1,
+          "access": "RW"
+        },
+        {
+          "name": "LOOPBACK",
+          "bit_offset": 3,
+          "width": 1,
+          "access": "RW"
+        }
+      ]
+    },
+    {
+      "name": "STATUS",
+      "addr": "0x04",
+      "access": "RO",
+      "width": 32,
+      "description": "Packed register: STATUS",
+      "fields": [
+        {
+          "name": "BUSY",
+          "bit_offset": 0,
+          "width": 1,
+          "access": "RO"
+        },
+        {
+          "name": "TX_EMPTY",
+          "bit_offset": 1,
+          "width": 1,
+          "access": "RO"
+        },
+        {
+          "name": "RX_VALID",
+          "bit_offset": 2,
+          "width": 1,
+          "access": "RO"
+        }
+      ]
+    },
+    {
+      "name": "DIV",
+      "addr": "0x08",
+      "access": "RW",
+      "width": 32,
+      "description": "Packed register: DIV",
+      "fields": [
+        {
+          "name": "DIVISOR",
+          "bit_offset": 0,
+          "width": 1,
+          "access": "RW"
+        }
+      ]
+    },
+    {
+      "name": "TX_DATA",
+      "addr": "0x0C",
+      "access": "WO",
+      "width": 32,
+      "description": "Packed register: TX_DATA",
+      "fields": [
+        {
+          "name": "DATA",
+          "bit_offset": 0,
+          "width": 1,
+          "access": "WO"
+        }
+      ]
+    },
+    {
+      "name": "RX_DATA",
+      "addr": "0x10",
+      "access": "RO",
+      "width": 32,
+      "description": "Packed register: RX_DATA",
+      "fields": [
+        {
+          "name": "DATA",
+          "bit_offset": 0,
+          "width": 1,
+          "access": "RO"
+        }
+      ]
+    }
+  ]
+}

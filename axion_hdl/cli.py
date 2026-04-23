@@ -198,6 +198,16 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     )
 
     gen_group.add_argument(
+        '--hier',
+        dest='hier_file',
+        metavar='FILE',
+        default=None,
+        help='Hierarchy file for centralized base address assignment and multi-instance generation '
+             '(YAML, TOML, JSON, or XML). Overrides base_addr defined in individual module files. '
+             'Also generates address_map.html with a full instance overview.'
+    )
+
+    gen_group.add_argument(
         '--rule-check',
         nargs='?',
         const='rule_check_report.json',
@@ -205,7 +215,7 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         metavar='REPORT_FILE',
         help='Run validation rules. Optional: specify output report file (default: rule_check_report.json)'
     )
-    
+
     gen_group.add_argument(
         '--port',
         type=int,
@@ -331,6 +341,18 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         for module in axion.analyzed_modules:
             module['use_axion_types'] = True
 
+    # Apply hierarchy if provided (must happen after analyze, before generation)
+    if args.hier_file:
+        if not os.path.exists(args.hier_file):
+            print(f"Error: Hierarchy file not found: {args.hier_file}", file=sys.stderr)
+            sys.exit(1)
+        try:
+            axion.load_hierarchy(args.hier_file)
+            axion.apply_hierarchy()
+        except (ValueError, FileNotFoundError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
     # Check if any modules were found (skip for GUI mode with errors)
     if not axion.analyzed_modules and not args.gui:
         print("Warning: No modules with @axion annotations found in source directories.",
@@ -380,7 +402,11 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
             success &= axion.generate_json()
         if args.c_header:
             success &= axion.generate_c_header()
-    
+
+    # Generate address map HTML when hierarchy is active
+    if args.hier_file:
+        axion.generate_address_map_html()
+
     # Report final status
     if success:
         print(f"\nGeneration completed successfully!")
