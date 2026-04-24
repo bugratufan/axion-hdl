@@ -1224,7 +1224,8 @@ def print_results(results: List[TestResult]):
         "equiv": "🔀 EQUIV",
         "enum": "🔢 ENUM",
         "axion_types": "🔌 AXION-TYPES",
-        "systemverilog": "⚡ SYSTEMVERILOG"
+        "systemverilog": "⚡ SYSTEMVERILOG",
+        "hier": "🗂️  HIER"
     }
 
     total_passed = 0
@@ -1237,7 +1238,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
 
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "enum", "axion_types", "systemverilog"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "enum", "axion_types", "systemverilog", "hier"]:
         if cat not in categories:
             continue
         
