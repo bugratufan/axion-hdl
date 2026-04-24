@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -70 140 140" width="200" height="200">
+  <defs>
+    <mask id="dot-mask">
+      <rect x="-500" y="-500" width="1500" height="1500" fill="white"/>
+      <circle cx="24" cy="-1" r="22" fill="black"/>
+    </mask>
+  </defs>
+
+  <g mask="url(#dot-mask)">
+    <text x="0" y="46" text-anchor="middle" font-family="'Arial Black', 'Helvetica Neue', sans-serif" font-weight="900" font-size="130" fill="none">
+      AXI<tspan fill="#2f81f7">O</tspan>N
+    </text>
+  </g>
+
+  <circle cx="24" cy="-1" r="16" fill="#2f81f7"/>
+</svg>
