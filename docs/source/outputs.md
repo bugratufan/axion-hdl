@@ -14,6 +14,7 @@ Axion-HDL generates multiple output formats from a single input definition. This
 | **XML** | `<module>_regs.xml` | IP-XACT compatible register map |
 | **YAML** | `<module>_regs.yaml` | Re-importable YAML definition |
 | **JSON** | `<module>_regs.json` | Machine-readable JSON format |
+| **Address Map** | `address_map.html` | Instance address space overview (requires `--hier`) |
 
 ---
 
@@ -523,3 +524,34 @@ package mymod_regs_pkg;
     } t_status_reg_status_e;
 endpackage // mymod_regs_pkg
 ```
+
+
+---
+
+## Address Map Report (Hierarchy Mode)
+
+**File:** `address_map.html`  
+**Generated when:** `--hier <file>` is provided.
+
+A styled HTML report showing all module instances with their assigned address ranges. Useful for reviewing the full design address space at a glance.
+
+### Table Columns
+
+| Column | Description |
+|--------|-------------|
+| **Instance Name** | The instance identifier from the hierarchy file (or module name for single-instance modules) |
+| **Module** | The source module name |
+| **Base Address** | The base address assigned in the hierarchy file |
+| **End Address** | Base address + register space size − 1 |
+| **Size** | Total register space size (bytes) |
+
+### Example
+
+```
+Instance Name      Module         Base Address  End Address   Size
+spi_master_0       spi_master     0x00020000    0x0002000F    16 B
+spi_master_1       spi_master     0x00021000    0x0002100F    16 B
+uart_ctrl_0        uart_ctrl      0x00030000    0x0003001F    32 B
+```
+
+The rows are sorted by base address.

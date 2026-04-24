@@ -197,6 +197,13 @@ class VHDLGenerator:
         Returns:
             Path to generated file
         """
+        effective_name = module_data.get('_effective_name')
+        if effective_name:
+            module_data = dict(module_data)
+            module_data['name'] = self._sanitize_vhdl_identifier(
+                os.path.basename(effective_name)
+            )
+
         module_name = module_data['name']
         output_filename = f"{module_name}_axion_reg.vhd"
         output_path = os.path.join(self.output_dir, output_filename)
@@ -226,7 +233,7 @@ class VHDLGenerator:
         Returns:
             Path to generated package file, or None if no enum_values present
         """
-        module_name = module_data['name']
+        module_name = module_data.get('_effective_name', module_data['name'])
 
         # Collect all registers/fields with enum_values
         enum_fields = []

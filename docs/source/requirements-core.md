@@ -24,6 +24,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | **VAL** | Validation | Validation of inputs, error visibility, and diagnostics. |
 | **EQUIV** | Format Equivalence | Cross-format parsing and output equivalence. |
 | **AXION-TYPES** | Typed AXI Ports | Optional typed AXI4-Lite port generation using `axion_common_pkg` record types. |
+| **HIER** | Hierarchy | Centralized base address assignment and multi-instance generation via `--hier` flag. |
 
 ---
 
@@ -361,3 +362,24 @@ Covers optional generation of typed `t_axi_lite_m2s` / `t_axi_lite_s2m` record p
 | AXION-TYPES-019 | SV S2M Pack Assigns | When `use_axion_types` is enabled, the SystemVerilog module body contains `assign axi_s2m.awready = axi_awready;` and equivalent assigns for all S2M fields. | Python Unit Test (`test_axion_types_019_sv_s2m_pack`) |
 | AXION-TYPES-020 | SV Default Unchanged | When `use_axion_types` is `False`, generated SystemVerilog output is identical to the pre-feature baseline (flat individual AXI ports, no package import). | Python Unit Test (`test_axion_types_020_sv_default_unchanged`) |
 | AXION-TYPES-021 | Per-Module Independence | Setting `use_axion_types: true` on one module does not affect sibling modules parsed from the same source directory. | Python Unit Test (`test_axion_types_021_per_module_independence`) |
+
+## 18. Hierarchy File Support (HIER)
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| HIER-001 | CLI `--hier` flag | `--hier <file>` argument is accepted by the CLI, the file is parsed, and hierarchy is applied before generation. | Python Unit Test (`test_hier_001_cli_flag`) |
+| HIER-002 | YAML hierarchy parse | A YAML-format hierarchy file is parsed correctly into a list of instance dicts. | Python Unit Test (`test_hier_002_yaml_parse`) |
+| HIER-003 | TOML hierarchy parse | A TOML-format hierarchy file is parsed correctly into a list of instance dicts. | Python Unit Test (`test_hier_003_toml_parse`) |
+| HIER-004 | JSON hierarchy parse | A JSON-format hierarchy file is parsed correctly into a list of instance dicts. | Python Unit Test (`test_hier_004_json_parse`) |
+| HIER-005 | XML hierarchy parse | An XML-format hierarchy file is parsed correctly into a list of instance dicts. | Python Unit Test (`test_hier_005_xml_parse`) |
+| HIER-006 | base_addr override (single instance) | When `--hier` is provided, the `base_addr` declared inside the individual module file is ignored and replaced by the hierarchy value. | Python Unit Test (`test_hier_006_base_addr_override_single`) |
+| HIER-007 | Single-instance output naming | When a module appears only once in the hierarchy and no `instance` field is given, the output files keep the original module name (no suffix change). If an `instance` field is explicitly provided, the instance name is used for output naming instead. | Python Unit Test (`test_hier_007_single_instance_filename`) |
+| HIER-008 | Multi-instance output naming | When a module appears more than once in the hierarchy, each instance generates separate output files named after the `instance` field (e.g. `spi_master_0_axion_reg.vhd`). | Python Unit Test (`test_hier_008_multi_instance_filename`) |
+| HIER-009 | `instance` field required for duplicates | When the same module appears more than once in the hierarchy file but one or more entries omit the `instance` field, `HierarchyParser.parse()` raises `ValueError`. | Python Unit Test (`test_hier_009_missing_instance_field`) |
+| HIER-010 | Duplicate instance name rejected | When the same instance name appears more than once in the hierarchy file, `RuleChecker.check_hierarchy()` reports an error. | Python Unit Test (`test_hier_010_duplicate_instance_name`) |
+| HIER-011 | Address overlap detection | When two instances have overlapping address ranges, `RuleChecker.check_hierarchy()` reports an error naming both instances and their ranges. | Python Unit Test (`test_hier_011_address_overlap`) |
+| HIER-012 | Unknown module error | When a module name in the hierarchy file is not found in the analyzed sources, `RuleChecker.check_hierarchy()` reports an error. | Python Unit Test (`test_hier_012_unknown_module_error`) |
+| HIER-013 | address_map.html generation | When `--hier` is provided, `address_map.html` is written to the output directory. | Python Unit Test (`test_hier_013_address_map_html_generated`) |
+| HIER-014 | address_map.html table correctness | The generated `address_map.html` contains a table with Instance Name, Module, Base Address, End Address, and Size columns; row values match the hierarchy and module register definitions. | Python Unit Test (`test_hier_014_address_map_html_content`) |
+| HIER-015 | Backward compatibility | When `--hier` is not provided, all existing outputs are generated with the original naming and base addresses unchanged. | Python Unit Test (`test_hier_015_no_hier_backward_compat`) |
+| HIER-016 | Unsupported format error | `HierarchyParser.parse()` raises `ValueError` when given a file with an unsupported extension. | Python Unit Test (`test_hier_016_unsupported_format`) |

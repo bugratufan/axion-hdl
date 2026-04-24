@@ -96,6 +96,7 @@ axion-hdl -s ./src -e "*_tb.vhd" -e "test_*" -e "deprecated" -o ./output --all
 | `--doc` | Generate Markdown documentation |
 | `--doc-format FORMAT` | Documentation format: `md`, `html`, `pdf` |
 | `--use-axion-types` | Use typed `t_axi_lite_m2s`/`t_axi_lite_s2m` record ports from `axion_common_pkg` instead of flat AXI signals (VHDL and SV). Overrides any per-module `use_axion_types` config value. |
+| `--hier FILE` | Hierarchy file for centralized base address assignment (YAML, TOML, JSON, or XML). Overrides `base_addr` in all individual module files. When the same module appears multiple times, the `instance` field names the output files. Also generates `address_map.html`. |
 
 **Examples:**
 
@@ -114,6 +115,12 @@ axion-hdl -s regs.yaml -o ./docs --doc --doc-format html
 
 # Multiple formats
 axion-hdl -s regs.yaml -o ./output --vhdl --c-header --doc --yaml
+
+# Hierarchy: centralized base address assignment
+axion-hdl -s ./rtl -o ./output --hier address_map.yaml --all
+
+# Hierarchy: multi-instance (two instances of the same module)
+axion-hdl -s ./rtl -o ./output --hier design_hier.toml --sv --c-header
 ```
 
 ### GUI Options

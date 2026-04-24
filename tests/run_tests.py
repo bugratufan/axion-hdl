@@ -1224,7 +1224,8 @@ def print_results(results: List[TestResult]):
         "equiv": "🔀 EQUIV",
         "enum": "🔢 ENUM",
         "axion_types": "🔌 AXION-TYPES",
-        "systemverilog": "⚡ SYSTEMVERILOG"
+        "systemverilog": "⚡ SYSTEMVERILOG",
+        "hier": "🗂️  HIER"
     }
 
     total_passed = 0
@@ -1237,7 +1238,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
 
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "enum", "axion_types", "systemverilog"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "enum", "axion_types", "systemverilog", "hier"]:
         if cat not in categories:
             continue
         
@@ -2912,12 +2913,94 @@ def run_enum_tests() -> List[TestResult]:
     return results
 
 
+def run_hierarchy_tests() -> List[TestResult]:
+    """Run HIER-xxx requirement tests (hierarchy file support feature)."""
+    results = []
+
+    _hier_test_classes = [
+        'TestHierParserYAML',
+        'TestHierParserTOML',
+        'TestHierParserJSON',
+        'TestHierParserXML',
+        'TestHierParserFormats',
+        'TestHierBaseAddrOverride',
+        'TestHierOutputNaming',
+        'TestHierValidation',
+        'TestHierAddressMapHTML',
+        'TestHierBackwardCompat',
+        'TestHierCLIFlag',
+    ]
+
+    try:
+        import io
+        import importlib
+        sys.path.insert(0, str(PROJECT_ROOT / "tests" / "python"))
+        hier_mod = importlib.import_module('test_hierarchy')
+
+        for class_name in _hier_test_classes:
+            cls = getattr(hier_mod, class_name, None)
+            if cls is None:
+                results.append(TestResult(
+                    f"hier.{class_name}",
+                    f"HIER: {class_name}",
+                    "failed", 0,
+                    f"Test class '{class_name}' not found in test_hierarchy.py",
+                    category="hier", subcategory="requirements"
+                ))
+                continue
+
+            loader = unittest.TestLoader()
+            suite = loader.loadTestsFromTestCase(cls)
+
+            for test in suite:
+                test_name = str(test).split()[0]
+                desc = test.shortDescription() or test_name
+                req_match = re.match(r'(HIER-\d+\S*)', desc)
+                req_id = req_match.group(1).rstrip(':') if req_match else "HIER-???"
+
+                start = time.time()
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                    sys.stdout = old_stdout
+                    results.append(TestResult(
+                        f"hier.{test_name}",
+                        f"{req_id}: {desc}",
+                        "passed",
+                        time.time() - start,
+                        category="hier",
+                        subcategory="requirements"
+                    ))
+                except Exception as e:
+                    sys.stdout = old_stdout
+                    results.append(TestResult(
+                        f"hier.{test_name}",
+                        f"{req_id}: {desc}",
+                        "failed",
+                        time.time() - start,
+                        str(e),
+                        category="hier",
+                        subcategory="requirements"
+                    ))
+
+    except ImportError as e:
+        results.append(TestResult(
+            "hier.import",
+            "HIER: Import test module",
+            "failed", 0, str(e),
+            category="hier", subcategory="setup"
+        ))
+
+    return results
+
+
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..026, ENUM-001..042, AXION-TYPES-001..021, SV-PARSER, SV-GEN, SV-ADV + Cocotb\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..026, ENUM-001..042, AXION-TYPES-001..021, HIER-001..016, SV-PARSER, SV-GEN, SV-ADV + Cocotb\n")
 
     all_results = []
-    total_steps = 26
+    total_steps = 27
 
     # Run Python unit tests (core functionality)
     print(f"  [1/{total_steps}] Running Python unit tests...", flush=True)
@@ -3022,6 +3105,10 @@ def main():
     # Run axion-types tests (AXION-TYPES-001..021)
     print(f"  [26/{total_steps}] Running axion-types (typed AXI ports) tests...", flush=True)
     all_results.extend(run_axion_types_tests())
+
+    # Run hierarchy tests (HIER-001..016)
+    print(f"  [27/{total_steps}] Running hierarchy file support tests...", flush=True)
+    all_results.extend(run_hierarchy_tests())
 
     # Save and generate reports
     save_results(all_results)
