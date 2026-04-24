@@ -801,3 +801,87 @@ access = "RW"
   </spirit:enumeratedValues>
 </spirit:field>
 ```
+
+---
+
+## Hierarchy File Format
+
+A hierarchy file maps module instances to base addresses, enabling centralized address management and multi-instance generation via `--hier`. All supported formats (YAML, TOML, JSON, XML) share the same structure and are normalized internally before processing.
+
+### Top-Level Structure
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `instances` | list | Yes | List of module instance definitions |
+
+### Instance Entry Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `module` | string | Yes | Name of the source module (must match a parsed module name) |
+| `instance` | string | Required when module appears >1× | Unique instance identifier; used for output file naming |
+| `base_addr` | int or hex string | Yes | Base address for this instance (e.g. `0x10000` or `65536`) |
+
+### YAML
+
+```yaml
+instances:
+  - module: gtwiz_wrapper
+    instance: gtwiz_wrapper_0
+    base_addr: 0x10000
+  - module: gtwiz_wrapper
+    instance: gtwiz_wrapper_1
+    base_addr: 0x11000
+  - module: spi_master
+    base_addr: 0x20000
+```
+
+> `instance` is optional when a module appears only once.
+
+### TOML
+
+```toml
+[[instances]]
+module = "gtwiz_wrapper"
+instance = "gtwiz_wrapper_0"
+base_addr = "0x10000"
+
+[[instances]]
+module = "gtwiz_wrapper"
+instance = "gtwiz_wrapper_1"
+base_addr = "0x11000"
+
+[[instances]]
+module = "spi_master"
+base_addr = "0x20000"
+```
+
+### JSON
+
+```json
+{
+  "instances": [
+    { "module": "gtwiz_wrapper", "instance": "gtwiz_wrapper_0", "base_addr": "0x10000" },
+    { "module": "gtwiz_wrapper", "instance": "gtwiz_wrapper_1", "base_addr": "0x11000" },
+    { "module": "spi_master", "base_addr": "0x20000" }
+  ]
+}
+```
+
+### XML
+
+```xml
+<hierarchy>
+  <instance module="gtwiz_wrapper" name="gtwiz_wrapper_0" base_addr="0x10000"/>
+  <instance module="gtwiz_wrapper" name="gtwiz_wrapper_1" base_addr="0x11000"/>
+  <instance module="spi_master" base_addr="0x20000"/>
+</hierarchy>
+```
+
+### Output Naming Rules
+
+| Scenario | Output filename |
+|----------|----------------|
+| Module appears once, no `instance` | `<module>_axion_reg.vhd` (unchanged) |
+| Module appears once, `instance` given | `<instance>_axion_reg.vhd` |
+| Module appears multiple times | `<instance>_axion_reg.vhd` per entry |

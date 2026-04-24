@@ -46,6 +46,11 @@ class SystemVerilogGenerator:
         Returns:
             Path to generated file
         """
+        effective_name = module_data.get('_effective_name')
+        if effective_name:
+            module_data = dict(module_data)
+            module_data['name'] = effective_name
+
         module_name = module_data.get('name', 'unnamed_module')
         # Sanitize: strip any path components and extensions that don't belong
         module_name = os.path.basename(module_name)
@@ -54,6 +59,9 @@ class SystemVerilogGenerator:
         import re as _re
         if not _re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', module_name):
             return None
+        # Write sanitized name back so the module declaration matches the filename
+        module_data = dict(module_data)
+        module_data['name'] = module_name
         output_filename = f"{module_name}_axion_reg.sv"
         output_path = os.path.join(self.output_dir, output_filename)
 
@@ -110,7 +118,7 @@ class SystemVerilogGenerator:
         Returns:
             Path to generated package file, or None if no enum_values present
         """
-        module_name = module_data.get('name', 'unnamed_module')
+        module_name = module_data.get('_effective_name', module_data.get('name', 'unnamed_module'))
 
         # Collect all registers/fields with enum_values
         enum_fields = []
