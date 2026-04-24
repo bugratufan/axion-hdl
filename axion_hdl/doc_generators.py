@@ -48,8 +48,9 @@ class DocGenerator:
         base_addr = module.get('base_address', 0x00)
         base_addr_str = f"0x{base_addr:04X}" if base_addr != 0 else "0x0000"
         
+        display_name = module.get('_effective_name', module['name'])
         lines = [
-            f"## Module: {module['name']}",
+            f"## Module: {display_name}",
             "",
             f"**Source File:** `{os.path.basename(module['file'])}`  ",
             f"**Base Address:** {base_addr_str}  ",
