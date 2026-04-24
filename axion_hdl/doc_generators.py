@@ -5,6 +5,7 @@ This module generates register documentation in various formats.
 Uses axion_hdl for code formatting utilities.
 """
 
+import html as _html
 import os
 import re
 import sys
@@ -1676,7 +1677,11 @@ class CHeaderGenerator:
     def _generate_header_content(self, module: Dict) -> List[str]:
         """Generate C header content with module-prefixed register names."""
         display_name = module.get('_effective_name', module['name'])
-        module_name = display_name.upper()
+        c_safe = re.sub(r'[^A-Za-z0-9_]', '_', display_name)
+        c_safe = re.sub(r'_+', '_', c_safe).strip('_') or 'module'
+        if c_safe[0].isdigit():
+            c_safe = 'v_' + c_safe
+        module_name = c_safe.upper()
         module_prefix = f"{module_name}_"
         base_addr = module.get('base_address', 0x00)
 
@@ -2403,8 +2408,8 @@ class AddressMapHTMLGenerator:
             size_str = self._fmt_size(row['size'])
             table_rows += (
                 f'<tr>'
-                f'<td><code>{row["instance"]}</code></td>'
-                f'<td>{row["module"]}</td>'
+                f'<td><code>{_html.escape(row["instance"])}</code></td>'
+                f'<td>{_html.escape(row["module"])}</td>'
                 f'<td><code>0x{row["base"]:08X}</code></td>'
                 f'<td><code>0x{row["end"]:08X}</code></td>'
                 f'<td>{size_str}</td>'

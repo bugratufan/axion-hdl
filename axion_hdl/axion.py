@@ -892,14 +892,17 @@ class AxionHDL:
             entries = by_module.get(mod_name)
 
             if not entries:
-                # Module not in hierarchy — keep as-is; rule_checker will flag it
+                # Module not in hierarchy — keep as-is (base_address unchanged)
                 new_modules.append(module)
                 continue
 
             if len(entries) == 1:
-                # Single instance: update base_address only; keep original name (HIER-007)
+                # Single instance: update base_address; use instance name if explicitly given
+                # (HIER-007: if no instance field, output name stays unchanged)
                 copy = dict(module)
                 copy['base_address'] = entries[0]['base_addr']
+                if entries[0]['instance']:
+                    copy['_effective_name'] = entries[0]['instance']
                 new_modules.append(copy)
             else:
                 # Multiple instances: produce one copy per entry

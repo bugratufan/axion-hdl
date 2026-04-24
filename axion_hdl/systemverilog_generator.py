@@ -59,6 +59,9 @@ class SystemVerilogGenerator:
         import re as _re
         if not _re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', module_name):
             return None
+        # Write sanitized name back so the module declaration matches the filename
+        module_data = dict(module_data)
+        module_data['name'] = module_name
         output_filename = f"{module_name}_axion_reg.sv"
         output_path = os.path.join(self.output_dir, output_filename)
 

@@ -367,10 +367,8 @@ class RuleChecker:
                             _relative_offset(r, mod_base) + _reg_span(r)
                             for r in regs
                         )
-                    else:
-                        size = 0
-                    end = base + size - 1
-                    ranges.append((inst, base, end))
+                        end = base + size - 1
+                        ranges.append((inst, base, end))
                     break
 
         for i, (inst_a, base_a, end_a) in enumerate(ranges):
