@@ -412,11 +412,13 @@ class DocGenerator:
             if reg_count > 5:
                 reg_preview += f'<div class="reg-more">+{reg_count - 5} more registers...</div>'
             
+            page_name = module.get('_effective_name', module['name'])
+            display_name = module.get('_effective_name', module['name'])
             content += f'''
-    <a href="html/{module['name']}.html" class="module-card-large">
+    <a href="html/{page_name}.html" class="module-card-large">
         <div class="module-main">
             <div class="module-header">
-                <h3>{module['name']}</h3>
+                <h3>{display_name}</h3>
                 {cdc_badge}
             </div>
             <div class="module-info">
@@ -460,26 +462,30 @@ class DocGenerator:
         full_content = nav_html + html_content
         
         return self._wrap_html_with_style(
-            full_content, 
-            title=f"{module['name']} - AXI Register Map",
+            full_content,
+            title=f"{module.get('_effective_name', module['name'])} - AXI Register Map",
             is_index=False
         )
     
     def _generate_navigation(self, current_module: Dict, all_modules: List[Dict]) -> str:
         """Generate navigation bar for module pages."""
-        # Find previous and next modules
-        idx = next((i for i, m in enumerate(all_modules) if m['name'] == current_module['name']), 0)
+        current_page = current_module.get('_effective_name', current_module['name'])
+        idx = next((i for i, m in enumerate(all_modules)
+                    if m.get('_effective_name', m['name']) == current_page), 0)
         prev_module = all_modules[idx - 1] if idx > 0 else None
         next_module = all_modules[idx + 1] if idx < len(all_modules) - 1 else None
-        
-        prev_link = f'<a href="{prev_module["name"]}.html" class="nav-link">← {prev_module["name"]}</a>' if prev_module else '<span></span>'
-        next_link = f'<a href="{next_module["name"]}.html" class="nav-link">{next_module["name"]} →</a>' if next_module else '<span></span>'
-        
+
+        def _page(m):
+            return m.get('_effective_name', m['name'])
+
+        prev_link = f'<a href="{_page(prev_module)}.html" class="nav-link">← {_page(prev_module)}</a>' if prev_module else '<span></span>'
+        next_link = f'<a href="{_page(next_module)}.html" class="nav-link">{_page(next_module)} →</a>' if next_module else '<span></span>'
+
         return f'''
 <nav class="breadcrumb">
     <a href="../index.html">🏠 All Modules</a>
     <span class="separator">›</span>
-    <span class="current">{current_module['name']}</span>
+    <span class="current">{current_page}</span>
 </nav>
 <div class="page-nav">
     {prev_link}
@@ -2357,17 +2363,31 @@ class AddressMapHTMLGenerator:
             except (ValueError, TypeError):
                 return 0
 
+        def _relative_offset(r, base_addr):
+            if r.get('relative_address_int') is not None:
+                return _to_int(r['relative_address_int'])
+            if r.get('address_int') is not None:
+                return _to_int(r['address_int']) - base_addr
+            return _to_int(r.get('address', 0))
+
+        def _reg_span(r):
+            width = int(r.get('width', 32)) if r.get('width') else 32
+            byte_size = max(4, (width + 7) // 8)
+            return ((byte_size + 3) // 4) * 4
+
         rows = []
         for module in modules:
             display_name = module.get('_effective_name', module['name'])
             base_addr = _to_int(module.get('base_address', 0))
             regs = module.get('registers', [])
             if regs:
-                max_offset = max(_to_int(r.get('address', 0)) for r in regs)
+                size = max(
+                    _relative_offset(r, base_addr) + _reg_span(r)
+                    for r in regs
+                )
             else:
-                max_offset = 0
-            size = max_offset + 4
-            end_addr = base_addr + size - 1
+                size = 0
+            end_addr = base_addr + size - 1 if size > 0 else base_addr
             rows.append({
                 'instance': display_name,
                 'module': module['name'],

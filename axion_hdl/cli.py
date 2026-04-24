@@ -349,6 +349,12 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         try:
             axion.load_hierarchy(args.hier_file)
             axion.apply_hierarchy()
+        except ImportError as e:
+            print(
+                f"Error: Failed to load hierarchy file due to a missing dependency: {e}",
+                file=sys.stderr
+            )
+            sys.exit(1)
         except (ValueError, FileNotFoundError) as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)

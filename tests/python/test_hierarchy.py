@@ -407,7 +407,6 @@ class TestHierValidation(unittest.TestCase):
         modules = [_clone(_MINIMAL_MODULE)]
         checker = RuleChecker()
         checker.check_hierarchy(hierarchy, modules)
-        error_msgs = ' '.join(e['msg'] for e in checker.errors)
         self.assertTrue(any('spi_0' in e['msg'] for e in checker.errors),
                         f"Expected duplicate instance error. Got: {checker.errors}")
 

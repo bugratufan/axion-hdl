@@ -897,11 +897,9 @@ class AxionHDL:
                 continue
 
             if len(entries) == 1:
-                # Single instance: update base_address in place; use instance name if given
+                # Single instance: update base_address only; keep original name (HIER-007)
                 copy = dict(module)
                 copy['base_address'] = entries[0]['base_addr']
-                if entries[0]['instance']:
-                    copy['_effective_name'] = entries[0]['instance']
                 new_modules.append(copy)
             else:
                 # Multiple instances: produce one copy per entry

@@ -340,6 +340,18 @@ class RuleChecker:
             except (ValueError, TypeError):
                 return 0
 
+        def _relative_offset(r, mod_base):
+            if r.get('relative_address_int') is not None:
+                return _to_int(r['relative_address_int'])
+            if r.get('address_int') is not None:
+                return _to_int(r['address_int']) - mod_base
+            return _to_int(r.get('address', 0))
+
+        def _reg_span(r):
+            width = int(r.get('width', 32)) if r.get('width') else 32
+            byte_size = max(4, (width + 7) // 8)
+            return ((byte_size + 3) // 4) * 4
+
         ranges = []
         for entry in hierarchy:
             mod = entry['module']
@@ -349,11 +361,14 @@ class RuleChecker:
             for m in modules:
                 if m['name'] == mod:
                     regs = m.get('registers', [])
+                    mod_base = _to_int(m.get('base_address', 0))
                     if regs:
-                        max_offset = max(_to_int(r.get('address', 0)) for r in regs)
+                        size = max(
+                            _relative_offset(r, mod_base) + _reg_span(r)
+                            for r in regs
+                        )
                     else:
-                        max_offset = 0
-                    size = max_offset + 4
+                        size = 0
                     end = base + size - 1
                     ranges.append((inst, base, end))
                     break
