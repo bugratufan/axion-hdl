@@ -1,0 +1,79 @@
+module: spi_master
+description: SPI Master Controller Register Map
+base_addr: 0x0000
+
+registers:
+  - name: CTRL
+    address: 0x00
+    description: Control register
+    fields:
+      - name: ENABLE
+        bits: "0"
+        access: RW
+        description: Enable the SPI master
+        reset_value: 0
+      - name: CPOL
+        bits: "1"
+        access: RW
+        description: Clock polarity
+        reset_value: 0
+      - name: CPHA
+        bits: "2"
+        access: RW
+        description: Clock phase
+        reset_value: 0
+      - name: LOOPBACK
+        bits: "3"
+        access: RW
+        description: Loopback mode enable
+        reset_value: 0
+
+  - name: STATUS
+    address: 0x04
+    description: Status register
+    fields:
+      - name: BUSY
+        bits: "0"
+        access: RO
+        description: Transfer in progress
+        reset_value: 0
+      - name: TX_EMPTY
+        bits: "1"
+        access: RO
+        description: TX FIFO empty
+        reset_value: 1
+      - name: RX_VALID
+        bits: "2"
+        access: RO
+        description: RX data valid
+        reset_value: 0
+
+  - name: DIV
+    address: 0x08
+    description: Clock divider register
+    fields:
+      - name: DIVISOR
+        bits: "15:0"
+        access: RW
+        description: Clock divisor value (f_sclk = f_clk / (2 * (DIVISOR + 1)))
+        reset_value: 4
+
+  - name: TX_DATA
+    address: 0x0C
+    description: Transmit data register
+    fields:
+      - name: DATA
+        bits: "7:0"
+        access: WO
+        description: Data byte to transmit
+        reset_value: 0
+
+  - name: RX_DATA
+    address: 0x10
+    description: Receive data register
+    fields:
+      - name: DATA
+        bits: "7:0"
+        access: RO
+        description: Last received data byte
+        reset_value: 0

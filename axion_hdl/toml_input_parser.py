@@ -177,7 +177,8 @@ class TOMLInputParser:
                 config = data['config']
                 yaml_dict['config'] = {
                     'cdc_en': config.get('cdc_en', False),
-                    'cdc_stage': config.get('cdc_stage', 2)
+                    'cdc_stage': config.get('cdc_stage', 2),
+                    'use_axion_types': config.get('use_axion_types', False),
                 }
 
             # Extract registers (required)

@@ -6,7 +6,7 @@ Handles bit overlap detection and auto-packing of signals.
 """
 
 from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 class BitOverlapError(Exception):
@@ -225,15 +225,19 @@ class BitFieldManager:
                 f"(bits [{bit_high}:{bit_low}])"
             )
 
-        # Validate enum_values: each value must fit in the field width
+        # Validate enum_values: every value must be in [0, 2**width - 1]
         if enum_values:
             max_val = (2 ** width) - 1
-            for val, name in enum_values.items():
-                if int(val) > max_val:
-                    raise ValueError(
-                        f"Enum value {val} exceeds max value {max_val} "
-                        f"for {width}-bit field '{field_name}'"
-                    )
+            bad = [
+                (val, name) for val, name in enum_values.items()
+                if int(val) < 0 or int(val) > max_val
+            ]
+            if bad:
+                details = ', '.join(f"{val} ({name})" for val, name in bad)
+                raise ValueError(
+                    f"Enum value(s) out of range [0, {max_val}] "
+                    f"for {width}-bit field '{field_name}': {details}"
+                )
 
         # Create field
         field = BitField(

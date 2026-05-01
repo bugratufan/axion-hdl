@@ -152,6 +152,8 @@ def browser_context_args(browser_context_args):
 @pytest.fixture
 def gui_page(page, gui_server):
     """Fixture that provides a page connected to the GUI server"""
+    # Suppress the beta warning modal before any page script runs
+    page.add_init_script("sessionStorage.setItem('axion_hdl_beta_warning_seen', '1')")
     page.goto(gui_server.url)
     page.wait_for_load_state("networkidle")
     return page

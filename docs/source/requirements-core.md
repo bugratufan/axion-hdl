@@ -23,6 +23,8 @@ Testing and verification are automated via `make test`, which maps tests back to
 | **DEF** | Default Values | Support for reset values via `DEFAULT` attribute. |
 | **VAL** | Validation | Validation of inputs, error visibility, and diagnostics. |
 | **EQUIV** | Format Equivalence | Cross-format parsing and output equivalence. |
+| **AXION-TYPES** | Typed AXI Ports | Optional typed AXI4-Lite port generation using `axion_common_pkg` record types. |
+| **HIER** | Hierarchy | Centralized base address assignment and multi-instance generation via `--hier` flag. |
 
 ---
 
@@ -312,3 +314,72 @@ Testing and verification are automated via `make test`, which maps tests back to
 | ENUM-022 | Value Overflow Validation | `add_field()` raises `ValueError` when an enum value exceeds `2**width - 1`; numeric notation length does not affect the check. | Python Unit Test (`test_enum_022_value_overflow_validation`) |
 | ENUM-023 | One-Bit Field | 1-bit fields with `{0: 'INACTIVE', 1: 'ACTIVE'}` enum produce correct VHDL `std_logic` constants and SV `typedef enum logic`. | Python Unit Test (`test_enum_023_one_bit_field`) |
 | ENUM-024 | Rule Checker Overflow | `RuleChecker.check_enum_value_overflow()` reports an error for each enum value exceeding field width. | Python Unit Test (`test_enum_024_rule_check_reports_overflow`) |
+| ENUM-025 | Rule Checker Standalone Overflow | `RuleChecker.check_enum_value_overflow()` detects overflow in standalone (non-packed) registers with `enum_values`. | Python Unit Test (`test_enum_025_rule_checker_standalone_overflow`) |
+| ENUM-026 | VHDL Standalone Overflow E2E | A VHDL annotation with an overflowing enum value on a standalone signal triggers a rule-check error in the full parse pipeline. | Python Unit Test (`test_enum_026_vhdl_standalone_overflow_e2e`) |
+| ENUM-027 | SV Standalone Overflow E2E | An SV annotation with an overflowing enum value on a standalone signal triggers a rule-check error in the full parse pipeline. | Python Unit Test (`test_enum_027_sv_standalone_overflow_e2e`) |
+| ENUM-028 | All Overflows Reported | `add_field()` raises `ValueError` naming every overflowing enum value in a single message, not just the first. | Python Unit Test (`test_enum_028_all_overflows_reported`) |
+| ENUM-029 | Negative Value Rejected (BitField) | `add_field()` raises `ValueError` when an enum value is negative. | Python Unit Test (`test_enum_029_negative_value_bitfield`) |
+| ENUM-030 | Negative Value Rejected (RuleChecker) | `RuleChecker.check_enum_value_overflow()` reports an error for a negative enum value. | Python Unit Test (`test_enum_030_negative_value_rule_checker`) |
+| ENUM-031 | YAML Field Invalid Enum Key | YAML parser records a parsing error when a field-level enum key cannot be parsed as an integer. | Python Unit Test (`test_enum_031_yaml_field_invalid_enum_key`) |
+| ENUM-032 | YAML Standalone Invalid Enum Key | YAML parser records a parsing error when a standalone-register enum key cannot be parsed as an integer. | Python Unit Test (`test_enum_032_yaml_standalone_invalid_enum_key`) |
+| ENUM-033 | VHDL Pkg Identifier Sanitization | `generate_vhdl_pkg()` replaces non-alphanumeric characters in constant names with `_`, collapses adjacent underscores, and strips leading/trailing underscores. | Python Unit Test (`test_enum_033_vhdl_pkg_identifier_sanitization`) |
+| ENUM-034 | SV Pkg Identifier Sanitization | `generate_sv_pkg()` replaces non-alphanumeric characters in typedef/member names with `_`. | Python Unit Test (`test_enum_034_sv_pkg_identifier_sanitization`) |
+| ENUM-035 | C Header Identifier Sanitization | C header generator sanitizes enum labels to valid C identifiers in `#define` macros. | Python Unit Test (`test_enum_035_c_header_identifier_sanitization`) |
+| ENUM-036 | VHDL Pkg Returns None (No Enum) | `generate_vhdl_pkg()` returns `None` when the module has no fields with `enum_values`. | Python Unit Test (`test_enum_036_vhdl_pkg_returns_none_no_enum`) |
+| ENUM-037 | SV Pkg Returns None (No Enum) | `generate_sv_pkg()` returns `None` when the module has no fields with `enum_values`. | Python Unit Test (`test_enum_037_sv_pkg_returns_none_no_enum`) |
+| ENUM-038 | VHDL Port Comment No Double Dash | VHDL generator enum port comment uses parentheses format rather than embedding `--` which would create invalid VHDL. | Python Unit Test (`test_enum_038_vhdl_port_comment_no_double_dash`) |
+| ENUM-039 | generate_module Co-generates Pkg | `generate_module()` automatically produces `_regs_pkg.vhd` alongside the register module when enum fields are present. | Python Unit Test (`test_enum_039_generate_module_cogenerates_pkg`) |
+| ENUM-040 | XML Simple Invalid Enum Value Reported | XML parser records an error when a simple-format `<enum_value>` has a non-integer `value` attribute instead of silently dropping it. | Python Unit Test (`test_enum_040_xml_simple_invalid_enum_value_recorded`) |
+| ENUM-041 | XML SPIRIT Invalid Enum Value Reported | XML parser records an error when a SPIRIT `<spirit:value>` element contains a non-integer string instead of silently dropping it. | Python Unit Test (`test_enum_041_xml_spirit_invalid_enum_value_recorded`) |
+| ENUM-042 | VHDL Identifier Adjacent Underscores | `_sanitize_vhdl_identifier()` collapses adjacent underscores to one, strips leading and trailing underscores, and prepends `v_` when the result starts with a digit. | Python Unit Test (`test_enum_042_vhdl_identifier_no_adjacent_underscores`) |
+
+---
+
+## Typed AXI Ports (AXION-TYPES)
+
+Covers optional generation of typed `t_axi_lite_m2s` / `t_axi_lite_s2m` record ports (VHDL) and struct ports (SystemVerilog) from `axion_common_pkg`, instead of the default flat individual signals.
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| AXION-TYPES-001 | YAML Config Parsing | `use_axion_types: true` in a YAML `config:` block sets `module_data['use_axion_types'] = True`; absence or `false` sets `False`. | Python Unit Test (`test_axion_types_001_yaml_config_parsing`) |
+| AXION-TYPES-002 | TOML Config Parsing | `use_axion_types = true` in a TOML `[config]` table sets `module_data['use_axion_types'] = True`. | Python Unit Test (`test_axion_types_002_toml_config_parsing`) |
+| AXION-TYPES-003 | XML Config Parsing | `use_axion_types="true"` attribute on the `<config>` element sets `module_data['use_axion_types'] = True`. | Python Unit Test (`test_axion_types_003_xml_config_parsing`) |
+| AXION-TYPES-004 | JSON Config Parsing | `"use_axion_types": true` in a JSON `config` object (passed through YAML parser) sets `module_data['use_axion_types'] = True`. | Python Unit Test (`test_axion_types_004_json_config_parsing`) |
+| AXION-TYPES-005 | Default Disabled | When `use_axion_types` is absent from all config blocks, `module_data['use_axion_types']` defaults to `False`. | Python Unit Test (`test_axion_types_005_default_disabled`) |
+| AXION-TYPES-006 | CLI Flag Override | `--use-axion-types` CLI flag sets `use_axion_types = True` on every analyzed module, overriding any per-module config value. | Python Unit Test (`test_axion_types_006_cli_flag_override`) |
+| AXION-TYPES-007 | VHDL Library Clause | When `use_axion_types` is enabled, generated VHDL includes `use work.axion_common_pkg.all;` in the library/use clause section. | Python Unit Test (`test_axion_types_007_vhdl_library_clause`) |
+| AXION-TYPES-008 | VHDL Entity Typed Ports | When `use_axion_types` is enabled, the VHDL entity port list contains `axi_m2s : in t_axi_lite_m2s` and `axi_s2m : out t_axi_lite_s2m` instead of the 19 flat individual AXI signals. | Python Unit Test (`test_axion_types_008_vhdl_entity_typed_ports`) |
+| AXION-TYPES-009 | VHDL No Flat AXI Ports | When `use_axion_types` is enabled, no flat AXI port names (`axi_awaddr`, `axi_wdata`, etc.) appear in the entity port list. | Python Unit Test (`test_axion_types_009_vhdl_no_flat_axi_ports`) |
+| AXION-TYPES-010 | VHDL Intermediate Signal Declarations | When `use_axion_types` is enabled, the architecture declaration region contains `signal axi_awaddr`, `signal axi_wdata`, and all other M2S and S2M intermediate signal declarations. | Python Unit Test (`test_axion_types_010_vhdl_intermediate_signals`) |
+| AXION-TYPES-011 | VHDL M2S Unpack Assignments | When `use_axion_types` is enabled, the architecture body contains concurrent signal assignments unpacking every `axi_m2s` record field to the corresponding intermediate signal (e.g. `axi_awaddr <= axi_m2s.awaddr`). | Python Unit Test (`test_axion_types_011_vhdl_m2s_unpack`) |
+| AXION-TYPES-012 | VHDL S2M Pack Assignments | When `use_axion_types` is enabled, the architecture body contains concurrent signal assignments packing every intermediate signal into the corresponding `axi_s2m` record field (e.g. `axi_s2m.awready <= axi_awready`). | Python Unit Test (`test_axion_types_012_vhdl_s2m_pack`) |
+| AXION-TYPES-013 | VHDL Default Unchanged | When `use_axion_types` is `False`, generated VHDL output is identical to the pre-feature baseline (flat individual AXI ports, no axion_common_pkg clause). | Python Unit Test (`test_axion_types_013_vhdl_default_unchanged`) |
+| AXION-TYPES-014 | SV Package Import | When `use_axion_types` is enabled, the generated SystemVerilog file includes `import axion_common_pkg::*;` before the module declaration. | Python Unit Test (`test_axion_types_014_sv_package_import`) |
+| AXION-TYPES-015 | SV Module Typed Ports | When `use_axion_types` is enabled, the SystemVerilog module port list contains `input t_axi_lite_m2s axi_m2s` and `output t_axi_lite_s2m axi_s2m` instead of the flat individual AXI signals. | Python Unit Test (`test_axion_types_015_sv_module_typed_ports`) |
+| AXION-TYPES-016 | SV No Flat AXI Ports | When `use_axion_types` is enabled, no flat AXI port names (`axi_awaddr`, `axi_wdata`, etc.) appear in the module port list. | Python Unit Test (`test_axion_types_016_sv_no_flat_axi_ports`) |
+| AXION-TYPES-017 | SV Intermediate Signal Declarations | When `use_axion_types` is enabled, the SystemVerilog module body contains `logic` declarations for all M2S and S2M intermediate signals. | Python Unit Test (`test_axion_types_017_sv_intermediate_signals`) |
+| AXION-TYPES-018 | SV M2S Unpack Assigns | When `use_axion_types` is enabled, the SystemVerilog module body contains `assign axi_awaddr = axi_m2s.awaddr;` and equivalent assigns for all M2S fields. | Python Unit Test (`test_axion_types_018_sv_m2s_unpack`) |
+| AXION-TYPES-019 | SV S2M Pack Assigns | When `use_axion_types` is enabled, the SystemVerilog module body contains `assign axi_s2m.awready = axi_awready;` and equivalent assigns for all S2M fields. | Python Unit Test (`test_axion_types_019_sv_s2m_pack`) |
+| AXION-TYPES-020 | SV Default Unchanged | When `use_axion_types` is `False`, generated SystemVerilog output is identical to the pre-feature baseline (flat individual AXI ports, no package import). | Python Unit Test (`test_axion_types_020_sv_default_unchanged`) |
+| AXION-TYPES-021 | Per-Module Independence | Setting `use_axion_types: true` on one module does not affect sibling modules parsed from the same source directory. | Python Unit Test (`test_axion_types_021_per_module_independence`) |
+
+## 18. Hierarchy File Support (HIER)
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| HIER-001 | CLI `--hier` flag | `--hier <file>` argument is accepted by the CLI, the file is parsed, and hierarchy is applied before generation. | Python Unit Test (`test_hier_001_cli_flag`) |
+| HIER-002 | YAML hierarchy parse | A YAML-format hierarchy file is parsed correctly into a list of instance dicts. | Python Unit Test (`test_hier_002_yaml_parse`) |
+| HIER-003 | TOML hierarchy parse | A TOML-format hierarchy file is parsed correctly into a list of instance dicts. | Python Unit Test (`test_hier_003_toml_parse`) |
+| HIER-004 | JSON hierarchy parse | A JSON-format hierarchy file is parsed correctly into a list of instance dicts. | Python Unit Test (`test_hier_004_json_parse`) |
+| HIER-005 | XML hierarchy parse | An XML-format hierarchy file is parsed correctly into a list of instance dicts. | Python Unit Test (`test_hier_005_xml_parse`) |
+| HIER-006 | base_addr override (single instance) | When `--hier` is provided, the `base_addr` declared inside the individual module file is ignored and replaced by the hierarchy value. | Python Unit Test (`test_hier_006_base_addr_override_single`) |
+| HIER-007 | Single-instance output naming | When a module appears only once in the hierarchy and no `instance` field is given, the output files keep the original module name (no suffix change). If an `instance` field is explicitly provided, the instance name is used for output naming instead. | Python Unit Test (`test_hier_007_single_instance_filename`) |
+| HIER-008 | Multi-instance output naming | When a module appears more than once in the hierarchy, each instance generates separate output files named after the `instance` field (e.g. `spi_master_0_axion_reg.vhd`). | Python Unit Test (`test_hier_008_multi_instance_filename`) |
+| HIER-009 | `instance` field required for duplicates | When the same module appears more than once in the hierarchy file but one or more entries omit the `instance` field, `HierarchyParser.parse()` raises `ValueError`. | Python Unit Test (`test_hier_009_missing_instance_field`) |
+| HIER-010 | Duplicate instance name rejected | When the same instance name appears more than once in the hierarchy file, `RuleChecker.check_hierarchy()` reports an error. | Python Unit Test (`test_hier_010_duplicate_instance_name`) |
+| HIER-011 | Address overlap detection | When two instances have overlapping address ranges, `RuleChecker.check_hierarchy()` reports an error naming both instances and their ranges. | Python Unit Test (`test_hier_011_address_overlap`) |
+| HIER-012 | Unknown module error | When a module name in the hierarchy file is not found in the analyzed sources, `RuleChecker.check_hierarchy()` reports an error. | Python Unit Test (`test_hier_012_unknown_module_error`) |
+| HIER-013 | address_map.html generation | When `--hier` is provided, `address_map.html` is written to the output directory. | Python Unit Test (`test_hier_013_address_map_html_generated`) |
+| HIER-014 | address_map.html table correctness | The generated `address_map.html` contains a table with Instance Name, Module, Base Address, End Address, and Size columns; row values match the hierarchy and module register definitions. | Python Unit Test (`test_hier_014_address_map_html_content`) |
+| HIER-015 | Backward compatibility | When `--hier` is not provided, all existing outputs are generated with the original naming and base addresses unchanged. | Python Unit Test (`test_hier_015_no_hier_backward_compat`) |
+| HIER-016 | Unsupported format error | `HierarchyParser.parse()` raises `ValueError` when given a file with an unsupported extension. | Python Unit Test (`test_hier_016_unsupported_format`) |

@@ -12,8 +12,9 @@ Features:
 """
 
 import os
+import re
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # Import from axion_hdl (unified package)
 from axion_hdl.code_formatter import CodeFormatter
@@ -170,28 +171,57 @@ class VHDLGenerator:
             return (width + 31) // 32
         return 1
         
+    @staticmethod
+    def _sanitize_vhdl_identifier(name: str) -> str:
+        """Return a valid VHDL basic identifier: letters/digits/single underscores, starts with letter."""
+        sanitized = re.sub(r'[^A-Za-z0-9_]', '_', name)
+        sanitized = re.sub(r'_+', '_', sanitized)
+        sanitized = sanitized.strip('_')
+        if not sanitized:
+            sanitized = 'v'
+        if sanitized[0].isdigit():
+            sanitized = 'v_' + sanitized
+        return sanitized
+
     def generate_module(self, module_data: Dict) -> str:
         """
         Generate VHDL register module for a parsed module.
-        
+
+        When the module has enum fields, also generates the companion
+        _regs_pkg.vhd so the `use work.<module>_regs_pkg.all;` clause
+        added to the entity header is always resolvable.
+
         Args:
             module_data: Parsed module dictionary
-            
+
         Returns:
             Path to generated file
         """
+        effective_name = module_data.get('_effective_name')
+        if effective_name:
+            module_data = dict(module_data)
+            module_data['name'] = self._sanitize_vhdl_identifier(
+                os.path.basename(effective_name)
+            )
+
         module_name = module_data['name']
         output_filename = f"{module_name}_axion_reg.vhd"
         output_path = os.path.join(self.output_dir, output_filename)
-        
+
         vhdl_code = self._generate_vhdl_code(module_data)
-        
+
+        os.makedirs(self.output_dir, exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(vhdl_code)
-            
+
+        # Always co-generate the package when enum fields exist so the
+        # `use work.<module>_regs_pkg.all;` in the entity header is satisfied.
+        if self._has_enum_fields(module_data):
+            self.generate_vhdl_pkg(module_data)
+
         return output_path
 
-    def generate_vhdl_pkg(self, module_data: Dict) -> str:
+    def generate_vhdl_pkg(self, module_data: Dict) -> Optional[str]:
         """
         Generate a VHDL constants package for enumerated field values.
 
@@ -203,16 +233,23 @@ class VHDLGenerator:
         Returns:
             Path to generated package file, or None if no enum_values present
         """
-        module_name = module_data['name']
+        module_name = module_data.get('_effective_name', module_data['name'])
 
-        # Collect all fields with enum_values
+        # Collect all registers/fields with enum_values
         enum_fields = []
         for reg in module_data.get('registers', []):
+            reg_name = reg.get('reg_name', reg.get('signal_name', ''))
             if reg.get('is_packed'):
-                reg_name = reg.get('reg_name', reg.get('signal_name', ''))
                 for field in reg.get('fields', []):
                     if field.get('enum_values'):
                         enum_fields.append((reg_name, field))
+            elif reg.get('enum_values'):
+                synthetic = {
+                    'name': reg_name,
+                    'width': reg.get('signal_width', reg.get('width', 32)),
+                    'enum_values': reg['enum_values'],
+                }
+                enum_fields.append((reg_name, synthetic))
 
         if not enum_fields:
             return None
@@ -237,7 +274,10 @@ class VHDLGenerator:
             enum_dict = field['enum_values']
             lines.append(f"    -- {reg_name}.{field_name} enumerated values")
             for val, name in sorted(enum_dict.items()):
-                const_name = f"C_{reg_name.upper()}_{field_name.upper()}_{name.upper()}"
+                safe_reg = self._sanitize_vhdl_identifier(reg_name).upper()
+                safe_field = self._sanitize_vhdl_identifier(field_name).upper()
+                safe_name = self._sanitize_vhdl_identifier(name).upper()
+                const_name = f"C_{safe_reg}_{safe_field}_{safe_name}"
                 if width == 1:
                     bit_literal = f"'{val}'"
                     lines.append(f"    constant {const_name} : std_logic := {bit_literal};")
@@ -276,8 +316,10 @@ class VHDLGenerator:
         return '\n'.join(lines)
     
     def _has_enum_fields(self, module_data: Dict) -> bool:
-        """Return True if any packed register field has enum_values defined."""
+        """Return True if any register or packed field has enum_values defined."""
         for reg in module_data.get('registers', []):
+            if reg.get('enum_values'):
+                return True
             if reg.get('is_packed'):
                 for field in reg.get('fields', []):
                     if field.get('enum_values'):
@@ -304,12 +346,18 @@ class VHDLGenerator:
         if self._has_enum_fields(module_data):
             header.append(f"use work.{module_data['name']}_regs_pkg.all;")
 
+        if module_data.get('use_axion_types', False):
+            header.append("use work.axion_common_pkg.all;")
+
         header.append("")
         return header
     
     def _generate_entity(self, module_data: Dict) -> List[str]:
         """Generate entity declaration."""
         base_addr = module_data.get('base_address', 0)
+        use_axion_types = module_data.get('use_axion_types', False)
+        has_more = module_data['cdc_enabled'] or module_data['registers'] or module_data.get('packed_registers', [])
+
         lines = [
             f"entity {module_data['name']}_axion_reg is",
             "    generic (",
@@ -318,41 +366,57 @@ class VHDLGenerator:
             "    port (",
             "        -- AXI4-Lite Interface",
             "        axi_aclk    : in  std_logic;",
-            "        axi_aresetn : in  std_logic;",
-            "        ",
-            "        -- AXI Write Address Channel",
-            "        axi_awaddr  : in  std_logic_vector(31 downto 0);",
-            "        axi_awvalid : in  std_logic;",
-            "        axi_awready : out std_logic;",
-            "        ",
-            "        -- AXI Write Data Channel",
-            "        axi_wdata   : in  std_logic_vector(31 downto 0);",
-            "        axi_wstrb   : in  std_logic_vector(3 downto 0);",
-            "        axi_wvalid  : in  std_logic;",
-            "        axi_wready  : out std_logic;",
-            "        ",
-            "        -- AXI Write Response Channel",
-            "        axi_bresp   : out std_logic_vector(1 downto 0);",
-            "        axi_bvalid  : out std_logic;",
-            "        axi_bready  : in  std_logic;",
-            "        ",
-            "        -- AXI Read Address Channel",
-            "        axi_araddr  : in  std_logic_vector(31 downto 0);",
-            "        axi_arvalid : in  std_logic;",
-            "        axi_arready : out std_logic;",
-            "        ",
-            "        -- AXI Read Data Channel",
-            "        axi_rdata   : out std_logic_vector(31 downto 0);",
-            "        axi_rresp   : out std_logic_vector(1 downto 0);",
-            "        axi_rvalid  : out std_logic;",
         ]
-        
-        # Determine if we need comma after rready
-        has_more = module_data['cdc_enabled'] or module_data['registers'] or module_data.get('packed_registers', [])
+
         if has_more:
-            lines.append("        axi_rready  : in  std_logic;")
+            lines.append("        axi_aresetn : in  std_logic;")
         else:
-            lines.append("        axi_rready  : in  std_logic")
+            lines.append("        axi_aresetn : in  std_logic")
+
+        if use_axion_types:
+            # Typed record ports from axion_common_pkg
+            lines.append("        ")
+            lines.append("        -- AXI4-Lite typed record ports (axion_common_pkg)")
+            if has_more:
+                lines.append("        axi_m2s     : in  t_axi_lite_m2s;")
+                lines.append("        axi_s2m     : out t_axi_lite_s2m;")
+            else:
+                lines.append("        axi_m2s     : in  t_axi_lite_m2s;")
+                lines.append("        axi_s2m     : out t_axi_lite_s2m")
+        else:
+            # Flat individual AXI ports (default)
+            lines.extend([
+                "        ",
+                "        -- AXI Write Address Channel",
+                "        axi_awaddr  : in  std_logic_vector(31 downto 0);",
+                "        axi_awvalid : in  std_logic;",
+                "        axi_awready : out std_logic;",
+                "        ",
+                "        -- AXI Write Data Channel",
+                "        axi_wdata   : in  std_logic_vector(31 downto 0);",
+                "        axi_wstrb   : in  std_logic_vector(3 downto 0);",
+                "        axi_wvalid  : in  std_logic;",
+                "        axi_wready  : out std_logic;",
+                "        ",
+                "        -- AXI Write Response Channel",
+                "        axi_bresp   : out std_logic_vector(1 downto 0);",
+                "        axi_bvalid  : out std_logic;",
+                "        axi_bready  : in  std_logic;",
+                "        ",
+                "        -- AXI Read Address Channel",
+                "        axi_araddr  : in  std_logic_vector(31 downto 0);",
+                "        axi_arvalid : in  std_logic;",
+                "        axi_arready : out std_logic;",
+                "        ",
+                "        -- AXI Read Data Channel",
+                "        axi_rdata   : out std_logic_vector(31 downto 0);",
+                "        axi_rresp   : out std_logic_vector(1 downto 0);",
+                "        axi_rvalid  : out std_logic;",
+            ])
+            if has_more:
+                lines.append("        axi_rready  : in  std_logic;")
+            else:
+                lines.append("        axi_rready  : in  std_logic")
         
         # Add module clock if CDC enabled
         if module_data['cdc_enabled']:
@@ -455,7 +519,7 @@ class VHDLGenerator:
                     enum_dict = field.get('enum_values')
                     if enum_dict:
                         enum_str = ', '.join(f"{n}={v}" for v, n in sorted(enum_dict.items()))
-                        desc = f"{desc}  -- {enum_str}" if desc else f"-- {enum_str}"
+                        desc = f"{desc} ({enum_str})" if desc else enum_str
                     desc_comment = f"  -- {desc}" if desc else ""
                     # User requested <reg_name>_<field_name> format
                     sig_name = f"{packed_reg['reg_name']}_{field['name']}"
@@ -484,6 +548,7 @@ class VHDLGenerator:
     
     def _generate_architecture(self, module_data: Dict) -> List[str]:
         """Generate architecture body with full AXI4-Lite protocol compliance."""
+        use_axion_types = module_data.get('use_axion_types', False)
         lines = [
             f"architecture rtl of {module_data['name']}_axion_reg is",
             "    ",
@@ -548,10 +613,66 @@ class VHDLGenerator:
                     for i in range(num_regs):
                         for stage in range(module_data['cdc_stages']):
                             lines.append(f"    signal {reg['signal_name']}{i}_sync{stage} : std_logic_vector(31 downto 0);")
+
+        if use_axion_types:
+            lines.extend([
+                "    ",
+                "    -- Intermediate signals unpacked from axi_m2s / axi_s2m record ports",
+                "    signal axi_awaddr  : std_logic_vector(31 downto 0);",
+                "    signal axi_awvalid : std_logic;",
+                "    signal axi_awprot  : std_logic_vector(2 downto 0);",
+                "    signal axi_wdata   : std_logic_vector(31 downto 0);",
+                "    signal axi_wstrb   : std_logic_vector(3 downto 0);",
+                "    signal axi_wvalid  : std_logic;",
+                "    signal axi_bready  : std_logic;",
+                "    signal axi_araddr  : std_logic_vector(31 downto 0);",
+                "    signal axi_arvalid : std_logic;",
+                "    signal axi_arprot  : std_logic_vector(2 downto 0);",
+                "    signal axi_rready  : std_logic;",
+                "    signal axi_awready : std_logic;",
+                "    signal axi_wready  : std_logic;",
+                "    signal axi_bresp   : std_logic_vector(1 downto 0);",
+                "    signal axi_bvalid  : std_logic;",
+                "    signal axi_arready : std_logic;",
+                "    signal axi_rdata   : std_logic_vector(31 downto 0);",
+                "    signal axi_rresp   : std_logic_vector(1 downto 0);",
+                "    signal axi_rvalid  : std_logic;",
+            ])
+
         lines.extend([
             "    ",
             "begin",
             "    ",
+        ])
+
+        if use_axion_types:
+            lines.extend([
+                "    -- Unpack AXI M2S record into intermediate signals",
+                "    axi_awaddr  <= axi_m2s.awaddr;",
+                "    axi_awvalid <= axi_m2s.awvalid;",
+                "    axi_awprot  <= axi_m2s.awprot;",
+                "    axi_wdata   <= axi_m2s.wdata;",
+                "    axi_wstrb   <= axi_m2s.wstrb;",
+                "    axi_wvalid  <= axi_m2s.wvalid;",
+                "    axi_bready  <= axi_m2s.bready;",
+                "    axi_araddr  <= axi_m2s.araddr;",
+                "    axi_arvalid <= axi_m2s.arvalid;",
+                "    axi_arprot  <= axi_m2s.arprot;",
+                "    axi_rready  <= axi_m2s.rready;",
+                "    ",
+                "    -- Pack intermediate signals into AXI S2M record",
+                "    axi_s2m.awready <= axi_awready;",
+                "    axi_s2m.wready  <= axi_wready;",
+                "    axi_s2m.bresp   <= axi_bresp;",
+                "    axi_s2m.bvalid  <= axi_bvalid;",
+                "    axi_s2m.arready <= axi_arready;",
+                "    axi_s2m.rdata   <= axi_rdata;",
+                "    axi_s2m.rresp   <= axi_rresp;",
+                "    axi_s2m.rvalid  <= axi_rvalid;",
+                "    ",
+            ])
+
+        lines.extend([
             "    ---------------------------------------------------------------------------",
             "    -- Packed Register Mapping (Subregister connections)",
             "    ---------------------------------------------------------------------------",

@@ -676,6 +676,759 @@ class TestEnumValues(unittest.TestCase):
         checker2.check_enum_value_overflow(modules_ok)
         self.assertEqual(len(checker2.errors), 0)
 
+    # -------------------------------------------------------------------------
+    # ENUM-025: Rule checker catches overflow in standalone (non-packed) register
+    # -------------------------------------------------------------------------
+    def test_enum_025_rule_check_standalone_overflow(self):
+        """ENUM-025: RuleChecker detects enum overflow in standalone (non-packed) register."""
+        from axion_hdl.rule_checker import RuleChecker
+
+        # 4-bit standalone register: max=15, value 16 must be an error
+        modules_bad = [
+            {
+                'name': 'test_mod',
+                'registers': [
+                    {
+                        'signal_name': 'status_reg',
+                        'is_packed': None,
+                        'width': 4,
+                        'enum_values': {0: 'OK', 15: 'WARN', 16: 'OVERFLOW'}
+                    }
+                ],
+                'parsing_errors': []
+            }
+        ]
+        checker = RuleChecker()
+        checker.check_enum_value_overflow(modules_bad)
+        self.assertTrue(len(checker.errors) > 0)
+        msgs = [e['msg'] for e in checker.errors]
+        self.assertTrue(any('16' in m for m in msgs))
+        self.assertTrue(any('OVERFLOW' in m for m in msgs))
+
+        # 1-bit standalone: max=1, value 2 must be an error
+        modules_1bit = [
+            {
+                'name': 'test_mod',
+                'registers': [
+                    {
+                        'signal_name': 'flag_reg',
+                        'is_packed': False,
+                        'width': 1,
+                        'enum_values': {0: 'OFF', 1: 'ON', 2: 'BAD'}
+                    }
+                ],
+                'parsing_errors': []
+            }
+        ]
+        checker2 = RuleChecker()
+        checker2.check_enum_value_overflow(modules_1bit)
+        self.assertTrue(len(checker2.errors) > 0)
+        msgs2 = [e['msg'] for e in checker2.errors]
+        self.assertTrue(any('2' in m for m in msgs2))
+
+        # Valid standalone: no error
+        modules_ok = [
+            {
+                'name': 'test_mod',
+                'registers': [
+                    {
+                        'signal_name': 'code_reg',
+                        'is_packed': None,
+                        'width': 8,
+                        'enum_values': {0: 'RESET', 127: 'HALF', 255: 'MAX'}
+                    }
+                ],
+                'parsing_errors': []
+            }
+        ]
+        checker3 = RuleChecker()
+        checker3.check_enum_value_overflow(modules_ok)
+        self.assertEqual(len(checker3.errors), 0)
+
+    # -------------------------------------------------------------------------
+    # ENUM-026: Rule checker catches overflow in VHDL standalone signal (E2E)
+    # -------------------------------------------------------------------------
+    def test_enum_026_rule_check_vhdl_standalone_e2e(self):
+        """ENUM-026: Parsing VHDL with overflow enum on standalone signal triggers rule-check error."""
+        import tempfile, textwrap
+        from axion_hdl.parser import VHDLParser
+        from axion_hdl.rule_checker import RuleChecker
+
+        vhdl_src = textwrap.dedent("""\
+            -- @axion_def BASE_ADDR=0x0000
+            library ieee;
+            use ieee.std_logic_1164.all;
+            entity overflow_standalone_e2e is
+                port (clk : in std_logic);
+            end entity;
+            architecture rtl of overflow_standalone_e2e is
+                -- 1-bit: max=1, value 2 overflows
+                signal enable_sig : std_logic;  -- @axion RW ADDR=0x00 ENUM="0:OFF,1:ON,2:OVERFLOW" DESC="1-bit"
+                -- 2-bit: max=3, value 5 overflows
+                signal state_sig : std_logic_vector(1 downto 0);  -- @axion RO ADDR=0x04 ENUM="0:IDLE,3:BUSY,5:OVERFLOW" DESC="2-bit"
+            begin
+                enable_sig <= '0';
+                state_sig <= (others => '0');
+            end architecture;
+        """)
+        with tempfile.NamedTemporaryFile(suffix='.vhd', mode='w', delete=False) as f:
+            f.write(vhdl_src)
+            fpath = f.name
+
+        parser = VHDLParser()
+        result = parser.parse_file(fpath)
+        # Normalize: VHDLParser uses 'entity_name'; rule_checker expects 'name'
+        result.setdefault('name', result.get('entity_name', 'unknown'))
+        modules = [result]
+
+        checker = RuleChecker()
+        checker.check_enum_value_overflow(modules)
+
+        error_msgs = [e['msg'] for e in checker.errors]
+        # Both overflows must be reported
+        self.assertTrue(any('2' in m for m in error_msgs),
+                        f"Expected overflow=2 error, got: {error_msgs}")
+        self.assertTrue(any('5' in m for m in error_msgs),
+                        f"Expected overflow=5 error, got: {error_msgs}")
+
+    # -------------------------------------------------------------------------
+    # ENUM-027: Rule checker catches overflow in SV standalone signal (E2E)
+    # -------------------------------------------------------------------------
+    def test_enum_027_rule_check_sv_standalone_e2e(self):
+        """ENUM-027: Parsing SV with overflow enum on standalone signal triggers rule-check error."""
+        import tempfile, textwrap
+        from axion_hdl.systemverilog_parser import SystemVerilogParser
+        from axion_hdl.rule_checker import RuleChecker
+
+        sv_src = textwrap.dedent("""\
+            // @axion_def BASE_ADDR=0x0000
+            module overflow_sv_e2e (
+                input logic clk
+            );
+            // 1-bit: max=1, value 3 overflows
+            logic enable_sig; // @axion RW ADDR=0x00 ENUM="0:OFF,1:ON,3:OVERFLOW" DESC="1-bit"
+            // 3-bit: max=7, value 8 overflows
+            logic [2:0] level_sig; // @axion RO ADDR=0x04 ENUM="0:L0,7:L7,8:OVERFLOW" DESC="3-bit"
+            assign enable_sig = 1'b0;
+            assign level_sig = 3'b000;
+            endmodule
+        """)
+        with tempfile.NamedTemporaryFile(suffix='.sv', mode='w', delete=False) as f:
+            f.write(sv_src)
+            fpath = f.name
+
+        parser = SystemVerilogParser()
+        result = parser.parse_file(fpath)
+        modules = [result]
+
+        checker = RuleChecker()
+        checker.check_enum_value_overflow(modules)
+
+        error_msgs = [e['msg'] for e in checker.errors]
+        self.assertTrue(any('3' in m for m in error_msgs),
+                        f"Expected overflow=3 error, got: {error_msgs}")
+        self.assertTrue(any('8' in m for m in error_msgs),
+                        f"Expected overflow=8 error, got: {error_msgs}")
+
+    # -------------------------------------------------------------------------
+    # ENUM-028: BitFieldManager reports ALL overflowing values, not just first
+    # -------------------------------------------------------------------------
+    def test_enum_028_bit_field_manager_all_overflows(self):
+        """ENUM-028: add_field raises ValueError naming every overflowing enum value."""
+        from axion_hdl.bit_field_manager import BitFieldManager
+
+        mgr = BitFieldManager()
+        # 3-bit field (max=7): values 8 and 255 both overflow
+        with self.assertRaises(ValueError) as ctx:
+            mgr.add_field(
+                reg_name='test_reg',
+                address=0x00,
+                field_name='level',
+                width=3,
+                access_mode='RW',
+                signal_type='[2:0]',
+                enum_values={0: 'NONE', 7: 'MAX_OK', 8: 'BAD_8', 255: 'BAD_255'}
+            )
+        err_msg = str(ctx.exception)
+        self.assertIn('8', err_msg,
+                      f"Expected '8' in error message, got: {err_msg}")
+        self.assertIn('255', err_msg,
+                      f"Expected '255' in error message, got: {err_msg}")
+
+
+    # -------------------------------------------------------------------------
+    # ENUM-029: Negative enum values rejected by BitFieldManager
+    # -------------------------------------------------------------------------
+    def test_enum_029_negative_enum_value_rejected_by_add_field(self):
+        """ENUM-029: add_field raises ValueError when an enum value is negative."""
+        from axion_hdl.bit_field_manager import BitFieldManager
+
+        mgr = BitFieldManager()
+        with self.assertRaises(ValueError) as ctx:
+            mgr.add_field(
+                reg_name='test_reg',
+                address=0x00,
+                field_name='state',
+                width=4,
+                access_mode='RW',
+                signal_type='[3:0]',
+                enum_values={0: 'ZERO', -1: 'NEG_ONE', 15: 'MAX'}
+            )
+        self.assertIn('-1', str(ctx.exception))
+
+    # -------------------------------------------------------------------------
+    # ENUM-030: Negative enum values rejected by rule_checker
+    # -------------------------------------------------------------------------
+    def test_enum_030_negative_enum_value_rejected_by_rule_checker(self):
+        """ENUM-030: RuleChecker.check_enum_value_overflow reports error for negative enum value."""
+        from axion_hdl.rule_checker import RuleChecker
+
+        modules = [{
+            'name': 'test_mod',
+            'registers': [
+                {
+                    'signal_name': 'ctrl_reg',
+                    'is_packed': True,
+                    'fields': [{'name': 'status', 'width': 2,
+                                'enum_values': {0: 'OK', -1: 'NEG'}}]
+                },
+                {
+                    'signal_name': 'standalone_reg',
+                    'is_packed': False,
+                    'width': 4,
+                    'enum_values': {0: 'A', -5: 'NEG_STANDALONE'}
+                }
+            ],
+            'parsing_errors': []
+        }]
+
+        checker = RuleChecker()
+        checker.check_enum_value_overflow(modules)
+        msgs = [e['msg'] for e in checker.errors]
+        self.assertTrue(any('-1' in m for m in msgs),
+                        f"Expected '-1' in errors, got: {msgs}")
+        self.assertTrue(any('-5' in m for m in msgs),
+                        f"Expected '-5' in errors, got: {msgs}")
+
+    # -------------------------------------------------------------------------
+    # ENUM-031: YAML field-level invalid enum key reported as parsing error
+    # -------------------------------------------------------------------------
+    def test_enum_031_yaml_field_invalid_enum_key_reported(self):
+        """ENUM-031: YAML parser records error when a field enum key is not a valid integer."""
+        import tempfile, textwrap
+        from axion_hdl.yaml_input_parser import YAMLInputParser
+
+        yaml_src = textwrap.dedent("""\
+            module: bad_key_mod
+            base_addr: "0x0000"
+            registers:
+              - name: ctrl_reg
+                addr: "0x00"
+                access: RW
+                fields:
+                  - name: mode
+                    bit_offset: 0
+                    width: 2
+                    access: RW
+                    enum_values:
+                      0: IDLE
+                      not_an_int: BROKEN
+                      2: ACTIVE
+        """)
+        with tempfile.NamedTemporaryFile(suffix='.yaml', mode='w', delete=False) as f:
+            f.write(yaml_src)
+            fpath = f.name
+
+        parser = YAMLInputParser()
+        parser.parse_file(fpath)
+
+        error_msgs = [e['msg'] for e in parser.errors if e.get('file') == fpath]
+        self.assertTrue(
+            any('not_an_int' in m for m in error_msgs),
+            f"Expected error for 'not_an_int' key, got: {error_msgs}"
+        )
+
+    # -------------------------------------------------------------------------
+    # ENUM-032: YAML standalone register invalid enum key reported as parsing error
+    # -------------------------------------------------------------------------
+    def test_enum_032_yaml_standalone_invalid_enum_key_reported(self):
+        """ENUM-032: YAML parser records error when a standalone register enum key is not a valid integer."""
+        import tempfile, textwrap
+        from axion_hdl.yaml_input_parser import YAMLInputParser
+
+        yaml_src = textwrap.dedent("""\
+            module: bad_standalone_mod
+            base_addr: "0x0000"
+            registers:
+              - name: status_reg
+                addr: "0x00"
+                access: RO
+                width: 4
+                enum_values:
+                  0: OK
+                  not_a_number: BAD
+                  15: MAX
+        """)
+        with tempfile.NamedTemporaryFile(suffix='.yaml', mode='w', delete=False) as f:
+            f.write(yaml_src)
+            fpath = f.name
+
+        parser = YAMLInputParser()
+        parser.parse_file(fpath)
+
+        error_msgs = [e['msg'] for e in parser.errors if e.get('file') == fpath]
+        self.assertTrue(
+            any('not_a_number' in m for m in error_msgs),
+            f"Expected error for 'not_a_number' key, got: {error_msgs}"
+        )
+
+    # -------------------------------------------------------------------------
+    # ENUM-033: VHDL pkg sanitizes invalid identifier characters
+    # -------------------------------------------------------------------------
+    def test_enum_033_vhdl_pkg_identifier_sanitization(self):
+        """ENUM-033: generate_vhdl_pkg replaces non-alphanumeric chars with '_' in constant names."""
+        from axion_hdl.generator import VHDLGenerator
+
+        module = {
+            'name': 'san_mod',
+            'file': 'test.vhd',
+            'base_address': 0,
+            'registers': [{
+                'signal_name': 'ctrl-reg',
+                'reg_name': 'ctrl-reg',
+                'is_packed': True,
+                'width': 32,
+                'fields': [{
+                    'name': 'my-field',
+                    'width': 2,
+                    'bit_low': 0,
+                    'bit_high': 1,
+                    'access_mode': 'RW',
+                    'signal_type': '[1:0]',
+                    'enum_values': {0: '1st-state', 3: 'last state'}
+                }]
+            }]
+        }
+
+        gen = VHDLGenerator(self.output_dir)
+        pkg_path = gen.generate_vhdl_pkg(module)
+        self.assertIsNotNone(pkg_path)
+
+        with open(pkg_path) as f:
+            content = f.read()
+
+        # Constant names must not contain hyphens, spaces, or start with digit
+        import re
+        for line in content.splitlines():
+            if line.strip().startswith('constant '):
+                # Extract the constant name
+                m = re.match(r'\s*constant\s+(C_\S+)\s*:', line)
+                if m:
+                    cname = m.group(1)
+                    self.assertFalse(
+                        re.search(r'[^A-Za-z0-9_]', cname),
+                        f"Constant name contains invalid chars: {cname!r}"
+                    )
+                    self.assertFalse(
+                        cname[0].isdigit(),
+                        f"Constant name starts with digit: {cname!r}"
+                    )
+        # Verify expected sanitized forms appear
+        self.assertIn('CTRL_REG', content)
+        self.assertIn('MY_FIELD', content)
+        self.assertIn('V_1ST_STATE', content)   # leading digit → prepend v_
+        self.assertIn('LAST_STATE', content)
+
+    # -------------------------------------------------------------------------
+    # ENUM-034: SV pkg sanitizes invalid identifier characters
+    # -------------------------------------------------------------------------
+    def test_enum_034_sv_pkg_identifier_sanitization(self):
+        """ENUM-034: generate_sv_pkg replaces non-alphanumeric chars with '_' in typedef and member names."""
+        from axion_hdl.systemverilog_generator import SystemVerilogGenerator
+
+        module = {
+            'name': 'san_sv_mod',
+            'file': 'test.sv',
+            'base_address': 0,
+            'registers': [{
+                'signal_name': 'ctrl-reg',
+                'reg_name': 'ctrl-reg',
+                'is_packed': True,
+                'width': 32,
+                'fields': [{
+                    'name': 'my-field',
+                    'width': 2,
+                    'bit_low': 0,
+                    'bit_high': 1,
+                    'access_mode': 'RW',
+                    'signal_type': '[1:0]',
+                    'enum_values': {0: '2fast', 3: 'slow state'}
+                }]
+            }]
+        }
+
+        gen = SystemVerilogGenerator(self.output_dir)
+        pkg_path = gen.generate_sv_pkg(module)
+        self.assertIsNotNone(pkg_path)
+
+        with open(pkg_path) as f:
+            content = f.read()
+
+        # typedef name must not contain hyphens
+        self.assertIn('t_ctrl_reg_my_field_e', content)
+        # Member names must be valid SV identifiers
+        import re as _re
+        for line in content.splitlines():
+            m = _re.match(r'\s+(\w+)\s*=\s*\d', line)
+            if m:
+                ident = m.group(1)
+                self.assertFalse(
+                    _re.search(r'[^A-Za-z0-9_]', ident),
+                    f"SV enum member contains invalid chars: {ident!r}"
+                )
+        self.assertIn('_2fast', content)    # leading digit → prepend _
+        self.assertIn('slow_state', content)
+
+    # -------------------------------------------------------------------------
+    # ENUM-035: C header sanitizes invalid identifier characters
+    # -------------------------------------------------------------------------
+    def test_enum_035_c_header_identifier_sanitization(self):
+        """ENUM-035: C header generator sanitizes enum names to valid C identifiers."""
+        from axion_hdl.yaml_input_parser import YAMLInputParser
+        from axion_hdl.doc_generators import CHeaderGenerator
+
+        module = {
+            'name': 'san_c_mod',
+            'file': 'test.yaml',
+            'base_address': 0,
+            'base_addr': '0x0000',
+            'registers': [{
+                'signal_name': 'ctrl-reg',
+                'reg_name': 'ctrl-reg',
+                'is_packed': True,
+                'width': 32,
+                'signal_type': '[31:0]',
+                'address': '0x00000000',
+                'address_int': 0,
+                'relative_address': '0x00',
+                'relative_address_int': 0,
+                'access_mode': 'RW',
+                'read_strobe': False,
+                'write_strobe': False,
+                'r_strobe': False,
+                'w_strobe': False,
+                'default_value': 0,
+                'description': '',
+                'fields': [{
+                    'name': 'my field',
+                    'width': 2,
+                    'bit_low': 0,
+                    'bit_high': 1,
+                    'access_mode': 'RW',
+                    'signal_type': '[1:0]',
+                    'description': '',
+                    'read_strobe': False,
+                    'write_strobe': False,
+                    'default_value': 0,
+                    'enum_values': {0: '3bad-name', 3: 'good name'}
+                }]
+            }]
+        }
+
+        gen = CHeaderGenerator(self.output_dir)
+        header_path = gen.generate_header(module)
+        self.assertIsNotNone(header_path)
+
+        with open(header_path) as f:
+            content = f.read()
+
+        self.assertNotIn('3bad-name', content)
+        self.assertNotIn('good name', content)
+        self.assertIn('_3BAD_NAME', content)   # leading digit → prepend _
+        self.assertIn('GOOD_NAME', content)
+
+    # -------------------------------------------------------------------------
+    # ENUM-036: generate_vhdl_pkg returns None when no enum fields
+    # -------------------------------------------------------------------------
+    def test_enum_036_vhdl_pkg_returns_none_when_no_enums(self):
+        """ENUM-036: generate_vhdl_pkg returns None (Optional[str]) when module has no enum fields."""
+        from axion_hdl.generator import VHDLGenerator
+
+        module = {
+            'name': 'no_enum_mod',
+            'file': 'test.vhd',
+            'base_address': 0,
+            'registers': [{
+                'signal_name': 'data_reg',
+                'is_packed': False,
+                'width': 32,
+                'signal_type': '[31:0]',
+                'enum_values': None
+            }]
+        }
+
+        gen = VHDLGenerator(self.output_dir)
+        result = gen.generate_vhdl_pkg(module)
+        self.assertIsNone(result)
+
+    # -------------------------------------------------------------------------
+    # ENUM-037: generate_sv_pkg returns None when no enum fields
+    # -------------------------------------------------------------------------
+    def test_enum_037_sv_pkg_returns_none_when_no_enums(self):
+        """ENUM-037: generate_sv_pkg returns None (Optional[str]) when module has no enum fields."""
+        from axion_hdl.systemverilog_generator import SystemVerilogGenerator
+
+        module = {
+            'name': 'no_enum_sv_mod',
+            'file': 'test.sv',
+            'base_address': 0,
+            'registers': [{
+                'signal_name': 'data_reg',
+                'is_packed': False,
+                'width': 32,
+                'signal_type': '[31:0]',
+                'enum_values': None
+            }]
+        }
+
+        gen = SystemVerilogGenerator(self.output_dir)
+        result = gen.generate_sv_pkg(module)
+        self.assertIsNone(result)
+
+    # -------------------------------------------------------------------------
+    # ENUM-038: VHDL port comment does not contain double '--'
+    # -------------------------------------------------------------------------
+    def test_enum_038_vhdl_port_comment_no_double_dash(self):
+        """ENUM-038: VHDL port comment for enum field uses parentheses, not embedded '--'."""
+        from axion_hdl.yaml_input_parser import YAMLInputParser
+        from axion_hdl.generator import VHDLGenerator
+
+        module = {
+            'name': 'dash_test_mod',
+            'file': 'test.yaml',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': [{
+                'signal_name': 'ctrl_reg',
+                'reg_name': 'ctrl_reg',
+                'is_packed': True,
+                'width': 32,
+                'address': '0x00000000',
+                'address_int': 0,
+                'relative_address': '0x00',
+                'relative_address_int': 0,
+                'access_mode': 'RW',
+                'read_strobe': False,
+                'write_strobe': False,
+                'r_strobe': False,
+                'w_strobe': False,
+                'default_value': 0,
+                'description': 'Control register',
+                'fields': [{
+                    'name': 'enable',
+                    'width': 1,
+                    'bit_low': 0,
+                    'bit_high': 0,
+                    'access_mode': 'RW',
+                    'signal_type': 'std_logic',
+                    'description': 'Enable signal',
+                    'read_strobe': False,
+                    'write_strobe': False,
+                    'default_value': 0,
+                    'enum_values': {0: 'OFF', 1: 'ON'}
+                }]
+            }]
+        }
+
+        gen = VHDLGenerator(self.output_dir)
+        out_path = gen.generate_module(module)
+
+        with open(out_path) as f:
+            content = f.read()
+
+        # Must not have any line with two separate '--' occurrences
+        for line in content.splitlines():
+            stripped = line.lstrip()
+            if stripped.startswith('--'):
+                continue  # pure comment lines are fine
+            occurrences = line.count('--')
+            self.assertLessEqual(
+                occurrences, 1,
+                f"Double '--' in port line: {line!r}"
+            )
+
+    # -------------------------------------------------------------------------
+    # ENUM-039: generate_module co-generates _regs_pkg when enum fields exist
+    # -------------------------------------------------------------------------
+    def test_enum_039_generate_module_coproduces_pkg(self):
+        """ENUM-039: generate_module() produces _regs_pkg.vhd alongside the register module."""
+        import os
+        from axion_hdl.generator import VHDLGenerator
+
+        module = {
+            'name': 'copkg_mod',
+            'file': 'test.yaml',
+            'base_address': 0,
+            'cdc_enabled': False,
+            'cdc_stages': 2,
+            'registers': [{
+                'signal_name': 'ctrl_reg',
+                'reg_name': 'ctrl_reg',
+                'is_packed': True,
+                'width': 32,
+                'address': '0x00000000',
+                'address_int': 0,
+                'relative_address': '0x00',
+                'relative_address_int': 0,
+                'access_mode': 'RW',
+                'read_strobe': False,
+                'write_strobe': False,
+                'r_strobe': False,
+                'w_strobe': False,
+                'default_value': 0,
+                'description': '',
+                'fields': [{
+                    'name': 'status',
+                    'width': 2,
+                    'bit_low': 0,
+                    'bit_high': 1,
+                    'access_mode': 'RO',
+                    'signal_type': '[1:0]',
+                    'description': '',
+                    'read_strobe': False,
+                    'write_strobe': False,
+                    'default_value': 0,
+                    'enum_values': {0: 'IDLE', 3: 'BUSY'}
+                }]
+            }]
+        }
+
+        gen = VHDLGenerator(self.output_dir)
+        gen.generate_module(module)
+
+        pkg_path = os.path.join(self.output_dir, 'copkg_mod_regs_pkg.vhd')
+        self.assertTrue(
+            os.path.exists(pkg_path),
+            "generate_module() must co-produce _regs_pkg.vhd when enum fields exist"
+        )
+
+
+    # -------------------------------------------------------------------------
+    # ENUM-040: XML simple format records error for invalid enum_value
+    # -------------------------------------------------------------------------
+    def test_enum_040_xml_simple_invalid_enum_value_recorded(self):
+        """ENUM-040: XML parser records an error when a simple-format <enum_value> has a non-integer value."""
+        import tempfile
+        import os
+        from axion_hdl.xml_input_parser import XMLInputParser
+
+        xml_content = """\
+<register_map module="err_mod" base_addr="0x0000">
+  <register name="ctrl" addr="0x00" access="RW" width="2">
+    <field name="mode" bits="1:0">
+      <enum_value value="notanint" name="INVALID"/>
+      <enum_value value="1" name="RUN"/>
+    </field>
+  </register>
+</register_map>
+"""
+        with tempfile.NamedTemporaryFile(suffix='.xml', mode='w', delete=False) as f:
+            f.write(xml_content)
+            tmp_path = f.name
+
+        try:
+            parser = XMLInputParser()
+            parser.parse_file(tmp_path)
+            error_msgs = [e.get('msg', '') for e in parser.errors]
+            self.assertTrue(
+                any('notanint' in m or 'Invalid enum_value' in m or 'Invalid' in m
+                    for m in error_msgs),
+                f"Expected error for non-integer enum_value; got: {error_msgs}"
+            )
+        finally:
+            os.unlink(tmp_path)
+
+    # -------------------------------------------------------------------------
+    # ENUM-041: XML SPIRIT format records error for invalid spirit:value
+    # -------------------------------------------------------------------------
+    def test_enum_041_xml_spirit_invalid_enum_value_recorded(self):
+        """ENUM-041: XML parser records an error when a SPIRIT <spirit:value> has a non-integer value."""
+        import tempfile
+        import os
+        from axion_hdl.xml_input_parser import XMLInputParser
+
+        xml_content = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<spirit:component xmlns:spirit="http://www.spiritconsortium.org/XMLSchema/SPIRIT/1.5">
+  <spirit:name>spirit_err_mod</spirit:name>
+  <spirit:memoryMaps>
+    <spirit:memoryMap>
+      <spirit:addressBlock>
+        <spirit:baseAddress>0</spirit:baseAddress>
+        <spirit:register>
+          <spirit:name>ctrl</spirit:name>
+          <spirit:addressOffset>0</spirit:addressOffset>
+          <spirit:size>32</spirit:size>
+          <spirit:access>read-write</spirit:access>
+          <spirit:field>
+            <spirit:name>mode</spirit:name>
+            <spirit:bitOffset>0</spirit:bitOffset>
+            <spirit:bitWidth>2</spirit:bitWidth>
+            <spirit:enumeratedValues>
+              <spirit:enumeratedValue>
+                <spirit:name>BADVAL</spirit:name>
+                <spirit:value>notanint</spirit:value>
+              </spirit:enumeratedValue>
+            </spirit:enumeratedValues>
+          </spirit:field>
+        </spirit:register>
+      </spirit:addressBlock>
+    </spirit:memoryMap>
+  </spirit:memoryMaps>
+</spirit:component>
+"""
+        with tempfile.NamedTemporaryFile(suffix='.xml', mode='w', delete=False) as f:
+            f.write(xml_content)
+            tmp_path = f.name
+
+        try:
+            parser = XMLInputParser()
+            parser.parse_file(tmp_path)
+            error_msgs = [e.get('msg', '') for e in parser.errors]
+            self.assertTrue(
+                any('notanint' in m or 'SPIRIT' in m or 'Invalid' in m
+                    for m in error_msgs),
+                f"Expected error for non-integer spirit:value; got: {error_msgs}"
+            )
+        finally:
+            os.unlink(tmp_path)
+
+    # -------------------------------------------------------------------------
+    # ENUM-042: VHDL identifier sanitizer produces no adjacent underscores
+    # -------------------------------------------------------------------------
+    def test_enum_042_vhdl_identifier_no_adjacent_underscores(self):
+        """ENUM-042: _sanitize_vhdl_identifier collapses adjacent underscores and strips leading/trailing ones."""
+        from axion_hdl.generator import VHDLGenerator
+
+        cases = [
+            ('ctrl--reg', 'CTRL_REG'),      # adjacent underscores collapsed
+            ('-leading', 'LEADING'),          # leading underscore stripped
+            ('trailing-', 'TRAILING'),        # trailing underscore stripped
+            ('1st-thing', 'V_1ST_THING'),    # digit prefix → v_ prepended
+            ('--bad--name--', 'BAD_NAME'),   # multiple separators collapsed and stripped
+        ]
+
+        gen = VHDLGenerator.__new__(VHDLGenerator)
+        for raw, expected in cases:
+            result = gen._sanitize_vhdl_identifier(raw).upper()
+            self.assertEqual(result, expected, f"Input {raw!r}: expected {expected!r}, got {result!r}")
+            # Must not have adjacent underscores
+            self.assertNotIn('__', result, f"Adjacent underscores in result for {raw!r}: {result!r}")
+            # Must not start or end with underscore
+            self.assertFalse(result.startswith('_'), f"Starts with _ for {raw!r}: {result!r}")
+            self.assertFalse(result.endswith('_'), f"Ends with _ for {raw!r}: {result!r}")
+
 
 if __name__ == '__main__':
     unittest.main()

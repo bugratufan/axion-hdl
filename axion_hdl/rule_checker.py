@@ -295,6 +295,93 @@ class RuleChecker:
         for name in duplicates:
             self._add_error("Duplicate Module", name, f"Module name '{name}' is used by multiple files/definitions")
 
+    def check_hierarchy(self, hierarchy: List[Dict], modules: List[Dict]) -> None:
+        """
+        Validate a hierarchy definition against the analyzed modules.
+
+        Checks performed:
+        - Every module name in the hierarchy exists in analyzed_modules.
+        - Instance names within the hierarchy are unique.
+        - Address ranges of different instances do not overlap.
+        """
+        known_modules = {m['name'] for m in modules}
+
+        # Check: every hierarchy module exists in sources
+        for entry in hierarchy:
+            mod = entry['module']
+            if mod not in known_modules:
+                self._add_error(
+                    "Hierarchy",
+                    mod,
+                    f"Module '{mod}' referenced in hierarchy file was not found in analyzed sources."
+                )
+
+        # Check: duplicate instance names
+        seen_instances: dict = {}
+        for entry in hierarchy:
+            inst = entry.get('instance')
+            if inst is None:
+                continue
+            if inst in seen_instances:
+                self._add_error(
+                    "Hierarchy",
+                    inst,
+                    f"Instance name '{inst}' appears more than once in the hierarchy file."
+                )
+            else:
+                seen_instances[inst] = entry
+
+        # Check: overlapping address ranges between instances
+        def _to_int(v):
+            if isinstance(v, int):
+                return v
+            try:
+                return int(str(v), 0)
+            except (ValueError, TypeError):
+                return 0
+
+        def _relative_offset(r, mod_base):
+            if r.get('relative_address_int') is not None:
+                return _to_int(r['relative_address_int'])
+            if r.get('address_int') is not None:
+                return _to_int(r['address_int']) - mod_base
+            return _to_int(r.get('address', 0))
+
+        def _reg_span(r):
+            width = int(r.get('width', 32)) if r.get('width') else 32
+            byte_size = max(4, (width + 7) // 8)
+            return ((byte_size + 3) // 4) * 4
+
+        ranges = []
+        for entry in hierarchy:
+            mod = entry['module']
+            inst = entry.get('instance') or mod
+            base = entry['base_addr']
+            # Find the corresponding analyzed module to determine size
+            for m in modules:
+                if m['name'] == mod:
+                    regs = m.get('registers', [])
+                    mod_base = _to_int(m.get('base_address', 0))
+                    if regs:
+                        size = max(
+                            _relative_offset(r, mod_base) + _reg_span(r)
+                            for r in regs
+                        )
+                        end = base + size - 1
+                        ranges.append((inst, base, end))
+                    break
+
+        for i, (inst_a, base_a, end_a) in enumerate(ranges):
+            for inst_b, base_b, end_b in ranges[i + 1:]:
+                if base_a <= end_b and base_b <= end_a:
+                    self._add_error(
+                        "Hierarchy",
+                        inst_a,
+                        f"Address ranges of instances '{inst_a}' "
+                        f"(0x{base_a:08X}–0x{end_a:08X}) and '{inst_b}' "
+                        f"(0x{base_b:08X}–0x{end_b:08X}) overlap."
+                    )
+
     def _check_single_file(self, filepath: str, exclude_patterns: List[str] = None) -> None:
         """Check a single source file for format issues."""
         import os
@@ -553,30 +640,55 @@ class RuleChecker:
 
     def check_enum_value_overflow(self, modules: List[Dict]) -> None:
         """
-        Check that each enum value in a packed register field fits within the field width.
+        Check that each enum value fits within the register or field width.
 
-        For a field with width W, each enum value must satisfy: value <= 2**W - 1.
+        For packed registers: checks each field's enum_values against field width.
+        For standalone registers: checks the register's own enum_values against register width.
+        Each enum value must satisfy: 0 <= value <= 2**W - 1.
         """
+        def _check_enum_dict(enum_dict, width, module_name, location_msg):
+            max_val = (2 ** width) - 1
+            for val, name in enum_dict.items():
+                int_val = int(val)
+                if int_val < 0:
+                    self._add_error(
+                        "Enum Value Overflow",
+                        module_name,
+                        f"{location_msg}: enum value {val} ({name}) is negative"
+                    )
+                elif int_val > max_val:
+                    self._add_error(
+                        "Enum Value Overflow",
+                        module_name,
+                        f"{location_msg}: enum value {val} ({name}) exceeds max value "
+                        f"{max_val} for {width}-bit width"
+                    )
+
         for module in modules:
             for reg in module.get('registers', []):
-                if not reg.get('is_packed'):
-                    continue
-                reg_name = reg.get('reg_name', reg.get('signal_name', 'unknown'))
-                for field in reg.get('fields', []):
-                    enum_dict = field.get('enum_values')
+                if reg.get('is_packed'):
+                    # Packed register: validate each sub-field's enum_values
+                    reg_name = reg.get('reg_name', reg.get('signal_name', 'unknown'))
+                    for field in reg.get('fields', []):
+                        enum_dict = field.get('enum_values')
+                        if not enum_dict:
+                            continue
+                        width = int(field.get('width', 1))
+                        _check_enum_dict(
+                            enum_dict, width, module['name'],
+                            f"Register '{reg_name}', field '{field['name']}'"
+                        )
+                else:
+                    # Standalone register: validate the register's own enum_values
+                    enum_dict = reg.get('enum_values')
                     if not enum_dict:
                         continue
-                    width = int(field.get('width', 1))
-                    max_val = (2 ** width) - 1
-                    for val, name in enum_dict.items():
-                        if int(val) > max_val:
-                            self._add_error(
-                                "Enum Value Overflow",
-                                module['name'],
-                                f"In register '{reg_name}', field '{field['name']}': "
-                                f"enum value {val} ({name}) exceeds max value {max_val} "
-                                f"for {width}-bit field"
-                            )
+                    reg_name = reg.get('signal_name', reg.get('name', 'unknown'))
+                    width = int(reg.get('width', 32))
+                    _check_enum_dict(
+                        enum_dict, width, module['name'],
+                        f"Standalone register '{reg_name}'"
+                    )
 
     def run_all_checks(self, modules: List[Dict]) -> Dict[str, List]:
         self.errors = []
