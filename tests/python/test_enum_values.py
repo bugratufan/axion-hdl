@@ -485,7 +485,9 @@ class TestEnumValues(unittest.TestCase):
 
         self.assertIn('package', content)
         self.assertIn('typedef enum logic', content)
-        self.assertIn('IDLE', content)
+        # Member names are prefixed with REG_FIELD_ to ensure package-scope uniqueness
+        self.assertIn('CONTROL_REG_STATUS_IDLE', content)
+        self.assertIn('CONTROL_REG_ENABLE_ACTIVE', content)
         self.assertIn('endpackage', content)
 
     # -------------------------------------------------------------------------

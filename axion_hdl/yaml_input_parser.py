@@ -14,8 +14,22 @@ from typing import Dict, List, Optional, Set
 
 try:
     import yaml
+
+    # Custom loader that disables YAML 1.1 boolean keywords (ON/OFF/YES/NO/TRUE/FALSE).
+    # These are valid enum value names and should not be silently coerced to Python bools.
+    class _NoImplicitBoolLoader(yaml.SafeLoader):
+        pass
+
+    # Remove the bool resolver so ON/OFF/YES/NO/TRUE/FALSE stay as plain strings
+    _NoImplicitBoolLoader.yaml_implicit_resolvers = {
+        key: [(tag, regexp) for tag, regexp in resolvers
+              if tag != 'tag:yaml.org,2002:bool']
+        for key, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+    }
+
 except ImportError:
     yaml = None
+    _NoImplicitBoolLoader = None
 
 # Import from axion_hdl
 from axion_hdl.address_manager import AddressManager
@@ -96,7 +110,7 @@ class YAMLInputParser:
         
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
-                data = yaml.safe_load(f)
+                data = yaml.load(f, Loader=_NoImplicitBoolLoader)
             
             if not data:
                 print(f"  Warning: Empty YAML file: {filepath}")
@@ -259,10 +273,14 @@ class YAMLInputParser:
                         parsed_enum = {}
                         for k, v in raw_enum.items():
                             try:
-                                if isinstance(k, int):
-                                    parsed_enum[k] = str(v)
-                                else:
-                                    parsed_enum[int(str(k), 0)] = str(v)
+                                # bool is a subclass of int in Python; handle explicitly
+                                # so True/False keys map to 1/0 correctly
+                                int_key = int(k) if isinstance(k, bool) else (
+                                    int(k) if isinstance(k, int) else int(str(k), 0)
+                                )
+                                # YAML 1.1 parses ON/OFF/YES/NO as bool; preserve intent
+                                str_val = str(v) if not isinstance(v, bool) else ('true' if v else 'false')
+                                parsed_enum[int_key] = str_val
                             except (ValueError, TypeError):
                                 pass
                         if not parsed_enum:
@@ -382,10 +400,11 @@ class YAMLInputParser:
                 parsed_enum = {}
                 for k, v in raw_enum.items():
                     try:
-                        if isinstance(k, int):
-                            parsed_enum[k] = str(v)
-                        else:
-                            parsed_enum[int(str(k), 0)] = str(v)
+                        int_key = int(k) if isinstance(k, bool) else (
+                            int(k) if isinstance(k, int) else int(str(k), 0)
+                        )
+                        str_val = str(v) if not isinstance(v, bool) else ('true' if v else 'false')
+                        parsed_enum[int_key] = str_val
                     except (ValueError, TypeError):
                         pass
                 if not parsed_enum:

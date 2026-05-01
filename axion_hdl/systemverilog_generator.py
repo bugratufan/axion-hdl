@@ -140,13 +140,16 @@ class SystemVerilogGenerator:
             enum_dict = field.get('enum_values', {})
             typedef_name = f"t_{reg_name}_{field_name}_e"
 
+            # Prefix enum member names with REG_FIELD_ to ensure uniqueness in package scope
+            prefix = f"{reg_name}_{field_name}".upper()
             enum_entries = []
             for val, name in sorted(enum_dict.items()):
                 bin_literal = format(int(val), f'0{width}b')
+                member_name = f"{prefix}_{name}"
                 if width == 1:
-                    entry = f"    {name} = 1'b{bin_literal}"
+                    entry = f"    {member_name} = 1'b{bin_literal}"
                 else:
-                    entry = f"    {name} = {width}'b{bin_literal}"
+                    entry = f"    {member_name} = {width}'b{bin_literal}"
                 enum_entries.append(entry)
 
             if width == 1:
