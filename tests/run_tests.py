@@ -2930,6 +2930,7 @@ def run_hierarchy_tests() -> List[TestResult]:
         'TestHierAddressMapHTML',
         'TestHierBackwardCompat',
         'TestHierCLIFlag',
+        'TestHierCanonicalAndInstances',
     ]
 
     try:

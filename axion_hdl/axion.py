@@ -905,12 +905,28 @@ class AxionHDL:
                     copy['_effective_name'] = entries[0]['instance']
                 new_modules.append(copy)
             else:
-                # Multiple instances: produce one copy per entry
-                for entry in entries:
+                # Multiple entries: separate canonical (no instance name) from named instances
+                canonical_entries = [e for e in entries if e['instance'] is None]
+                instance_entries  = [e for e in entries if e['instance'] is not None]
+
+                if canonical_entries:
+                    # One canonical + named instances (HIER-017)
                     copy = dict(module)
-                    copy['base_address'] = entry['base_addr']
-                    copy['_effective_name'] = entry['instance']  # required; validated by parser
+                    copy['base_address'] = canonical_entries[0]['base_addr']
+                    copy['_hide_from_docs'] = True
                     new_modules.append(copy)
+                    for entry in instance_entries:
+                        copy = dict(module)
+                        copy['base_address'] = entry['base_addr']
+                        copy['_effective_name'] = entry['instance']
+                        new_modules.append(copy)
+                else:
+                    # All entries have instance names (original behaviour — HIER-008)
+                    for entry in entries:
+                        copy = dict(module)
+                        copy['base_address'] = entry['base_addr']
+                        copy['_effective_name'] = entry['instance']
+                        new_modules.append(copy)
 
         self.analyzed_modules = new_modules
         print(f"Hierarchy applied: {len(new_modules)} module instance(s) ready for generation.")
@@ -937,7 +953,8 @@ class AxionHDL:
 
         from .doc_generators import AddressMapHTMLGenerator
         gen = AddressMapHTMLGenerator(self.output_dir)
-        output_path = gen.generate(self.analyzed_modules)
+        visible = [m for m in self.analyzed_modules if not m.get('_hide_from_docs')]
+        output_path = gen.generate(visible)
         print(f"  Generated: {os.path.basename(output_path)}")
         return output_path
 

@@ -210,16 +210,20 @@ class HierarchyParser:
             })
 
         # Second pass: validate instance requirements
-        from collections import Counter
+        from collections import Counter, defaultdict
         module_counts = Counter(e['module'] for e in normalized)
+        no_instance_counts: dict = defaultdict(int)
+        for e in normalized:
+            if e['instance'] is None:
+                no_instance_counts[e['module']] += 1
 
-        for entry in normalized:
-            mod = entry['module']
-            if module_counts[mod] > 1 and entry['instance'] is None:
+        for mod, count in module_counts.items():
+            if count > 1 and no_instance_counts[mod] > 1:
                 raise ValueError(
-                    f"Module '{mod}' appears {module_counts[mod]} times in hierarchy file "
-                    f"{source!r} but one or more entries are missing the 'instance' field. "
-                    "The 'instance' field is required when a module is used more than once."
+                    f"Module '{mod}' appears {count} times in hierarchy file "
+                    f"{source!r} but {no_instance_counts[mod]} entries are missing the "
+                    "'instance' field. At most one canonical entry (without instance name) "
+                    "is allowed per module when it appears more than once."
                 )
 
         return normalized
