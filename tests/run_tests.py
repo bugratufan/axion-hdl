@@ -2961,9 +2961,14 @@ def run_hierarchy_tests() -> List[TestResult]:
                 start = time.time()
                 old_stdout = sys.stdout
                 sys.stdout = io.StringIO()
+                error = None
                 try:
                     test.debug()
+                except Exception as e:
+                    error = e
+                finally:
                     sys.stdout = old_stdout
+                if error is None:
                     results.append(TestResult(
                         f"hier.{test_name}",
                         f"{req_id}: {desc}",
@@ -2972,14 +2977,13 @@ def run_hierarchy_tests() -> List[TestResult]:
                         category="hier",
                         subcategory="requirements"
                     ))
-                except Exception as e:
-                    sys.stdout = old_stdout
+                else:
                     results.append(TestResult(
                         f"hier.{test_name}",
                         f"{req_id}: {desc}",
                         "failed",
                         time.time() - start,
-                        str(e),
+                        str(error),
                         category="hier",
                         subcategory="requirements"
                     ))

@@ -882,6 +882,5 @@ base_addr = "0x20000"
 
 | Scenario | Output filename |
 |----------|----------------|
-| Module appears once, no `instance` | `<module>_axion_reg.vhd` (unchanged) |
-| Module appears once, `instance` given | `<instance>_axion_reg.vhd` |
+| Module appears once (with or without `instance`) | `<module>_axion_reg.vhd` (unchanged) |
 | Module appears multiple times | `<instance>_axion_reg.vhd` per entry |

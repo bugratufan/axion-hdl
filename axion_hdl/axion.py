@@ -892,17 +892,15 @@ class AxionHDL:
             entries = by_module.get(mod_name)
 
             if not entries:
-                # Module not in hierarchy — keep as-is (base_address unchanged)
+                # Module not referenced in hierarchy — keep as-is (base_address unchanged)
                 new_modules.append(module)
                 continue
 
             if len(entries) == 1:
-                # Single instance: update base_address; use instance name if explicitly given
-                # (HIER-007: if no instance field, output name stays unchanged)
+                # Single instance: update base_address only; output name stays unchanged
+                # (HIER-007). The 'instance' field is optional here and ignored for naming.
                 copy = dict(module)
                 copy['base_address'] = entries[0]['base_addr']
-                if entries[0]['instance']:
-                    copy['_effective_name'] = entries[0]['instance']
                 new_modules.append(copy)
             else:
                 # Multiple instances: produce one copy per entry
@@ -952,7 +950,7 @@ class AxionHDL:
 
     def generate_vhdl(self):
         """
-        Generate VHDL register interface modules (\*_axion_reg.vhd) for all analyzed modules.
+        Generate VHDL register interface modules (*_axion_reg.vhd) for all analyzed modules.
         """
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")
@@ -979,7 +977,7 @@ class AxionHDL:
 
     def generate_systemverilog(self):
         """
-        Generate SystemVerilog register interface modules (\*_axion_reg.sv) for all analyzed modules.
+        Generate SystemVerilog register interface modules (*_axion_reg.sv) for all analyzed modules.
         """
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")

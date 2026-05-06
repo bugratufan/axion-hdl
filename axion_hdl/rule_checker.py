@@ -357,7 +357,6 @@ class RuleChecker:
             mod = entry['module']
             inst = entry.get('instance') or mod
             base = entry['base_addr']
-            # Find the corresponding analyzed module to determine size
             for m in modules:
                 if m['name'] == mod:
                     regs = m.get('registers', [])
