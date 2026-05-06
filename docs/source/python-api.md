@@ -862,6 +862,153 @@ axion.generate_c_header()        # C headers for all modules
 
 ---
 
+## Python Register Model API
+
+axion-hdl provides a Python simulation model of each register space for use in golden models.
+The model enforces hardware access semantics (RO/WO/RW), supports bit-field masking, enum lookups,
+and strobe callbacks.
+
+### Getting a model from AxionHDL
+
+```python
+from axion_hdl import AxionHDL
+
+axion = AxionHDL(output_dir="./output")
+axion.add_source("my_module.yaml")
+axion.analyze()
+
+# Get a single module
+space = axion.get_model("my_module")
+
+# Get all modules
+models = axion.get_models()   # Dict[str, RegisterSpaceModel]
+```
+
+### `AxionHDL` model methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_model(module_name)` | `RegisterSpaceModel` | Return model for one module. Raises `RuntimeError` before `analyze()`, `KeyError` if not found. |
+| `get_models()` | `Dict[str, RegisterSpaceModel]` | Return models for all analyzed modules. |
+| `generate_python(output_dir=None)` | `List[str] \| False` | Generate `*_regs.py` files for all modules. Returns list of created paths, or `False` on error. |
+
+### `RegisterSpaceModel`
+
+```python
+from axion_hdl import RegisterSpaceModel
+
+space = RegisterSpaceModel.from_module_dict(module_dict)
+
+space.name            # str — module name
+space.base_address    # int — base address
+space.registers       # Dict[str, RegisterModel]
+
+# Bus-level access (absolute addresses)
+space.read(0x1000)           # int
+space.write(0x1000, 0x42)    # None; raises ReadOnlyError for RO
+
+# Named access
+space.control            # RegisterModel (via __getattr__)
+space.control.value      # int
+
+# Strobe callbacks
+space.on_write("control", lambda name, val: ...)
+space.on_read("irq_status", lambda name, val: ...)
+
+# Utilities
+space.reset()            # Restore all registers to defaults
+space.dump()             # str — human-readable dump of all registers
+space.get_register("control")           # RegisterModel
+space.get_register_at(0x1000)           # RegisterModel
+
+# Iteration in address order
+for reg in space:
+    print(reg.name, hex(reg.address))
+```
+
+### `RegisterModel`
+
+```python
+reg = space.get_register("status")
+
+reg.name             # str
+reg.address          # int — absolute address
+reg.relative_address # int — offset from base
+reg.access_mode      # str — 'RO', 'RW', or 'WO'
+reg.width            # int — bit width (usually 32)
+reg.default_value    # int
+reg.is_packed        # bool — True if has bit fields
+reg.fields           # Dict[str, FieldModel]
+
+reg.value            # int — WO returns 0 (bus semantics)
+reg.raw_value        # int — always actual value (golden model inspection)
+reg.read()           # int — fires read_strobe callback if applicable
+reg.write(0x42)      # None — fires write_strobe callback if applicable; raises ReadOnlyError for RO
+reg.reset()          # Restore to default_value
+reg.dump()           # str
+
+# Attribute access to fields (packed registers only)
+reg.ready            # FieldModel  (same as reg.fields['ready'])
+```
+
+### `FieldModel`
+
+```python
+field = space.status.fields["ready"]
+
+field.name           # str
+field.bit_low        # int
+field.bit_high       # int
+field.width          # int
+field.access_mode    # str
+field.mask           # int — pre-computed bit mask
+field.default_value  # int
+
+field.value          # int — extracted from parent raw_value
+field.value = 1      # Write (raises ReadOnlyError if RO)
+field.raw_value      # int — always actual bits (WO inspection)
+field.enum_name      # Optional[str] — current value as enum string
+field.reset()        # Restore to default_value without RO check
+```
+
+### Exceptions
+
+```python
+from axion_hdl import ReadOnlyError, AddressError
+
+# ReadOnlyError — write attempted on RO register or field
+try:
+    space.write(0x1008, 0xFF)   # status is RO
+except ReadOnlyError as e:
+    print(e)   # "Register 'status' is read-only"
+
+# AddressError — bus access at unregistered address
+try:
+    space.read(0xDEAD)
+except AddressError as e:
+    print(e)   # "No register at address 0xDEAD in space 'my_module'"
+```
+
+### Generating `*_regs.py` files
+
+Use `--python` on the CLI or `generate_python()` in code to produce stand-alone model files:
+
+```bash
+axion-hdl -s my_module.yaml -o ./output --python
+# Produces: ./output/my_module_regs.py
+```
+
+```python
+# In your golden model (axion_hdl must be installed):
+from my_module_regs import MY_MODULE
+
+base = MY_MODULE.base_address
+MY_MODULE.write(base + 0x0000, 0x1)
+print(MY_MODULE.dump())
+```
+
+---
+
 ## See Also
 
 - [CLI Usage](cli-usage) - Command-line interface

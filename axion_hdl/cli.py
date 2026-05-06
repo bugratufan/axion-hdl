@@ -183,6 +183,13 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
     )
 
     gen_group.add_argument(
+        '--python', '--py',
+        action='store_true',
+        dest='python',
+        help='Generate Python register model files (*_regs.py) for golden model use'
+    )
+
+    gen_group.add_argument(
         '--use-axion-types',
         dest='use_axion_types',
         action='store_true',
@@ -291,7 +298,8 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
             sys.exit(1)
     
     # If no specific generation option is provided, default to --all (unless --gui or --rule-check is present)
-    if not any([args.all, args.vhdl, args.doc, args.xml, args.yaml, args.json, args.c_header, args.gui, args.rule_check]):
+    if not any([args.all, args.vhdl, args.doc, args.xml, args.yaml, args.json, args.c_header,
+                getattr(args, 'python', False), args.gui, args.rule_check]):
         args.all = True
     
     # Validate --server-mode requires --gui
@@ -408,6 +416,9 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
             success &= axion.generate_json()
         if args.c_header:
             success &= axion.generate_c_header()
+        if getattr(args, 'python', False):
+            result = axion.generate_python()
+            success &= bool(result)
 
     # Generate address map HTML when hierarchy is active
     if args.hier_file:
