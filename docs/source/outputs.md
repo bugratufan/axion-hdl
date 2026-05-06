@@ -396,9 +396,10 @@ MY_MODULE = RegisterSpaceModel.from_module_dict(_MODULE_DICT)
 ```python
 from my_module_regs import MY_MODULE
 
-# AXI4-Lite bus simulation
-MY_MODULE.write(0x0000, 0x1)
-val = MY_MODULE.read(0x0000)
+# AXI4-Lite bus simulation — use absolute addresses (base + offset)
+base = MY_MODULE.base_address
+MY_MODULE.write(base + 0x0000, 0x1)
+val = MY_MODULE.read(base + 0x0000)
 
 # Named register access
 MY_MODULE.control.value = 0x42

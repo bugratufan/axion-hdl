@@ -890,7 +890,7 @@ models = axion.get_models()   # Dict[str, RegisterSpaceModel]
 |--------|---------|-------------|
 | `get_model(module_name)` | `RegisterSpaceModel` | Return model for one module. Raises `RuntimeError` before `analyze()`, `KeyError` if not found. |
 | `get_models()` | `Dict[str, RegisterSpaceModel]` | Return models for all analyzed modules. |
-| `generate_python(output_dir=None)` | `List[str]` | Generate `*_regs.py` files for all modules. Returns list of created paths. |
+| `generate_python(output_dir=None)` | `List[str] \| False` | Generate `*_regs.py` files for all modules. Returns list of created paths, or `False` on error. |
 
 ### `RegisterSpaceModel`
 
@@ -1002,7 +1002,8 @@ axion-hdl -s my_module.yaml -o ./output --python
 # In your golden model (axion_hdl must be installed):
 from my_module_regs import MY_MODULE
 
-MY_MODULE.write(0x0000, 0x1)
+base = MY_MODULE.base_address
+MY_MODULE.write(base + 0x0000, 0x1)
 print(MY_MODULE.dump())
 ```
 

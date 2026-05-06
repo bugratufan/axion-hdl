@@ -1207,9 +1207,10 @@ axion-hdl -s my_module.yaml -o ./output --python
 ```python
 from my_module_regs import MY_MODULE
 
-# AXI4-Lite bus simulation — access by absolute address
-MY_MODULE.write(0x0000, 0x1)   # Write to control register
-val = MY_MODULE.read(0x0000)   # Read it back
+# AXI4-Lite bus simulation — access by absolute address (base + offset)
+base = MY_MODULE.base_address
+MY_MODULE.write(base + 0x0000, 0x1)   # Write to control register (offset 0x0000)
+val = MY_MODULE.read(base + 0x0000)   # Read it back
 
 # Named register access
 MY_MODULE.control.value = 0x42
@@ -1224,7 +1225,7 @@ def handle_control_write(reg_name, value):
     # Trigger DUT stimulus, update scoreboard, etc.
 
 MY_MODULE.on_write("control", handle_control_write)
-MY_MODULE.write(0x0000, 0xDEAD)  # → prints "[HW] control written → 0xDEAD0000"
+MY_MODULE.write(base + 0x0000, 0xDEAD)  # → prints "[HW] control written → 0x0000DEAD"
 
 # Reset all registers to power-on defaults
 MY_MODULE.reset()
@@ -1254,6 +1255,6 @@ axion.add_source("my_module.yaml")
 axion.analyze()
 
 space = axion.get_model("my_module")
-space.write(0x0000, 0x1)
+space.write(space.base_address + 0x0000, 0x1)
 print(space.dump())
 ```

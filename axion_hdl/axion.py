@@ -1322,6 +1322,7 @@ class AxionHDL:
                         new_signal=f"Module {r2['name']}",
                         module_name="Global Address Map"
                     )
+        return errors
 
     def get_model(self, module_name: str):
         """
