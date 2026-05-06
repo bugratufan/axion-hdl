@@ -42,6 +42,7 @@ from .systemverilog_generator import SystemVerilogGenerator
 from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator
 from .axion import AxionHDL
 from .bit_field_manager import BitFieldManager, BitOverlapError, BitField
+from .register_model import RegisterSpaceModel, RegisterModel, FieldModel, ReadOnlyError, AddressError
 
 # Package metadata
 __version__ = "1.4.0"
@@ -69,6 +70,11 @@ __all__ = [
     'BitFieldManager',          # Bit field allocation for subregisters
     'BitOverlapError',          # Bit overlap exception
     'BitField',                 # Bit field data class
+    'RegisterSpaceModel',       # Python register space model
+    'RegisterModel',            # Python register model
+    'FieldModel',               # Python bit field model
+    'ReadOnlyError',            # Write-to-RO exception
+    'AddressError',             # Unknown address exception
     '__version__',
     '__author__',
     '__email__',

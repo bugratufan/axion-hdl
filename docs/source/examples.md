@@ -1187,3 +1187,73 @@ Each example generates the following files:
 | `*_regs.yaml` | YAML register map (re-importable) |
 | `*_regs.json` | JSON register map (re-importable) |
 | `register_map.md` | Markdown documentation |
+| `*_regs.py` | Python register model (golden model use, `--python`) |
+
+---
+
+## Golden Model Example
+
+Use the Python register model to simulate register space behavior in software (e.g. verification, golden models, unit tests for firmware drivers).
+
+**Step 1 — Generate the Python model:**
+
+```bash
+axion-hdl -s my_module.yaml -o ./output --python
+# Produces: ./output/my_module_regs.py
+```
+
+**Step 2 — Import and use in your golden model:**
+
+```python
+from my_module_regs import MY_MODULE
+
+# AXI4-Lite bus simulation — access by absolute address
+MY_MODULE.write(0x0000, 0x1)   # Write to control register
+val = MY_MODULE.read(0x0000)   # Read it back
+
+# Named register access
+MY_MODULE.control.value = 0x42
+
+# Bit-field access (packed registers)
+print(MY_MODULE.status.ready.value)      # 0 or 1
+print(MY_MODULE.status.ready.enum_name)  # 'NOT_READY' or 'READY'
+
+# Write-strobe callback — simulate hardware side effects
+def handle_control_write(reg_name, value):
+    print(f"[HW] {reg_name} written → 0x{value:08X}")
+    # Trigger DUT stimulus, update scoreboard, etc.
+
+MY_MODULE.on_write("control", handle_control_write)
+MY_MODULE.write(0x0000, 0xDEAD)  # → prints "[HW] control written → 0xDEAD0000"
+
+# Reset all registers to power-on defaults
+MY_MODULE.reset()
+
+# Dump full state (useful for debugging golden model vs DUT)
+print(MY_MODULE.dump())
+```
+
+**Access mode semantics (matching hardware):**
+
+| Mode | `read()` | `write()` |
+|------|----------|-----------|
+| `RW` | Returns current value | Updates value |
+| `RO` | Returns current value | Raises `ReadOnlyError` |
+| `WO` | Returns `0` (bus behavior) | Updates value |
+
+Use `.raw_value` to inspect a WO register's internal state regardless of bus semantics — useful
+for scoreboard comparisons.
+
+**Alternative: use the Python API directly (without generating a file):**
+
+```python
+from axion_hdl import AxionHDL
+
+axion = AxionHDL(output_dir="./output")
+axion.add_source("my_module.yaml")
+axion.analyze()
+
+space = axion.get_model("my_module")
+space.write(0x0000, 0x1)
+print(space.dump())
+```
