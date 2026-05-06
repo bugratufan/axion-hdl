@@ -607,7 +607,7 @@ class TestHierCanonicalAndInstances(unittest.TestCase):
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
-        # Hierarchy: let_core canonical at 0x1000, two named instances
+        # Hierarchy: spi_master canonical at 0x1000, two named instances
         self.hier_content = """instances:
   - module: spi_master
     base_addr: 0x1000
@@ -659,6 +659,11 @@ class TestHierCanonicalAndInstances(unittest.TestCase):
         self.assertIn('spi_master_axion_reg', os.path.basename(path),
                       f"Expected original module name in output: {path}")
 
+        with open(path) as f:
+            vhdl = f.read()
+        self.assertIn('x"00001000"', vhdl,
+                      "Generated VHDL must encode canonical BASE_ADDR x\"00001000\"")
+
     def test_hier_019_instance_register_space(self):
         """HIER-019: Named instances each generate separate VHDL files at correct base addresses."""
         axion = self._setup_axion_with_hier()
@@ -682,6 +687,15 @@ class TestHierCanonicalAndInstances(unittest.TestCase):
                         f"spi_master_0_axion_reg.vhd not found in {files}")
         self.assertTrue(any('spi_master_1_axion_reg' in f for f in files),
                         f"spi_master_1_axion_reg.vhd not found in {files}")
+
+        expected_addrs = {'spi_master_0': 'x"10000000"', 'spi_master_1': 'x"20000000"'}
+        for fname in os.listdir(out_dir):
+            for inst_name, expected in expected_addrs.items():
+                if inst_name in fname and fname.endswith('.vhd'):
+                    with open(os.path.join(out_dir, fname)) as f:
+                        vhdl = f.read()
+                    self.assertIn(expected, vhdl,
+                                  f"{fname} must encode BASE_ADDR {expected}")
 
     def test_hier_020_docs_exclude_canonical(self):
         """HIER-020: generate_html() and generate_markdown() exclude the canonical entry."""

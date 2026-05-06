@@ -933,10 +933,12 @@ class AxionHDL:
 
     def generate_address_map_html(self) -> Optional[str]:
         """
-        Generate an HTML address map report for all instances.
+        Generate an HTML address map report for named instances.
 
-        Produces address_map.html in the output directory showing each instance,
-        its module, base address, end address, and size.
+        Produces address_map.html in the output directory showing each named
+        instance, its module, base address, end address, and size.
+        Canonical entries (``_hide_from_docs=True``) are intentionally excluded
+        so the report reflects only the deployed, named instances.
 
         Returns:
             Absolute path to the generated file, or None on failure.
