@@ -1406,5 +1406,3 @@ class AxionHDL:
 
         print(f"\nPython model files generated in: {out_dir}")
         return generated
-                    
-        return errors
