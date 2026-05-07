@@ -283,6 +283,15 @@ class DocGenerator:
 
         # Exclude canonical entries (present only for register-space generation, not docs)
         visible = [m for m in modules if not m.get('_hide_from_docs')]
+        def _base_addr_int(m):
+            v = m.get('base_address', 0)
+            if v is None:
+                return 0
+            try:
+                return int(v, 0) if isinstance(v, str) else int(v)
+            except (ValueError, TypeError):
+                return 0
+        visible.sort(key=_base_addr_int)
 
         # Create index page in ROOT output dir
         index_path = os.path.join(self.output_dir, "index.html")
@@ -344,7 +353,7 @@ class DocGenerator:
         
         content = f'''
 <div class="top-nav">
-    <a href="html/about.html" class="about-link">About Axion-HDL</a>
+    <a href="https://axion-hdl.com" class="about-link" target="_blank" rel="noopener noreferrer">About Axion-HDL</a>
 </div>
 <div class="hero">
     <div class="hero-logo">
