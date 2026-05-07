@@ -53,6 +53,21 @@ HIER-015  Backward compatibility (no --hier)
 
 HIER-016  Unsupported format error
          → TestHierParserFormats
+
+HIER-017  Canonical entry allowed alongside named instances
+         → TestHierCanonicalAndInstances
+
+HIER-018  Canonical entry register space generation
+         → TestHierCanonicalAndInstances
+
+HIER-019  Named instance register space generation
+         → TestHierCanonicalAndInstances
+
+HIER-020  HTML/MD docs show only named instances
+         → TestHierCanonicalAndInstances
+
+HIER-021  address_map.html excludes canonical entries
+         → TestHierCanonicalAndInstances
 """
 
 import os
@@ -71,7 +86,7 @@ from axion_hdl.axion import AxionHDL
 from axion_hdl.rule_checker import RuleChecker
 from axion_hdl.generator import VHDLGenerator
 from axion_hdl.systemverilog_generator import SystemVerilogGenerator
-from axion_hdl.doc_generators import AddressMapHTMLGenerator
+from axion_hdl.doc_generators import AddressMapHTMLGenerator, DocGenerator
 
 
 # ---------------------------------------------------------------------------
@@ -387,7 +402,8 @@ class TestHierValidation(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_hier_009_missing_instance_field(self):
-        """HIER-009: Missing instance field when module appears twice raises ValueError."""
+        """HIER-009: Two entries without instance field for same module raises ValueError."""
+        # Two canonicals (both missing instance) must still be rejected
         content = """instances:
   - module: spi_master
     base_addr: 0x20000
@@ -397,6 +413,18 @@ class TestHierValidation(unittest.TestCase):
         path = _write(self.tmp, "hier.yaml", content)
         with self.assertRaises(ValueError):
             HierarchyParser().parse(path)
+
+        # One canonical + one named instance is allowed (HIER-017)
+        content_ok = """instances:
+  - module: spi_master
+    base_addr: 0x1000
+  - module: spi_master
+    instance: spi_master_0
+    base_addr: 0x20000
+"""
+        path_ok = _write(self.tmp, "hier_ok.yaml", content_ok)
+        result = HierarchyParser().parse(path_ok)
+        self.assertEqual(len(result), 2)
 
     def test_hier_010_duplicate_instance_name(self):
         """HIER-010: Duplicate instance name produces a rule-check error."""
@@ -567,6 +595,162 @@ class TestHierCLIFlag(unittest.TestCase):
                         f"VHDL output not found. Files: {os.listdir(self.tmp)}")
         self.assertTrue(os.path.isfile(os.path.join(self.tmp, 'address_map.html')),
                         f"address_map.html not found. Files: {os.listdir(self.tmp)}")
+
+
+# ---------------------------------------------------------------------------
+# HIER-017 / HIER-018 / HIER-019 / HIER-020 / HIER-021
+# Canonical entry alongside named instances
+# ---------------------------------------------------------------------------
+
+class TestHierCanonicalAndInstances(unittest.TestCase):
+    """Tests for canonical (no instance name) + named instances in same hierarchy."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        # Hierarchy: spi_master canonical at 0x1000, two named instances
+        self.hier_content = """instances:
+  - module: spi_master
+    base_addr: 0x1000
+  - module: spi_master
+    instance: spi_master_0
+    base_addr: 0x10000000
+  - module: spi_master
+    instance: spi_master_1
+    base_addr: 0x20000000
+"""
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _setup_axion_with_hier(self):
+        """Create AxionHDL instance with hierarchy applied, return it."""
+        axion = AxionHDL(output_dir=self.tmp)
+        axion.add_source(SPI_TOML)
+        axion.analyze()
+        hier_path = _write(self.tmp, "hier.yaml", self.hier_content)
+        axion.load_hierarchy(hier_path)
+        axion.apply_hierarchy()
+        return axion
+
+    def test_hier_017_canonical_and_instances_parse(self):
+        """HIER-017: Parser accepts one canonical entry alongside named instances."""
+        hier_path = _write(self.tmp, "hier.yaml", self.hier_content)
+        result = HierarchyParser().parse(hier_path)
+        self.assertEqual(len(result), 3)
+        canonical = [e for e in result if e['instance'] is None]
+        named = [e for e in result if e['instance'] is not None]
+        self.assertEqual(len(canonical), 1)
+        self.assertEqual(len(named), 2)
+        self.assertEqual(canonical[0]['base_addr'], 0x1000)
+
+    def test_hier_018_canonical_register_space(self):
+        """HIER-018: Canonical entry generates VHDL with original module name and its base address."""
+        axion = self._setup_axion_with_hier()
+
+        # Find the canonical module (no _effective_name, _hide_from_docs=True)
+        canonical = [m for m in axion.analyzed_modules if m.get('_hide_from_docs')]
+        self.assertEqual(len(canonical), 1, "Expected exactly one canonical module")
+        self.assertEqual(canonical[0]['base_address'], 0x1000)
+        self.assertNotIn('_effective_name', canonical[0])
+
+        out_dir = os.path.join(self.tmp, "vhdl_out")
+        gen = VHDLGenerator(out_dir)
+        path = gen.generate_module(canonical[0])
+        self.assertIn('spi_master_axion_reg', os.path.basename(path),
+                      f"Expected original module name in output: {path}")
+
+        with open(path) as f:
+            vhdl = f.read()
+        self.assertIn('x"00001000"', vhdl,
+                      "Generated VHDL must encode canonical BASE_ADDR x\"00001000\"")
+
+    def test_hier_019_instance_register_space(self):
+        """HIER-019: Named instances each generate separate VHDL files at correct base addresses."""
+        axion = self._setup_axion_with_hier()
+
+        instances = [m for m in axion.analyzed_modules if not m.get('_hide_from_docs')]
+        self.assertEqual(len(instances), 2, "Expected two named instances")
+
+        names = {m.get('_effective_name') for m in instances}
+        self.assertEqual(names, {'spi_master_0', 'spi_master_1'})
+
+        addrs = {m['base_address'] for m in instances}
+        self.assertEqual(addrs, {0x10000000, 0x20000000})
+
+        out_dir = os.path.join(self.tmp, "vhdl_inst")
+        gen = VHDLGenerator(out_dir)
+        for module in instances:
+            gen.generate_module(module)
+
+        files = os.listdir(out_dir)
+        self.assertTrue(any('spi_master_0_axion_reg' in f for f in files),
+                        f"spi_master_0_axion_reg.vhd not found in {files}")
+        self.assertTrue(any('spi_master_1_axion_reg' in f for f in files),
+                        f"spi_master_1_axion_reg.vhd not found in {files}")
+
+        expected_addrs = {'spi_master_0': 'x"10000000"', 'spi_master_1': 'x"20000000"'}
+        for fname in os.listdir(out_dir):
+            for inst_name, expected in expected_addrs.items():
+                if inst_name in fname and fname.endswith('.vhd'):
+                    with open(os.path.join(out_dir, fname)) as f:
+                        vhdl = f.read()
+                    self.assertIn(expected, vhdl,
+                                  f"{fname} must encode BASE_ADDR {expected}")
+
+    def test_hier_020_docs_exclude_canonical(self):
+        """HIER-020: generate_html() and generate_markdown() exclude the canonical entry."""
+        axion = self._setup_axion_with_hier()
+        modules = axion.analyzed_modules
+
+        doc_dir = os.path.join(self.tmp, "docs")
+        os.makedirs(doc_dir)
+        gen = DocGenerator(doc_dir)
+
+        md_path = gen.generate_markdown(modules)
+        with open(md_path) as f:
+            md = f.read()
+
+        # Named instances must appear
+        self.assertIn('spi_master_0', md, "spi_master_0 must appear in markdown")
+        self.assertIn('spi_master_1', md, "spi_master_1 must appear in markdown")
+
+        # Canonical base address (0x1000) must NOT appear as a module section
+        # (it may appear in instance content, so check the module heading specifically)
+        sections = [line for line in md.splitlines() if line.startswith('## Module:')]
+        section_names = [s.replace('## Module:', '').strip() for s in sections]
+        self.assertNotIn('spi_master', section_names,
+                         f"Canonical 'spi_master' must not appear as a doc section: {section_names}")
+
+        html_dir = os.path.join(self.tmp, "html_out")
+        os.makedirs(html_dir)
+        html_gen = DocGenerator(html_dir)
+        html_gen.generate_html(modules)
+
+        index_path = os.path.join(html_dir, "index.html")
+        with open(index_path) as f:
+            html = f.read()
+
+        self.assertIn('spi_master_0', html, "spi_master_0 must appear in index.html")
+        self.assertIn('spi_master_1', html, "spi_master_1 must appear in index.html")
+        # Canonical should not have its own module page link in the index
+        html_files = os.listdir(os.path.join(html_dir, "html"))
+        self.assertFalse(any(f == 'spi_master.html' for f in html_files),
+                         f"Canonical spi_master.html must not be generated: {html_files}")
+
+    def test_hier_021_address_map_excludes_canonical(self):
+        """HIER-021: address_map.html excludes canonical entry; only named instances appear."""
+        axion = self._setup_axion_with_hier()
+
+        addr_map_path = axion.generate_address_map_html()
+        with open(addr_map_path) as f:
+            html = f.read()
+
+        # Named instances must appear
+        self.assertIn('spi_master_0', html, "spi_master_0 must appear in address_map.html")
+        self.assertIn('spi_master_1', html, "spi_master_1 must appear in address_map.html")
+        # Canonical base address must NOT appear
+        self.assertNotIn('0x00001000', html,
+                         "Canonical base address 0x1000 must not appear in address_map.html")
 
 
 # ---------------------------------------------------------------------------
