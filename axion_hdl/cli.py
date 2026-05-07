@@ -20,7 +20,7 @@ Exit Codes:
     0 - Success
     1 - Error (invalid arguments, analysis failure, or generation failure)
 
-For more information, visit: https://github.com/bugratufan/axion-hdl
+For more information, visit: https://axion-hdl.readthedocs.io
 """
 
 import argparse
@@ -58,7 +58,7 @@ Examples:
   axion-hdl -s ./hdl -o ./out --vhdl --c-header
   axion-hdl -s ./design --doc-format html
 
-For more information, visit: https://github.com/bugratufan/axion-hdl
+For more information, visit: https://axion-hdl.readthedocs.io
         """
     )
     
@@ -236,6 +236,11 @@ For more information, visit: https://github.com/bugratufan/axion-hdl
         help='Run GUI in debug mode (enables hot-reloading)'
     )
     
+    # Show help when called with no arguments
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
+
     # Parse arguments
     args = parser.parse_args()
 
