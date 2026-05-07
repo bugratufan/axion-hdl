@@ -34,11 +34,12 @@ class DocGenerator:
         ]
         
         for module in modules:
-            lines.extend(self._generate_module_section(module))
-        
+            if not module.get('_hide_from_docs'):
+                lines.extend(self._generate_module_section(module))
+
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(lines))
-            
+
         return output_path
     
     def _generate_module_section(self, module: Dict) -> List[str]:
@@ -279,35 +280,38 @@ class DocGenerator:
         # Create html subdirectory for module pages
         html_dir = os.path.join(self.output_dir, "html")
         os.makedirs(html_dir, exist_ok=True)
-        
+
+        # Exclude canonical entries (present only for register-space generation, not docs)
+        visible = [m for m in modules if not m.get('_hide_from_docs')]
+
         # Create index page in ROOT output dir
         index_path = os.path.join(self.output_dir, "index.html")
-        index_content = self._generate_index_page(modules)
-        
+        index_content = self._generate_index_page(visible)
+
         with open(index_path, 'w', encoding='utf-8') as f:
             f.write(index_content)
-        
+
         # Create individual module pages in html/ subdir
-        for module in modules:
+        for module in visible:
             page_name = module.get('_effective_name', module['name'])
             module_path = os.path.join(html_dir, f"{page_name}.html")
-            module_content = self._generate_module_page(module, modules)
-            
+            module_content = self._generate_module_page(module, visible)
+
             with open(module_path, 'w', encoding='utf-8') as f:
                 f.write(module_content)
-        
+
         # Create about page in html/ subdir
         about_path = os.path.join(html_dir, "about.html")
         about_content = self._generate_about_page()
         with open(about_path, 'w', encoding='utf-8') as f:
             f.write(about_content)
-        
+
         # Also create legacy single-file for backwards compatibility
         legacy_path = os.path.join(self.output_dir, "register_map.html")
-        legacy_content = self._generate_single_page_html(modules)
+        legacy_content = self._generate_single_page_html(visible)
         with open(legacy_path, 'w', encoding='utf-8') as f:
             f.write(legacy_content)
-            
+
         return index_path
     
     def _generate_index_page(self, modules: List[Dict]) -> str:

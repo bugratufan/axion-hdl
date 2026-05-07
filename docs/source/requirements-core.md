@@ -375,7 +375,7 @@ Covers optional generation of typed `t_axi_lite_m2s` / `t_axi_lite_s2m` record p
 | HIER-006 | base_addr override (single instance) | When `--hier` is provided, the `base_addr` declared inside the individual module file is ignored and replaced by the hierarchy value. | Python Unit Test (`test_hier_006_base_addr_override_single`) |
 | HIER-007 | Single-instance output naming | When a module appears only once in the hierarchy and no `instance` field is given, the output files keep the original module name (no suffix change). If an `instance` field is explicitly provided, the instance name is used for output naming instead. | Python Unit Test (`test_hier_007_single_instance_filename`) |
 | HIER-008 | Multi-instance output naming | When a module appears more than once in the hierarchy, each instance generates separate output files named after the `instance` field (e.g. `spi_master_0_axion_reg.vhd`). | Python Unit Test (`test_hier_008_multi_instance_filename`) |
-| HIER-009 | `instance` field required for duplicates | When the same module appears more than once in the hierarchy file but one or more entries omit the `instance` field, `HierarchyParser.parse()` raises `ValueError`. | Python Unit Test (`test_hier_009_missing_instance_field`) |
+| HIER-009 | `instance` field required for duplicates | When the same module appears more than once in the hierarchy file and **more than one** entry omits the `instance` field, `HierarchyParser.parse()` raises `ValueError`. Exactly one canonical entry (without `instance` name) alongside named instances is allowed (see HIER-017). | Python Unit Test (`test_hier_009_missing_instance_field`) |
 | HIER-010 | Duplicate instance name rejected | When the same instance name appears more than once in the hierarchy file, `RuleChecker.check_hierarchy()` reports an error. | Python Unit Test (`test_hier_010_duplicate_instance_name`) |
 | HIER-011 | Address overlap detection | When two instances have overlapping address ranges, `RuleChecker.check_hierarchy()` reports an error naming both instances and their ranges. | Python Unit Test (`test_hier_011_address_overlap`) |
 | HIER-012 | Unknown module error | When a module name in the hierarchy file is not found in the analyzed sources, `RuleChecker.check_hierarchy()` reports an error. | Python Unit Test (`test_hier_012_unknown_module_error`) |
@@ -383,3 +383,57 @@ Covers optional generation of typed `t_axi_lite_m2s` / `t_axi_lite_s2m` record p
 | HIER-014 | address_map.html table correctness | The generated `address_map.html` contains a table with Instance Name, Module, Base Address, End Address, and Size columns; row values match the hierarchy and module register definitions. | Python Unit Test (`test_hier_014_address_map_html_content`) |
 | HIER-015 | Backward compatibility | When `--hier` is not provided, all existing outputs are generated with the original naming and base addresses unchanged. | Python Unit Test (`test_hier_015_no_hier_backward_compat`) |
 | HIER-016 | Unsupported format error | `HierarchyParser.parse()` raises `ValueError` when given a file with an unsupported extension. | Python Unit Test (`test_hier_016_unsupported_format`) |
+| HIER-017 | Canonical entry allowed alongside named instances | When a module appears in the hierarchy with exactly one entry that has no `instance` field (canonical) and one or more entries that do (named instances), `HierarchyParser.parse()` succeeds without error. | Python Unit Test (`test_hier_017_canonical_and_instances_parse`) |
+| HIER-018 | Canonical entry register space generation | The canonical entry generates its own register-space output files (VHDL, SV, C header, etc.) using the original module name and the canonical base address from the hierarchy. | Python Unit Test (`test_hier_018_canonical_register_space`) |
+| HIER-019 | Named instance register space generation | Each named instance entry generates its own register-space output files named after the `instance` field and using its base address. | Python Unit Test (`test_hier_019_instance_register_space`) |
+| HIER-020 | HTML/MD docs show only named instances | When canonical + named instances exist for a module, `generate_html()` and `generate_markdown()` include only the named instances; the canonical entry is excluded from the documentation. | Python Unit Test (`test_hier_020_docs_exclude_canonical`) |
+| HIER-021 | address_map.html excludes canonical entries | `address_map.html` shows only named instances; canonical entries (`_hide_from_docs=True`) are excluded so the canonical module does not appear anywhere in the documentation. | Python Unit Test (`test_hier_021_address_map_excludes_canonical`) |
+
+## 20. Python Register Model (REG-MODEL)
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| REG-MODEL-001 | FieldModel constructed correctly | name, bit_low, bit_high, width, mask, default_value match field dict | Python Unit Test (`test_register_model_001_field_model_construction`) |
+| REG-MODEL-002 | FieldModel.value bit masking read | Correct bits extracted from parent raw_value via mask and shift | Python Unit Test (`test_register_model_002_field_value_bit_masking_read`) |
+| REG-MODEL-003 | FieldModel.value setter bit masking | Only field bits updated; other register bits are preserved | Python Unit Test (`test_register_model_003_field_value_setter_bit_masking`) |
+| REG-MODEL-004 | RO field write raises ReadOnlyError | FieldModel.value.setter raises ReadOnlyError for RO fields | Python Unit Test (`test_register_model_004_ro_field_write_raises`) |
+| REG-MODEL-005 | FieldModel.enum_name lookup | Returns string from enum_values table for current value; None if no mapping | Python Unit Test (`test_register_model_005_enum_name`) |
+| REG-MODEL-006 | FieldModel.reset() bypasses RO | Restores default value via _force_write_field without RO check | Python Unit Test (`test_register_model_006_field_reset_bypasses_ro`) |
+| REG-MODEL-010 | RegisterModel construction | name, address, access_mode, default_value, width correctly set | Python Unit Test (`test_register_model_010_register_construction`) |
+| REG-MODEL-011 | RW/RO/WO .value read semantics | WO returns 0; RO and RW return raw_value | Python Unit Test (`test_register_model_011_rw_read_returns_raw`) |
+| REG-MODEL-012 | RO write() raises ReadOnlyError | write() raises ReadOnlyError for RO registers | Python Unit Test (`test_register_model_012_ro_write_raises`) |
+| REG-MODEL-013 | WO read() returns 0 | read() returns 0 for WO registers (bus read semantics) | Python Unit Test (`test_register_model_013_wo_read_returns_zero`) |
+| REG-MODEL-014 | RegisterModel.reset() | _raw_value restored to default_value; no callback, no RO check | Python Unit Test (`test_register_model_014_reset_restores_default`) |
+| REG-MODEL-015 | Packed register fields dict | is_packed registers have fields dict with correct FieldModel entries | Python Unit Test (`test_register_model_015_packed_register_fields`) |
+| REG-MODEL-016 | RegisterModel attribute access | reg.fieldname returns reg.fields['fieldname'] | Python Unit Test (`test_register_model_016_getattr_field_access`) |
+| REG-MODEL-017 | RegisterModel.dump() format | Returns non-empty string containing register name and access mode | Python Unit Test (`test_register_model_017_dump_contains_name_and_value`) |
+| REG-MODEL-018 | Write strobe callback fires | on_write() callback triggered exactly once when write_strobe=True | Python Unit Test (`test_register_model_018_write_strobe_callback_fires`) |
+| REG-MODEL-019 | Write strobe callback silent | on_write() callback not triggered when write_strobe=False | Python Unit Test (`test_register_model_019_write_strobe_silent_when_false`) |
+| REG-MODEL-020 | Read strobe callback fires | on_read() callback triggered when read_strobe=True and read() called | Python Unit Test (`test_register_model_020_read_strobe_callback_fires`) |
+| REG-MODEL-021 | Callback argument correctness | Callback receives (register_name: str, value: int) with correct values | Python Unit Test (`test_register_model_021_callback_arguments`) |
+| REG-MODEL-022 | raw_value WO bypass | raw_value always returns _raw_value regardless of WO access mode | Python Unit Test (`test_register_model_022_raw_value_wo_bypass`) |
+| REG-MODEL-030 | RegisterSpaceModel construction | from_module_dict() loads all registers; name and base_address correct | Python Unit Test (`test_register_model_030_from_module_dict_loads_all`) |
+| REG-MODEL-031 | Bus read by address | space.read(addr) returns register value at absolute address | Python Unit Test (`test_register_model_031_bus_read_returns_value`) |
+| REG-MODEL-032 | Bus write by address | space.write(addr, val) updates register raw value | Python Unit Test (`test_register_model_032_bus_write_updates_register`) |
+| REG-MODEL-033 | RO bus write raises | space.write() to RO register address raises ReadOnlyError | Python Unit Test (`test_register_model_033_ro_bus_write_raises`) |
+| REG-MODEL-034 | Unknown address read raises | space.read() at unregistered address raises AddressError | Python Unit Test (`test_register_model_034_unknown_address_read_raises`) |
+| REG-MODEL-035 | Unknown address write raises | space.write() at unregistered address raises AddressError | Python Unit Test (`test_register_model_035_unknown_address_write_raises`) |
+| REG-MODEL-036 | Space reset restores defaults | space.reset() restores all registers to their default_value | Python Unit Test (`test_register_model_036_space_reset_restores_defaults`) |
+| REG-MODEL-037 | Space attribute access | space.regname returns correct RegisterModel instance | Python Unit Test (`test_register_model_037_space_attribute_access`) |
+| REG-MODEL-038 | Field chain access | space.status.fields['ready'] returns correct FieldModel | Python Unit Test (`test_register_model_038_field_chain_access`) |
+| REG-MODEL-039 | Space on_write() callback | space.on_write(name, cb) attaches callback; fires on next write | Python Unit Test (`test_register_model_039_space_on_write_attaches_callback`) |
+| REG-MODEL-040 | Space dump output | dump() returns multi-line string covering header and all registers | Python Unit Test (`test_register_model_040_space_dump_covers_all_registers`) |
+| REG-MODEL-041 | Space registers property | registers property returns Dict[str, RegisterModel] | Python Unit Test (`test_register_model_041_space_registers_property`) |
+| REG-MODEL-042 | Space iteration in address order | Iterating space yields RegisterModels sorted by address | Python Unit Test (`test_register_model_042_space_iteration_address_order`) |
+| REG-MODEL-050 | get_model() before analyze raises | RuntimeError raised if analyze() not called before get_model() | Python Unit Test (`test_register_model_050_get_model_before_analyze_raises`) |
+| REG-MODEL-051 | get_model() unknown name raises | KeyError raised for module name not found in analyzed_modules | Python Unit Test (`test_register_model_051_get_model_unknown_name_raises`) |
+| REG-MODEL-052 | get_model() success | Returns RegisterSpaceModel with matching name after analyze() | Python Unit Test (`test_register_model_052_get_model_returns_space`) |
+| REG-MODEL-053 | get_models() all modules | Returns dict mapping all module names to RegisterSpaceModel instances | Python Unit Test (`test_register_model_053_get_models_returns_dict`) |
+| REG-MODEL-054 | YAML round-trip | YAML → analyze → get_model → write → read returns correct value | Python Unit Test (`test_register_model_054_yaml_round_trip`) |
+| REG-MODEL-055 | get_model() entity_name fallback | Finds module when 'entity_name' key used instead of 'name' | Python Unit Test (`test_register_model_055_get_model_by_entity_name`) |
+| REG-MODEL-060 | PythonGenerator creates file | generate() creates *_regs.py in output directory | Python Unit Test (`test_register_model_060_generator_creates_file`) |
+| REG-MODEL-061 | Generated file importable | Generated *_regs.py imports without error via importlib | Python Unit Test (`test_register_model_061_generated_file_importable`) |
+| REG-MODEL-062 | Generated symbol is RegisterSpaceModel | Uppercase symbol in generated file is a RegisterSpaceModel instance | Python Unit Test (`test_register_model_062_generated_module_symbol`) |
+| REG-MODEL-063 | Generated model functional | Generated model supports write/read returning correct values | Python Unit Test (`test_register_model_063_generated_model_functional`) |
+| REG-MODEL-064 | generate_python() API | AxionHDL.generate_python() produces *_regs.py files for all modules | Python Unit Test (`test_register_model_064_cli_python_flag`) |
+| REG-MODEL-065 | Packed register in generated file | Generated model correctly exposes packed registers and their fields | Python Unit Test (`test_register_model_065_packed_register_generation`) |

@@ -1225,7 +1225,8 @@ def print_results(results: List[TestResult]):
         "enum": "🔢 ENUM",
         "axion_types": "🔌 AXION-TYPES",
         "systemverilog": "⚡ SYSTEMVERILOG",
-        "hier": "🗂️  HIER"
+        "hier": "🗂️  HIER",
+        "reg_model": "🐍 REG-MODEL"
     }
 
     total_passed = 0
@@ -1238,7 +1239,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
 
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "enum", "axion_types", "systemverilog", "hier"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "enum", "axion_types", "systemverilog", "hier", "reg_model"]:
         if cat not in categories:
             continue
         
@@ -2929,6 +2930,7 @@ def run_hierarchy_tests() -> List[TestResult]:
         'TestHierAddressMapHTML',
         'TestHierBackwardCompat',
         'TestHierCLIFlag',
+        'TestHierCanonicalAndInstances',
     ]
 
     try:
@@ -2995,12 +2997,91 @@ def run_hierarchy_tests() -> List[TestResult]:
     return results
 
 
+def run_register_model_tests() -> List[TestResult]:
+    """Run REG-MODEL-xxx requirement tests (Python register model feature)."""
+    results = []
+
+    try:
+        from tests.python.test_register_model import (
+            TestFieldModel,
+            TestRegisterModel,
+            TestRegisterSpaceModel,
+            TestAxionHDLIntegration,
+            TestPythonGenerator,
+        )
+        import io
+
+        test_classes = [
+            TestFieldModel,
+            TestRegisterModel,
+            TestRegisterSpaceModel,
+            TestAxionHDLIntegration,
+            TestPythonGenerator,
+        ]
+
+        loader = unittest.TestLoader()
+        for cls in test_classes:
+            suite = loader.loadTestsFromTestCase(cls)
+            for test in suite:
+                test_name = str(test).split()[0]
+                desc = test.shortDescription() or test_name
+                req_match = re.search(r'(REG-MODEL-\d+\S*)', desc)
+                req_id = req_match.group(1).rstrip(':') if req_match else "REG-MODEL-001"
+
+                start = time.time()
+                try:
+                    old_stdout = sys.stdout
+                    sys.stdout = io.StringIO()
+                    try:
+                        test.debug()
+                    finally:
+                        sys.stdout = old_stdout
+
+                    results.append(TestResult(
+                        f"reg_model.{test_name}",
+                        f"{req_id}: {desc}",
+                        "passed",
+                        time.time() - start,
+                        category="reg_model",
+                        subcategory="requirements"
+                    ))
+                except unittest.SkipTest as e:
+                    results.append(TestResult(
+                        f"reg_model.{test_name}",
+                        f"{req_id}: {desc}",
+                        "skipped",
+                        time.time() - start,
+                        str(e),
+                        category="reg_model",
+                        subcategory="requirements"
+                    ))
+                except Exception as e:
+                    results.append(TestResult(
+                        f"reg_model.{test_name}",
+                        f"{req_id}: {desc}",
+                        "failed",
+                        time.time() - start,
+                        str(e),
+                        category="reg_model",
+                        subcategory="requirements"
+                    ))
+    except ImportError as e:
+        results.append(TestResult(
+            "reg_model.import",
+            "REG-MODEL: Import test module",
+            "failed", 0, str(e),
+            category="reg_model", subcategory="setup"
+        ))
+
+    return results
+
+
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..026, ENUM-001..042, AXION-TYPES-001..021, HIER-001..016, SV-PARSER, SV-GEN, SV-ADV + Cocotb\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..026, ENUM-001..042, AXION-TYPES-001..021, HIER-001..016, SV-PARSER, SV-GEN, SV-ADV, REG-MODEL-001..065 + Cocotb\n")
 
     all_results = []
-    total_steps = 27
+    total_steps = 28
 
     # Run Python unit tests (core functionality)
     print(f"  [1/{total_steps}] Running Python unit tests...", flush=True)
@@ -3109,6 +3190,10 @@ def main():
     # Run hierarchy tests (HIER-001..016)
     print(f"  [27/{total_steps}] Running hierarchy file support tests...", flush=True)
     all_results.extend(run_hierarchy_tests())
+
+    # Run Python register model tests (REG-MODEL-001..065)
+    print(f"  [28/{total_steps}] Running Python register model tests...", flush=True)
+    all_results.extend(run_register_model_tests())
 
     # Save and generate reports
     save_results(all_results)

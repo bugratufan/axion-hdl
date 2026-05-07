@@ -905,22 +905,40 @@ class AxionHDL:
                     copy['_effective_name'] = entries[0]['instance']
                 new_modules.append(copy)
             else:
-                # Multiple instances: produce one copy per entry
-                for entry in entries:
+                # Multiple entries: separate canonical (no instance name) from named instances
+                canonical_entries = [e for e in entries if e['instance'] is None]
+                instance_entries  = [e for e in entries if e['instance'] is not None]
+
+                if canonical_entries:
+                    # One canonical + named instances (HIER-017)
                     copy = dict(module)
-                    copy['base_address'] = entry['base_addr']
-                    copy['_effective_name'] = entry['instance']  # required; validated by parser
+                    copy['base_address'] = canonical_entries[0]['base_addr']
+                    copy['_hide_from_docs'] = True
                     new_modules.append(copy)
+                    for entry in instance_entries:
+                        copy = dict(module)
+                        copy['base_address'] = entry['base_addr']
+                        copy['_effective_name'] = entry['instance']
+                        new_modules.append(copy)
+                else:
+                    # All entries have instance names (original behaviour — HIER-008)
+                    for entry in entries:
+                        copy = dict(module)
+                        copy['base_address'] = entry['base_addr']
+                        copy['_effective_name'] = entry['instance']
+                        new_modules.append(copy)
 
         self.analyzed_modules = new_modules
         print(f"Hierarchy applied: {len(new_modules)} module instance(s) ready for generation.")
 
     def generate_address_map_html(self) -> Optional[str]:
         """
-        Generate an HTML address map report for all instances.
+        Generate an HTML address map report for named instances.
 
-        Produces address_map.html in the output directory showing each instance,
-        its module, base address, end address, and size.
+        Produces address_map.html in the output directory showing each named
+        instance, its module, base address, end address, and size.
+        Canonical entries (``_hide_from_docs=True``) are intentionally excluded
+        so the report reflects only the deployed, named instances.
 
         Returns:
             Absolute path to the generated file, or None on failure.
@@ -937,7 +955,8 @@ class AxionHDL:
 
         from .doc_generators import AddressMapHTMLGenerator
         gen = AddressMapHTMLGenerator(self.output_dir)
-        output_path = gen.generate(self.analyzed_modules)
+        visible = [m for m in self.analyzed_modules if not m.get('_hide_from_docs')]
+        output_path = gen.generate(visible)
         print(f"  Generated: {os.path.basename(output_path)}")
         return output_path
 
@@ -1121,6 +1140,8 @@ class AxionHDL:
         success &= self.generate_yaml()
         success &= self.generate_json()
         success &= self.generate_c_header()
+        result = self.generate_python()
+        success &= bool(result)
 
         if success:
             print(f"\n{'='*60}")
@@ -1320,5 +1341,88 @@ class AxionHDL:
                         new_signal=f"Module {r2['name']}",
                         module_name="Global Address Map"
                     )
-                    
         return errors
+
+    def get_model(self, module_name: str):
+        """
+        Return a RegisterSpaceModel for a single analyzed module.
+
+        Args:
+            module_name: The 'name' or 'entity_name' of the module.
+
+        Returns:
+            RegisterSpaceModel instance ready for golden-model use.
+
+        Raises:
+            RuntimeError: If analyze() has not been called yet.
+            KeyError:     If no module with the given name was found.
+        """
+        if not self.is_analyzed:
+            raise RuntimeError("analyze() must be called before get_model()")
+        from .register_model import RegisterSpaceModel
+        for module in self.analyzed_modules:
+            if module.get('name') == module_name or module.get('entity_name') == module_name:
+                return RegisterSpaceModel.from_module_dict(module)
+        raise KeyError(f"No module named '{module_name}' in analyzed modules")
+
+    def get_models(self):
+        """
+        Return a dict mapping module name → RegisterSpaceModel for all analyzed modules.
+
+        Returns:
+            Dict[str, RegisterSpaceModel]
+
+        Raises:
+            RuntimeError: If analyze() has not been called yet.
+        """
+        if not self.is_analyzed:
+            raise RuntimeError("analyze() must be called before get_models()")
+        from .register_model import RegisterSpaceModel
+        result = {}
+        for module in self.analyzed_modules:
+            name = module.get('name') or module.get('entity_name', '')
+            result[name] = RegisterSpaceModel.from_module_dict(module)
+        return result
+
+    def generate_python(self, output_dir: str = None):
+        """
+        Generate Python register model files (*_regs.py) for all analyzed modules.
+
+        Each generated file contains a frozen copy of the module dictionary and a
+        ready-to-use RegisterSpaceModel instance that can be imported directly in
+        golden models without re-running axion-hdl.
+
+        Args:
+            output_dir: Override output directory. Uses self.output_dir if None.
+
+        Returns:
+            List of paths to generated files, or False on error.
+
+        Raises:
+            RuntimeError: If analyze() has not been called yet.
+        """
+        if not self.is_analyzed:
+            print("Error: Analysis not performed. Call analyze() first.")
+            return False
+
+        out_dir = output_dir or self.output_dir
+        if not out_dir:
+            print("Error: No output directory specified.")
+            return False
+
+        print(f"\n{'='*60}")
+        print("Generating Python register model files...")
+        print(f"{'='*60}")
+
+        os.makedirs(out_dir, exist_ok=True)
+
+        from .python_generator import PythonGenerator
+        gen = PythonGenerator(out_dir)
+        generated = []
+        for module in self.analyzed_modules:
+            output_path = gen.generate(module)
+            generated.append(output_path)
+            print(f"  Generated: {os.path.basename(output_path)}")
+
+        print(f"\nPython model files generated in: {out_dir}")
+        return generated

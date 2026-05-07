@@ -97,6 +97,7 @@ axion-hdl -s ./src -e "*_tb.vhd" -e "test_*" -e "deprecated" -o ./output --all
 | `--doc-format FORMAT` | Documentation format: `md`, `html`, `pdf` |
 | `--use-axion-types` | Use typed `t_axi_lite_m2s`/`t_axi_lite_s2m` record ports from `axion_common_pkg` instead of flat AXI signals (VHDL and SV). Overrides any per-module `use_axion_types` config value. |
 | `--hier FILE` | Hierarchy file for centralized base address assignment (YAML, TOML, JSON, or XML). Overrides `base_addr` in all individual module files. When the same module appears multiple times, the `instance` field names the output files. Also generates `address_map.html`. |
+| `--python`, `--py` | Generate Python register model file (`*_regs.py`) for golden model use. |
 
 **Examples:**
 
