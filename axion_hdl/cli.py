@@ -236,8 +236,8 @@ For more information, visit: https://axion-hdl.readthedocs.io
         help='Run GUI in debug mode (enables hot-reloading)'
     )
     
-    # Show help when called with no arguments
-    if len(sys.argv) == 1:
+    # Show help when called with no arguments and no fallback config exists
+    if len(sys.argv) == 1 and not os.path.exists(".axion_conf"):
         parser.print_help()
         sys.exit(0)
 
