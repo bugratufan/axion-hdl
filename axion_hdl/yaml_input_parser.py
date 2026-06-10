@@ -321,10 +321,11 @@ class YAMLInputParser:
                         bit_offset = None
             
             # Default value
-            default_val = 0
             default_str = reg_data.get('default')
             if default_str is not None:
                 default_val = self._parse_address(default_str, context=f"register '{reg_name}' default value")
+            else:
+                default_val = 0
             
             # If REG_NAME is present, handle packed registers
             if packed_reg_name:
@@ -429,6 +430,7 @@ class YAMLInputParser:
                 'description': description,
                 'default_value': default_val,
                 'default_value_hex': f"0x{default_val:X}",
+                'default_declared': default_str is not None,
                 'enum_values': parsed_enum
             }
             registers.append(register)

@@ -3084,12 +3084,81 @@ def run_register_model_tests() -> List[TestResult]:
     return results
 
 
+def run_doc_output_correctness_tests() -> List[TestResult]:
+    """Run documentation and XML output correctness tests (GEN-033..036)."""
+    results = []
+
+    try:
+        from tests.python.test_doc_output_correctness import (
+            TestXMLOutputWidth,
+            TestXMLOutputWidthVHDL,
+            TestDocTypeColumn,
+            TestDocDefaultValue,
+            TestDocPortDirection,
+        )
+        import io
+
+        test_classes = [
+            TestXMLOutputWidth,
+            TestXMLOutputWidthVHDL,
+            TestDocTypeColumn,
+            TestDocDefaultValue,
+            TestDocPortDirection,
+        ]
+
+        loader = unittest.TestLoader()
+        for cls in test_classes:
+            suite = loader.loadTestsFromTestCase(cls)
+            for test in suite:
+                test_name = str(test).split()[0]
+                desc = test.shortDescription() or test_name
+                req_match = re.match(r'(GEN-\d+\S*)', desc)
+                req_id = req_match.group(1).rstrip(':') if req_match else "GEN-033"
+
+                start = time.time()
+                try:
+                    old_stdout = sys.stdout
+                    sys.stdout = io.StringIO()
+                    try:
+                        test.debug()
+                    finally:
+                        sys.stdout = old_stdout
+
+                    results.append(TestResult(
+                        f"gen.{test_name}",
+                        f"{req_id}: {desc}",
+                        "passed",
+                        time.time() - start,
+                        category="gen",
+                        subcategory="doc_output"
+                    ))
+                except Exception as e:
+                    results.append(TestResult(
+                        f"gen.{test_name}",
+                        f"{req_id}: {desc}",
+                        "failed",
+                        time.time() - start,
+                        str(e),
+                        category="gen",
+                        subcategory="doc_output"
+                    ))
+    except ImportError as e:
+        results.append(TestResult(
+            "gen.doc_output.import",
+            "GEN-033: Import doc output correctness tests",
+            "failed", 0, str(e),
+            category="gen", subcategory="setup"
+        ))
+
+    return results
+
+
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..026, ENUM-001..042, AXION-TYPES-001..021, HIER-001..016, SV-PARSER, SV-GEN, SV-ADV, REG-MODEL-001..065 + Cocotb\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..036, ENUM-001..042, AXION-TYPES-001..021, HIER-001..016, SV-PARSER, SV-GEN, SV-ADV, REG-MODEL-001..065 + Cocotb\n")
 
     all_results = []
-    total_steps = 28
+    total_steps = 29
 
     # Run Python unit tests (core functionality)
     print(f"  [1/{total_steps}] Running Python unit tests...", flush=True)
@@ -3202,6 +3271,10 @@ def main():
     # Run Python register model tests (REG-MODEL-001..065)
     print(f"  [28/{total_steps}] Running Python register model tests...", flush=True)
     all_results.extend(run_register_model_tests())
+
+    # Run documentation and XML output correctness tests (GEN-033..036)
+    print(f"  [29/{total_steps}] Running documentation output correctness tests...", flush=True)
+    all_results.extend(run_doc_output_correctness_tests())
 
     # Save and generate reports
     save_results(all_results)
