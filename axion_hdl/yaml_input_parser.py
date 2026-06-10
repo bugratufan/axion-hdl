@@ -297,13 +297,14 @@ class YAMLInputParser:
                             default_value=field_default_val,
                             read_strobe=field_data.get('r_strobe', False),
                             write_strobe=field_data.get('w_strobe', False),
-                            allow_overlap=True,
+                            allow_overlap=False,
                             enum_values=parsed_enum
                         )
                     except Exception as e:
                         msg = f"Error processing field {field_name} in {reg_name}: {e}"
-                        print(f"  {msg}")
+                        print(f"  Error: {msg}")
                         self.errors.append({'file': filepath, 'msg': msg})
+                        return None
 
                 if addr >= next_auto_addr:
                     next_auto_addr = addr + 4
@@ -359,17 +360,18 @@ class YAMLInputParser:
                         default_value=default_val,
                         read_strobe=reg_data.get('r_strobe', False),
                         write_strobe=reg_data.get('w_strobe', False),
-                        allow_overlap=True  # Allow overlaps, RuleChecker will validate
+                        allow_overlap=False
                     )
-                    
+
                     if addr >= next_auto_addr:
                         next_auto_addr = addr + 4
-                        
+
                 except Exception as e:
                     msg = f"Error processing packed register {reg_name}: {e}"
-                    print(f"  {msg}")
+                    print(f"  Error: {msg}")
                     self.errors.append({'file': filepath, 'msg': msg})
-                
+                    return None
+
                 continue
             
             # Standard register
