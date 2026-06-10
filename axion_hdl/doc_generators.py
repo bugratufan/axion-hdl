@@ -118,7 +118,11 @@ class DocGenerator:
             # Actually, generator logic combines defaults into the main register default.
             # But here we might not have that easily. Let's just default to '-' for packed row, and details in description.
             _dv = info.get('default_value')
-            default_val = f"0x{int(_dv):X}" if _dv is not None else '-'
+            _declared = info.get('default_declared')
+            if _declared is not None:
+                default_val = f"0x{int(_dv):X}" if _declared else '-'
+            else:
+                default_val = f"0x{int(_dv):X}" if _dv is not None else '-'
             
             desc = info.get('description', '-')
             
@@ -241,12 +245,17 @@ class DocGenerator:
                 lines.append(f"- **Offset:** {info.get('relative_address', info['address'])}")
                 lines.append(f"- **Access Mode:** {info['access_mode']}")
                 _dv2 = info.get('default_value')
-                defs = f"0x{int(_dv2):X}" if _dv2 is not None else '-'
+                _decl2 = info.get('default_declared')
+                if _decl2 is not None:
+                    defs = f"0x{int(_dv2):X}" if _decl2 else '-'
+                else:
+                    defs = f"0x{int(_dv2):X}" if _dv2 is not None else '-'
                 lines.append(f"- **Default:** {defs}")
                 lines.append(f"- **Type:** `{info['signal_type']}`")
                 lines.append("")
                 lines.append("**Ports:**")
-                lines.append(f"- `{info['signal_name']}` (inout): Register data signal")
+                port_dir = 'in' if info['access_mode'] == 'RO' else 'out'
+                lines.append(f"- `{info['signal_name']}` ({port_dir}): Register data signal")
                 
                 if info['read_strobe']:
                     lines.append(f"- `{info['signal_name']}_rd_strobe` (out): Read strobe pulse")
