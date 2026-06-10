@@ -331,6 +331,10 @@ class YAMLInputParser:
             
             # If REG_NAME is present, handle packed registers
             if packed_reg_name:
+                # In reg_name/bit_offset format, width not specified means 1-bit field
+                if 'width' not in reg_data:
+                    width = 1
+                    sig_type_default = "[0:0]"
                 addr_val = reg_data.get('addr')
                 if addr_val is not None:
                     addr = self._parse_address(addr_val, context=f"register '{reg_name}' addr")
