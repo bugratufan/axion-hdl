@@ -1618,6 +1618,8 @@ For full documentation, visit [axion-hdl.readthedocs.io](https://axion-hdl.readt
 {content}
 <footer style="margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border-color); text-align: center; color: #64748b; font-size: 0.9rem;">
     <a href="https://github.com/bugratufan/axion-hdl" target="_blank" rel="noopener" style="color: #94a3b8; text-decoration: none;">© 2026 Axion HDL. MIT License.</a>
+    <span style="margin: 0 0.5rem; color: #475569;">·</span>
+    <span>Developed by <a href="https://github.com/bugratufan" target="_blank" rel="noopener noreferrer" style="color: #94a3b8; text-decoration: none;">bugratufan</a></span>
 </footer>
 ''' + ('' if is_index else '''
 <a href="#register-table" class="back-to-table" id="backToTable">↑ Back to Table</a>
@@ -2558,7 +2560,7 @@ class AddressMapHTMLGenerator:
         <tbody>
 {table_rows}        </tbody>
     </table>
-    <footer><a href="https://github.com/bugratufan/axion-hdl" target="_blank" rel="noopener">© 2026 Axion HDL. MIT License.</a></footer>
+    <footer><a href="https://github.com/bugratufan/axion-hdl" target="_blank" rel="noopener">© 2026 Axion HDL. MIT License.</a> · Developed by <a href="https://github.com/bugratufan" target="_blank" rel="noopener noreferrer">bugratufan</a></footer>
 </body>
 </html>
 '''
