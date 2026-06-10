@@ -374,7 +374,7 @@ For more information, visit: https://axion-hdl.readthedocs.io
 
     # Check if any modules were found (skip for GUI mode with errors)
     if not axion.analyzed_modules and not args.gui:
-        print("Warning: No modules with @axion annotations found in source directories.",
+        print("Warning: No modules found. Check source files for errors.",
               file=sys.stderr)
         sys.exit(0)
     
