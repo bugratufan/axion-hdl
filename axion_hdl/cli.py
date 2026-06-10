@@ -28,6 +28,30 @@ import sys
 import os
 import json
 
+_YELLOW = "\033[33m"
+_RED    = "\033[31m"
+_RESET  = "\033[0m"
+
+class _ColorStream:
+    """Wraps a stream and colorizes Warning/Error lines."""
+    def __init__(self, stream):
+        self._s = stream
+        self._tty = hasattr(stream, 'isatty') and stream.isatty()
+
+    def write(self, text):
+        if self._tty and text.strip():
+            if 'Warning:' in text or '⚠️' in text:
+                text = _YELLOW + text + _RESET
+            elif 'Error:' in text:
+                text = _RED + text + _RESET
+        self._s.write(text)
+
+    def flush(self):
+        self._s.flush()
+
+    def __getattr__(self, name):
+        return getattr(self._s, name)
+
 from axion_hdl import AxionHDL, __version__
 
 
@@ -41,6 +65,9 @@ def main():
     Returns:
         None (exits with appropriate exit code)
     """
+    sys.stdout = _ColorStream(sys.stdout)
+    sys.stderr = _ColorStream(sys.stderr)
+
     # Print banner
     print(f"Axion-HDL v{__version__}")
     print("Automated AXI4-Lite Register Interface Generator")
