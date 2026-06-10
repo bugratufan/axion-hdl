@@ -230,48 +230,35 @@ void test_module_prefix_consistency(void) {
 }
 
 /*******************************************************************************
- * Test: Access Macro Existence
+ * Test: Access Macro Existence (struct-based access via _REGS pointer)
  ******************************************************************************/
 void test_access_macros(void) {
-    TEST_SECTION("Access Macros");
-    
-    /* Verify READ macros exist for readable registers */
-    #ifdef SENSOR_CONTROLLER_READ_STATUS_REG
-    TEST_ASSERT(1, "SENSOR_CONTROLLER_READ_STATUS_REG() macro exists");
+    TEST_SECTION("Access Macros (struct pointer)");
+
+    /* READ/WRITE macros removed — use SENSOR_CONTROLLER_REGS->field instead */
+    #ifdef SENSOR_CONTROLLER_REGS
+    TEST_ASSERT(1, "SENSOR_CONTROLLER_REGS struct pointer exists");
     #else
-    TEST_ASSERT(0, "SENSOR_CONTROLLER_READ_STATUS_REG() macro missing");
+    TEST_ASSERT(0, "SENSOR_CONTROLLER_REGS struct pointer missing");
     #endif
-    
-    #ifdef SENSOR_CONTROLLER_READ_CONFIG_REG
-    TEST_ASSERT(1, "SENSOR_CONTROLLER_READ_CONFIG_REG() macro exists");
+
+    #ifdef SPI_CONTROLLER_REGS
+    TEST_ASSERT(1, "SPI_CONTROLLER_REGS struct pointer exists");
     #else
-    TEST_ASSERT(0, "SENSOR_CONTROLLER_READ_CONFIG_REG() macro missing");
+    TEST_ASSERT(0, "SPI_CONTROLLER_REGS struct pointer missing");
     #endif
-    
-    /* Verify WRITE macros exist for writable registers */
-    #ifdef SENSOR_CONTROLLER_WRITE_CONTROL_REG
-    TEST_ASSERT(1, "SENSOR_CONTROLLER_WRITE_CONTROL_REG() macro exists");
+
+    /* GET_FIELD / SET_FIELD helpers still present */
+    #ifdef GET_FIELD
+    TEST_ASSERT(1, "GET_FIELD helper macro exists");
     #else
-    TEST_ASSERT(0, "SENSOR_CONTROLLER_WRITE_CONTROL_REG() macro missing");
+    TEST_ASSERT(0, "GET_FIELD helper macro missing");
     #endif
-    
-    #ifdef SENSOR_CONTROLLER_WRITE_CONFIG_REG
-    TEST_ASSERT(1, "SENSOR_CONTROLLER_WRITE_CONFIG_REG() macro exists");
+
+    #ifdef SET_FIELD
+    TEST_ASSERT(1, "SET_FIELD helper macro exists");
     #else
-    TEST_ASSERT(0, "SENSOR_CONTROLLER_WRITE_CONFIG_REG() macro missing");
-    #endif
-    
-    /* Verify SPI macros */
-    #ifdef SPI_CONTROLLER_READ_STATUS_REG
-    TEST_ASSERT(1, "SPI_CONTROLLER_READ_STATUS_REG() macro exists");
-    #else
-    TEST_ASSERT(0, "SPI_CONTROLLER_READ_STATUS_REG() macro missing");
-    #endif
-    
-    #ifdef SPI_CONTROLLER_WRITE_CTRL_REG
-    TEST_ASSERT(1, "SPI_CONTROLLER_WRITE_CTRL_REG() macro exists");
-    #else
-    TEST_ASSERT(0, "SPI_CONTROLLER_WRITE_CTRL_REG() macro missing");
+    TEST_ASSERT(0, "SET_FIELD helper macro missing");
     #endif
 }
 
@@ -465,56 +452,39 @@ void test_mixed_width_controller_address_continuity(void) {
 }
 
 void test_mixed_width_controller_access_macros(void) {
-    TEST_SECTION("Mixed-Width Controller Access Macros");
-    
-    /* Check that multi-register read macros exist */
-    #ifdef MIXED_WIDTH_CONTROLLER_READ_WIDE_COUNTER_REG0
-    TEST_ASSERT(1, "READ_WIDE_COUNTER_REG0 macro exists");
+    TEST_SECTION("Mixed-Width Controller Access (struct pointer + offset macros)");
+
+    /* READ/WRITE macros removed — use MIXED_WIDTH_CONTROLLER_REGS->field_regN instead */
+    #ifdef MIXED_WIDTH_CONTROLLER_REGS
+    TEST_ASSERT(1, "MIXED_WIDTH_CONTROLLER_REGS struct pointer exists");
     #else
-    TEST_ASSERT(0, "READ_WIDE_COUNTER_REG0 macro missing");
+    TEST_ASSERT(0, "MIXED_WIDTH_CONTROLLER_REGS struct pointer missing");
     #endif
-    
-    #ifdef MIXED_WIDTH_CONTROLLER_READ_WIDE_COUNTER_REG1
-    TEST_ASSERT(1, "READ_WIDE_COUNTER_REG1 macro exists");
+
+    /* Offset macros for wide-signal chunks must still exist */
+    #ifdef MIXED_WIDTH_CONTROLLER_WIDE_COUNTER_REG0_OFFSET
+    TEST_ASSERT(1, "WIDE_COUNTER_REG0_OFFSET macro exists");
     #else
-    TEST_ASSERT(0, "READ_WIDE_COUNTER_REG1 macro missing");
+    TEST_ASSERT(0, "WIDE_COUNTER_REG0_OFFSET macro missing");
     #endif
-    
-    #ifdef MIXED_WIDTH_CONTROLLER_READ_LONG_TIMESTAMP_REG0
-    TEST_ASSERT(1, "READ_LONG_TIMESTAMP_REG0 macro exists");
+
+    #ifdef MIXED_WIDTH_CONTROLLER_WIDE_COUNTER_REG1_OFFSET
+    TEST_ASSERT(1, "WIDE_COUNTER_REG1_OFFSET macro exists");
     #else
-    TEST_ASSERT(0, "READ_LONG_TIMESTAMP_REG0 macro missing");
+    TEST_ASSERT(0, "WIDE_COUNTER_REG1_OFFSET macro missing");
     #endif
-    
-    #ifdef MIXED_WIDTH_CONTROLLER_READ_LONG_TIMESTAMP_REG1
-    TEST_ASSERT(1, "READ_LONG_TIMESTAMP_REG1 macro exists");
+
+    /* Narrow signal width/mask macros must exist */
+    #ifdef MIXED_WIDTH_CONTROLLER_ENABLE_FLAG_MASK
+    TEST_ASSERT(1, "ENABLE_FLAG_MASK macro exists (1-bit signal)");
     #else
-    TEST_ASSERT(0, "READ_LONG_TIMESTAMP_REG1 macro missing");
+    TEST_ASSERT(0, "ENABLE_FLAG_MASK macro missing");
     #endif
-    
-    #ifdef MIXED_WIDTH_CONTROLLER_READ_HUGE_DATA_REG6
-    TEST_ASSERT(1, "READ_HUGE_DATA_REG6 macro exists (last reg of 200-bit)");
+
+    #ifdef MIXED_WIDTH_CONTROLLER_THRESHOLD_VALUE_MASK
+    TEST_ASSERT(1, "THRESHOLD_VALUE_MASK macro exists (16-bit signal)");
     #else
-    TEST_ASSERT(0, "READ_HUGE_DATA_REG6 macro missing");
-    #endif
-    
-    /* Check narrow signal macros */
-    #ifdef MIXED_WIDTH_CONTROLLER_READ_ENABLE_FLAG
-    TEST_ASSERT(1, "READ_ENABLE_FLAG macro exists (1-bit signal)");
-    #else
-    TEST_ASSERT(0, "READ_ENABLE_FLAG macro missing");
-    #endif
-    
-    #ifdef MIXED_WIDTH_CONTROLLER_WRITE_ENABLE_FLAG
-    TEST_ASSERT(1, "WRITE_ENABLE_FLAG macro exists (1-bit RW signal)");
-    #else
-    TEST_ASSERT(0, "WRITE_ENABLE_FLAG macro missing");
-    #endif
-    
-    #ifdef MIXED_WIDTH_CONTROLLER_WRITE_THRESHOLD_VALUE
-    TEST_ASSERT(1, "WRITE_THRESHOLD_VALUE macro exists (16-bit RW signal)");
-    #else
-    TEST_ASSERT(0, "WRITE_THRESHOLD_VALUE macro missing");
+    TEST_ASSERT(0, "THRESHOLD_VALUE_MASK macro missing");
     #endif
 }
 

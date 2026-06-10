@@ -225,6 +225,13 @@ class BitFieldManager:
                 f"(bits [{bit_high}:{bit_low}])"
             )
 
+        # Validate default_value fits within field width
+        max_field_val = (1 << width) - 1
+        if default_value > max_field_val:
+            print(f"  Warning: default value {default_value} overflows {width}-bit field "
+                  f"'{field_name}' (max {max_field_val}), truncating to {default_value & max_field_val}")
+            default_value = default_value & max_field_val
+
         # Validate enum_values: every value must be in [0, 2**width - 1]
         if enum_values:
             max_val = (2 ** width) - 1

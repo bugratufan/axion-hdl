@@ -123,6 +123,14 @@ Testing and verification are automated via `make test`, which maps tests back to
 | GEN-026 | Packed Register Container is 32-bit | A packed register container must appear as exactly one `uint32_t` member in the struct (no `_reg0` split). | Python Unit Test (`gen.test_gen_026`) |
 | GEN-027 | VHDL Entity Port Width – YAML source | For registers defined via YAML, the generated VHDL entity port must use the declared width (e.g. `std_logic` for 1-bit, `std_logic_vector(4 downto 0)` for 5-bit). Must not default to 32-bit. | Python Unit Test (`gen.test_gen_027`) |
 | GEN-028 | VHDL Entity Port Width – VHDL-annotation source | Same as GEN-027 but for registers defined via VHDL `@axion` annotations. | Python Unit Test (`gen.test_gen_028`) |
+| GEN-029 | SV `_signal_type_to_sv` handles both signal_type formats | `_signal_type_to_sv` must correctly convert both internal bracket format (`[N:0]`) and VHDL format (`std_logic_vector(N downto 0)` / `std_logic`) to the corresponding SystemVerilog type. | Python Unit Test (`gen.test_gen_029`) |
+| GEN-030 | SV Module Port Width – YAML source | For registers defined via YAML, the generated SV module port must use the declared width. Must not default to `logic [31:0]`. | Python Unit Test (`gen.test_gen_030`) |
+| GEN-031 | SV Module Port Width – VHDL-annotation source | Same as GEN-030 but for registers defined via VHDL `@axion` annotations. | Python Unit Test (`gen.test_gen_031`) |
+| GEN-032 | SV Module Port Width – SV-annotation source | Same as GEN-030 but for registers defined via SystemVerilog `@axion` annotations. | Python Unit Test (`gen.test_gen_032`) |
+| GEN-033 | XML Output Register Width | The generated SPIRIT XML `spirit:size` and `spirit:bitWidth` fields must reflect the declared register width, not a hardcoded 32. | Python Unit Test (`gen.test_gen_033`) |
+| GEN-034 | Documentation Type Column Accuracy | The Type column in generated HTML/Markdown register tables and port description sections must display the actual declared signal type, not a hardcoded string. | Python Unit Test (`gen.test_gen_034`) |
+| GEN-035 | Default Value Zero Rendered Correctly | A register with `default: 0` must display `0x0` (not `-`) in generated HTML/Markdown documentation. The `-` placeholder is reserved for registers with no declared default. | Python Unit Test (`gen.test_gen_035`) |
+| GEN-036 | Documentation Port Direction Accuracy | The port direction shown in the Port Descriptions section must reflect the access mode: `out` for RW/WO registers, `in` for RO registers. | Python Unit Test (`gen.test_gen_036`) |
 
 ## 5. Error Handling (ERR)
 
