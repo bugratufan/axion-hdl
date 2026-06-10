@@ -28,22 +28,32 @@ import sys
 import os
 import json
 
+import atexit
+
 _YELLOW = "\033[33m"
 _RED    = "\033[31m"
+_BOLD   = "\033[1m"
 _RESET  = "\033[0m"
 
+_diagnostics = []  # collected (level, message) tuples
+
 class _ColorStream:
-    """Wraps a stream and colorizes Warning/Error lines."""
+    """Wraps a stream, colorizes Warning/Error lines, and collects them for end-of-run summary."""
     def __init__(self, stream):
         self._s = stream
         self._tty = hasattr(stream, 'isatty') and stream.isatty()
 
     def write(self, text):
-        if self._tty and text.strip():
+        stripped = text.strip()
+        if stripped:
             if 'Warning:' in text or '⚠️' in text:
-                text = _YELLOW + text + _RESET
+                _diagnostics.append(('warning', stripped))
+                if self._tty:
+                    text = _YELLOW + text + _RESET
             elif 'Error:' in text:
-                text = _RED + text + _RESET
+                _diagnostics.append(('error', stripped))
+                if self._tty:
+                    text = _RED + text + _RESET
         self._s.write(text)
 
     def flush(self):
@@ -51,6 +61,33 @@ class _ColorStream:
 
     def __getattr__(self, name):
         return getattr(self._s, name)
+
+
+def _print_diagnostic_summary():
+    if not _diagnostics:
+        return
+    stream = sys.__stdout__
+    tty = hasattr(stream, 'isatty') and stream.isatty()
+
+    def _c(color, text):
+        return (color + text + _RESET) if tty else text
+
+    warnings = [m for lvl, m in _diagnostics if lvl == 'warning']
+    errors   = [m for lvl, m in _diagnostics if lvl == 'error']
+
+    stream.write("\n" + "=" * 70 + "\n")
+    stream.write(_c(_BOLD, "DIAGNOSTIC SUMMARY — please review before using generated files\n"))
+    stream.write("=" * 70 + "\n")
+    if errors:
+        stream.write(_c(_RED, f"  {len(errors)} error(s):\n"))
+        for msg in errors:
+            stream.write(_c(_RED, f"    • {msg}\n"))
+    if warnings:
+        stream.write(_c(_YELLOW, f"  {len(warnings)} warning(s):\n"))
+        for msg in warnings:
+            stream.write(_c(_YELLOW, f"    • {msg}\n"))
+    stream.write("=" * 70 + "\n")
+    stream.flush()
 
 from axion_hdl import AxionHDL, __version__
 
@@ -67,6 +104,7 @@ def main():
     """
     sys.stdout = _ColorStream(sys.stdout)
     sys.stderr = _ColorStream(sys.stderr)
+    atexit.register(_print_diagnostic_summary)
 
     # Print banner
     print(f"Axion-HDL v{__version__}")
