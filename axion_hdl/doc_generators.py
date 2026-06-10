@@ -197,7 +197,14 @@ class DocGenerator:
                         elif fdefault == 0:
                             fdefault = "0x0"
                         fdesc = field.get('description', '-')
-                        ftype = field.get('signal_type', f"[{width-1}:0]" if width > 1 else "[0:0]")
+                        raw_type = field.get('signal_type', f"[{width-1}:0]" if width > 1 else "[0:0]")
+                        import re as _re
+                        _m = _re.match(r'\[(\d+):(\d+)\]', raw_type)
+                        if _m:
+                            hi, lo = int(_m.group(1)), int(_m.group(2))
+                            ftype = 'std_logic' if hi == 0 and lo == 0 else f'std_logic_vector({hi} downto {lo})'
+                        else:
+                            ftype = raw_type
                         faccess = field.get('access_mode', info['access_mode'])
 
                         if has_enum:
