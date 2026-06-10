@@ -708,7 +708,7 @@ class AxionHDL:
             base_addr = module.get('base_address', 0x00)
             base_addr_str = f"0x{base_addr:04X}"
             
-            print(f"\n{'='*110}")
+            print(f"\n{'='*165}")
             print(f"Module: {module['name']}")
             if module.get('cdc_enabled'):
                 cdc_info = f"CDC: Enabled (Stages: {module.get('cdc_stages', 2)})"
@@ -726,25 +726,34 @@ class AxionHDL:
             else:
                 print(f"Base Address: {base_addr_str}")
             
-            print(f"{'='*110}")
+            print(f"{'='*165}")
             
             if not module.get('registers'):
                 print("No registers found in this module.")
                 continue
             
             # Print table header
-            print(f"\n{'Signal Name':<25} {'Type':<8} {'Abs.Addr':<10} {'Offset':<10} {'Access':<8} {'Strobes':<15} {'Ports Generated'}")
-            print(f"{'-'*25} {'-'*8} {'-'*10} {'-'*10} {'-'*8} {'-'*15} {'-'*40}")
-            
+            print(f"\n{'Signal Name':<25} {'Type':<30} {'Abs.Addr':<12} {'Offset':<12} {'Access':<8} {'Default':<12} {'Strobes':<15} {'Ports Generated'}")
+            print(f"{'-'*25} {'-'*30} {'-'*12} {'-'*12} {'-'*8} {'-'*12} {'-'*15} {'-'*40}")
+
             # Print each register
             for reg in module['registers']:
                 signal_name = reg['signal_name']
-                # Hide type for packed registers as requested
                 signal_type = "" if reg.get('is_packed') else reg['signal_type']
                 address = reg.get('address', 'Auto')
                 offset = reg.get('relative_address', address)
                 access_mode = reg['access_mode']
-                
+
+                # Default value
+                _dv = reg.get('default_value')
+                _declared = reg.get('default_declared')
+                if reg.get('is_packed'):
+                    default_str = ''
+                elif _declared is not None:
+                    default_str = f"0x{int(_dv):X}" if _declared else '-'
+                else:
+                    default_str = f"0x{int(_dv):X}" if _dv is not None else '-'
+
                 # Determine strobes
                 strobes = []
                 if reg.get('read_strobe'):
@@ -752,54 +761,49 @@ class AxionHDL:
                 if reg.get('write_strobe'):
                     strobes.append('WR')
                 strobe_str = ', '.join(strobes) if strobes else 'None'
-                
+
                 # Determine generated ports
                 ports = [signal_name]
                 if reg.get('read_strobe'):
                     ports.append(f"{signal_name}_rd_strobe")
                 if reg.get('write_strobe'):
                     ports.append(f"{signal_name}_wr_strobe")
-                
+
                 ports_str = ', '.join(ports)
-                
-                print(f"{signal_name:<25} {signal_type:<8} {address:<10} {offset:<10} {access_mode:<8} {strobe_str:<15} {ports_str}")
+
+                print(f"{signal_name:<25} {signal_type:<30} {address:<12} {offset:<12} {access_mode:<8} {default_str:<12} {strobe_str:<15} {ports_str}")
 
                 # Print subregisters if packed
                 if reg.get('is_packed') and reg.get('fields'):
-                    # Sort fields high-to-low for display
                     sorted_fields = sorted(reg['fields'], key=lambda f: f.get('bit_low', 0), reverse=True)
-                    
+
                     for field in sorted_fields:
                         fname = f"  └─ {field['name']}"
-                        
-                        # Format type as bit range
                         bit_hi = field.get('bit_high', 0)
                         bit_lo = field.get('bit_low', 0)
                         ftype = f"[{bit_hi}:{bit_lo}]"
-                        
                         faccess = field.get('access_mode', 'RW')
-                        
-                        # Field/Subregister specific strobes
+                        fdv = field.get('default_value')
+                        fdefault = f"0x{int(fdv):X}" if fdv is not None else '-'
+
                         fstrobes = []
                         if field.get('read_strobe'): fstrobes.append('RD')
                         if field.get('write_strobe'): fstrobes.append('WR')
                         fstrobe_str = ', '.join(fstrobes) if fstrobes else '-'
-                        
-                        # Field ports ? (Maybe just name)
-                        # Usually subreg ports are just mapped to the field name (or parent_field)
+
                         fports = f"{reg['signal_name']}_{field['name']}"
-                        
-                        print(f"{fname:<25} {ftype:<8} {'':<10} {'':<10} {faccess:<8} {fstrobe_str:<15} {fports}")
+
+                        print(f"{fname:<25} {ftype:<30} {'':<12} {'':<12} {faccess:<8} {fdefault:<12} {fstrobe_str:<15} {fports}")
             
             print(f"\nTotal Registers: {len(module['registers'])}")
         
-        print(f"\n{'='*110}")
+        print(f"\n{'='*165}")
         print(f"Summary: {len(self.analyzed_modules)} module(s) analyzed")
         total_regs = sum(len(m.get('registers', [])) for m in self.analyzed_modules)
         print(f"Total Registers: {total_regs}")
         if checker.errors:
             print(f"⚠️  Warning: Address overlap(s) detected! Run --rule-check for details.")
-        print(f"{'='*110}\n")
+        print(f"{'='*165}\n")
 
     def run_rules(self, report_file: str = None) -> bool:
         """Run validation rules and print report."""

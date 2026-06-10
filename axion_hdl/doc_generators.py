@@ -117,16 +117,27 @@ class DocGenerator:
             # Let's show the combined default if available processing, or just Listing
             # Actually, generator logic combines defaults into the main register default.
             # But here we might not have that easily. Let's just default to '-' for packed row, and details in description.
-            default_val = info.get('default_value') or '-'
-            if default_val != '-':
-                 default_val = f"0x{int(default_val):X}"
+            _dv = info.get('default_value')
+            _declared = info.get('default_declared')
+            if _declared is not None:
+                default_val = f"0x{int(_dv):X}" if _declared else '-'
+            else:
+                default_val = f"0x{int(_dv):X}" if _dv is not None else '-'
             
             desc = info.get('description', '-')
             
             if group['type'] == 'packed':
-                # Show main register row
+                # Compute total width from highest bit across all sub-fields
+                all_fields = group['fields']
+                sub_fields = [sf for f in all_fields for sf in f.get('fields', [])] or all_fields
+                total_bits = max((f.get('bit_high', 0) + 1 for f in sub_fields), default=32)
+                total_bits = max(total_bits, 1)
+                if total_bits == 1:
+                    packed_type = 'std_logic'
+                else:
+                    packed_type = f'std_logic_vector({total_bits - 1} downto 0)'
                 lines.append(
-                    f"| {info['address']} | {offset} | `{display_name}` | | 32 | "
+                    f"| {info['address']} | {offset} | `{display_name}` | {packed_type} | {total_bits} | "
                     f"{access} | {default_val} | **Packed Register** (see below) |"
                 )
             else:
@@ -186,7 +197,14 @@ class DocGenerator:
                         elif fdefault == 0:
                             fdefault = "0x0"
                         fdesc = field.get('description', '-')
-                        ftype = field.get('signal_type', f"[{width-1}:0]" if width > 1 else "[0:0]")
+                        raw_type = field.get('signal_type', f"[{width-1}:0]" if width > 1 else "[0:0]")
+                        import re as _re
+                        _m = _re.match(r'\[(\d+):(\d+)\]', raw_type)
+                        if _m:
+                            hi, lo = int(_m.group(1)), int(_m.group(2))
+                            ftype = 'std_logic' if hi == 0 and lo == 0 else f'std_logic_vector({hi} downto {lo})'
+                        else:
+                            ftype = raw_type
                         faccess = field.get('access_mode', info['access_mode'])
 
                         if has_enum:
@@ -241,13 +259,18 @@ class DocGenerator:
                 lines.append(f"- **Address:** {info['address']}")
                 lines.append(f"- **Offset:** {info.get('relative_address', info['address'])}")
                 lines.append(f"- **Access Mode:** {info['access_mode']}")
-                defs = info.get('default_value') or '-'
-                if defs != '-': defs = f"0x{int(defs):X}"
+                _dv2 = info.get('default_value')
+                _decl2 = info.get('default_declared')
+                if _decl2 is not None:
+                    defs = f"0x{int(_dv2):X}" if _decl2 else '-'
+                else:
+                    defs = f"0x{int(_dv2):X}" if _dv2 is not None else '-'
                 lines.append(f"- **Default:** {defs}")
-                lines.append(f"- **Type:** `std_logic_vector(31 downto 0)`")
+                lines.append(f"- **Type:** `{info['signal_type']}`")
                 lines.append("")
                 lines.append("**Ports:**")
-                lines.append(f"- `{info['signal_name']}` (inout): Register data signal")
+                port_dir = 'in' if info['access_mode'] == 'RO' else 'out'
+                lines.append(f"- `{info['signal_name']}` ({port_dir}): Register data signal")
                 
                 if info['read_strobe']:
                     lines.append(f"- `{info['signal_name']}_rd_strobe` (out): Read strobe pulse")
@@ -1595,6 +1618,8 @@ For full documentation, visit [axion-hdl.readthedocs.io](https://axion-hdl.readt
 {content}
 <footer style="margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border-color); text-align: center; color: #64748b; font-size: 0.9rem;">
     <a href="https://github.com/bugratufan/axion-hdl" target="_blank" rel="noopener" style="color: #94a3b8; text-decoration: none;">© 2026 Axion HDL. MIT License.</a>
+    <span style="margin: 0 0.5rem; color: #475569;">·</span>
+    <span>Developed by <a href="https://github.com/bugratufan" target="_blank" rel="noopener noreferrer" style="color: #94a3b8; text-decoration: none;">bugratufan</a></span>
 </footer>
 ''' + ('' if is_index else '''
 <a href="#register-table" class="back-to-table" id="backToTable">↑ Back to Table</a>
@@ -1807,62 +1832,31 @@ class CHeaderGenerator:
         
         lines.extend([
             "",
-            "/* Register Access Macros (using module base address) */",
-            "/* Helper macros for bit field access */",
-            "#ifndef GET_FIELD",
-            "#define GET_FIELD(val, mask, shift)    (((val) & (mask)) >> (shift))",
-            "#endif",
-            "",
-            "#ifndef SET_FIELD",
-            "#define SET_FIELD(val, mask, shift, new_val)    (((val) & ~(mask)) | (((new_val) << (shift)) & (mask)))",
-            "#endif",
+            "/* Signal Width Masks (for narrow registers) */",
         ])
-        
-        # Read macros - with module prefix
+
+        has_narrow = False
         for reg in module['registers']:
-            if reg['access_mode'] in ['RO', 'RW']:
-                reg_name_upper = reg['signal_name'].upper()
+            if not reg.get('is_packed'):
                 signal_width = self._get_signal_width(reg['signal_type'])
-                num_regs = self._get_num_regs(signal_width)
-                
-                if num_regs == 1:
-                    lines.append(
-                        f"#define {module_prefix}READ_{reg_name_upper}()    "
-                        f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_OFFSET)))"
-                    )
-                else:
-                    # Multi-register read macros
-                    for i in range(num_regs):
-                        lines.append(
-                            f"#define {module_prefix}READ_{reg_name_upper}_REG{i}()    "
-                            f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_REG{i}_OFFSET)))"
-                        )
-        
-        lines.append("")
-        
-        # Write macros - with module prefix
-        for reg in module['registers']:
-            if reg['access_mode'] in ['WO', 'RW']:
-                reg_name_upper = reg['signal_name'].upper()
-                signal_width = self._get_signal_width(reg['signal_type'])
-                num_regs = self._get_num_regs(signal_width)
-                
-                if num_regs == 1:
-                    lines.append(
-                        f"#define {module_prefix}WRITE_{reg_name_upper}(val)    "
-                        f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_OFFSET)) = (val))"
-                    )
-                else:
-                    # Multi-register write macros
-                    for i in range(num_regs):
-                        lines.append(
-                            f"#define {module_prefix}WRITE_{reg_name_upper}_REG{i}(val)    "
-                            f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_REG{i}_OFFSET)) = (val))"
-                        )
-                        
+                if signal_width < 32:
+                    has_narrow = True
+                    reg_name_upper = reg['signal_name'].upper()
+                    mask = (1 << signal_width) - 1
+                    lines.append(f"#define {module_prefix}{reg_name_upper}_WIDTH    {signal_width}")
+                    lines.append(f"#define {module_prefix}{reg_name_upper}_MASK     0x{mask:08X}")
+        if not has_narrow:
+            lines.append("/* All registers are 32 bits wide */")
+
         lines.extend([
             "",
             "/* Bit Field Masks and Shifts (for packed registers) */",
+            "#ifndef GET_FIELD",
+            "#define GET_FIELD(val, mask, shift)    (((val) & (mask)) >> (shift))",
+            "#endif",
+            "#ifndef SET_FIELD",
+            "#define SET_FIELD(val, mask, shift, new_val)    (((val) & ~(mask)) | (((new_val) << (shift)) & (mask)))",
+            "#endif",
         ])
         
         for reg in module['registers']:
@@ -1969,20 +1963,30 @@ class CHeaderGenerator:
             f"typedef struct {{",
         ])
         
+        next_offset = 0
+        pad_idx = 0
         for reg in module['registers']:
             offset = reg.get('relative_address', reg['address'])
+            offset_int = reg.get('relative_address_int', reg['address_int'])
             signal_width = self._get_signal_width(reg['signal_type'])
             num_regs = self._get_num_regs(signal_width)
             description = reg.get('description', '')
             desc_suffix = f" - {description}" if description else ""
-            
+
+            # Insert padding for address gaps
+            if offset_int > next_offset:
+                gap_words = (offset_int - next_offset) // 4
+                lines.append(f"    volatile uint32_t _reserved_{pad_idx}[{gap_words}];  /* 0x{next_offset:02X}-0x{offset_int - 4:02X} reserved */")
+                pad_idx += 1
+
             if num_regs == 1:
                 lines.append(f"    volatile uint32_t {reg['signal_name']};  /* {offset} - {reg['access_mode']}{desc_suffix} */")
             else:
-                # Multi-register fields
                 for i in range(num_regs):
-                    reg_offset_int = reg.get('relative_address_int', reg['address_int']) + (i * 4)
+                    reg_offset_int = offset_int + (i * 4)
                     lines.append(f"    volatile uint32_t {reg['signal_name']}_reg{i};  /* 0x{reg_offset_int:02X} - {reg['access_mode']} ({signal_width}-bit signal, part {i}){desc_suffix} */")
+
+            next_offset = offset_int + num_regs * 4
         
         lines.extend([
             f"}} {module['name']}_regs_t;",
@@ -1999,9 +2003,22 @@ class CHeaderGenerator:
 
 class XMLGenerator:
     """Generator for creating XML register maps."""
-    
+
     def __init__(self, output_dir: str):
         self.output_dir = output_dir
+
+    @staticmethod
+    def _get_signal_width(signal_type: str) -> int:
+        import re
+        match = re.match(r'\[(\d+):(\d+)\]', signal_type)
+        if match:
+            return int(match.group(1)) - int(match.group(2)) + 1
+        match = re.match(r'std_logic_vector\((\d+)\s+downto\s+(\d+)\)', signal_type)
+        if match:
+            return int(match.group(1)) - int(match.group(2)) + 1
+        if signal_type.strip() == 'std_logic':
+            return 1
+        return 32
         
     def generate_xml(self, module: Dict) -> str:
         """Generate XML register map."""
@@ -2066,6 +2083,7 @@ class XMLGenerator:
             description = reg.get('description', '')
             r_strobe = reg.get('read_strobe', reg.get('r_strobe', False))
             w_strobe = reg.get('write_strobe', reg.get('w_strobe', False))
+            signal_width = self._get_signal_width(reg['signal_type'])
 
             # Build strobe attributes string for round-trip compatibility
             strobe_attrs = ''
@@ -2082,7 +2100,7 @@ class XMLGenerator:
                 lines.append(f'                    <spirit:description>{description}</spirit:description>')
             lines.extend([
                 f'                    <spirit:addressOffset>{offset}</spirit:addressOffset>',
-                '                    <spirit:size>32</spirit:size>',
+                f'                    <spirit:size>{signal_width}</spirit:size>',
                 f'                    <spirit:access>{self._get_xml_access(reg["access_mode"])}</spirit:access>',
             ])
 
@@ -2116,7 +2134,7 @@ class XMLGenerator:
                     '                    <spirit:field>',
                     f'                        <spirit:name>{reg["signal_name"]}_data</spirit:name>',
                     '                        <spirit:bitOffset>0</spirit:bitOffset>',
-                    '                        <spirit:bitWidth>32</spirit:bitWidth>',
+                    f'                        <spirit:bitWidth>{signal_width}</spirit:bitWidth>',
                     '                    </spirit:field>',
                 ])
             lines.append('                </spirit:register>')
@@ -2542,7 +2560,7 @@ class AddressMapHTMLGenerator:
         <tbody>
 {table_rows}        </tbody>
     </table>
-    <footer><a href="https://github.com/bugratufan/axion-hdl" target="_blank" rel="noopener">© 2026 Axion HDL. MIT License.</a></footer>
+    <footer><a href="https://github.com/bugratufan/axion-hdl" target="_blank" rel="noopener">© 2026 Axion HDL. MIT License.</a> · Developed by <a href="https://github.com/bugratufan" target="_blank" rel="noopener noreferrer">bugratufan</a></footer>
 </body>
 </html>
 '''

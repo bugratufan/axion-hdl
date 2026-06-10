@@ -187,7 +187,8 @@ class YAMLInputParser:
         # Parse registers
         registers = []
         next_auto_addr = 0
-        
+        seen_addresses = {}  # addr -> reg_name, for conflict detection
+
         # Import BitFieldManager for packed registers
         from axion_hdl.bit_field_manager import BitFieldManager
         bit_field_manager = BitFieldManager()
@@ -296,13 +297,14 @@ class YAMLInputParser:
                             default_value=field_default_val,
                             read_strobe=field_data.get('r_strobe', False),
                             write_strobe=field_data.get('w_strobe', False),
-                            allow_overlap=True,
+                            allow_overlap=False,
                             enum_values=parsed_enum
                         )
                     except Exception as e:
                         msg = f"Error processing field {field_name} in {reg_name}: {e}"
-                        print(f"  {msg}")
+                        print(f"  Error: {msg}")
                         self.errors.append({'file': filepath, 'msg': msg})
+                        return None
 
                 if addr >= next_auto_addr:
                     next_auto_addr = addr + 4
@@ -321,13 +323,18 @@ class YAMLInputParser:
                         bit_offset = None
             
             # Default value
-            default_val = 0
             default_str = reg_data.get('default')
             if default_str is not None:
                 default_val = self._parse_address(default_str, context=f"register '{reg_name}' default value")
+            else:
+                default_val = 0
             
             # If REG_NAME is present, handle packed registers
             if packed_reg_name:
+                # In reg_name/bit_offset format, width not specified means 1-bit field
+                if 'width' not in reg_data:
+                    width = 1
+                    sig_type_default = "[0:0]"
                 addr_val = reg_data.get('addr')
                 if addr_val is not None:
                     addr = self._parse_address(addr_val, context=f"register '{reg_name}' addr")
@@ -357,17 +364,18 @@ class YAMLInputParser:
                         default_value=default_val,
                         read_strobe=reg_data.get('r_strobe', False),
                         write_strobe=reg_data.get('w_strobe', False),
-                        allow_overlap=True  # Allow overlaps, RuleChecker will validate
+                        allow_overlap=False
                     )
-                    
+
                     if addr >= next_auto_addr:
                         next_auto_addr = addr + 4
-                        
+
                 except Exception as e:
                     msg = f"Error processing packed register {reg_name}: {e}"
-                    print(f"  {msg}")
+                    print(f"  Error: {msg}")
                     self.errors.append({'file': filepath, 'msg': msg})
-                
+                    return None
+
                 continue
             
             # Standard register
@@ -376,9 +384,20 @@ class YAMLInputParser:
                 addr = self._parse_address(addr_val, context=f"register '{reg_name}' addr")
             else:
                 addr = next_auto_addr
-            
-            # Calculate next auto address
+
+            # Check for address conflicts
             num_regs = (width + 31) // 32
+            for slot in range(num_regs):
+                slot_addr = addr + slot * 4
+                if slot_addr in seen_addresses:
+                    msg = (f"Address conflict: register '{reg_name}' at 0x{slot_addr:02X} "
+                           f"conflicts with '{seen_addresses[slot_addr]}'")
+                    print(f"  Error: {msg}")
+                    self.errors.append({'file': filepath, 'msg': msg})
+                    return None
+                seen_addresses[slot_addr] = reg_name
+
+            # Calculate next auto address
             next_auto_addr = addr + (num_regs * 4)
             
             r_strobe = reg_data.get('r_strobe', False)
@@ -429,6 +448,7 @@ class YAMLInputParser:
                 'description': description,
                 'default_value': default_val,
                 'default_value_hex': f"0x{default_val:X}",
+                'default_declared': default_str is not None,
                 'enum_values': parsed_enum
             }
             registers.append(register)
