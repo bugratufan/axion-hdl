@@ -187,7 +187,8 @@ class YAMLInputParser:
         # Parse registers
         registers = []
         next_auto_addr = 0
-        
+        seen_addresses = {}  # addr -> reg_name, for conflict detection
+
         # Import BitFieldManager for packed registers
         from axion_hdl.bit_field_manager import BitFieldManager
         bit_field_manager = BitFieldManager()
@@ -377,9 +378,20 @@ class YAMLInputParser:
                 addr = self._parse_address(addr_val, context=f"register '{reg_name}' addr")
             else:
                 addr = next_auto_addr
-            
-            # Calculate next auto address
+
+            # Check for address conflicts
             num_regs = (width + 31) // 32
+            for slot in range(num_regs):
+                slot_addr = addr + slot * 4
+                if slot_addr in seen_addresses:
+                    msg = (f"Address conflict: register '{reg_name}' at 0x{slot_addr:02X} "
+                           f"conflicts with '{seen_addresses[slot_addr]}'")
+                    print(f"  Error: {msg}")
+                    self.errors.append({'file': filepath, 'msg': msg})
+                    return None
+                seen_addresses[slot_addr] = reg_name
+
+            # Calculate next auto address
             next_auto_addr = addr + (num_regs * 4)
             
             r_strobe = reg_data.get('r_strobe', False)
