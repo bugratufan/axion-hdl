@@ -127,9 +127,17 @@ class DocGenerator:
             desc = info.get('description', '-')
             
             if group['type'] == 'packed':
-                # Show main register row
+                # Compute total width from highest bit across all sub-fields
+                all_fields = group['fields']
+                sub_fields = [sf for f in all_fields for sf in f.get('fields', [])] or all_fields
+                total_bits = max((f.get('bit_high', 0) + 1 for f in sub_fields), default=32)
+                total_bits = max(total_bits, 1)
+                if total_bits == 1:
+                    packed_type = 'std_logic'
+                else:
+                    packed_type = f'std_logic_vector({total_bits - 1} downto 0)'
                 lines.append(
-                    f"| {info['address']} | {offset} | `{display_name}` | | 32 | "
+                    f"| {info['address']} | {offset} | `{display_name}` | {packed_type} | {total_bits} | "
                     f"{access} | {default_val} | **Packed Register** (see below) |"
                 )
             else:
