@@ -1815,62 +1815,31 @@ class CHeaderGenerator:
         
         lines.extend([
             "",
-            "/* Register Access Macros (using module base address) */",
-            "/* Helper macros for bit field access */",
-            "#ifndef GET_FIELD",
-            "#define GET_FIELD(val, mask, shift)    (((val) & (mask)) >> (shift))",
-            "#endif",
-            "",
-            "#ifndef SET_FIELD",
-            "#define SET_FIELD(val, mask, shift, new_val)    (((val) & ~(mask)) | (((new_val) << (shift)) & (mask)))",
-            "#endif",
+            "/* Signal Width Masks (for narrow registers) */",
         ])
-        
-        # Read macros - with module prefix
+
+        has_narrow = False
         for reg in module['registers']:
-            if reg['access_mode'] in ['RO', 'RW']:
-                reg_name_upper = reg['signal_name'].upper()
+            if not reg.get('is_packed'):
                 signal_width = self._get_signal_width(reg['signal_type'])
-                num_regs = self._get_num_regs(signal_width)
-                
-                if num_regs == 1:
-                    lines.append(
-                        f"#define {module_prefix}READ_{reg_name_upper}()    "
-                        f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_OFFSET)))"
-                    )
-                else:
-                    # Multi-register read macros
-                    for i in range(num_regs):
-                        lines.append(
-                            f"#define {module_prefix}READ_{reg_name_upper}_REG{i}()    "
-                            f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_REG{i}_OFFSET)))"
-                        )
-        
-        lines.append("")
-        
-        # Write macros - with module prefix
-        for reg in module['registers']:
-            if reg['access_mode'] in ['WO', 'RW']:
-                reg_name_upper = reg['signal_name'].upper()
-                signal_width = self._get_signal_width(reg['signal_type'])
-                num_regs = self._get_num_regs(signal_width)
-                
-                if num_regs == 1:
-                    lines.append(
-                        f"#define {module_prefix}WRITE_{reg_name_upper}(val)    "
-                        f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_OFFSET)) = (val))"
-                    )
-                else:
-                    # Multi-register write macros
-                    for i in range(num_regs):
-                        lines.append(
-                            f"#define {module_prefix}WRITE_{reg_name_upper}_REG{i}(val)    "
-                            f"(*((volatile uint32_t*)({module_name}_BASE_ADDR + {module_prefix}{reg_name_upper}_REG{i}_OFFSET)) = (val))"
-                        )
-                        
+                if signal_width < 32:
+                    has_narrow = True
+                    reg_name_upper = reg['signal_name'].upper()
+                    mask = (1 << signal_width) - 1
+                    lines.append(f"#define {module_prefix}{reg_name_upper}_WIDTH    {signal_width}")
+                    lines.append(f"#define {module_prefix}{reg_name_upper}_MASK     0x{mask:08X}")
+        if not has_narrow:
+            lines.append("/* All registers are 32 bits wide */")
+
         lines.extend([
             "",
             "/* Bit Field Masks and Shifts (for packed registers) */",
+            "#ifndef GET_FIELD",
+            "#define GET_FIELD(val, mask, shift)    (((val) & (mask)) >> (shift))",
+            "#endif",
+            "#ifndef SET_FIELD",
+            "#define SET_FIELD(val, mask, shift, new_val)    (((val) & ~(mask)) | (((new_val) << (shift)) & (mask)))",
+            "#endif",
         ])
         
         for reg in module['registers']:
@@ -1977,20 +1946,30 @@ class CHeaderGenerator:
             f"typedef struct {{",
         ])
         
+        next_offset = 0
+        pad_idx = 0
         for reg in module['registers']:
             offset = reg.get('relative_address', reg['address'])
+            offset_int = reg.get('relative_address_int', reg['address_int'])
             signal_width = self._get_signal_width(reg['signal_type'])
             num_regs = self._get_num_regs(signal_width)
             description = reg.get('description', '')
             desc_suffix = f" - {description}" if description else ""
-            
+
+            # Insert padding for address gaps
+            if offset_int > next_offset:
+                gap_words = (offset_int - next_offset) // 4
+                lines.append(f"    volatile uint32_t _reserved_{pad_idx}[{gap_words}];  /* 0x{next_offset:02X}-0x{offset_int - 4:02X} reserved */")
+                pad_idx += 1
+
             if num_regs == 1:
                 lines.append(f"    volatile uint32_t {reg['signal_name']};  /* {offset} - {reg['access_mode']}{desc_suffix} */")
             else:
-                # Multi-register fields
                 for i in range(num_regs):
-                    reg_offset_int = reg.get('relative_address_int', reg['address_int']) + (i * 4)
+                    reg_offset_int = offset_int + (i * 4)
                     lines.append(f"    volatile uint32_t {reg['signal_name']}_reg{i};  /* 0x{reg_offset_int:02X} - {reg['access_mode']} ({signal_width}-bit signal, part {i}){desc_suffix} */")
+
+            next_offset = offset_int + num_regs * 4
         
         lines.extend([
             f"}} {module['name']}_regs_t;",
