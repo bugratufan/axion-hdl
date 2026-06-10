@@ -879,17 +879,14 @@ class SystemVerilogGenerator:
         Convert internal signal type format to SystemVerilog type.
 
         Args:
-            signal_type: Internal format like "[31:0]", "[5:0]", "[0:0]"
+            signal_type: Internal format like "[31:0]", "[5:0]", "[0:0]",
+                         or VHDL format like "std_logic_vector(15 downto 0)", "std_logic"
 
         Returns:
             SystemVerilog type string like "logic [31:0]" or "logic"
-
-        Examples:
-            "[31:0]" -> "logic [31:0]"
-            "[5:0]"  -> "logic [5:0]"
-            "[0:0]"  -> "logic"
         """
         import re
+        # Internal bracket format: [high:low]
         match = re.match(r'\[(\d+):(\d+)\]', signal_type)
         if match:
             high = int(match.group(1))
@@ -898,5 +895,13 @@ class SystemVerilogGenerator:
                 return "logic"
             else:
                 return f"logic [{high}:{low}]"
+        # VHDL format from YAML/XML input: std_logic_vector(high downto low)
+        match = re.match(r'std_logic_vector\((\d+)\s+downto\s+(\d+)\)', signal_type)
+        if match:
+            high = int(match.group(1))
+            low = int(match.group(2))
+            return f"logic [{high}:{low}]"
+        if signal_type.strip() == 'std_logic':
+            return "logic"
         # Default fallback
         return "logic [31:0]"
