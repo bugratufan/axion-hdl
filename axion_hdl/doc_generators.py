@@ -117,9 +117,8 @@ class DocGenerator:
             # Let's show the combined default if available processing, or just Listing
             # Actually, generator logic combines defaults into the main register default.
             # But here we might not have that easily. Let's just default to '-' for packed row, and details in description.
-            default_val = info.get('default_value') or '-'
-            if default_val != '-':
-                 default_val = f"0x{int(default_val):X}"
+            _dv = info.get('default_value')
+            default_val = f"0x{int(_dv):X}" if _dv is not None else '-'
             
             desc = info.get('description', '-')
             
@@ -241,10 +240,10 @@ class DocGenerator:
                 lines.append(f"- **Address:** {info['address']}")
                 lines.append(f"- **Offset:** {info.get('relative_address', info['address'])}")
                 lines.append(f"- **Access Mode:** {info['access_mode']}")
-                defs = info.get('default_value') or '-'
-                if defs != '-': defs = f"0x{int(defs):X}"
+                _dv2 = info.get('default_value')
+                defs = f"0x{int(_dv2):X}" if _dv2 is not None else '-'
                 lines.append(f"- **Default:** {defs}")
-                lines.append(f"- **Type:** `std_logic_vector(31 downto 0)`")
+                lines.append(f"- **Type:** `{info['signal_type']}`")
                 lines.append("")
                 lines.append("**Ports:**")
                 lines.append(f"- `{info['signal_name']}` (inout): Register data signal")
@@ -1999,9 +1998,22 @@ class CHeaderGenerator:
 
 class XMLGenerator:
     """Generator for creating XML register maps."""
-    
+
     def __init__(self, output_dir: str):
         self.output_dir = output_dir
+
+    @staticmethod
+    def _get_signal_width(signal_type: str) -> int:
+        import re
+        match = re.match(r'\[(\d+):(\d+)\]', signal_type)
+        if match:
+            return int(match.group(1)) - int(match.group(2)) + 1
+        match = re.match(r'std_logic_vector\((\d+)\s+downto\s+(\d+)\)', signal_type)
+        if match:
+            return int(match.group(1)) - int(match.group(2)) + 1
+        if signal_type.strip() == 'std_logic':
+            return 1
+        return 32
         
     def generate_xml(self, module: Dict) -> str:
         """Generate XML register map."""
@@ -2066,6 +2078,7 @@ class XMLGenerator:
             description = reg.get('description', '')
             r_strobe = reg.get('read_strobe', reg.get('r_strobe', False))
             w_strobe = reg.get('write_strobe', reg.get('w_strobe', False))
+            signal_width = self._get_signal_width(reg['signal_type'])
 
             # Build strobe attributes string for round-trip compatibility
             strobe_attrs = ''
@@ -2082,7 +2095,7 @@ class XMLGenerator:
                 lines.append(f'                    <spirit:description>{description}</spirit:description>')
             lines.extend([
                 f'                    <spirit:addressOffset>{offset}</spirit:addressOffset>',
-                '                    <spirit:size>32</spirit:size>',
+                f'                    <spirit:size>{signal_width}</spirit:size>',
                 f'                    <spirit:access>{self._get_xml_access(reg["access_mode"])}</spirit:access>',
             ])
 
@@ -2116,7 +2129,7 @@ class XMLGenerator:
                     '                    <spirit:field>',
                     f'                        <spirit:name>{reg["signal_name"]}_data</spirit:name>',
                     '                        <spirit:bitOffset>0</spirit:bitOffset>',
-                    '                        <spirit:bitWidth>32</spirit:bitWidth>',
+                    f'                        <spirit:bitWidth>{signal_width}</spirit:bitWidth>',
                     '                    </spirit:field>',
                 ])
             lines.append('                </spirit:register>')
