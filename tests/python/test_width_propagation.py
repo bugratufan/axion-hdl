@@ -44,6 +44,18 @@ GEN-027  VHDL entity port width – YAML source
 GEN-028  VHDL entity port width – VHDL-annotation source
          → TestVHDLPortWidthVHDL
 
+GEN-029  _signal_type_to_sv unit tests – bracket and VHDL format inputs
+         → TestSVSignalTypeConversion
+
+GEN-030  SV module port width – YAML source
+         → TestSVPortWidthYAML
+
+GEN-031  SV module port width – VHDL-annotation source
+         → TestSVPortWidthVHDL
+
+GEN-032  SV module port width – SV-annotation source
+         → TestSVPortWidthSV
+
 ADDR-006 Regression / sanity guard – auto-address wide-register slot count
          → TestAutoAddressWideRegisters
 
@@ -65,8 +77,10 @@ sys.path.insert(0, str(project_root))
 
 from axion_hdl.yaml_input_parser import YAMLInputParser
 from axion_hdl.parser import VHDLParser
+from axion_hdl.systemverilog_parser import SystemVerilogParser
 from axion_hdl.doc_generators import DocGenerator, CHeaderGenerator
 from axion_hdl.generator import VHDLGenerator
+from axion_hdl.systemverilog_generator import SystemVerilogGenerator
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +116,18 @@ def _generate_vhdl(module: dict, tmp: str) -> str:
     path = gen.generate_module(module)
     with open(path) as f:
         return f.read()
+
+
+def _generate_sv(module: dict, tmp: str) -> str:
+    gen = SystemVerilogGenerator(tmp)
+    path = gen.generate_module(module)
+    with open(path) as f:
+        return f.read()
+
+
+def _parse_sv(content: str, tmp: str) -> dict:
+    path = _write(tmp, "test.sv", content)
+    return SystemVerilogParser().parse_file(path)
 
 
 def _generate_markdown(module: dict, tmp: str) -> str:
@@ -217,6 +243,21 @@ architecture rtl of packed_test is
     signal divider : std_logic_vector(7 downto 0);     -- @axion RW ADDR=0x00 REG_NAME=ctrl BIT_OFFSET=4
 begin
 end architecture;
+"""
+
+
+# Same register set – SystemVerilog @axion annotations
+SV_MULTI = """\
+module width_test (
+    input  logic        clk,
+    input  logic        rst_n
+);
+    logic           reg_1bit;                  // @axion RW ADDR=0x00
+    logic [4:0]     reg_5bit;                  // @axion RW ADDR=0x04
+    logic [31:0]    reg_32bit;                 // @axion RW ADDR=0x08
+    logic [32:0]    reg_33bit;                 // @axion RW ADDR=0x0C
+    logic [63:0]    reg_64bit;                 // @axion RW ADDR=0x14
+endmodule
 """
 
 
@@ -888,6 +929,176 @@ class TestE2EConsistencyVHDL(unittest.TestCase):
             with self.subTest(register=name):
                 self.assertIn(f"{name.upper()}_OFFSET", self.header)
                 self.assertNotIn(f"{name.upper()}_REG0_OFFSET", self.header)
+
+
+# ---------------------------------------------------------------------------
+# GEN-029  –  _signal_type_to_sv unit tests
+# ---------------------------------------------------------------------------
+
+class TestSVSignalTypeConversion(unittest.TestCase):
+    """GEN-029: SystemVerilogGenerator._signal_type_to_sv handles both the
+    internal bracket format ([X:Y]) and the VHDL format (std_logic_vector /
+    std_logic) that YAML and XML parsers emit."""
+
+    def setUp(self):
+        self.gen = SystemVerilogGenerator.__new__(SystemVerilogGenerator)
+
+    # ---- bracket format (VHDL-annotation / SV-annotation path) ----
+    def test_gen_029_bracket_1bit(self):
+        """GEN-029: [0:0] → logic"""
+        self.assertEqual(self.gen._signal_type_to_sv("[0:0]"), "logic")
+
+    def test_gen_029_bracket_5bit(self):
+        """GEN-029: [4:0] → logic [4:0]"""
+        self.assertEqual(self.gen._signal_type_to_sv("[4:0]"), "logic [4:0]")
+
+    def test_gen_029_bracket_32bit(self):
+        """GEN-029: [31:0] → logic [31:0]"""
+        self.assertEqual(self.gen._signal_type_to_sv("[31:0]"), "logic [31:0]")
+
+    def test_gen_029_bracket_33bit(self):
+        """GEN-029: [32:0] → logic [32:0]"""
+        self.assertEqual(self.gen._signal_type_to_sv("[32:0]"), "logic [32:0]")
+
+    def test_gen_029_bracket_64bit(self):
+        """GEN-029: [63:0] → logic [63:0]"""
+        self.assertEqual(self.gen._signal_type_to_sv("[63:0]"), "logic [63:0]")
+
+    # ---- VHDL format (YAML / XML path) ----
+    def test_gen_029_stdlogic_1bit(self):
+        """GEN-029: std_logic → logic"""
+        self.assertEqual(self.gen._signal_type_to_sv("std_logic"), "logic")
+
+    def test_gen_029_stdlogic_vector_5bit(self):
+        """GEN-029: std_logic_vector(4 downto 0) → logic [4:0]"""
+        self.assertEqual(self.gen._signal_type_to_sv("std_logic_vector(4 downto 0)"), "logic [4:0]")
+
+    def test_gen_029_stdlogic_vector_32bit(self):
+        """GEN-029: std_logic_vector(31 downto 0) → logic [31:0]"""
+        self.assertEqual(self.gen._signal_type_to_sv("std_logic_vector(31 downto 0)"), "logic [31:0]")
+
+    def test_gen_029_stdlogic_vector_33bit(self):
+        """GEN-029: std_logic_vector(32 downto 0) → logic [32:0]"""
+        self.assertEqual(self.gen._signal_type_to_sv("std_logic_vector(32 downto 0)"), "logic [32:0]")
+
+    def test_gen_029_stdlogic_vector_64bit(self):
+        """GEN-029: std_logic_vector(63 downto 0) → logic [63:0]"""
+        self.assertEqual(self.gen._signal_type_to_sv("std_logic_vector(63 downto 0)"), "logic [63:0]")
+
+
+# ---------------------------------------------------------------------------
+# GEN-030  –  SV module port width – YAML source
+# ---------------------------------------------------------------------------
+
+class TestSVPortWidthYAML(unittest.TestCase):
+    """GEN-030: Generated SV module ports use the declared width for
+    registers defined via YAML. Must not default to [31:0]."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        module = _parse_yaml(YAML_MULTI, self.tmp)
+        self.sv = _generate_sv(module, self.tmp)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_gen_030_1bit_port(self):
+        """GEN-030: 1-bit register generates plain logic port (no range)"""
+        self.assertRegex(self.sv, r'output logic\s+reg_1bit\b')
+        self.assertNotIn('reg_1bit [31:0]', self.sv)
+
+    def test_gen_030_5bit_port(self):
+        """GEN-030: 5-bit register generates logic [4:0] port"""
+        self.assertRegex(self.sv, r'output logic \[4:0\]\s+reg_5bit\b')
+        self.assertNotIn('reg_5bit [31:0]', self.sv)
+
+    def test_gen_030_32bit_port(self):
+        """GEN-030: 32-bit register generates logic [31:0] port"""
+        self.assertRegex(self.sv, r'output logic \[31:0\]\s+reg_32bit\b')
+
+    def test_gen_030_33bit_port(self):
+        """GEN-030: 33-bit register generates logic [32:0] port"""
+        self.assertRegex(self.sv, r'output logic \[32:0\]\s+reg_33bit\b')
+
+    def test_gen_030_64bit_port(self):
+        """GEN-030: 64-bit register generates logic [63:0] port"""
+        self.assertRegex(self.sv, r'output logic \[63:0\]\s+reg_64bit\b')
+
+
+# ---------------------------------------------------------------------------
+# GEN-031  –  SV module port width – VHDL-annotation source
+# ---------------------------------------------------------------------------
+
+class TestSVPortWidthVHDL(unittest.TestCase):
+    """GEN-031: Generated SV module ports use the declared width for
+    registers defined via VHDL @axion annotations."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        module = _parse_vhdl(VHDL_MULTI, self.tmp)
+        self.sv = _generate_sv(module, self.tmp)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_gen_031_1bit_port(self):
+        """GEN-031: 1-bit register generates plain logic port"""
+        self.assertRegex(self.sv, r'output logic\s+reg_1bit\b')
+        self.assertNotIn('[31:0]                   reg_1bit', self.sv)
+
+    def test_gen_031_5bit_port(self):
+        """GEN-031: 5-bit register generates logic [4:0] port"""
+        self.assertRegex(self.sv, r'output logic \[4:0\]\s+reg_5bit\b')
+
+    def test_gen_031_32bit_port(self):
+        """GEN-031: 32-bit register generates logic [31:0] port"""
+        self.assertRegex(self.sv, r'output logic \[31:0\]\s+reg_32bit\b')
+
+    def test_gen_031_33bit_port(self):
+        """GEN-031: 33-bit register generates logic [32:0] port"""
+        self.assertRegex(self.sv, r'output logic \[32:0\]\s+reg_33bit\b')
+
+    def test_gen_031_64bit_port(self):
+        """GEN-031: 64-bit register generates logic [63:0] port"""
+        self.assertRegex(self.sv, r'output logic \[63:0\]\s+reg_64bit\b')
+
+
+# ---------------------------------------------------------------------------
+# GEN-032  –  SV module port width – SV-annotation source
+# ---------------------------------------------------------------------------
+
+class TestSVPortWidthSV(unittest.TestCase):
+    """GEN-032: Generated SV module ports use the declared width for
+    registers defined via SystemVerilog @axion annotations."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        module = _parse_sv(SV_MULTI, self.tmp)
+        self.sv = _generate_sv(module, self.tmp)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_gen_032_1bit_port(self):
+        """GEN-032: 1-bit register generates plain logic port"""
+        self.assertRegex(self.sv, r'output logic\s+reg_1bit\b')
+        self.assertNotIn('[31:0]                   reg_1bit', self.sv)
+
+    def test_gen_032_5bit_port(self):
+        """GEN-032: 5-bit register generates logic [4:0] port"""
+        self.assertRegex(self.sv, r'output logic \[4:0\]\s+reg_5bit\b')
+
+    def test_gen_032_32bit_port(self):
+        """GEN-032: 32-bit register generates logic [31:0] port"""
+        self.assertRegex(self.sv, r'output logic \[31:0\]\s+reg_32bit\b')
+
+    def test_gen_032_33bit_port(self):
+        """GEN-032: 33-bit register generates logic [32:0] port"""
+        self.assertRegex(self.sv, r'output logic \[32:0\]\s+reg_33bit\b')
+
+    def test_gen_032_64bit_port(self):
+        """GEN-032: 64-bit register generates logic [63:0] port"""
+        self.assertRegex(self.sv, r'output logic \[63:0\]\s+reg_64bit\b')
 
 
 # ---------------------------------------------------------------------------

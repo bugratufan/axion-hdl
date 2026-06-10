@@ -9,7 +9,7 @@ Covers requirements:
 - AXION-001 to AXION-029
 - AXI-LITE-001 to AXI-LITE-018
 - PARSER-001 to PARSER-009
-- GEN-001 to GEN-028
+- GEN-001 to GEN-032
 - SUB-007, SUB-008
 - CDC-001 to CDC-007
 - ADDR-001 to ADDR-008
@@ -2242,7 +2242,7 @@ def run_equivalence_tests() -> List[TestResult]:
 
 def run_width_propagation_tests() -> List[TestResult]:
     """Run width-propagation requirement tests
-    (YAML-INPUT-016, PARSER-009, GEN-019…028, SUB-007, SUB-008, ADDR-006)"""
+    (YAML-INPUT-016, PARSER-009, GEN-019…032, SUB-007, SUB-008, ADDR-006)"""
     results = []
 
     try:
@@ -2263,6 +2263,10 @@ def run_width_propagation_tests() -> List[TestResult]:
             TestAutoAddressWideRegisters,
             TestE2EConsistencyYAML,
             TestE2EConsistencyVHDL,
+            TestSVSignalTypeConversion,
+            TestSVPortWidthYAML,
+            TestSVPortWidthVHDL,
+            TestSVPortWidthSV,
         )
         import io
         import sys
@@ -2284,6 +2288,10 @@ def run_width_propagation_tests() -> List[TestResult]:
             TestAutoAddressWideRegisters,
             TestE2EConsistencyYAML,
             TestE2EConsistencyVHDL,
+            TestSVSignalTypeConversion,
+            TestSVPortWidthYAML,
+            TestSVPortWidthVHDL,
+            TestSVPortWidthSV,
         ]
 
         loader = unittest.TestLoader()
