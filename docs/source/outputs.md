@@ -15,6 +15,7 @@ Axion-HDL generates multiple output formats from a single input definition. This
 | **YAML** | `<module>_regs.yaml` | Re-importable YAML definition |
 | **JSON** | `<module>_regs.json` | Machine-readable JSON format |
 | **Address Map** | `address_map.html` | Instance address space overview (requires `--hier`) |
+| **Base-Address Map** | `address_map.h`, `address_map_pkg.vhd`, `address_map_pkg.sv` | Combined per-instance base addresses for C/VHDL/SV (requires `--hier`) |
 
 ---
 
@@ -608,3 +609,51 @@ uart_ctrl_0        uart_ctrl      0x00030000    0x0003001F    32 B
 ```
 
 The rows are sorted by base address.
+
+> **Note:** Canonical entries (a hierarchy entry without an `instance` field that
+> coexists with named instances of the same module) are intentionally excluded from
+> `address_map.html`, which lists only the deployed named instances.
+
+## Combined Base-Address Map (Hierarchy Mode)
+
+**Files:** `address_map.h`, `address_map_pkg.vhd`, `address_map_pkg.sv`  
+**Generated when:** `--hier <file>` is provided.
+
+Machine-includable base-address maps for every module instance, so firmware (C) and
+HDL (VHDL/SystemVerilog) can reference the same base addresses from a single source
+of truth. Each file defines one `<INSTANCE>_BASE_ADDR` constant per instance; per-register
+offsets remain in the per-module `<module>_regs.h` headers.
+
+Unlike `address_map.html`, these files **include canonical entries** — the combined
+map covers every generated register space, while the HTML report shows only the
+deployed named instances.
+
+### Example (`address_map.h`)
+
+```c
+#define SPI_MASTER_BASE_ADDR          0x00001000U  /* module: spi_master */
+#define SPI_MASTER_CORE1_BASE_ADDR    0x10000000U  /* module: spi_master */
+#define SPI_MASTER_CORE2_BASE_ADDR    0x20000000U  /* module: spi_master */
+```
+
+### Example (`address_map_pkg.vhd`)
+
+```vhdl
+package address_map_pkg is
+    constant SPI_MASTER_BASE_ADDR       : std_logic_vector(31 downto 0) := x"00001000";  -- module: spi_master
+    constant SPI_MASTER_CORE1_BASE_ADDR : std_logic_vector(31 downto 0) := x"10000000";  -- module: spi_master
+    constant SPI_MASTER_CORE2_BASE_ADDR : std_logic_vector(31 downto 0) := x"20000000";  -- module: spi_master
+end package address_map_pkg;
+```
+
+### Example (`address_map_pkg.sv`)
+
+```systemverilog
+package address_map_pkg;
+    localparam logic [31:0] SPI_MASTER_BASE_ADDR       = 32'h00001000;  // module: spi_master
+    localparam logic [31:0] SPI_MASTER_CORE1_BASE_ADDR = 32'h10000000;  // module: spi_master
+    localparam logic [31:0] SPI_MASTER_CORE2_BASE_ADDR = 32'h20000000;  // module: spi_master
+endpackage : address_map_pkg
+```
+
+The entries are sorted by base address.

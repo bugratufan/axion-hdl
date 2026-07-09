@@ -396,6 +396,10 @@ Covers optional generation of typed `t_axi_lite_m2s` / `t_axi_lite_s2m` record p
 | HIER-019 | Named instance register space generation | Each named instance entry generates its own register-space output files named after the `instance` field and using its base address. | Python Unit Test (`test_hier_019_instance_register_space`) |
 | HIER-020 | HTML/MD docs show only named instances | When canonical + named instances exist for a module, `generate_html()` and `generate_markdown()` include only the named instances; the canonical entry is excluded from the documentation. | Python Unit Test (`test_hier_020_docs_exclude_canonical`) |
 | HIER-021 | address_map.html excludes canonical entries | `address_map.html` shows only named instances; canonical entries (`_hide_from_docs=True`) are excluded so the canonical module does not appear anywhere in the documentation. | Python Unit Test (`test_hier_021_address_map_excludes_canonical`) |
+| HIER-022 | Combined address-map files generated | When `--hier` is provided, `address_map.h`, `address_map_pkg.vhd`, and `address_map_pkg.sv` are written to the output directory. | Python Unit Test (`test_hier_022_address_map_files_generated`) |
+| HIER-023 | Combined map includes canonical entries | Unlike `address_map.html`, the combined `address_map.h/.vhd/.sv` files include canonical entries (e.g. `SPI_MASTER_BASE_ADDR`) alongside named instances, in all three formats. | Python Unit Test (`test_hier_023_export_includes_canonical`) |
+| HIER-024 | Combined map lists base addresses only | The combined `address_map.h/.vhd/.sv` files define exactly one `<INSTANCE>_BASE_ADDR` constant per instance and contain no per-register address constants. | Python Unit Test (`test_hier_024_export_base_addresses_only`) |
+| HIER-025 | CLI generates combined map files | Running the CLI with `--hier` writes `address_map.h`, `address_map_pkg.vhd`, and `address_map_pkg.sv` to the output directory. | Python Unit Test (`test_hier_025_cli_generates_export_files`) |
 
 ## 20. Python Register Model (REG-MODEL)
 

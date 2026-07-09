@@ -964,6 +964,38 @@ class AxionHDL:
         print(f"  Generated: {os.path.basename(output_path)}")
         return output_path
 
+    def generate_address_map_files(self) -> Optional[List[str]]:
+        """
+        Generate machine-includable combined address-map files.
+
+        Produces address_map.h, address_map_pkg.vhd, and address_map_pkg.sv in the
+        output directory, each defining a base-address constant and per-register
+        absolute-address constants for every module instance.
+
+        Unlike :meth:`generate_address_map_html`, canonical entries
+        (``_hide_from_docs=True``) are intentionally **included** so the combined
+        address map covers every generated register space.
+
+        Returns:
+            List of absolute paths to the generated files, or None on failure.
+        """
+        if not self.is_analyzed:
+            print("Error: Analysis not performed. Call analyze() first.")
+            return None
+
+        if not self.output_dir:
+            print("Error: No output directory set.")
+            return None
+
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        from .doc_generators import AddressMapExportGenerator
+        gen = AddressMapExportGenerator(self.output_dir)
+        output_paths = gen.generate(self.analyzed_modules)
+        for path in output_paths:
+            print(f"  Generated: {os.path.basename(path)}")
+        return output_paths
+
     def _has_parsing_errors(self) -> bool:
         """Helper to check if any analyzed module has parsing errors."""
         error_modules = [m['name'] for m in self.analyzed_modules if m.get('parsing_errors')]
