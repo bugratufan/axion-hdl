@@ -2939,6 +2939,7 @@ def run_hierarchy_tests() -> List[TestResult]:
         'TestHierBackwardCompat',
         'TestHierCLIFlag',
         'TestHierCanonicalAndInstances',
+        'TestHierAddressMapExport',
     ]
 
     try:
@@ -3155,7 +3156,7 @@ def run_doc_output_correctness_tests() -> List[TestResult]:
 
 def main():
     print(f"\n{BOLD}Running Axion-HDL Comprehensive Test Suite...{RESET}\n")
-    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..036, ENUM-001..042, AXION-TYPES-001..021, HIER-001..016, SV-PARSER, SV-GEN, SV-ADV, REG-MODEL-001..065 + Cocotb\n")
+    print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..036, ENUM-001..042, AXION-TYPES-001..021, HIER-001..025, SV-PARSER, SV-GEN, SV-ADV, REG-MODEL-001..065 + Cocotb\n")
 
     all_results = []
     total_steps = 29
@@ -3264,7 +3265,7 @@ def main():
     print(f"  [26/{total_steps}] Running axion-types (typed AXI ports) tests...", flush=True)
     all_results.extend(run_axion_types_tests())
 
-    # Run hierarchy tests (HIER-001..016)
+    # Run hierarchy tests (HIER-001..025)
     print(f"  [27/{total_steps}] Running hierarchy file support tests...", flush=True)
     all_results.extend(run_hierarchy_tests())
 

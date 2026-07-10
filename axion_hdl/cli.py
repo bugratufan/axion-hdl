@@ -276,7 +276,8 @@ For more information, visit: https://axion-hdl.readthedocs.io
         default=None,
         help='Hierarchy file for centralized base address assignment and multi-instance generation '
              '(YAML, TOML, JSON, or XML). Overrides base_addr defined in individual module files. '
-             'Also generates address_map.html with a full instance overview.'
+             'Also generates address_map.html with a full instance overview, plus '
+             'combined address_map.h, address_map_pkg.vhd, and address_map_pkg.sv address maps.'
     )
 
     gen_group.add_argument(
@@ -490,9 +491,10 @@ For more information, visit: https://axion-hdl.readthedocs.io
             result = axion.generate_python()
             success &= bool(result)
 
-    # Generate address map HTML when hierarchy is active
+    # Generate address map HTML and combined address-map files when hierarchy is active
     if args.hier_file:
         axion.generate_address_map_html()
+        axion.generate_address_map_files()
 
     # Report final status
     if success:
