@@ -88,7 +88,6 @@ from axion_hdl.generator import VHDLGenerator
 from axion_hdl.systemverilog_generator import SystemVerilogGenerator
 from axion_hdl.doc_generators import (
     AddressMapHTMLGenerator,
-    AddressMapExportGenerator,
     DocGenerator,
 )
 
@@ -806,9 +805,9 @@ class TestHierAddressMapExport(unittest.TestCase):
         axion = self._setup_axion_with_hier()
         axion.generate_address_map_files()
 
-        header = open(os.path.join(self.tmp, 'address_map.h')).read()
-        vhdl = open(os.path.join(self.tmp, 'address_map_pkg.vhd')).read()
-        sv = open(os.path.join(self.tmp, 'address_map_pkg.sv')).read()
+        header = Path(self.tmp, 'address_map.h').read_text()
+        vhdl = Path(self.tmp, 'address_map_pkg.vhd').read_text()
+        sv = Path(self.tmp, 'address_map_pkg.sv').read_text()
 
         # Canonical prefix + base address must be present in every format.
         self.assertIn('SPI_MASTER_BASE_ADDR', header)
@@ -825,9 +824,9 @@ class TestHierAddressMapExport(unittest.TestCase):
         axion = self._setup_axion_with_hier()
         axion.generate_address_map_files()
 
-        header = open(os.path.join(self.tmp, 'address_map.h')).read()
-        vhdl = open(os.path.join(self.tmp, 'address_map_pkg.vhd')).read()
-        sv = open(os.path.join(self.tmp, 'address_map_pkg.sv')).read()
+        header = Path(self.tmp, 'address_map.h').read_text()
+        vhdl = Path(self.tmp, 'address_map_pkg.vhd').read_text()
+        sv = Path(self.tmp, 'address_map_pkg.sv').read_text()
 
         # Each instance base address must appear exactly once.
         for base in ('0x00001000', '0x10000000', '0x20000000'):

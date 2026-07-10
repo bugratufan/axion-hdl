@@ -969,8 +969,9 @@ class AxionHDL:
         Generate machine-includable combined address-map files.
 
         Produces address_map.h, address_map_pkg.vhd, and address_map_pkg.sv in the
-        output directory, each defining a base-address constant and per-register
-        absolute-address constants for every module instance.
+        output directory, each defining one ``<INSTANCE>_BASE_ADDR`` constant per
+        module instance. Per-register offsets remain in the per-module ``*_regs.h``
+        headers.
 
         Unlike :meth:`generate_address_map_html`, canonical entries
         (``_hide_from_docs=True``) are intentionally **included** so the combined
