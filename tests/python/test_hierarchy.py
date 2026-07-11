@@ -86,7 +86,10 @@ from axion_hdl.axion import AxionHDL
 from axion_hdl.rule_checker import RuleChecker
 from axion_hdl.generator import VHDLGenerator
 from axion_hdl.systemverilog_generator import SystemVerilogGenerator
-from axion_hdl.doc_generators import AddressMapHTMLGenerator, DocGenerator
+from axion_hdl.doc_generators import (
+    AddressMapHTMLGenerator,
+    DocGenerator,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -751,6 +754,108 @@ class TestHierCanonicalAndInstances(unittest.TestCase):
         # Canonical base address must NOT appear
         self.assertNotIn('0x00001000', html,
                          "Canonical base address 0x1000 must not appear in address_map.html")
+
+
+# ---------------------------------------------------------------------------
+# HIER-022 / HIER-023 / HIER-024 / HIER-025
+# Combined address-map export files (address_map.h / _pkg.vhd / _pkg.sv)
+# ---------------------------------------------------------------------------
+
+class TestHierAddressMapExport(unittest.TestCase):
+    """Tests for the combined .h / .vhd / .sv address-map export files."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        # spi_master canonical at 0x1000 plus two named instances.
+        self.hier_content = """instances:
+  - module: spi_master
+    base_addr: 0x1000
+  - module: spi_master
+    instance: spi_master_core1
+    base_addr: 0x10000000
+  - module: spi_master
+    instance: spi_master_core2
+    base_addr: 0x20000000
+"""
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _setup_axion_with_hier(self):
+        axion = AxionHDL(output_dir=self.tmp)
+        axion.add_source(SPI_TOML)
+        axion.analyze()
+        hier_path = _write(self.tmp, "hier.yaml", self.hier_content)
+        axion.load_hierarchy(hier_path)
+        axion.apply_hierarchy()
+        return axion
+
+    def test_hier_022_address_map_files_generated(self):
+        """HIER-022: generate_address_map_files() writes address_map.h/_pkg.vhd/_pkg.sv."""
+        axion = self._setup_axion_with_hier()
+        paths = axion.generate_address_map_files()
+
+        self.assertIsNotNone(paths)
+        for fname in ('address_map.h', 'address_map_pkg.vhd', 'address_map_pkg.sv'):
+            self.assertTrue(os.path.isfile(os.path.join(self.tmp, fname)),
+                            f"{fname} not found in {os.listdir(self.tmp)}")
+
+    def test_hier_023_export_includes_canonical(self):
+        """HIER-023: Combined address-map files include the canonical entry, unlike the HTML report."""
+        axion = self._setup_axion_with_hier()
+        axion.generate_address_map_files()
+
+        header = Path(self.tmp, 'address_map.h').read_text()
+        vhdl = Path(self.tmp, 'address_map_pkg.vhd').read_text()
+        sv = Path(self.tmp, 'address_map_pkg.sv').read_text()
+
+        # Canonical prefix + base address must be present in every format.
+        self.assertIn('SPI_MASTER_BASE_ADDR', header)
+        self.assertIn('0x00001000U', header)
+        self.assertIn('x"00001000"', vhdl)
+        self.assertIn("32'h00001000", sv)
+
+        # Named instances must also be present.
+        for prefix in ('SPI_MASTER_CORE1', 'SPI_MASTER_CORE2'):
+            self.assertIn(f'{prefix}_BASE_ADDR', header)
+
+    def test_hier_024_export_base_addresses_only(self):
+        """HIER-024: Combined map lists only per-instance base addresses, not per-register offsets."""
+        axion = self._setup_axion_with_hier()
+        axion.generate_address_map_files()
+
+        header = Path(self.tmp, 'address_map.h').read_text()
+        vhdl = Path(self.tmp, 'address_map_pkg.vhd').read_text()
+        sv = Path(self.tmp, 'address_map_pkg.sv').read_text()
+
+        # Each instance base address must appear exactly once.
+        for base in ('0x00001000', '0x10000000', '0x20000000'):
+            self.assertIn(f'{base}U', header)
+
+        # No per-register constants (e.g. CONTROL/STATUS) must be present in any format.
+        for token in ('_CONTROL_ADDR', '_STATUS_ADDR', '_CLOCK_DIV_ADDR'):
+            self.assertNotIn(token, header, f"{token} must not appear in address_map.h")
+            self.assertNotIn(token, vhdl, f"{token} must not appear in address_map_pkg.vhd")
+            self.assertNotIn(token, sv, f"{token} must not appear in address_map_pkg.sv")
+
+        # Exactly three BASE_ADDR definitions (canonical + two named instances).
+        self.assertEqual(header.count('_BASE_ADDR'), 3)
+
+    def test_hier_025_cli_generates_export_files(self):
+        """HIER-025: CLI with --hier writes address_map.h/_pkg.vhd/_pkg.sv to the output dir."""
+        import subprocess
+        hier_path = _write(self.tmp, "hier.yaml", self.hier_content)
+        result = subprocess.run(
+            [sys.executable, '-m', 'axion_hdl.cli',
+             '-s', SPI_TOML, '-o', self.tmp,
+             '--hier', hier_path, '--vhdl'],
+            capture_output=True, text=True, cwd=str(project_root)
+        )
+        self.assertEqual(result.returncode, 0,
+                         f"CLI returned non-zero.\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
+        for fname in ('address_map.h', 'address_map_pkg.vhd', 'address_map_pkg.sv'):
+            self.assertTrue(os.path.isfile(os.path.join(self.tmp, fname)),
+                            f"{fname} not found. Files: {os.listdir(self.tmp)}")
 
 
 # ---------------------------------------------------------------------------
