@@ -158,6 +158,20 @@ Testing and verification are automated via `make test`, which maps tests back to
 | CDC-005 | CDC Disable Behavior | No sync logic generated if `CDC_EN` is missing/false. | Python Unit Test (`cdc.test_cdc_005`) |
 | CDC-006 | Read-Only (RO) Path Synchronization | RO inputs synced to AXI clock domain. | Python Unit Test (`cdc.test_cdc_006`) |
 | CDC-007 | Read-Write (RW) Path Synchronization | RW outputs synced to module clock domain. | Python Unit Test (`cdc.test_cdc_007`) |
+| CDC-008 | CDC Flag Equivalence | `CDC_EN` flag form is equivalent to `CDC_EN=true`. | Python Unit Test (`cdc.test_cdc_008`) |
+| CDC-009 | Write-Only (WO) Path Synchronization | WO outputs are driven from a `module_clk`-clocked synchronizer chain, not directly from the AXI-domain storage register. | Python Unit Test (`cdc.test_cdc_009`) |
+| CDC-010 | Packed Register RO Field Synchronization | RO fields inside packed (mixed-access) registers get the same `axi_aclk`-domain synchronizer chain as full RO registers before entering the AXI read path. | Python Unit Test (`cdc.test_cdc_010`) |
+| CDC-011 | Packed Register RW/WO Field Output Synchronization | RW/WO field outputs of packed registers are driven from a `module_clk`-clocked synchronizer chain of the register storage; AXI readback still uses the `axi_aclk`-domain storage. | Python Unit Test (`cdc.test_cdc_011`) |
+| CDC-012 | ASYNC_REG Attribute | All generated synchronizer signals carry the `ASYNC_REG` attribute (VHDL attribute / SV `(* ASYNC_REG *)`) so synthesis keeps the flop pairs adjacent and out of SRLs. | Python Unit Test (`cdc.test_cdc_012`) |
+| CDC-013 | Stage Count Honored in All Chains | The configured `CDC_STAGE` depth is applied to every synchronizer chain, including packed register field chains. | Python Unit Test (`cdc.test_cdc_013`) |
+| CDC-014 | Wide Register CDC | Registers wider than 32 bits are synchronized chunk-by-chunk and the output port is driven from the last synchronizer stage of all chunks. | Python Unit Test (`cdc.test_cdc_014`) |
+
+> [!NOTE]
+> Multi-bit values are synchronized with per-bit multi-FF chains. This is safe for quasi-static
+> values (configuration/control registers that change rarely relative to both clocks), which is the
+> intended use of AXI register files. Signals that change every clock and need coherent multi-bit
+> capture (e.g. streaming counters) require gray coding or handshake CDC and should not rely on the
+> generated register synchronizers.
 
 ## 8. Address Management (ADDR)
 

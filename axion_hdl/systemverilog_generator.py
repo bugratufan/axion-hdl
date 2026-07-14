@@ -487,7 +487,7 @@ class SystemVerilogGenerator:
                 sv_type = self._signal_type_to_sv(signal_type)
 
                 lines.append(f"    // CDC for {signal_name} (RO)")
-                lines.append(f"    {sv_type:30} {signal_name}_sync [{cdc_stages}];")
+                lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {signal_name}_sync [{cdc_stages}];")
         
         if has_ro:
             lines.append("")
@@ -523,7 +523,7 @@ class SystemVerilogGenerator:
                 sv_type = self._signal_type_to_sv(signal_type)
 
                 lines.append(f"    // CDC for {signal_name} ({reg['access_mode']})")
-                lines.append(f"    {sv_type:30} {signal_name}_sync [{cdc_stages}];")
+                lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {signal_name}_sync [{cdc_stages}];")
 
         if has_out:
             lines.append("")

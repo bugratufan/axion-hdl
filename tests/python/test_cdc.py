@@ -2,7 +2,7 @@
 """
 test_cdc.py - Clock Domain Crossing Requirements Tests
 
-Tests for CDC-001 through CDC-007 requirements
+Tests for CDC-001 through CDC-014 requirements
 Verifies CDC synchronizer generation and configuration.
 """
 
@@ -53,6 +53,63 @@ class TestCDCRequirements(unittest.TestCase):
             with open(gen_file, 'r') as f:
                 return f.read()
         return ""
+
+    def _generate_from_yaml(self, yaml_content: str, module_name: str,
+                            systemverilog: bool = False) -> str:
+        """Generate VHDL (or SystemVerilog) from YAML input and return the content"""
+        yaml_path = os.path.join(self.temp_dir, f"{module_name}.yaml")
+        with open(yaml_path, 'w') as f:
+            f.write(yaml_content)
+
+        axion = AxionHDL(output_dir=self.output_dir)
+        axion.add_yaml_src(self.temp_dir)
+        axion.analyze()
+        if systemverilog:
+            axion.generate_systemverilog()
+            gen_file = os.path.join(self.output_dir, f"{module_name}_axion_reg.sv")
+        else:
+            axion.generate_vhdl()
+            gen_file = os.path.join(self.output_dir, f"{module_name}_axion_reg.vhd")
+
+        if os.path.exists(gen_file):
+            with open(gen_file, 'r') as f:
+                return f.read()
+        return ""
+
+    # YAML fixture with a packed (mixed RW/RO) register used by CDC-010..013 tests
+    PACKED_CDC_YAML = '''
+module: {module}
+base_addr: "0x0000"
+config:
+  cdc_en: true
+  cdc_stage: {stages}
+
+registers:
+  - name: mix_reg
+    addr: "0x00"
+    access: RW
+    fields:
+      - name: go_bit
+        bit_offset: 0
+        width: 1
+        access: RW
+        description: Control output bit
+      - name: speed
+        bit_offset: 1
+        width: 3
+        access: RW
+        description: Control output vector
+      - name: ready_bit
+        bit_offset: 8
+        width: 1
+        access: RO
+        description: Status input bit
+      - name: version
+        bit_offset: 12
+        width: 4
+        access: RO
+        description: Status input vector
+'''
     
     # =========================================================================
     # CDC-001: CDC Synchronizer Stage Count
@@ -215,6 +272,14 @@ end architecture;
         content = self._generate_and_read_vhdl(vhdl, "ro_cdc")
         # RO register should have input port
         self.assertTrue('status_ro' in content.lower())
+        # Sync chain must exist and be clocked by axi_aclk (target domain)
+        self.assertIn('status_ro_sync0 <= status_ro;', content,
+            "RO input must enter a synchronizer chain")
+        self.assertIn('status_ro_sync1 <= status_ro_sync0;', content,
+            "RO synchronizer chain must have the configured depth")
+        # AXI-side register must be fed from the last sync stage
+        self.assertIn('status_ro_reg <= status_ro_sync1;', content,
+            "AXI read path must use the last synchronizer stage")
     
     # =========================================================================
     # CDC-007: RW/WO Register CDC Path
@@ -236,6 +301,16 @@ end architecture;
         content = self._generate_and_read_vhdl(vhdl, "rw_cdc")
         # RW register should have output port
         self.assertTrue('control_rw' in content.lower())
+        # Output-direction chain must be clocked by module_clk (target domain)
+        self.assertIn('rising_edge(module_clk)', content,
+            "RW output synchronizer must be clocked by module_clk")
+        self.assertIn('control_rw_sync0 <= control_rw_reg;', content,
+            "RW output must enter a synchronizer chain from AXI storage")
+        # Output port must be driven from the last sync stage, not from storage
+        self.assertIn('control_rw <= control_rw_sync1;', content,
+            "RW output port must be driven from the last synchronizer stage")
+        self.assertNotIn('control_rw <= control_rw_reg;', content,
+            "RW output port must not bypass the synchronizer chain")
 
     # =========================================================================
     # CDC-008: CDC Flag Equivalence
@@ -276,6 +351,177 @@ end architecture;
         # Verify content similarity (ignoring entity names)
         # We can check specific CDC logic blocks
         self.assertTrue('sync' in content_flag.lower())
+
+    # =========================================================================
+    # CDC-009: WO Register Output Synchronization
+    # =========================================================================
+    def test_cdc_009_wo_output_sync(self):
+        """CDC-009: WO outputs driven from module_clk-domain sync chain"""
+        vhdl = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x0000 CDC_EN CDC_STAGE=2
+entity wo_cdc is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of wo_cdc is
+    signal cmd_wo : std_logic_vector(31 downto 0); -- @axion WO ADDR=0x00
+begin
+end architecture;
+'''
+        content = self._generate_and_read_vhdl(vhdl, "wo_cdc")
+        self.assertIn('rising_edge(module_clk)', content,
+            "WO output synchronizer must be clocked by module_clk")
+        self.assertIn('cmd_wo_sync0 <= cmd_wo_reg;', content,
+            "WO output must enter a synchronizer chain from AXI storage")
+        self.assertIn('cmd_wo <= cmd_wo_sync1;', content,
+            "WO output port must be driven from the last synchronizer stage")
+        self.assertNotIn('cmd_wo <= cmd_wo_reg;', content,
+            "WO output port must not bypass the synchronizer chain")
+
+    # =========================================================================
+    # CDC-010: Packed Register RO Field Synchronization
+    # =========================================================================
+    def test_cdc_010_packed_ro_field_sync(self):
+        """CDC-010: RO fields of packed registers get axi_aclk-domain sync chains"""
+        content = self._generate_from_yaml(
+            self.PACKED_CDC_YAML.format(module="packed_ro_cdc", stages=2),
+            "packed_ro_cdc")
+        # RO field sync chains must exist
+        self.assertIn('mix_reg_ready_bit_sync0 <= mix_reg_ready_bit;', content,
+            "Packed RO field must enter a synchronizer chain")
+        self.assertIn('mix_reg_version_sync0 <= mix_reg_version;', content,
+            "Packed multi-bit RO field must enter a synchronizer chain")
+        # Read value mapping must use the last sync stage, not the raw input
+        self.assertIn('mix_reg_val(8) <= mix_reg_ready_bit_sync1;', content,
+            "Packed RO field read value must come from the last sync stage")
+        self.assertIn('mix_reg_val(15 downto 12) <= mix_reg_version_sync1;', content,
+            "Packed RO vector field read value must come from the last sync stage")
+        self.assertNotIn('mix_reg_val(8) <= mix_reg_ready_bit;', content,
+            "Packed RO field must not enter the AXI read path unsynchronized")
+
+    # =========================================================================
+    # CDC-011: Packed Register RW/WO Field Output Synchronization
+    # =========================================================================
+    def test_cdc_011_packed_rw_field_output_sync(self):
+        """CDC-011: RW/WO fields of packed registers driven from module_clk-domain chain"""
+        content = self._generate_from_yaml(
+            self.PACKED_CDC_YAML.format(module="packed_rw_cdc", stages=2),
+            "packed_rw_cdc")
+        # Storage register sync chain in module_clk domain must exist
+        self.assertIn('mix_reg_reg_sync0 <= mix_reg_reg;', content,
+            "Packed register storage must enter a module_clk synchronizer chain")
+        self.assertIn('rising_edge(module_clk)', content,
+            "Packed RW/WO synchronizer must be clocked by module_clk")
+        # Field outputs must be driven from the last sync stage
+        self.assertIn('mix_reg_go_bit <= mix_reg_reg_sync1(0);', content,
+            "Packed RW field output must come from the last sync stage")
+        self.assertIn('mix_reg_speed <= mix_reg_reg_sync1(3 downto 1);', content,
+            "Packed RW vector field output must come from the last sync stage")
+        self.assertNotIn('mix_reg_go_bit <= mix_reg_reg(0);', content,
+            "Packed RW field output must not bypass the synchronizer chain")
+        # AXI readback must still use the axi_aclk-domain storage
+        self.assertIn('mix_reg_val(0) <= mix_reg_reg(0);', content,
+            "AXI readback of RW bits must use the axi_aclk-domain storage")
+
+    # =========================================================================
+    # CDC-012: ASYNC_REG Attribute on Sync Chains
+    # =========================================================================
+    def test_cdc_012_async_reg_attribute_vhdl(self):
+        """CDC-012: All VHDL sync signals carry the ASYNC_REG attribute"""
+        content = self._generate_from_yaml(
+            self.PACKED_CDC_YAML.format(module="attr_cdc", stages=2),
+            "attr_cdc")
+        self.assertIn('attribute ASYNC_REG : string;', content,
+            "ASYNC_REG attribute must be declared")
+        import re
+        sync_signals = set(re.findall(r'signal\s+(\w+_sync\d+)\s*:', content))
+        self.assertTrue(sync_signals, "Expected synchronizer signals in output")
+        for sig in sync_signals:
+            self.assertIn(f'attribute ASYNC_REG of {sig} : signal is "TRUE";', content,
+                f"Sync signal {sig} must carry the ASYNC_REG attribute")
+
+    def test_cdc_012_async_reg_attribute_sv(self):
+        """CDC-012: SystemVerilog sync arrays carry the ASYNC_REG attribute"""
+        content = self._generate_from_yaml(
+            self.PACKED_CDC_YAML.format(module="attr_sv_cdc", stages=2),
+            "attr_sv_cdc", systemverilog=True)
+        self.assertTrue(content, "SystemVerilog output must be generated")
+        self.assertIn('(* ASYNC_REG = "TRUE" *)', content,
+            "SV sync arrays must carry the ASYNC_REG attribute")
+
+    # =========================================================================
+    # CDC-013: Stage Count Honored in All Chains
+    # =========================================================================
+    def test_cdc_013_stage_count_honored(self):
+        """CDC-013: CDC_STAGE depth applied to every chain, incl. packed fields"""
+        content = self._generate_from_yaml(
+            self.PACKED_CDC_YAML.format(module="stages_cdc", stages=4),
+            "stages_cdc")
+        # 4-stage chains: sync0..sync3 exist, sync4 does not
+        for sig in ['mix_reg_reg', 'mix_reg_ready_bit', 'mix_reg_version']:
+            for stage in range(4):
+                self.assertIn(f'{sig}_sync{stage}', content,
+                    f"{sig} chain must contain stage {stage}")
+            self.assertNotIn(f'{sig}_sync4', content,
+                f"{sig} chain must not exceed the configured depth")
+        # Consumers must use the last stage
+        self.assertIn('mix_reg_go_bit <= mix_reg_reg_sync3(0);', content,
+            "Packed RW field output must use the last configured stage")
+        self.assertIn('mix_reg_val(8) <= mix_reg_ready_bit_sync3;', content,
+            "Packed RO field read value must use the last configured stage")
+
+    # =========================================================================
+    # CDC-014: Wide Register CDC
+    # =========================================================================
+    def test_cdc_014_wide_register_cdc(self):
+        """CDC-014: >32-bit registers synchronized chunk-by-chunk"""
+        vhdl = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x0000 CDC_EN CDC_STAGE=2
+entity wide_cdc is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of wide_cdc is
+    signal big_rw : std_logic_vector(63 downto 0); -- @axion RW ADDR=0x00
+begin
+end architecture;
+'''
+        content = self._generate_and_read_vhdl(vhdl, "wide_cdc")
+        # Both 32-bit chunks must have sync chains
+        self.assertIn('big_rw0_sync0 <= big_rw_reg0;', content,
+            "Low chunk must enter a synchronizer chain")
+        self.assertIn('big_rw1_sync0 <= big_rw_reg1;', content,
+            "High chunk must enter a synchronizer chain")
+        # Output port must be driven by concatenation of last sync stages
+        self.assertIn('big_rw <= big_rw1_sync1 & big_rw0_sync1;', content,
+            "Wide output port must be driven from the last sync stage of all chunks")
+
+    def test_cdc_014_wide_register_yaml(self):
+        """CDC-014: Wide registers from YAML input are chunked correctly"""
+        yaml_content = '''
+module: wide_yaml_cdc
+base_addr: "0x0000"
+config:
+  cdc_en: true
+  cdc_stage: 2
+
+registers:
+  - name: big_cfg
+    addr: "0x00"
+    access: RW
+    width: 64
+    description: Wide RW register
+'''
+        content = self._generate_from_yaml(yaml_content, "wide_yaml_cdc")
+        # Storage must be chunked into two 32-bit registers
+        self.assertIn('big_cfg_reg0', content,
+            "Wide YAML register must have chunked storage")
+        self.assertIn('big_cfg_reg1', content,
+            "Wide YAML register must have chunked storage")
+        self.assertIn('big_cfg <= big_cfg1_sync1 & big_cfg0_sync1;', content,
+            "Wide YAML register output must concatenate last sync stages")
 
 
 def run_cdc_tests():
