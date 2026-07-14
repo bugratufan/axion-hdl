@@ -167,9 +167,13 @@ module sensor_controller_axion_reg #(
     // Module Clock (CDC enabled)
     input  logic                      module_clk,
 
-    // Register Interface using Packed Structs
-    output ctrl_reg_t                 control_reg,
-    input  logic [31:0]               status_reg
+    // Register Interface
+    input  logic [31:0]               status_reg,
+
+    // Packed Register Fields (Subregisters)
+    output logic                      ctrl_enable,   // RW field -> output
+    output logic [2:0]                ctrl_mode,     // RW field -> output
+    input  logic                      ctrl_ready     // RO field -> input
 );
 ```
 
@@ -177,11 +181,11 @@ module sensor_controller_axion_reg #(
 
 | Feature | Description |
 |---------|-------------|
-| **Packed Structs** | Generates `typedef struct packed` for registers with subfields, enabling clean access (e.g., `ctrl.enable`). |
+| **Packed Register Fields** | Packed (mixed-access) registers are decomposed into per-field ports named `<reg>_<field>`, with direction derived from each field's access mode — identical to the VHDL output. |
 | **Wide Registers** | Automatically maps registers >32 bits to multiple address offsets. |
 | **Reset Values** | Initializes registers to defined defaults (hex/dec) upon reset. |
 | **Lint Clean** | Passes `verilator --lint-only -Wall` validation. |
-| **CDC Support** | Built-in synchronization for both Read-Only and Read-Write registers across clock domains. |
+| **CDC Support** | Built-in synchronization for RO, RW and WO registers across clock domains, including packed register fields; all synchronizer arrays carry the `(* ASYNC_REG = "TRUE" *)` attribute. |
 
 ### Typed AXI Ports (axion_common_pkg)
 

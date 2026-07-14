@@ -165,6 +165,8 @@ Testing and verification are automated via `make test`, which maps tests back to
 | CDC-012 | ASYNC_REG Attribute | All generated synchronizer signals carry the `ASYNC_REG` attribute (VHDL attribute / SV `(* ASYNC_REG *)`) so synthesis keeps the flop pairs adjacent and out of SRLs. | Python Unit Test (`cdc.test_cdc_012`) |
 | CDC-013 | Stage Count Honored in All Chains | The configured `CDC_STAGE` depth is applied to every synchronizer chain, including packed register field chains. | Python Unit Test (`cdc.test_cdc_013`) |
 | CDC-014 | Wide Register CDC | Registers wider than 32 bits are synchronized chunk-by-chunk and the output port is driven from the last synchronizer stage of all chunks. | Python Unit Test (`cdc.test_cdc_014`) |
+| CDC-015 | SystemVerilog CDC Parity | SystemVerilog outputs implement the same CDC structure as VHDL outputs: packed registers expose per-field ports, RO fields (full and packed) are synchronized into the `axi_aclk` domain, writable registers and packed storage are synchronized into the `module_clk` domain with field outputs sliced from the last stage, the configured stage count is honored in every chain, and wide registers are chunk-addressed with a full-width synchronizer. | Python Unit Test (`cdc.test_cdc_015`) |
+| CDC-016 | Input-Format Independence | Enabling CDC via source annotations (`@axion_def CDC_EN CDC_STAGE=N`) or via structured config (`cdc_en`/`cdc_stage` in YAML/JSON/TOML/XML) produces equivalent synchronizer logic for the same register definitions, in both VHDL and SystemVerilog outputs. | Python Unit Test (`cdc.test_cdc_016`) |
 
 > [!NOTE]
 > Multi-bit values are synchronized with per-bit multi-FF chains. This is safe for quasi-static

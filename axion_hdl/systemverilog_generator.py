@@ -92,6 +92,10 @@ class SystemVerilogGenerator:
         if module_data.get('cdc_enabled', False):
             sections.append(self._generate_cdc_logic(module_data))
 
+        # Packed register field mapping (combined read values)
+        if module_data.get('packed_registers', []):
+            sections.append(self._generate_packed_mapping(module_data))
+
         # AXI4-Lite state machine
         sections.append(self._generate_axi_state_machine(module_data))
 
@@ -209,10 +213,75 @@ class SystemVerilogGenerator:
             header += "\n\nimport axion_common_pkg::*;"
         return header
 
+    @staticmethod
+    def _packed_ro_fields(packed_reg: Dict) -> List[Dict]:
+        """Return the RO fields of a packed register (inputs from module domain)."""
+        return [f for f in packed_reg.get('fields', []) if f['access_mode'] == 'RO']
+
+    @staticmethod
+    def _packed_writable_fields(packed_reg: Dict) -> List[Dict]:
+        """Return the RW/WO fields of a packed register (outputs to module domain)."""
+        return [f for f in packed_reg.get('fields', []) if f['access_mode'] in ('RW', 'WO')]
+
+    @staticmethod
+    def _packed_has_writable_fields(packed_reg: Dict) -> bool:
+        """True if the packed register has RW/WO fields (outputs to module domain)."""
+        return any(f['access_mode'] in ('RW', 'WO') for f in packed_reg.get('fields', []))
+
+    @staticmethod
+    def _field_width(field: Dict) -> int:
+        """Width in bits of a packed register field."""
+        if 'bit_high' in field and 'bit_low' in field:
+            return field['bit_high'] - field['bit_low'] + 1
+        return int(field.get('width', 1))
+
+    @staticmethod
+    def _field_sv_type(field: Dict) -> str:
+        """SystemVerilog type of a packed register field."""
+        width = SystemVerilogGenerator._field_width(field)
+        return "logic" if width == 1 else f"logic [{width - 1}:0]"
+
+    @staticmethod
+    def _field_slice(field: Dict) -> str:
+        """Bit-select into the 32-bit parent register for a packed field."""
+        high = field['bit_high']
+        low = field['bit_low']
+        return f"[{low}]" if high == low else f"[{high}:{low}]"
+
+    @staticmethod
+    def _reg_is_writable(reg: Dict) -> bool:
+        """True if the register has AXI-writable storage (RW/WO, or packed with RW/WO fields)."""
+        if reg.get('is_packed'):
+            return SystemVerilogGenerator._packed_has_writable_fields(reg)
+        return reg['access_mode'] in ('RW', 'WO')
+
+    @staticmethod
+    def _get_reg_width(reg: Dict) -> int:
+        """
+        Width in bits of a register, regardless of input format.
+
+        Annotation-parsed registers carry 'signal_width'; structured inputs
+        (YAML/JSON/TOML/XML) carry 'width' and a VHDL-style 'signal_type'.
+        """
+        width = reg.get('signal_width')
+        if width:
+            return int(width)
+        signal_type = reg.get('signal_type', '')
+        match = re.match(r'\[(\d+):(\d+)\]', signal_type)
+        if match:
+            return int(match.group(1)) - int(match.group(2)) + 1
+        match = re.match(r'std_logic_vector\((\d+)\s+downto\s+(\d+)\)', signal_type)
+        if match:
+            return int(match.group(1)) - int(match.group(2)) + 1
+        if signal_type.strip() == 'std_logic':
+            return 1
+        return int(reg.get('width', 32))
+
     def _generate_module_declaration(self, module_data: Dict) -> str:
         """Generate module declaration with parameters and ports."""
         module_name = module_data.get('name', 'unnamed_module')
         registers = module_data.get('registers', [])
+        packed_registers = module_data.get('packed_registers', [])
         cdc_enabled = module_data.get('cdc_enabled', False)
         use_axion_types = module_data.get('use_axion_types', False)
 
@@ -269,15 +338,19 @@ class SystemVerilogGenerator:
                 ""
             ])
 
-        # Register interface ports
-        lines.append("    // Register Interface")
+        # Register interface ports.
+        # Collect (declaration, comment) pairs first so comma placement stays
+        # correct regardless of how many regular/packed/strobe ports follow.
+        port_entries = []
 
-        for i, reg in enumerate(registers):
+        for reg in registers:
+            # Packed registers expose per-field ports instead of one word port
+            if reg.get('is_packed'):
+                continue
+
             signal_name = reg['signal_name']
             signal_type = reg['signal_type']
             access_mode = reg['access_mode']
-            read_strobe = reg.get('read_strobe', False)
-            write_strobe = reg.get('write_strobe', False)
 
             # Convert type to SystemVerilog
             sv_type = self._signal_type_to_sv(signal_type)
@@ -285,30 +358,51 @@ class SystemVerilogGenerator:
             # Determine port direction
             if access_mode == 'RO':
                 direction = 'input '
-            elif access_mode == 'WO':
-                direction = 'output'
-            else:  # RW
-                # RW registers are both input and output
-                # Input for reading current value, output for writing
+            else:  # WO or RW: AXI writes, module reads
                 direction = 'output'
 
-            # Add signal port (with enum comment if applicable)
             enum_dict = reg.get('enum_values')
-            comma = ',' if i < len(registers) - 1 or read_strobe or write_strobe else ''
+            comment = ''
             if enum_dict:
-                enum_comment = ' // ' + ', '.join(f"{n}={v}" for v, n in sorted(enum_dict.items()))
-                lines.append(f"    {direction} {sv_type:30} {signal_name}{comma}{enum_comment}")
-            else:
-                lines.append(f"    {direction} {sv_type:30} {signal_name}{comma}")
+                comment = ' // ' + ', '.join(f"{n}={v}" for v, n in sorted(enum_dict.items()))
+            port_entries.append((f"    {direction} {sv_type:30} {signal_name}", comment))
 
-            # Add strobe signals
-            if read_strobe:
-                comma = ',' if write_strobe or i < len(registers) - 1 else ''
-                lines.append(f"    output logic                      {signal_name}_rd_strobe{comma}")
+            if reg.get('read_strobe', False):
+                port_entries.append((f"    output logic                      {signal_name}_rd_strobe", ''))
+            if reg.get('write_strobe', False):
+                port_entries.append((f"    output logic                      {signal_name}_wr_strobe", ''))
 
-            if write_strobe:
-                comma = ',' if i < len(registers) - 1 else ''
-                lines.append(f"    output logic                      {signal_name}_wr_strobe{comma}")
+        # Packed register (subregister) field ports: <reg_name>_<field_name>
+        packed_entries = []
+        for packed_reg in packed_registers:
+            # Aggregated parent-register strobes
+            if packed_reg.get('read_strobe'):
+                packed_entries.append((f"    output logic                      {packed_reg['reg_name']}_rd_strobe", ''))
+            if packed_reg.get('write_strobe'):
+                packed_entries.append((f"    output logic                      {packed_reg['reg_name']}_wr_strobe", ''))
+
+            for field in packed_reg.get('fields', []):
+                sv_type = self._field_sv_type(field)
+                direction = 'input ' if field['access_mode'] == 'RO' else 'output'
+
+                desc = field.get('description', '')
+                enum_dict = field.get('enum_values')
+                if enum_dict:
+                    enum_str = ', '.join(f"{n}={v}" for v, n in sorted(enum_dict.items()))
+                    desc = f"{desc} ({enum_str})" if desc else enum_str
+                comment = f" // {desc}" if desc else ''
+
+                sig_name = f"{packed_reg['reg_name']}_{field['name']}"
+                packed_entries.append((f"    {direction} {sv_type:30} {sig_name}", comment))
+
+        lines.append("    // Register Interface")
+        all_entries = port_entries + packed_entries
+        for i, (decl, comment) in enumerate(all_entries):
+            if packed_entries and i == len(port_entries):
+                lines.append("")
+                lines.append("    // Packed Register Fields (Subregisters)")
+            comma = ',' if i < len(all_entries) - 1 else ''
+            lines.append(f"{decl}{comma}{comment}")
 
         lines.append(");")
 
@@ -324,7 +418,9 @@ class SystemVerilogGenerator:
 
         for reg in registers:
             fields = reg.get('fields', [])
-            if fields:
+            # is_packed registers are decomposed into per-field ports and a
+            # 32-bit storage word instead of a struct-typed register.
+            if fields and not reg.get('is_packed'):
                 signal_name = reg['signal_name']
                 lines.append(f"    typedef struct packed {{")
                 
@@ -348,6 +444,7 @@ class SystemVerilogGenerator:
     def _generate_internals(self, module_data: Dict) -> str:
         """Generate internal signals and parameters."""
         registers = module_data.get('registers', [])
+        packed_registers = module_data.get('packed_registers', [])
 
         lines = [
             "    // AXI4-Lite response codes",
@@ -366,7 +463,7 @@ class SystemVerilogGenerator:
         lines.append("")
         
         # Generate struct definitions
-        has_structs = any(reg.get('fields') for reg in registers)
+        has_structs = any(reg.get('fields') and not reg.get('is_packed') for reg in registers)
         if has_structs:
             lines.append(self._generate_struct_definitions(registers))
             lines.append("")
@@ -390,6 +487,8 @@ class SystemVerilogGenerator:
         # Internal registers
         lines.append("    // Internal registers")
         for reg in registers:
+            if reg.get('is_packed'):
+                continue
             if reg['access_mode'] in ['RW', 'WO']:
                 signal_name = reg['signal_name']
                 if reg.get('fields'):
@@ -398,6 +497,16 @@ class SystemVerilogGenerator:
                     signal_type = reg['signal_type']
                     sv_type = self._signal_type_to_sv(signal_type)
                     lines.append(f"    {sv_type:30} {signal_name}_reg;")
+
+        # Packed register internals: AXI-domain storage word for RW/WO bits
+        # and the combined value returned on AXI reads.
+        if packed_registers:
+            lines.append("")
+            lines.append("    // Packed register internals (storage for RW/WO bits, combined read value)")
+            for pr in packed_registers:
+                if self._packed_has_writable_fields(pr):
+                    lines.append(f"    logic [31:0]                   {pr['reg_name']}_reg;")
+                lines.append(f"    logic [31:0]                   {pr['reg_name']}_val;")
 
         lines.append("")
 
@@ -413,6 +522,13 @@ class SystemVerilogGenerator:
             "    logic [ADDR_WIDTH-1:0] read_addr;",
             ""
         ])
+
+        # Packed storage words are only partially consumed when some bit
+        # positions belong to RO fields or gaps; sink them to keep lint clean.
+        packed_sink = ''.join(
+            f", {pr['reg_name']}_reg" for pr in packed_registers
+            if self._packed_has_writable_fields(pr)
+        )
 
         if use_axion_types:
             lines.extend([
@@ -439,14 +555,14 @@ class SystemVerilogGenerator:
                 "",
                 "    // Sink for unused intermediate signals to silence lint warnings",
                 "    logic _unused_ok;",
-                "    assign _unused_ok = &{1'b0, axi_awprot, axi_arprot, axi_wstrb, axi_wdata, 1'b0};",
+                f"    assign _unused_ok = &{{1'b0, axi_awprot, axi_arprot, axi_wstrb, axi_wdata{packed_sink}, 1'b0}};",
                 ""
             ])
         else:
             lines.extend([
                 "    // Sink for unused signals to silence lint warnings",
                 "    logic _unused_ok;",
-                "    assign _unused_ok = &{1'b0, axi_awprot, axi_arprot, axi_wstrb, axi_wdata, 1'b0};",
+                f"    assign _unused_ok = &{{1'b0, axi_awprot, axi_arprot, axi_wstrb, axi_wdata{packed_sink}, 1'b0}};",
                 ""
             ])
 
@@ -465,6 +581,7 @@ class SystemVerilogGenerator:
         """Generate CDC synchronizer logic."""
         cdc_stages = module_data.get('cdc_stages', 2)
         registers = module_data.get('registers', [])
+        packed_registers = module_data.get('packed_registers', [])
 
         lines = [
             "    //-------------------------------------------------------------------------",
@@ -474,78 +591,131 @@ class SystemVerilogGenerator:
         ]
 
         # 1. Input Synchronizers (RO): Module -> AXI (axi_aclk domain)
+        #    Full RO registers and RO fields of packed registers.
+        #    Chains as (base_name, sv_type, source_expr, comment) tuples.
         # ---------------------------------------------------------------------
+        ro_chains = []
+        for reg in registers:
+            if reg.get('is_packed'):
+                continue
+            if reg['access_mode'] == 'RO':
+                sv_type = self._signal_type_to_sv(reg['signal_type'])
+                ro_chains.append((reg['signal_name'], sv_type, reg['signal_name'], 'RO'))
+        for pr in packed_registers:
+            for field in self._packed_ro_fields(pr):
+                sig_name = f"{pr['reg_name']}_{field['name']}"
+                ro_chains.append((sig_name, self._field_sv_type(field), sig_name, 'packed RO field'))
+
         lines.append("    // Input Synchronizers (Module -> AXI)")
         lines.append("    // -----------------------------------")
-        
-        has_ro = False
-        for reg in registers:
-            if reg['access_mode'] == 'RO':
-                has_ro = True
-                signal_name = reg['signal_name']
-                signal_type = reg['signal_type']
-                sv_type = self._signal_type_to_sv(signal_type)
 
-                lines.append(f"    // CDC for {signal_name} (RO)")
-                lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {signal_name}_sync [{cdc_stages}];")
-        
-        if has_ro:
+        for name, sv_type, _, kind in ro_chains:
+            lines.append(f"    // CDC for {name} ({kind})")
+            lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {name}_sync [{cdc_stages}];")
+
+        if ro_chains:
             lines.append("")
             lines.append(f"    always_ff @(posedge axi_aclk or negedge axi_aresetn) begin")
             lines.append(f"        if (!axi_aresetn) begin")
-            for reg in registers:
-                if reg['access_mode'] == 'RO':
-                     lines.append(f"            {reg['signal_name']}_sync <= '{{default: '0}};")
+            for name, _, _, _ in ro_chains:
+                for i in range(cdc_stages):
+                    lines.append(f"            {name}_sync[{i}] <= '0;")
             lines.append(f"        end else begin")
-            for reg in registers:
-                if reg['access_mode'] == 'RO':
-                    lines.append(f"            {reg['signal_name']}_sync[0] <= {reg['signal_name']};")
-                    for i in range(1, cdc_stages):
-                        lines.append(f"            {reg['signal_name']}_sync[{i}] <= {reg['signal_name']}_sync[{i-1}];")
+            for name, _, source, _ in ro_chains:
+                lines.append(f"            {name}_sync[0] <= {source};")
+                for i in range(1, cdc_stages):
+                    lines.append(f"            {name}_sync[{i}] <= {name}_sync[{i-1}];")
             lines.append(f"        end")
             lines.append(f"    end")
         else:
              lines.append("    // No RO registers found")
-        
+
         lines.append("")
 
         # 2. Output Synchronizers (RW/WO): AXI -> Module (module_clk domain)
+        #    Full RW/WO registers and, for packed registers with writable
+        #    fields, one chain of the whole 32-bit storage word; field outputs
+        #    are then sliced from the last stage.
         # ----------------------------------------------------------------------
+        out_chains = []
+        for reg in registers:
+            if reg.get('is_packed'):
+                continue
+            if reg['access_mode'] in ['RW', 'WO']:
+                sv_type = self._signal_type_to_sv(reg['signal_type'])
+                out_chains.append((reg['signal_name'], sv_type,
+                                   f"{reg['signal_name']}_reg", reg['access_mode']))
+        for pr in packed_registers:
+            if self._packed_has_writable_fields(pr):
+                out_chains.append((f"{pr['reg_name']}_reg", "logic [31:0]",
+                                   f"{pr['reg_name']}_reg", 'packed RW/WO storage'))
+
         lines.append("    // Output Synchronizers (AXI -> Module)")
         lines.append("    // ------------------------------------")
-        
-        has_out = False
-        for reg in registers:
-            if reg['access_mode'] in ['RW', 'WO']:
-                has_out = True
-                signal_name = reg['signal_name']
-                signal_type = reg['signal_type']
-                sv_type = self._signal_type_to_sv(signal_type)
 
-                lines.append(f"    // CDC for {signal_name} ({reg['access_mode']})")
-                lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {signal_name}_sync [{cdc_stages}];")
+        for name, sv_type, _, kind in out_chains:
+            lines.append(f"    // CDC for {name} ({kind})")
+            lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {name}_sync [{cdc_stages}];")
 
-        if has_out:
+        if out_chains:
             lines.append("")
             lines.append(f"    always_ff @(posedge module_clk or negedge axi_aresetn) begin")
             lines.append(f"        if (!axi_aresetn) begin")
-            for reg in registers:
-                if reg['access_mode'] in ['RW', 'WO']:
-                    # Use '0 because SystemVerilog unpacked arrays rely on default: '0 or strict loop
-                    # Using {default: '0} is safer for unpacked
-                    lines.append(f"            {reg['signal_name']}_sync <= '{{default: '0}};")
+            for name, _, _, _ in out_chains:
+                for i in range(cdc_stages):
+                    lines.append(f"            {name}_sync[{i}] <= '0;")
             lines.append(f"        end else begin")
-            for reg in registers:
-                if reg['access_mode'] in ['RW', 'WO']:
-                    lines.append(f"            {reg['signal_name']}_sync[0] <= {reg['signal_name']}_reg;")
-                    for i in range(1, cdc_stages):
-                        lines.append(f"            {reg['signal_name']}_sync[{i}] <= {reg['signal_name']}_sync[{i-1}];")
+            for name, _, source, _ in out_chains:
+                lines.append(f"            {name}_sync[0] <= {source};")
+                for i in range(1, cdc_stages):
+                    lines.append(f"            {name}_sync[{i}] <= {name}_sync[{i-1}];")
             lines.append(f"        end")
             lines.append(f"    end")
         else:
              lines.append("    // No RW/WO registers found")
 
         return '\n'.join(lines)
+
+    def _generate_packed_mapping(self, module_data: Dict) -> str:
+        """
+        Generate the packed register field mapping.
+
+        Builds the combined AXI read value for each packed register:
+        RW/WO bit positions read back from the axi_aclk-domain storage word,
+        RO bit positions come from the field input ports (via their
+        axi_aclk-domain synchronizer chains when CDC is enabled).
+        """
+        packed_registers = module_data.get('packed_registers', [])
+        cdc_enabled = module_data.get('cdc_enabled', False)
+        cdc_stages = module_data.get('cdc_stages', 2)
+        last = cdc_stages - 1
+
+        lines = [
+            "    //-------------------------------------------------------------------------",
+            "    // Packed Register Field Mapping",
+            "    //-------------------------------------------------------------------------",
+            ""
+        ]
+
+        for pr in packed_registers:
+            reg_name = pr['reg_name']
+            lines.append(f"    // Combined read value for {reg_name}")
+            lines.append("    always_comb begin")
+            lines.append(f"        {reg_name}_val = '0;")
+            for field in pr.get('fields', []):
+                dest = f"{reg_name}_val{self._field_slice(field)}"
+                sig_name = f"{reg_name}_{field['name']}"
+                if field['access_mode'] == 'RO':
+                    # RO bits come from the module inputs (synced when CDC on)
+                    source = f"{sig_name}_sync[{last}]" if cdc_enabled else sig_name
+                else:
+                    # RW/WO bits read back from the axi_aclk-domain storage
+                    source = f"{reg_name}_reg{self._field_slice(field)}"
+                lines.append(f"        {dest} = {source};")
+            lines.append("    end")
+            lines.append("")
+
+        return '\n'.join(lines).rstrip()
 
     def _generate_axi_state_machine(self, module_data: Dict) -> str:
         """Generate AXI4-Lite protocol state machine."""
@@ -659,11 +829,11 @@ class SystemVerilogGenerator:
 
         # Reset all writable registers
         for reg in registers:
-            if reg['access_mode'] in ['RW', 'WO']:
+            if self._reg_is_writable(reg):
                 default_val = reg.get('default_value')
                 if default_val is None:
                     default_val = reg.get('default')
-                width = reg.get('signal_width', 32)
+                width = self._get_reg_width(reg)
 
                 if default_val is not None:
                     if isinstance(default_val, str) and (default_val.startswith('0x') or default_val.startswith('0X')):
@@ -700,7 +870,7 @@ class SystemVerilogGenerator:
             signal_name = reg['signal_name']
             signal_name_upper = signal_name.upper()
             access_mode = reg['access_mode']
-            width = reg.get('signal_width', 32)
+            width = self._get_reg_width(reg)
             num_words = (width + 31) // 32
 
             for i in range(num_words):
@@ -708,10 +878,10 @@ class SystemVerilogGenerator:
                 addr_suffix = f" + 32'h{i*4:X}" if i > 0 else ""
                 lines.append(f"                    ADDR_{signal_name_upper}{addr_suffix}: begin")
 
-                if access_mode == 'RO':
+                if not self._reg_is_writable(reg):
                     # Read-only: return error
                     lines.append("                        bresp_reg <= SLVERR;")
-                elif access_mode in ['RW', 'WO']:
+                else:
                     # Writable: update register
                     low = i * 32
                     high = min((i + 1) * 32 - 1, width - 1)
@@ -762,7 +932,7 @@ class SystemVerilogGenerator:
             signal_name = reg['signal_name']
             signal_name_upper = signal_name.upper()
             access_mode = reg['access_mode']
-            width = reg.get('signal_width', 32)
+            width = self._get_reg_width(reg)
             num_words = (width + 31) // 32
 
             for i in range(num_words):
@@ -774,7 +944,11 @@ class SystemVerilogGenerator:
                     lines.append("                rresp_reg = SLVERR;")
                 else:
                     # Determine source signal
-                    if cdc_enabled and access_mode == 'RO':
+                    if reg.get('is_packed'):
+                        # Combined value: RO bits from field inputs (synced
+                        # when CDC on), RW/WO bits from axi_aclk-domain storage
+                        source = f"{signal_name}_val"
+                    elif cdc_enabled and access_mode == 'RO':
                         source = f"{signal_name}_sync[{cdc_stages-1}]"
                     elif access_mode == 'RO':
                         source = signal_name
@@ -789,14 +963,14 @@ class SystemVerilogGenerator:
                         if width == 32:
                             lines.append(f"                rdata_reg = {source};")
                         else:
-                            lines.append(f"                rdata_reg = {{{{{32 - width}'{{1'b0}}}}, {source}}};")
+                            lines.append(f"                rdata_reg = {{{{{32 - width}{{1'b0}}}}, {source}}};")
                     else:
                         # Wide register logic
                         if slice_width == 32:
                              lines.append(f"                rdata_reg = {source}[{high}:{low}];")
                         else:
                              padding = 32 - slice_width
-                             lines.append(f"                rdata_reg = {{{{{padding}'{{1'b0}}}}, {source}[{high}:{low}]}};")
+                             lines.append(f"                rdata_reg = {{{{{padding}{{1'b0}}}}, {source}[{high}:{low}]}};")
 
                 lines.append("            end")
 
@@ -856,7 +1030,8 @@ class SystemVerilogGenerator:
             signal_name = reg['signal_name']
             access_mode = reg['access_mode']
 
-            if access_mode in ['RW', 'WO']:
+            # Packed registers drive per-field output ports below instead
+            if access_mode in ['RW', 'WO'] and not reg.get('is_packed'):
                 if cdc_enabled:
                      # Use the last stage of the synchronizer
                      lines.append(f"    assign {signal_name} = {signal_name}_sync[{cdc_stages-1}];")
@@ -871,6 +1046,20 @@ class SystemVerilogGenerator:
                 # Read strobe is asserted when reading this register
                 signal_name_upper = signal_name.upper()
                 lines.append(f"    assign {signal_name}_rd_strobe = (state == READ_DATA && read_addr == ADDR_{signal_name_upper});")
+
+        # Packed register RW/WO field outputs, sliced from the storage word
+        # (from the last module_clk-domain sync stage when CDC is enabled)
+        packed_registers = module_data.get('packed_registers', [])
+        for pr in packed_registers:
+            writable_fields = self._packed_writable_fields(pr)
+            if not writable_fields:
+                continue
+            reg_name = pr['reg_name']
+            src_base = f"{reg_name}_reg_sync[{cdc_stages-1}]" if cdc_enabled else f"{reg_name}_reg"
+            lines.append(f"    // Field outputs for packed register {reg_name}")
+            for field in writable_fields:
+                sig_name = f"{reg_name}_{field['name']}"
+                lines.append(f"    assign {sig_name} = {src_base}{self._field_slice(field)};")
 
         return '\n'.join(lines)
 

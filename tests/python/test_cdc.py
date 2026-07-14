@@ -76,6 +76,44 @@ class TestCDCRequirements(unittest.TestCase):
                 return f.read()
         return ""
 
+    def _generate_from_vhdl(self, vhdl_content: str, entity_name: str,
+                            systemverilog: bool = False) -> str:
+        """Generate VHDL (or SystemVerilog) from VHDL-annotation input and return the content"""
+        self._write_temp_vhdl(f"{entity_name}.vhd", vhdl_content)
+
+        axion = AxionHDL(output_dir=self.output_dir)
+        axion.add_src(self.temp_dir)
+        axion.analyze()
+        if systemverilog:
+            axion.generate_systemverilog()
+            gen_file = os.path.join(self.output_dir, f"{entity_name}_axion_reg.sv")
+        else:
+            axion.generate_vhdl()
+            gen_file = os.path.join(self.output_dir, f"{entity_name}_axion_reg.vhd")
+
+        if os.path.exists(gen_file):
+            with open(gen_file, 'r') as f:
+                return f.read()
+        return ""
+
+    # VHDL-annotation fixture describing the same packed register layout as
+    # PACKED_CDC_YAML, used by the input-format equivalence tests (CDC-016)
+    PACKED_CDC_VHDL = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x0000 CDC_EN CDC_STAGE={stages}
+entity {module} is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of {module} is
+    signal go_bit : std_logic;                      -- @axion RW ADDR=0x00 REG_NAME=mix_reg BIT_OFFSET=0
+    signal speed : std_logic_vector(2 downto 0);    -- @axion RW ADDR=0x00 REG_NAME=mix_reg BIT_OFFSET=1
+    signal ready_bit : std_logic;                   -- @axion RO ADDR=0x00 REG_NAME=mix_reg BIT_OFFSET=8
+    signal version : std_logic_vector(3 downto 0);  -- @axion RO ADDR=0x00 REG_NAME=mix_reg BIT_OFFSET=12
+begin
+end architecture;
+'''
+
     # YAML fixture with a packed (mixed RW/RO) register used by CDC-010..013 tests
     PACKED_CDC_YAML = '''
 module: {module}
@@ -522,6 +560,163 @@ registers:
             "Wide YAML register must have chunked storage")
         self.assertIn('big_cfg <= big_cfg1_sync1 & big_cfg0_sync1;', content,
             "Wide YAML register output must concatenate last sync stages")
+
+    # =========================================================================
+    # CDC-015: SystemVerilog CDC Parity
+    # =========================================================================
+    def test_cdc_015_sv_packed_field_ports(self):
+        """CDC-015: SV output exposes per-field ports for packed registers"""
+        import re
+        content = self._generate_from_yaml(
+            self.PACKED_CDC_YAML.format(module="sv_ports_cdc", stages=2),
+            "sv_ports_cdc", systemverilog=True)
+        self.assertTrue(content, "SystemVerilog output must be generated")
+        self.assertRegex(content, r'output\s+logic\s+mix_reg_go_bit',
+            "Packed RW field must have an output port")
+        self.assertRegex(content, r'output\s+logic \[2:0\]\s+mix_reg_speed',
+            "Packed RW vector field must have an output port")
+        self.assertRegex(content, r'input\s+logic\s+mix_reg_ready_bit',
+            "Packed RO field must have an input port")
+        self.assertRegex(content, r'input\s+logic \[3:0\]\s+mix_reg_version',
+            "Packed RO vector field must have an input port")
+        self.assertIsNone(re.search(r'logic \[31:0\]\s+mix_reg\s*[,)]', content),
+            "Packed register must not be exposed as a monolithic word port")
+
+    def test_cdc_015_sv_packed_ro_field_sync(self):
+        """CDC-015: SV packed RO fields get axi_aclk-domain sync chains"""
+        content = self._generate_from_yaml(
+            self.PACKED_CDC_YAML.format(module="sv_ro_cdc", stages=2),
+            "sv_ro_cdc", systemverilog=True)
+        self.assertIn('mix_reg_ready_bit_sync[0] <= mix_reg_ready_bit;', content,
+            "Packed RO field must enter a synchronizer chain")
+        self.assertIn('mix_reg_version_sync[0] <= mix_reg_version;', content,
+            "Packed multi-bit RO field must enter a synchronizer chain")
+        self.assertIn('mix_reg_val[8] = mix_reg_ready_bit_sync[1];', content,
+            "Packed RO field read value must come from the last sync stage")
+        self.assertIn('mix_reg_val[15:12] = mix_reg_version_sync[1];', content,
+            "Packed RO vector field read value must come from the last sync stage")
+        self.assertNotIn('mix_reg_val[8] = mix_reg_ready_bit;', content,
+            "Packed RO field must not enter the AXI read path unsynchronized")
+
+    def test_cdc_015_sv_packed_rw_field_output_sync(self):
+        """CDC-015: SV packed RW/WO fields driven from module_clk-domain chain"""
+        content = self._generate_from_yaml(
+            self.PACKED_CDC_YAML.format(module="sv_rw_cdc", stages=2),
+            "sv_rw_cdc", systemverilog=True)
+        self.assertIn('mix_reg_reg_sync[0] <= mix_reg_reg;', content,
+            "Packed register storage must enter a module_clk synchronizer chain")
+        self.assertIn('always_ff @(posedge module_clk', content,
+            "Packed RW/WO synchronizer must be clocked by module_clk")
+        self.assertIn('assign mix_reg_go_bit = mix_reg_reg_sync[1][0];', content,
+            "Packed RW field output must come from the last sync stage")
+        self.assertIn('assign mix_reg_speed = mix_reg_reg_sync[1][3:1];', content,
+            "Packed RW vector field output must come from the last sync stage")
+        self.assertNotIn('assign mix_reg_go_bit = mix_reg_reg[0];', content,
+            "Packed RW field output must not bypass the synchronizer chain")
+        # AXI readback must still use the axi_aclk-domain storage
+        self.assertIn('mix_reg_val[0] = mix_reg_reg[0];', content,
+            "AXI readback of RW bits must use the axi_aclk-domain storage")
+
+    def test_cdc_015_sv_stage_count_honored(self):
+        """CDC-015: CDC_STAGE depth applied to every SV chain, incl. packed fields"""
+        content = self._generate_from_yaml(
+            self.PACKED_CDC_YAML.format(module="sv_stages_cdc", stages=4),
+            "sv_stages_cdc", systemverilog=True)
+        for sig in ['mix_reg_reg', 'mix_reg_ready_bit', 'mix_reg_version']:
+            for stage in range(4):
+                self.assertIn(f'{sig}_sync[{stage}]', content,
+                    f"{sig} chain must contain stage {stage}")
+            self.assertNotIn(f'{sig}_sync[4]', content,
+                f"{sig} chain must not exceed the configured depth")
+        self.assertIn('assign mix_reg_go_bit = mix_reg_reg_sync[3][0];', content,
+            "Packed RW field output must use the last configured stage")
+        self.assertIn('mix_reg_val[8] = mix_reg_ready_bit_sync[3];', content,
+            "Packed RO field read value must use the last configured stage")
+
+    def test_cdc_015_sv_wide_register(self):
+        """CDC-015: >32-bit registers from YAML are chunk-addressed and synced in SV"""
+        yaml_content = '''
+module: sv_wide_cdc
+base_addr: "0x0000"
+config:
+  cdc_en: true
+  cdc_stage: 2
+
+registers:
+  - name: big_cfg
+    addr: "0x00"
+    access: RW
+    width: 64
+    description: Wide RW register
+'''
+        content = self._generate_from_yaml(yaml_content, "sv_wide_cdc",
+                                           systemverilog=True)
+        self.assertIn('big_cfg_reg[63:32] <= axi_wdata;', content,
+            "Wide SV register must have upper-word write access")
+        self.assertIn('rdata_reg = big_cfg_reg[63:32];', content,
+            "Wide SV register must have upper-word read access")
+        self.assertIn('(* ASYNC_REG = "TRUE" *) logic [63:0]', content,
+            "Wide SV sync array must span the full register width")
+        self.assertIn('assign big_cfg = big_cfg_sync[1];', content,
+            "Wide SV output port must be driven from the last sync stage")
+
+    # =========================================================================
+    # CDC-016: Input-Format Independence (annotation vs structured config)
+    # =========================================================================
+    # Structural CDC lines that must appear in the generated output for the
+    # shared packed-register layout, regardless of the input format
+    VHDL_CDC_PARITY_LINES = [
+        'mix_reg_ready_bit_sync0 <= mix_reg_ready_bit;',
+        'mix_reg_reg_sync0 <= mix_reg_reg;',
+        'mix_reg_go_bit <= mix_reg_reg_sync1(0);',
+        'mix_reg_speed <= mix_reg_reg_sync1(3 downto 1);',
+        'mix_reg_val(8) <= mix_reg_ready_bit_sync1;',
+        'mix_reg_val(15 downto 12) <= mix_reg_version_sync1;',
+        'rising_edge(module_clk)',
+        'attribute ASYNC_REG : string;',
+    ]
+    SV_CDC_PARITY_LINES = [
+        'mix_reg_ready_bit_sync[0] <= mix_reg_ready_bit;',
+        'mix_reg_reg_sync[0] <= mix_reg_reg;',
+        'assign mix_reg_go_bit = mix_reg_reg_sync[1][0];',
+        'assign mix_reg_speed = mix_reg_reg_sync[1][3:1];',
+        'mix_reg_val[8] = mix_reg_ready_bit_sync[1];',
+        'mix_reg_val[15:12] = mix_reg_version_sync[1];',
+        'always_ff @(posedge module_clk',
+        '(* ASYNC_REG = "TRUE" *)',
+    ]
+
+    def test_cdc_016_annotation_yaml_parity_vhdl(self):
+        """CDC-016: annotation and YAML inputs yield the same VHDL CDC structure"""
+        content_ann = self._generate_from_vhdl(
+            self.PACKED_CDC_VHDL.format(module="parity_ann", stages=2),
+            "parity_ann")
+        content_yaml = self._generate_from_yaml(
+            self.PACKED_CDC_YAML.format(module="parity_yaml", stages=2),
+            "parity_yaml")
+        self.assertTrue(content_ann, "Annotation-input VHDL must be generated")
+        self.assertTrue(content_yaml, "YAML-input VHDL must be generated")
+        for line in self.VHDL_CDC_PARITY_LINES:
+            self.assertIn(line, content_ann,
+                f"Annotation-input VHDL must contain: {line}")
+            self.assertIn(line, content_yaml,
+                f"YAML-input VHDL must contain: {line}")
+
+    def test_cdc_016_annotation_yaml_parity_sv(self):
+        """CDC-016: annotation and YAML inputs yield the same SV CDC structure"""
+        content_ann = self._generate_from_vhdl(
+            self.PACKED_CDC_VHDL.format(module="parity_ann_sv", stages=2),
+            "parity_ann_sv", systemverilog=True)
+        content_yaml = self._generate_from_yaml(
+            self.PACKED_CDC_YAML.format(module="parity_yaml_sv", stages=2),
+            "parity_yaml_sv", systemverilog=True)
+        self.assertTrue(content_ann, "Annotation-input SV must be generated")
+        self.assertTrue(content_yaml, "YAML-input SV must be generated")
+        for line in self.SV_CDC_PARITY_LINES:
+            self.assertIn(line, content_ann,
+                f"Annotation-input SV must contain: {line}")
+            self.assertIn(line, content_yaml,
+                f"YAML-input SV must contain: {line}")
 
 
 def run_cdc_tests():

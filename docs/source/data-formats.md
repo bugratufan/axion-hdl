@@ -267,6 +267,12 @@ cdc_stage = 3
 | `CDC_EN` / `cdc_en` | Enable CDC synchronizers | `false` |
 | `CDC_STAGE` / `cdc_stage` | Number of synchronizer stages | `2` |
 
+All input formats produce equivalent synchronizer logic: RO registers (and RO fields of packed
+registers) are synchronized into the AXI clock domain, RW/WO registers (and the storage word of
+packed registers with writable fields) are synchronized into the module clock domain, and every
+chain uses the configured stage count. This applies to both the VHDL and the SystemVerilog
+output (see requirements CDC-006..CDC-016).
+
 ---
 
 ### Strobe Signals
