@@ -702,6 +702,44 @@ registers:
             self.assertIn(line, content_yaml,
                 f"YAML-input VHDL must contain: {line}")
 
+    # =========================================================================
+    # CDC-017: GUI Template Round-Trip
+    # =========================================================================
+    def test_cdc_017_gui_template_round_trip(self):
+        """CDC-017: GUI VHDL template emits parseable @axion annotations incl. CDC"""
+        from axion_hdl.gui import AxionGUI
+        gui = AxionGUI(None)
+        registers = [
+            {'name': 'ctrl_reg', 'width': 32, 'access': 'RW',
+             'default_value': '0xAB', 'description': 'Control register',
+             'w_strobe': True},
+            {'name': 'stat_reg', 'width': 32, 'access': 'RO', 'r_strobe': True},
+        ]
+        properties = {'base_address': '0100', 'cdc_enabled': True, 'cdc_stages': 3}
+        template = gui._generate_vhdl_template('gui_cdc_mod', registers, properties)
+
+        # Template must carry the analyzer-recognized annotations
+        self.assertIn('-- @axion_def BASE_ADDR=0x0100 CDC_EN CDC_STAGE=3', template,
+            "GUI template must emit a parseable @axion_def with CDC settings")
+        self.assertIn('-- @axion RW W_STROBE DEFAULT=0xAB DESC="Control register"', template,
+            "GUI template must emit parseable register annotations")
+        self.assertNotIn('AXION_CDC', template,
+            "GUI template must not use the legacy unparsed annotation format")
+
+        # Round-trip: the analyzer must recover the CDC config and registers
+        content = self._generate_and_read_vhdl(template, 'gui_cdc_mod')
+        self.assertTrue(content, "Analyzer must accept the GUI-generated template")
+        self.assertIn('module_clk', content,
+            "CDC setting from GUI template must survive analysis")
+        self.assertIn('ctrl_reg <= ctrl_reg_sync2;', content,
+            "RW register from GUI template must get a 3-stage output sync chain")
+        self.assertIn('stat_reg_reg <= stat_reg_sync2;', content,
+            "RO register from GUI template must get a 3-stage input sync chain")
+        self.assertIn('ctrl_reg_wr_strobe', content,
+            "Write strobe from GUI template must survive analysis")
+        self.assertIn('stat_reg_rd_strobe', content,
+            "Read strobe from GUI template must survive analysis")
+
     def test_cdc_016_annotation_yaml_parity_sv(self):
         """CDC-016: annotation and YAML inputs yield the same SV CDC structure"""
         content_ann = self._generate_from_vhdl(
