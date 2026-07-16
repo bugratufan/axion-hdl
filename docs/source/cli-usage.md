@@ -89,6 +89,7 @@ axion-hdl -s ./src -e "*_tb.vhd" -e "test_*" -e "deprecated" -o ./output --all
 | `--all` | Generate all output types |
 | `--vhdl` | Generate VHDL register module |
 | `--sv`, `--systemverilog` | Generate SystemVerilog register module |
+| `--xdc` | Generate Xilinx XDC constraint file (`<module>_axion_reg.xdc`) with instance-independent false paths for the module-side register signals. Not included in `--all` (explicit opt-in). |
 | `--c-header` | Generate C header file |
 | `--xml` | Generate XML register map |
 | `--yaml` | Generate YAML register map |
