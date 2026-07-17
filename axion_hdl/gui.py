@@ -1157,7 +1157,9 @@ class AxionGUI:
 
     def _generate_vhdl_template(self, module_name, registers, properties):
         """Generate VHDL source code for a new module with @axion annotations"""
-        base_addr = properties.get('base_address', '0000')
+        base_addr = str(properties.get('base_address') or '0000')
+        if base_addr.lower().startswith('0x'):
+            base_addr = base_addr[2:]
         cdc_enabled = properties.get('cdc_enabled', False)
         cdc_stages = properties.get('cdc_stages', 2)
 
@@ -1188,7 +1190,8 @@ class AxionGUI:
             name = reg.get('name', 'unnamed')
             width = int(reg.get('width', 32))
             access = reg.get('access', 'RW')
-            default = reg.get('default_value', '0x0')
+            # Coerce missing/None/empty defaults so string handling below is safe
+            default = reg.get('default_value') or '0x0'
             desc = reg.get('description', '')
             r_strobe = reg.get('r_strobe', False)
             w_strobe = reg.get('w_strobe', False)

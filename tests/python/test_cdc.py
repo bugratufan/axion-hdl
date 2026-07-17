@@ -2,7 +2,7 @@
 """
 test_cdc.py - Clock Domain Crossing Requirements Tests
 
-Tests for CDC-001 through CDC-014 requirements
+Tests for CDC-001 through CDC-017 requirements
 Verifies CDC synchronizer generation and configuration.
 """
 
@@ -714,13 +714,20 @@ registers:
              'default_value': '0xAB', 'description': 'Control register',
              'w_strobe': True},
             {'name': 'stat_reg', 'width': 32, 'access': 'RO', 'r_strobe': True},
+            # default_value may arrive as None from the GUI/JSON layer
+            {'name': 'flag_reg', 'width': 1, 'access': 'RW', 'default_value': None},
         ]
-        properties = {'base_address': '0100', 'cdc_enabled': True, 'cdc_stages': 3}
+        # base_address may arrive already 0x-prefixed from other GUI paths
+        properties = {'base_address': '0x0100', 'cdc_enabled': True, 'cdc_stages': 3}
         template = gui._generate_vhdl_template('gui_cdc_mod', registers, properties)
 
         # Template must carry the analyzer-recognized annotations
         self.assertIn('-- @axion_def BASE_ADDR=0x0100 CDC_EN CDC_STAGE=3', template,
             "GUI template must emit a parseable @axion_def with CDC settings")
+        self.assertNotIn('0x0x', template,
+            "0x-prefixed base_address must not be double-prefixed")
+        self.assertIn("signal flag_reg : std_logic := '0'; -- @axion RW", template,
+            "None default must fall back to zero without crashing")
         self.assertIn('-- @axion RW W_STROBE DEFAULT=0xAB DESC="Control register"', template,
             "GUI template must emit parseable register annotations")
         self.assertNotIn('AXION_CDC', template,
