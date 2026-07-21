@@ -116,7 +116,8 @@ async def test_sv_cdc_read_strobe_pulse_sync(dut):
         return
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=50, is_write=False,
-        reg_addr=REG_TEMPERATURE, strobe_signal_name='temperature_reg_rd_strobe')
+        reg_addr=REG_TEMPERATURE, strobe_signal_name='temperature_reg_rd_strobe',
+        ro_input_port='temperature_reg')
 
 
 @cocotb.test()

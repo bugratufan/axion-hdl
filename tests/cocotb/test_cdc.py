@@ -378,7 +378,8 @@ async def test_cdc_data_coherency(dut):
 
 
 async def _check_strobe_toggle_cdc(dut, mod_period_ns, is_write, reg_addr,
-                                    strobe_signal_name, axi_period_ns=10):
+                                    strobe_signal_name, axi_period_ns=10,
+                                    ro_input_port=None):
     """
     Drive one real AXI-Lite transaction and verify the corresponding
     module_clk-domain strobe port pulses exactly once, for exactly one
@@ -386,12 +387,25 @@ async def _check_strobe_toggle_cdc(dut, mod_period_ns, is_write, reg_addr,
     directly exercises the toggle-synchronizer CDC (CDC-018/019): a naive
     passthrough would either miss the pulse (destination slower than
     source) or produce a pulse wider/narrower than one destination cycle.
+
+    ro_input_port: for a read strobe on an RO register only, the name of
+    the module-domain input port that supplies the register's value. RO
+    registers have no other value source, so the testbench must drive it
+    to a defined value before the AXI read - otherwise the read returns
+    X/U regardless of the strobe CDC logic under test. Must be left None
+    for RW/WO registers (their value is the AXI-domain storage register,
+    already reset to a defined value) - driving an output port here would
+    fight the DUT's own driver.
     """
     axi_clk, mod_clk = await start_clocks(
         dut, axi_period_ns=axi_period_ns, mod_period_ns=mod_period_ns)
     assert mod_clk is not None, "module_clk must exist for a CDC-enabled DUT"
 
     await reset_cdc_dut(dut, axi_clk, mod_clk)
+
+    if ro_input_port is not None:
+        getattr(dut, ro_input_port).value = 0
+        await ClockCycles(mod_clk, 2)
 
     strobe_sig = getattr(dut, strobe_signal_name)
 
@@ -496,7 +510,8 @@ async def test_cdc_read_strobe_pulse_sync(dut):
         return
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=50, is_write=False,
-        reg_addr=REG_TEMPERATURE, strobe_signal_name='temperature_reg_rd_strobe')
+        reg_addr=REG_TEMPERATURE, strobe_signal_name='temperature_reg_rd_strobe',
+        ro_input_port='temperature_reg')
 
 
 @cocotb.test()
