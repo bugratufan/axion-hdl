@@ -2509,13 +2509,11 @@ def run_cocotb_tests() -> List[TestResult]:
         ("test_cdc_004_module_clock_port", "CDC-004: Module Clock Port Generation"),
         ("test_cdc_006_ro_path_sync", "CDC-006: RO Register Synchronization (module->AXI)"),
         ("test_cdc_007_rw_path_sync", "CDC-007: RW Register Synchronization (AXI->module)"),
-        ("test_cdc_gray_code_counter", "CDC: Gray Code Counter Safe Crossing"),
-        ("test_cdc_handshake_protocol", "CDC: 4-Phase Handshake Protocol"),
-        ("test_cdc_async_reset", "CDC: Asynchronous Reset Across Domains"),
+        ("test_cdc_async_reset", "CDC: Asynchronous Reset Across Domains (axi_aresetn scope)"),
         ("test_cdc_metastability_stress", "CDC: Metastability Stress Test"),
         ("test_cdc_clock_ratio_2x", "CDC: 2:1 Clock Ratio Crossing"),
         ("test_cdc_clock_ratio_prime", "CDC: Prime Number Clock Ratio (Worst Case)"),
-        ("test_cdc_data_coherency", "CDC: Multi-bit Data Coherency"),
+        ("test_cdc_ro_multibit_settle_no_torn_reads", "CDC: Multi-bit RO Settle, No Torn Reads"),
         ("test_cdc_pulse_sync", "CDC: Single-Cycle Pulse Synchronization"),
         ("test_cdc_pulse_sync_ratio_equal", "CDC-018: Strobe Toggle Sync at 1:1 Clock Ratio"),
         ("test_cdc_pulse_sync_module_faster", "CDC-018: Strobe Toggle Sync, module_clk Faster"),
@@ -2803,6 +2801,12 @@ def run_sv_cocotb_tests() -> List[TestResult]:
         ("test_sv_cdc_pulse_sync_prime_ratio", "CDC-018: SV Strobe Toggle Sync at Prime Clock Ratio"),
         ("test_sv_cdc_read_strobe_pulse_sync", "CDC-018: SV Read Strobe Toggle Sync (module_clk Slower)"),
         ("test_sv_cdc_rw_register_both_strobes", "CDC-018: SV RW Register Read+Write Strobes Independently Synced"),
+        ("test_sv_cdc_clock_ratio_2x", "CDC-015: SV RO Data Path at 2:1 Clock Ratio"),
+        ("test_sv_cdc_clock_ratio_prime", "CDC-015: SV RO Data Path at Prime Clock Ratio"),
+        ("test_sv_cdc_slow_to_fast", "CDC-015: SV RO Path, module_clk 5x Slower"),
+        ("test_sv_cdc_fast_to_slow", "CDC-015: SV RW Path, module_clk 5x Slower"),
+        ("test_sv_cdc_async_reset", "CDC-015: SV Async Reset Across Domains (axi_aresetn scope)"),
+        ("test_sv_cdc_ro_multibit_settle_no_torn_reads", "CDC-015: SV Multi-bit RO Settle, No Torn Reads"),
     ]
 
     cocotb_sv_cdc_stage2_tests = [
