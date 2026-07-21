@@ -1156,15 +1156,25 @@ class AxionGUI:
                 return jsonify({'success': False, 'error': str(e), 'trace': traceback.format_exc()})
 
     def _generate_vhdl_template(self, module_name, registers, properties):
-        """Generate VHDL source code for a new module"""
-        base_addr = properties.get('base_address', '0000')
+        """Generate VHDL source code for a new module with @axion annotations"""
+        base_addr = str(properties.get('base_address') or '0000')
+        if base_addr.lower().startswith('0x'):
+            base_addr = base_addr[2:]
         cdc_enabled = properties.get('cdc_enabled', False)
         cdc_stages = properties.get('cdc_stages', 2)
-        
+
+        # Module-level definition in the annotation syntax the analyzer parses
+        def_parts = [f"-- @axion_def BASE_ADDR=0x{base_addr}"]
+        if cdc_enabled:
+            def_parts.append("CDC_EN")
+            def_parts.append(f"CDC_STAGE={cdc_stages}")
+
         lines = []
         lines.append("library IEEE;")
         lines.append("use IEEE.STD_LOGIC_1164.ALL;")
         lines.append("use IEEE.NUMERIC_STD.ALL;")
+        lines.append("")
+        lines.append(" ".join(def_parts))
         lines.append("")
         lines.append(f"entity {module_name} is")
         lines.append("    port (")
@@ -1175,21 +1185,17 @@ class AxionGUI:
         lines.append("")
         lines.append(f"architecture rtl of {module_name} is")
         lines.append("")
-        lines.append(f"    -- AXION_BASE_ADDRESS: 0x{base_addr}")
-        if cdc_enabled:
-            lines.append(f"    -- AXION_CDC: {cdc_stages}")
-        lines.append("")
-        lines.append("    -- AXION_REG_BEGIN")
-        
+
         for reg in registers:
             name = reg.get('name', 'unnamed')
             width = int(reg.get('width', 32))
             access = reg.get('access', 'RW')
-            default = reg.get('default_value', '0x0')
+            # Coerce missing/None/empty defaults so string handling below is safe
+            default = reg.get('default_value') or '0x0'
             desc = reg.get('description', '')
             r_strobe = reg.get('r_strobe', False)
             w_strobe = reg.get('w_strobe', False)
-            
+
             # Determine signal type
             if width == 1:
                 sig_type = "std_logic"
@@ -1203,20 +1209,20 @@ class AxionGUI:
                     default_val = f'x"{int_val:0{(width+3)//4}X}"'
                 except:
                     default_val = f'(others => \'0\')'
-            
-            # Build comment with access mode and description
-            comment_parts = [f"-- {access}"]
-            if desc:
-                comment_parts.append(desc)
+
+            # Register annotation in the syntax the analyzer parses
+            ann_parts = [f"-- @axion {access}"]
             if r_strobe:
-                comment_parts.append("R_STROBE")
+                ann_parts.append("R_STROBE")
             if w_strobe:
-                comment_parts.append("W_STROBE")
-            comment = " ".join(comment_parts)
-            
-            lines.append(f"    signal {name} : {sig_type} := {default_val}; {comment}")
-        
-        lines.append("    -- AXION_REG_END")
+                ann_parts.append("W_STROBE")
+            if default not in (None, '', '0x0', '0'):
+                ann_parts.append(f"DEFAULT={default}")
+            if desc:
+                ann_parts.append(f'DESC="{desc}"')
+            annotation = " ".join(ann_parts)
+
+            lines.append(f"    signal {name} : {sig_type} := {default_val}; {annotation}")
         lines.append("")
         lines.append("begin")
         lines.append("")

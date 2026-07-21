@@ -55,27 +55,40 @@ class VHDLGenerator:
         return "std_logic_vector(31 downto 0)"
     
     @staticmethod
-    def _get_signal_width(signal_type: str) -> int:
+    def _parse_signal_bounds(signal_type: str):
         """
-        Get the width of a signal from its type.
+        Parse a signal type into (high, low) bit bounds.
 
         Supported formats:
             '[31:0]'                          (VHDL-annotation path)
-            'std_logic_vector(31 downto 0)'   (YAML-input path)
-            'std_logic'                       (YAML-input, 1-bit)
+            'std_logic_vector(31 downto 0)'   (YAML/JSON/TOML/XML input path)
+            'std_logic'                       (1-bit)
 
         Returns:
-            Width in bits
+            Tuple (high, low) or None if the format is not recognized
         """
         import re
         match = re.match(r'\[(\d+):(\d+)\]', signal_type)
         if match:
-            return int(match.group(1)) - int(match.group(2)) + 1
+            return int(match.group(1)), int(match.group(2))
         match = re.match(r'std_logic_vector\((\d+)\s+downto\s+(\d+)\)', signal_type)
         if match:
-            return int(match.group(1)) - int(match.group(2)) + 1
+            return int(match.group(1)), int(match.group(2))
         if signal_type.strip() == 'std_logic':
-            return 1
+            return 0, 0
+        return None
+
+    @staticmethod
+    def _get_signal_width(signal_type: str) -> int:
+        """
+        Get the width of a signal from its type.
+
+        Returns:
+            Width in bits (defaults to 32 for unrecognized formats)
+        """
+        bounds = VHDLGenerator._parse_signal_bounds(signal_type)
+        if bounds is not None:
+            return bounds[0] - bounds[1] + 1
         return 32
     
     @staticmethod
@@ -96,13 +109,11 @@ class VHDLGenerator:
             For 32-bit:          'signal_name'
             For >32-bit:         'signal_name(31 downto 0)' (first 32 bits only)
         """
-        import re
-        match = re.match(r'\[(\d+):(\d+)\]', signal_type)
-        if match:
-            high = int(match.group(1))
-            low = int(match.group(2))
+        bounds = VHDLGenerator._parse_signal_bounds(signal_type)
+        if bounds is not None:
+            high, low = bounds
             width = high - low + 1
-            
+
             if width > 32:
                 # For signals wider than 32 bits, take only the first 32 bits
                 return f"{signal_name}(31 downto 0)"
@@ -132,13 +143,11 @@ class VHDLGenerator:
             For 32-bit:          'signal_name'
             For >32-bit:         'signal_name' (only 32 bits available)
         """
-        import re
-        match = re.match(r'\[(\d+):(\d+)\]', signal_type)
-        if match:
-            high = int(match.group(1))
-            low = int(match.group(2))
+        bounds = VHDLGenerator._parse_signal_bounds(signal_type)
+        if bounds is not None:
+            high, low = bounds
             width = high - low + 1
-            
+
             if width > 32:
                 # For signals wider than 32 bits, only first 32 bits are in the register
                 # Return full 32-bit register value
@@ -157,19 +166,33 @@ class VHDLGenerator:
         Get number of 32-bit registers needed for a signal.
         
         Args:
-            signal_type: Internal format like "[31:0]", "[63:0]", "[99:0]"
-            
+            signal_type: Internal format like "[31:0]", "[63:0]" or
+                         "std_logic_vector(63 downto 0)"
+
         Returns:
             Number of 32-bit registers needed
         """
-        import re
-        match = re.match(r'\[(\d+):(\d+)\]', signal_type)
-        if match:
-            high = int(match.group(1))
-            low = int(match.group(2))
-            width = high - low + 1
+        bounds = VHDLGenerator._parse_signal_bounds(signal_type)
+        if bounds is not None:
+            width = bounds[0] - bounds[1] + 1
             return (width + 31) // 32
         return 1
+
+    @staticmethod
+    def _packed_ro_fields(packed_reg: Dict) -> List[Dict]:
+        """Return the RO fields of a packed register (inputs from module domain)."""
+        return [f for f in packed_reg.get('fields', []) if f['access_mode'] == 'RO']
+
+    @staticmethod
+    def _packed_has_writable_fields(packed_reg: Dict) -> bool:
+        """True if the packed register has RW/WO fields (outputs to module domain)."""
+        return any(f['access_mode'] in ('RW', 'WO') for f in packed_reg.get('fields', []))
+
+    @staticmethod
+    def _field_type(field: Dict) -> str:
+        """VHDL type of a packed register field."""
+        width = field['bit_high'] - field['bit_low'] + 1
+        return "std_logic" if width == 1 else f"std_logic_vector({width - 1} downto 0)"
         
     @staticmethod
     def _sanitize_vhdl_identifier(name: str) -> str:
@@ -600,6 +623,7 @@ class VHDLGenerator:
         
         lines.append("    ")
         if module_data['cdc_enabled']:
+            cdc_sync_signals = []
             lines.append("    ")
             lines.append(f"    -- CDC synchronizer ({module_data['cdc_stages']} stages)")
             for reg in module_data['registers']:
@@ -608,11 +632,37 @@ class VHDLGenerator:
                 num_regs = self._get_num_regs(reg['signal_type'])
                 if num_regs == 1:
                     for stage in range(module_data['cdc_stages']):
-                        lines.append(f"    signal {reg['signal_name']}_sync{stage} : std_logic_vector(31 downto 0);")
+                        sig = f"{reg['signal_name']}_sync{stage}"
+                        cdc_sync_signals.append(sig)
+                        lines.append(f"    signal {sig} : std_logic_vector(31 downto 0) := (others => '0');")
                 else:
                     for i in range(num_regs):
                         for stage in range(module_data['cdc_stages']):
-                            lines.append(f"    signal {reg['signal_name']}{i}_sync{stage} : std_logic_vector(31 downto 0);")
+                            sig = f"{reg['signal_name']}{i}_sync{stage}"
+                            cdc_sync_signals.append(sig)
+                            lines.append(f"    signal {sig} : std_logic_vector(31 downto 0) := (others => '0');")
+            # Packed register CDC synchronizers:
+            #   - one chain per packed register with writable fields (axi_aclk -> module_clk)
+            #   - one chain per RO field (module_clk -> axi_aclk)
+            for pr in packed_registers:
+                if self._packed_has_writable_fields(pr):
+                    for stage in range(module_data['cdc_stages']):
+                        sig = f"{pr['reg_name']}_reg_sync{stage}"
+                        cdc_sync_signals.append(sig)
+                        lines.append(f"    signal {sig} : std_logic_vector(31 downto 0) := (others => '0');")
+                for f in self._packed_ro_fields(pr):
+                    ftype = self._field_type(f)
+                    init = "'0'" if ftype == "std_logic" else "(others => '0')"
+                    for stage in range(module_data['cdc_stages']):
+                        sig = f"{pr['reg_name']}_{f['name']}_sync{stage}"
+                        cdc_sync_signals.append(sig)
+                        lines.append(f"    signal {sig} : {ftype} := {init};")
+            if cdc_sync_signals:
+                lines.append("    ")
+                lines.append("    -- CDC attributes: keep synchronizer flops adjacent, prevent SRL inference")
+                lines.append("    attribute ASYNC_REG : string;")
+                for sig in cdc_sync_signals:
+                    lines.append(f"    attribute ASYNC_REG of {sig} : signal is \"TRUE\";")
 
         if use_axion_types:
             lines.extend([
@@ -679,12 +729,23 @@ class VHDLGenerator:
         ])
         
         # Packed Register Mapping (Subregister connections)
+        # With CDC enabled:
+        #   - RO field values come from their axi_aclk-domain synchronizer chain
+        #   - RW/WO field outputs come from the module_clk-domain synchronizer chain
+        #   - AXI readback of RW/WO bits still uses the axi_aclk-domain storage
+        pr_cdc = module_data['cdc_enabled']
+        pr_last = module_data['cdc_stages'] - 1 if pr_cdc else 0
         for pr in packed_registers:
             # Build sensitivity list for the process
             sens_list = [f"{pr['reg_name']}_reg"]
+            if pr_cdc and self._packed_has_writable_fields(pr):
+                sens_list.append(f"{pr['reg_name']}_reg_sync{pr_last}")
             for f in pr.get('fields', []):
                 if f['access_mode'] == 'RO':
-                    sens_list.append(f"{pr['reg_name']}_{f['name']}")
+                    if pr_cdc:
+                        sens_list.append(f"{pr['reg_name']}_{f['name']}_sync{pr_last}")
+                    else:
+                        sens_list.append(f"{pr['reg_name']}_{f['name']}")
 
             lines.append(f"    -- Connections for {pr['reg_name']}")
             lines.append(f"    process({', '.join(sens_list)})")
@@ -694,21 +755,23 @@ class VHDLGenerator:
                 high = f['bit_high']
                 low = f['bit_low']
                 sig_name = f"{pr['reg_name']}_{f['name']}"
-                
+
                 if f['access_mode'] == 'RO':
-                    # Driven by module input
+                    # Driven by module input (synchronized to axi_aclk when CDC enabled)
+                    ro_src = f"{sig_name}_sync{pr_last}" if pr_cdc else sig_name
                     if high == low:
-                        lines.append(f"        {pr['reg_name']}_val({high}) <= {sig_name};")
+                        lines.append(f"        {pr['reg_name']}_val({high}) <= {ro_src};")
                     else:
-                        lines.append(f"        {pr['reg_name']}_val({high} downto {low}) <= {sig_name};")
+                        lines.append(f"        {pr['reg_name']}_val({high} downto {low}) <= {ro_src};")
                 else:
-                    # Driven by AXI storage
+                    # Readback from AXI storage; output synchronized to module_clk when CDC enabled
+                    out_src = f"{pr['reg_name']}_reg_sync{pr_last}" if pr_cdc else f"{pr['reg_name']}_reg"
                     if high == low:
                         lines.append(f"        {pr['reg_name']}_val({high}) <= {pr['reg_name']}_reg({high});")
-                        lines.append(f"        {sig_name} <= {pr['reg_name']}_reg({high});")
+                        lines.append(f"        {sig_name} <= {out_src}({high});")
                     else:
                         lines.append(f"        {pr['reg_name']}_val({high} downto {low}) <= {pr['reg_name']}_reg({high} downto {low});")
-                        lines.append(f"        {sig_name} <= {pr['reg_name']}_reg({high} downto {low});")
+                        lines.append(f"        {sig_name} <= {out_src}({high} downto {low});")
             lines.append("    end process;")
             lines.append("    ")
 
@@ -1244,13 +1307,13 @@ class VHDLGenerator:
                         chunks = [f"{reg['signal_name']}{i}_sync{cdc_last_stage}" for i in range(num_regs-1, -1, -1)]
                     else:
                         chunks = [f"{reg['signal_name']}_reg{i}" for i in range(num_regs-1, -1, -1)]
-                    
+
                     # Handle last chunk if it's smaller than 32 bits
                     last_chunk_bits = signal_width - (num_regs - 1) * 32
                     if last_chunk_bits < 32:
                         chunks[0] = f"{chunks[0]}({last_chunk_bits - 1} downto 0)"
-                    
-                    lines.append("    ")
+
+                    lines.append(f"    {reg['signal_name']} <= {' & '.join(chunks)};")
 
         # Packed register assignments (Strobes + Field Connections)
         for packed_reg in module_data.get('packed_registers', []):
@@ -1287,10 +1350,16 @@ class VHDLGenerator:
             "    ---------------------------------------------------------------------------",
         ])
         
+        packed_registers = module_data.get('packed_registers', [])
+        # RO fields of packed registers also cross module_clk -> axi_aclk
+        packed_ro_fields = [(pr, f) for pr in packed_registers for f in self._packed_ro_fields(pr)]
+        # Packed registers with writable fields cross axi_aclk -> module_clk
+        packed_writable = [pr for pr in packed_registers if self._packed_has_writable_fields(pr)]
+
         # Process for RO registers (module_clk -> axi_aclk)
         # These are inputs from module that AXI needs to read
         ro_regs = [reg for reg in module_data['registers'] if reg['access_mode'] == 'RO' and not reg.get('is_packed')]
-        if ro_regs:
+        if ro_regs or packed_ro_fields:
             lines.extend([
                 "    -- CDC: Module clock domain to AXI clock domain (for RO registers)",
                 "    process(axi_aclk)",
@@ -1308,6 +1377,10 @@ class VHDLGenerator:
                     for i in range(num_regs):
                         for stage in range(cdc_stages):
                             lines.append(f"                {reg['signal_name']}{i}_sync{stage} <= (others => '0');")
+            for pr, f in packed_ro_fields:
+                reset_val = "'0'" if f['bit_high'] == f['bit_low'] else "(others => '0')"
+                for stage in range(cdc_stages):
+                    lines.append(f"                {pr['reg_name']}_{f['name']}_sync{stage} <= {reset_val};")
             lines.extend([
                 "            else",
             ])
@@ -1336,6 +1409,12 @@ class VHDLGenerator:
                         
                         for stage in range(1, cdc_stages):
                             lines.append(f"                {reg['signal_name']}{i}_sync{stage} <= {reg['signal_name']}{i}_sync{stage-1};")
+            for pr, f in packed_ro_fields:
+                sig_name = f"{pr['reg_name']}_{f['name']}"
+                lines.append(f"                -- {sig_name} synchronization chain (packed RO field)")
+                lines.append(f"                {sig_name}_sync0 <= {sig_name};")
+                for stage in range(1, cdc_stages):
+                    lines.append(f"                {sig_name}_sync{stage} <= {sig_name}_sync{stage-1};")
             lines.extend([
                 "            end if;",
                 "        end if;",
@@ -1346,7 +1425,7 @@ class VHDLGenerator:
         # Process for WO/RW registers (axi_aclk -> module_clk)
         # These are outputs from AXI that module needs to read
         wo_rw_regs = [reg for reg in module_data['registers'] if reg['access_mode'] in ['WO', 'RW'] and not reg.get('is_packed')]
-        if wo_rw_regs:
+        if wo_rw_regs or packed_writable:
             lines.extend([
                 "    -- CDC: AXI clock domain to Module clock domain (for WO/RW registers)",
                 "    process(module_clk)",
@@ -1368,6 +1447,11 @@ class VHDLGenerator:
                         lines.append(f"            {reg['signal_name']}{i}_sync0 <= {reg['signal_name']}_reg{i};")
                         for stage in range(1, cdc_stages):
                             lines.append(f"            {reg['signal_name']}{i}_sync{stage} <= {reg['signal_name']}{i}_sync{stage-1};")
+            for pr in packed_writable:
+                lines.append(f"            -- {pr['reg_name']} synchronization chain (packed RW/WO fields)")
+                lines.append(f"            {pr['reg_name']}_reg_sync0 <= {pr['reg_name']}_reg;")
+                for stage in range(1, cdc_stages):
+                    lines.append(f"            {pr['reg_name']}_reg_sync{stage} <= {pr['reg_name']}_reg_sync{stage-1};")
             lines.extend([
                 "        end if;",
                 "    end process;",
