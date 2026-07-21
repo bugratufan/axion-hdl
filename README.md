@@ -107,6 +107,7 @@ Generates: VHDL + SystemVerilog modules, C header, HTML docs, YAML/TOML/XML/JSON
 - **Multi-format input** — VHDL/SystemVerilog annotations, YAML, TOML, XML, JSON
 - **Multi-HDL output** — Generate both VHDL and SystemVerilog register interfaces
 - **CDC support** — built-in clock domain crossing synchronizers
+- **XDC constraints** — instance-independent Vivado false-path constraints per module (`--xdc`)
 - **Subregisters** — pack multiple fields into one address
 - **Wide signals** — auto-split 64-bit+ signals across addresses
 - **Tested** — 307+ tests, GHDL simulation verified

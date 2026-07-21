@@ -30,6 +30,7 @@ from .json_input_parser import JSONInputParser
 from .toml_input_parser import TOMLInputParser
 from .generator import VHDLGenerator
 from .systemverilog_generator import SystemVerilogGenerator
+from .xdc_generator import XDCGenerator
 from .doc_generators import DocGenerator, CHeaderGenerator, XMLGenerator, YAMLGenerator, JSONGenerator
 from .rule_checker import RuleChecker
 
@@ -1059,6 +1060,40 @@ class AxionHDL:
                 print(f"  Generated: {os.path.basename(pkg_path)}")
 
         print(f"\nSystemVerilog files generated in: {self.output_dir}")
+        return True
+
+    def generate_xdc(self):
+        """
+        Generate Xilinx XDC timing constraint files (\*_axion_reg.xdc) for all
+        analyzed modules.
+
+        Each file false-paths the module-side register signals of the
+        corresponding \*_axion_reg module. The constraints locate cells via
+        REF_NAME/ORIG_REF_NAME matching, so they are independent of the
+        instance names chosen by the integrator and apply to every instance
+        of the module in the design hierarchy.
+        """
+        if not self.is_analyzed:
+            print("Error: Analysis not performed. Call analyze() first.")
+            return False
+
+        if self._has_parsing_errors():
+            return False
+
+        print(f"\n{'='*60}")
+        print("Generating XDC constraint files...")
+        print(f"{'='*60}")
+
+        # Create output directory if it doesn't exist
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        # Generate XDC files
+        generator = XDCGenerator(self.output_dir)
+        for module in self.analyzed_modules:
+            output_path = generator.generate_xdc(module)
+            print(f"  Generated: {os.path.basename(output_path)}")
+
+        print(f"\nXDC files generated in: {self.output_dir}")
         return True
 
     def generate_documentation(self, format="md"):

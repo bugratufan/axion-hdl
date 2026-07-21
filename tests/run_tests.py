@@ -12,6 +12,7 @@ Covers requirements:
 - GEN-001 to GEN-032
 - SUB-007, SUB-008
 - CDC-001 to CDC-017
+- XDC-001 to XDC-012
 - ADDR-001 to ADDR-008
 - ERR-001 to ERR-006
 - CLI-001 to CLI-010
@@ -1139,10 +1140,14 @@ def generate_markdown_report(results: List[TestResult]):
         }),
         "equiv": ("🔀 Format Equivalence Tests (EQUIV-xxx)", {
             "requirements": "EQUIV Requirements"
+        }),
+        "xdc": ("📐 XDC Constraint Tests (XDC-xxx)", {
+            "requirements": "XDC Requirements",
+            "setup": "Setup"
         })
     }
-    
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "json_input", "equiv"]:
+
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "json_input", "equiv", "xdc"]:
         if cat not in categories:
             continue
         
@@ -1226,7 +1231,8 @@ def print_results(results: List[TestResult]):
         "axion_types": "🔌 AXION-TYPES",
         "systemverilog": "⚡ SYSTEMVERILOG",
         "hier": "🗂️  HIER",
-        "reg_model": "🐍 REG-MODEL"
+        "reg_model": "🐍 REG-MODEL",
+        "xdc": "📐 XDC"
     }
 
     total_passed = 0
@@ -1239,7 +1245,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
 
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "enum", "axion_types", "systemverilog", "hier", "reg_model"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "enum", "axion_types", "systemverilog", "hier", "reg_model", "xdc"]:
         if cat not in categories:
             continue
         
@@ -1592,6 +1598,55 @@ def run_cdc_tests() -> List[TestResult]:
     except ImportError as e:
         results.append(TestResult("cdc.import", "CDC: Import test module", "failed", 0, str(e), category="cdc", subcategory="setup"))
     
+    return results
+
+
+def run_xdc_tests() -> List[TestResult]:
+    """Run XDC-xxx requirement tests"""
+    results = []
+
+    try:
+        from tests.python.test_xdc import TestXDCRequirements
+        import io
+        import sys
+
+        loader = unittest.TestLoader()
+        suite = loader.loadTestsFromTestCase(TestXDCRequirements)
+
+        for test in suite:
+            test_name = str(test).split()[0]
+            req_id = test_name.replace('test_xdc_', 'XDC-').replace('_', '-').upper()
+
+            start = time.time()
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+                try:
+                    test.debug()
+                finally:
+                    sys.stdout = old_stdout
+
+                results.append(TestResult(
+                    f"xdc.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "passed",
+                    time.time() - start,
+                    category="xdc",
+                    subcategory="requirements"
+                ))
+            except Exception as e:
+                results.append(TestResult(
+                    f"xdc.{test_name}",
+                    f"{req_id}: {test.shortDescription() or test_name}",
+                    "failed",
+                    time.time() - start,
+                    str(e),
+                    category="xdc",
+                    subcategory="requirements"
+                ))
+    except ImportError as e:
+        results.append(TestResult("xdc.import", "XDC: Import test module", "failed", 0, str(e), category="xdc", subcategory="setup"))
+
     return results
 
 
@@ -3159,7 +3214,7 @@ def main():
     print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..036, ENUM-001..042, AXION-TYPES-001..021, HIER-001..025, SV-PARSER, SV-GEN, SV-ADV, REG-MODEL-001..065 + Cocotb\n")
 
     all_results = []
-    total_steps = 29
+    total_steps = 30
 
     # Run Python unit tests (core functionality)
     print(f"  [1/{total_steps}] Running Python unit tests...", flush=True)
@@ -3276,6 +3331,10 @@ def main():
     # Run documentation and XML output correctness tests (GEN-033..036)
     print(f"  [29/{total_steps}] Running documentation output correctness tests...", flush=True)
     all_results.extend(run_doc_output_correctness_tests())
+
+    # Run XDC tests (XDC requirements)
+    print(f"  [30/{total_steps}] Running XDC constraint generation tests...", flush=True)
+    all_results.extend(run_xdc_tests())
 
     # Save and generate reports
     save_results(all_results)
