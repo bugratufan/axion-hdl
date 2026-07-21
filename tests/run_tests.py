@@ -1126,16 +1126,16 @@ def generate_markdown_report(results: List[TestResult]):
         "val": ("✅ Validation Tests (VAL-xxx)", {
             "requirements": "VAL Requirements"
         }),
-        "xml-input": ("📄 XML Input Tests (XML-INPUT-xxx)", {
+        "xml_input": ("📄 XML Input Tests (XML-INPUT-xxx)", {
             "requirements": "XML-INPUT Requirements"
         }),
-        "yaml-input": ("📄 YAML Input Tests (YAML-INPUT-xxx)", {
+        "yaml_input": ("📄 YAML Input Tests (YAML-INPUT-xxx)", {
             "requirements": "YAML-INPUT Requirements"
         }),
-        "json-input": ("📄 JSON Input Tests (JSON-INPUT-xxx)", {
+        "json_input": ("📄 JSON Input Tests (JSON-INPUT-xxx)", {
             "requirements": "JSON-INPUT Requirements"
         }),
-        "toml-input": ("📄 TOML Input Tests (TOML-INPUT-xxx)", {
+        "toml_input": ("📄 TOML Input Tests (TOML-INPUT-xxx)", {
             "requirements": "TOML-INPUT Requirements"
         }),
         "equiv": ("🔀 Format Equivalence Tests (EQUIV-xxx)", {
@@ -1147,10 +1147,10 @@ def generate_markdown_report(results: List[TestResult]):
         })
     }
 
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "json_input", "equiv", "xdc"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "xdc"]:
         if cat not in categories:
             continue
-        
+
         cat_title, subcat_titles = cat_info.get(cat, (cat.title(), {}))
         
         md.append(f"## {cat_title}")
