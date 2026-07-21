@@ -210,6 +210,14 @@ For more information, visit: https://axion-hdl.readthedocs.io
     )
 
     gen_group.add_argument(
+        '--xdc',
+        action='store_true',
+        help='Generate Xilinx XDC timing constraint files (*_axion_reg.xdc) '
+             'with instance-independent false-path constraints for the '
+             'module-side register signals'
+    )
+
+    gen_group.add_argument(
         '--doc',
         action='store_true',
         help='Generate register map documentation'
@@ -369,7 +377,8 @@ For more information, visit: https://axion-hdl.readthedocs.io
             sys.exit(1)
     
     # If no specific generation option is provided, default to --all (unless --gui or --rule-check is present)
-    if not any([args.all, args.vhdl, args.doc, args.xml, args.yaml, args.json, args.c_header,
+    if not any([args.all, args.vhdl, args.systemverilog, args.xdc, args.doc, args.xml,
+                args.yaml, args.json, args.c_header,
                 getattr(args, 'python', False), args.gui, args.rule_check]):
         args.all = True
     
@@ -462,7 +471,8 @@ For more information, visit: https://axion-hdl.readthedocs.io
             print("Rule Check failed with errors.", file=sys.stderr)
             sys.exit(1)
         # If not generating anything else, exit success
-        if not any([args.all, args.vhdl, args.doc, args.xml, args.yaml, args.json, args.c_header]):
+        if not any([args.all, args.vhdl, args.systemverilog, args.xdc, args.doc, args.xml,
+                    args.yaml, args.json, args.c_header]):
              sys.exit(0)
             
     # Generate outputs based on user selection
@@ -477,6 +487,8 @@ For more information, visit: https://axion-hdl.readthedocs.io
             success &= axion.generate_vhdl()
         if args.systemverilog:
             success &= axion.generate_systemverilog()
+        if args.xdc:
+            success &= axion.generate_xdc()
         if args.doc:
             success &= axion.generate_documentation(format=args.doc_format)
         if args.xml:

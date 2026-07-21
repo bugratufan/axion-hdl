@@ -8,6 +8,7 @@ Axion-HDL generates multiple output formats from a single input definition. This
 |--------|--------------|-------------|
 | **VHDL Module** | `<module>_axion_reg.vhd` | AXI4-Lite slave entity |
 | **SystemVerilog** | `<module>_axion_reg.sv` | AXI4-Lite slave module with structs |
+| **XDC Constraints** | `<module>_axion_reg.xdc` | Instance-independent Vivado false-path constraints (requires `--xdc`) |
 | **C Header** | `<module>_regs.h` | Register macros and addresses |
 | **Markdown** | `register_map.md` | Human-readable documentation |
 | **HTML** | `<module>.html`, `index.html` | Styled web documentation |
@@ -221,6 +222,61 @@ config:
 ```bash
 axion-hdl -s regs.yaml -o output/ --sv --use-axion-types
 ```
+
+---
+
+## XDC Constraint File
+
+**File:** `<module>_axion_reg.xdc` (requires `--xdc`, not included in `--all`)
+
+A Xilinx Vivado constraint file that declares timing exceptions (false paths)
+for the module-side register signals of the generated `*_axion_reg` module.
+
+### Instance Independence
+
+The constraints do not contain any instance names or hierarchy paths. Cells
+are located through the module reference name, so the file applies to every
+instance of the module anywhere in the design, regardless of the instance
+names chosen by the integrator:
+
+```tcl
+set axion_cells [get_cells -hierarchical -filter {REF_NAME == spi_master_axion_reg || ORIG_REF_NAME == spi_master_axion_reg}]
+
+# status_reg (RO, module -> AXI (input))
+set_false_path -to [get_pins -of_objects $axion_cells -filter {NAME =~ */status_reg || NAME =~ */status_reg[*]}]
+
+# control_reg (RW, AXI -> module (output))
+set_false_path -from [get_pins -of_objects $axion_cells -filter {NAME =~ */control_reg || NAME =~ */control_reg[*]}]
+```
+
+`ORIG_REF_NAME` keeps the match working even when Vivado synthesis renames or
+uniquifies the module during hierarchy rebuilding.
+
+### Constraint Rules
+
+| Register Type | Module Port Direction | Constraint |
+|---------------|-----------------------|------------|
+| RO | input (module → AXI) | `set_false_path -to` |
+| RW / WO | output (AXI → module) | `set_false_path -from` |
+| Packed fields | per field access mode | `<reg_name>_<field_name>` pins |
+| `*_rd_strobe` / `*_wr_strobe` | output | **not** false-pathed (emitted commented-out) |
+| AXI bus pins (`axi_*`) | — | never constrained |
+
+Strobe outputs are single-cycle pulses; false-pathing them would hide real
+timing failures, so the corresponding constraints are only emitted as
+comments that can be enabled deliberately.
+
+### Usage
+
+Add the file to the Vivado project like any other constraint file
+(`add_files` / `read_xdc`), ordered together with (or after) the constraints
+that create the design clocks.
+
+**Warning:** the false paths declare the register signals as
+asynchronous / quasi-static. For modules generated **without** CDC
+(`CDC_EN=false`), the file carries an explicit warning header: only apply it
+if the logic connected to the register signals runs in a different clock
+domain than `axi_aclk`.
 
 ---
 

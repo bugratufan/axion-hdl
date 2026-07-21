@@ -23,6 +23,7 @@ Testing and verification are automated via `make test`, which maps tests back to
 | **DEF** | Default Values | Support for reset values via `DEFAULT` attribute. |
 | **VAL** | Validation | Validation of inputs, error visibility, and diagnostics. |
 | **EQUIV** | Format Equivalence | Cross-format parsing and output equivalence. |
+| **XDC** | Timing Constraints | Generation of instance-independent Xilinx XDC false-path constraint files. |
 
 ---
 
@@ -255,3 +256,20 @@ Testing and verification are automated via `make test`, which maps tests back to
 | VAL-006 | Numeric Attribute Validation | Invalid numeric values for `base_addr`, `addr`, `width`, `bit_offset`, and `cdc_stage` must be reported as Parsing Errors. | Python Unit Test |
 | VAL-007 | Generation Safety Lock | The tool must block all code and documentation generation if any analyzed module contains parsing errors. | Python Unit Test |
 
+
+## 14. XDC Constraint Generation (XDC)
+
+| ID | Definition | Acceptance Criteria | Test Method |
+|----|------------|---------------------|-------------|
+| XDC-001 | CLI Flag Generation | The `--xdc` CLI flag must generate one `<module>_axion_reg.xdc` file per analyzed module in the output directory. | Python Unit Test (`test_xdc_001_cli_flag_generation`) |
+| XDC-002 | Instance Independence | The generated XDC must locate cells via `REF_NAME`/`ORIG_REF_NAME` equality matching on `<module>_axion_reg`, so constraints apply to every instance without knowing user instance names. No hard-coded instance path may appear in the file. | Python Unit Test (`test_xdc_002_instance_independence`) |
+| XDC-003 | RO False Path Direction | Every non-packed RO register must produce a `set_false_path -to` constraint targeting its module-side pins (module -> AXI input). | Python Unit Test (`test_xdc_003_ro_false_path_to`) |
+| XDC-004 | RW/WO False Path Direction | Every non-packed RW or WO register must produce a `set_false_path -from` constraint targeting its module-side pins (AXI -> module output). | Python Unit Test (`test_xdc_004_rw_wo_false_path_from`) |
+| XDC-005 | Packed Field Constraints | Every packed register field must produce a false-path constraint on the `<reg_name>_<field_name>` pin with direction chosen by the field access mode. | Python Unit Test (`test_xdc_005_packed_field_constraints`) |
+| XDC-006 | Strobe Exclusion | `*_rd_strobe` / `*_wr_strobe` outputs must NOT be actively false-pathed; they may only appear as commented-out constraints with an explanatory note. | Python Unit Test (`test_xdc_006_strobe_exclusion`) |
+| XDC-007 | Vector Pin Coverage | Each register pin filter must match both the scalar pin name (`<sig>`) and the vector bit pins (`<sig>[*]`) so vector and wide (multi-word) registers are covered. | Python Unit Test (`test_xdc_007_vector_pin_coverage`) |
+| XDC-008 | AXI Port Exclusion | No active false-path constraint may target the AXI4-Lite bus pins (`axi_*`). | Python Unit Test (`test_xdc_008_axi_port_exclusion`) |
+| XDC-009 | Non-CDC Warning Header | Modules with CDC disabled must carry a header warning that the false paths are only valid for asynchronous consumers; CDC-enabled modules must not carry this warning. | Python Unit Test (`test_xdc_009_non_cdc_warning`) |
+| XDC-010 | Explicit Opt-In | `--xdc` alone must generate only XDC output (no implicit `--all` fallback), and `--all` must not emit XDC files. | Python Unit Test (`test_xdc_010_explicit_opt_in`) |
+| XDC-011 | Input Format Independence | XDC generation must work for modules parsed from any supported input format (VHDL annotations, YAML, etc.). | Python Unit Test (`test_xdc_011_input_format_independence`) |
+| XDC-012 | API Safety | `AxionHDL.generate_xdc()` must return False when called before `analyze()` and True after successful generation. | Python Unit Test (`test_xdc_012_api_safety`) |
