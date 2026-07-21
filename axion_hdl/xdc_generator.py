@@ -4,18 +4,39 @@ Axion HDL XDC Constraint Generator Module
 This module generates Xilinx Design Constraints (XDC) files for the
 generated AXI4-Lite register interface modules (*_axion_reg).
 
-For every analyzed module a `<module>_axion_reg.xdc` file is produced that
-declares timing exceptions (false paths) for the module-side register
-signals:
+XDC files are only generated for CDC-enabled modules (CDC_EN). Axion-HDL
+always synchronizes CDC-enabled register signals and strobes through its
+own internally-generated synchronizer chain, so the exact internal
+crossing point (source register/port -> the first synchronizer stage) is
+known and can be false-pathed precisely:
 
-- RO registers are inputs of the register module (module logic -> AXI):
-  constrained with `set_false_path -to`.
-- RW/WO registers are outputs of the register module (AXI -> module logic):
-  constrained with `set_false_path -from`.
+- RO registers/fields: the module-side input port drives `<name>_sync0`
+  in the axi_aclk domain -> `set_false_path -from <port> -to <name>_sync0`.
+- RW/WO registers/fields: the AXI-domain storage register `<name>_reg`
+  drives `<name>_sync0` in the module_clk domain ->
+  `set_false_path -from <name>_reg -to <name>_sync0`.
+- Read/write strobes: the axi_aclk-domain toggle register `<name>_rd/wr_toggle`
+  drives `<name>_rd/wr_toggle_sync0` in the module_clk domain -> same
+  pattern, targeting the toggle crossing only. The regenerated
+  single-cycle pulse on the actual `<name>_rd/wr_strobe` port is a normal,
+  fully-synchronized module_clk-domain signal and needs no exception.
+
+Only the first synchronizer stage is targeted: subsequent stages
+(stage0 -> stage1 -> ... ) are same-clock-domain register-to-register
+hops that standard timing analysis already checks correctly, so no
+exception is needed (or wanted) for them.
+
+CDC-disabled modules have no internal synchronizer to scope a false path
+to - the register signals are single-clock-domain internally, and any
+crossing would happen entirely outside axion_reg, in logic Axion-HDL
+cannot see. Generating a blanket false path there would be unscoped and
+unsafe (it would silently exempt real same-clock-domain timing paths in
+the user's downstream logic), so no XDC file is produced for these
+modules.
 
 The constraints are instance-independent: instead of hard-coding an
-instance path (which is chosen by the user, not by Axion-HDL), the cells
-are located through their module reference name:
+instance path (which is chosen by the user, not by Axion-HDL), cells are
+located through their module reference name:
 
     get_cells -hierarchical -filter {REF_NAME == <module>_axion_reg ||
                                      ORIG_REF_NAME == <module>_axion_reg}
@@ -24,17 +45,13 @@ This matches every instance of the module anywhere in the design
 hierarchy, regardless of the instance names chosen by the integrator.
 Vivado keeps ORIG_REF_NAME intact even when synthesis renames or uniquifies
 the module, so the constraints survive hierarchy rebuilding.
-
-Strobe outputs (*_rd_strobe / *_wr_strobe) are single-cycle pulses and are
-intentionally NOT false-pathed; the corresponding constraints are emitted
-commented-out with an explanatory note.
 """
 
 import os
 
 
 class XDCGenerator:
-    """Generates Xilinx XDC timing constraint files for register modules."""
+    """Generates Xilinx XDC timing constraint files for CDC-enabled register modules."""
 
     def __init__(self, output_dir):
         """
@@ -49,13 +66,20 @@ class XDCGenerator:
         """
         Generate the XDC constraint file for a single module.
 
+        Only CDC-enabled modules produce a file - see module docstring for
+        why CDC-disabled modules are skipped.
+
         Args:
             module_data: Parsed module dictionary (same structure consumed
                          by VHDLGenerator/SystemVerilogGenerator)
 
         Returns:
-            Path of the generated .xdc file
+            Path of the generated .xdc file, or None if the module has CDC
+            disabled (no file is written).
         """
+        if not module_data.get('cdc_enabled'):
+            return None
+
         module_name = module_data['name']
         entity_name = f"{module_name}_axion_reg"
 
@@ -63,7 +87,7 @@ class XDCGenerator:
         lines.extend(self._generate_cell_lookup(entity_name))
         lines.extend(self._generate_register_constraints(module_data))
         lines.extend(self._generate_packed_register_constraints(module_data))
-        lines.extend(self._generate_strobe_notes(module_data))
+        lines.extend(self._generate_strobe_constraints(module_data))
 
         output_path = os.path.join(self.output_dir, f"{entity_name}.xdc")
         with open(output_path, 'w') as f:
@@ -79,7 +103,7 @@ class XDCGenerator:
         """Generate the file header with usage notes."""
         from axion_hdl import __version__
 
-        lines = [
+        return [
             "#" * 78,
             f"# {entity_name}.xdc",
             f"# Timing constraints for the {entity_name} AXI4-Lite register interface",
@@ -91,36 +115,24 @@ class XDCGenerator:
             "# every instance of the module anywhere in the design hierarchy, no",
             "# matter which instance names the integrator chose.",
             "#",
+            "# Every exception below is scoped to a single CDC crossing hop: from the",
+            "# source-domain register/port to the first stage of Axion-HDL's own",
+            "# synchronizer chain. Nothing downstream of the synchronized output",
+            "# ports/strobes is touched, so normal same-clock-domain timing analysis",
+            "# still applies to all consuming logic.",
+            "#",
             "# Usage:",
             "#   Add this file to the Vivado project as a normal constraint file",
             "#   (add_files / read_xdc). It must be processed together with (or",
             "#   after) the constraints that create the design clocks.",
             "#",
-            "# Notes:",
-            "#   * If the module is not (yet) instantiated in the design, Vivado",
-            "#     reports 'no valid object(s) found' critical warnings for these",
-            "#     constraints. They are harmless and disappear once the module is",
-            "#     instantiated.",
-            "#   * The false paths below declare the module-side register signals",
-            "#     as asynchronous / quasi-static. The consuming logic must treat",
-            "#     them accordingly (e.g. slow-changing configuration values or",
-            "#     status values that tolerate sampling skew between bits).",
+            "# Note: if the module is not (yet) instantiated in the design, Vivado",
+            "# reports 'no valid object(s) found' critical warnings for these",
+            "# constraints. They are harmless and disappear once the module is",
+            "# instantiated.",
+            "#" * 78,
+            "",
         ]
-
-        if not module_data.get('cdc_enabled'):
-            lines.extend([
-                "#",
-                "#   * WARNING: CDC is DISABLED for this module. The register",
-                "#     interface and the module-side signals share the axi_aclk",
-                "#     domain. Only apply these false paths if the logic connected",
-                "#     to the register signals runs in a different (asynchronous)",
-                "#     clock domain; otherwise remove this file to keep the paths",
-                "#     timed.",
-            ])
-
-        lines.append("#" * 78)
-        lines.append("")
-        return lines
 
     def _generate_cell_lookup(self, entity_name):
         """Generate the instance-independent cell lookup."""
@@ -137,82 +149,151 @@ class XDCGenerator:
         for reg in module_data.get('registers', []):
             if reg.get('is_packed'):
                 continue
-            lines.extend(self._false_path_for_signal(
-                reg['signal_name'], reg['access_mode'],
-                reg.get('description', '')))
+            if reg['access_mode'] == 'RO':
+                lines.extend(self._cdc_crossing_constraint(
+                    from_port=reg['signal_name'],
+                    sync_base=reg['signal_name'],
+                    access_mode='RO',
+                    description=reg.get('description', '')))
+            else:
+                lines.extend(self._cdc_crossing_constraint(
+                    from_cell=f"{reg['signal_name']}_reg",
+                    from_cell_wide_ok=True,
+                    sync_base=reg['signal_name'],
+                    access_mode=reg['access_mode'],
+                    description=reg.get('description', '')))
         return lines
 
     def _generate_packed_register_constraints(self, module_data):
         """Generate false-path constraints for packed register fields."""
         lines = []
         for packed_reg in module_data.get('packed_registers', []):
-            for field in packed_reg.get('fields', []):
+            writable_fields = [f for f in packed_reg.get('fields', [])
+                                if f['access_mode'] in ('RW', 'WO')]
+            ro_fields = [f for f in packed_reg.get('fields', [])
+                         if f['access_mode'] == 'RO']
+
+            for field in ro_fields:
                 sig_name = f"{packed_reg['reg_name']}_{field['name']}"
-                lines.extend(self._false_path_for_signal(
-                    sig_name, field['access_mode'],
-                    field.get('description', '')))
+                lines.extend(self._cdc_crossing_constraint(
+                    from_port=sig_name,
+                    sync_base=sig_name,
+                    access_mode='RO',
+                    description=field.get('description', '')))
+
+            # All writable fields of a packed register share one storage
+            # word (<reg_name>_reg) and one synchronizer chain - one
+            # constraint per packed register, not per field.
+            if writable_fields:
+                field_names = ', '.join(f['name'] for f in writable_fields)
+                lines.extend(self._cdc_crossing_constraint(
+                    from_cell=f"{packed_reg['reg_name']}_reg",
+                    sync_base=f"{packed_reg['reg_name']}_reg",
+                    access_mode='RW/WO',
+                    description=f"packed storage for fields: {field_names}"))
         return lines
 
-    def _generate_strobe_notes(self, module_data):
-        """Emit commented-out constraints for strobe outputs."""
-        strobe_signals = []
+    def _generate_strobe_constraints(self, module_data):
+        """
+        Generate false-path constraints for the toggle-synchronizer CDC of
+        read/write strobes (see module docstring). Only the toggle
+        register's crossing into its first sync stage is constrained; the
+        regenerated pulse on the actual strobe port is a normal
+        module_clk-domain signal and needs no exception.
+        """
+        lines = []
+        names = set()
+        for reg in module_data.get('registers', []):
+            if reg.get('is_packed'):
+                continue
+            if reg.get('read_strobe'):
+                names.add(reg['signal_name'])
+            if reg.get('write_strobe'):
+                names.add(reg['signal_name'])
+        for pr in module_data.get('packed_registers', []):
+            if pr.get('read_strobe'):
+                names.add(pr['reg_name'])
+            if pr.get('write_strobe'):
+                names.add(pr['reg_name'])
 
         for reg in module_data.get('registers', []):
             if reg.get('is_packed'):
                 continue
             if reg.get('read_strobe'):
-                strobe_signals.append(f"{reg['signal_name']}_rd_strobe")
+                lines.extend(self._toggle_crossing_constraint(reg['signal_name'], 'rd'))
             if reg.get('write_strobe'):
-                strobe_signals.append(f"{reg['signal_name']}_wr_strobe")
-
-        for packed_reg in module_data.get('packed_registers', []):
-            if packed_reg.get('read_strobe'):
-                strobe_signals.append(f"{packed_reg['reg_name']}_rd_strobe")
-            if packed_reg.get('write_strobe'):
-                strobe_signals.append(f"{packed_reg['reg_name']}_wr_strobe")
-
-        if not strobe_signals:
-            return []
-
-        lines = [
-            "# Strobe outputs are single-cycle pulses in the axi_aclk domain and are",
-            "# intentionally NOT false-pathed: a false path would hide real timing",
-            "# failures on pulse consumers. Uncomment only if the receiving logic",
-            "# treats the strobe asynchronously (e.g. via a pulse synchronizer).",
-        ]
-        for sig in strobe_signals:
-            lines.append(
-                f"# set_false_path -from [get_pins -of_objects $axion_cells "
-                f"-filter {{NAME =~ */{sig}}}]")
-        lines.append("")
+                lines.extend(self._toggle_crossing_constraint(reg['signal_name'], 'wr'))
+        for pr in module_data.get('packed_registers', []):
+            if pr.get('read_strobe'):
+                lines.extend(self._toggle_crossing_constraint(pr['reg_name'], 'rd'))
+            if pr.get('write_strobe'):
+                lines.extend(self._toggle_crossing_constraint(pr['reg_name'], 'wr'))
         return lines
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
-    def _false_path_for_signal(self, signal_name, access_mode, description=""):
+    def _cdc_crossing_constraint(self, sync_base, access_mode, description="",
+                                  from_port=None, from_cell=None,
+                                  from_cell_wide_ok=False):
         """
-        Build the false-path constraint lines for a single register signal.
+        Build a false-path constraint scoped to one CDC crossing hop: from
+        the source-domain register/port to the D input of the first
+        synchronizer stage (`<sync_base>_sync0`).
 
-        RO registers are module inputs -> constrain paths INTO the module
-        (-to). RW/WO registers are module outputs -> constrain paths OUT of
-        the module (-from). Both the scalar pin name and the vector bit pins
-        (name[*]) are matched.
+        Exactly one of from_port/from_cell must be given:
+        - from_port: a top-level port pin of the module (RO register/field
+          inputs). Matched via get_pins with vector-bit coverage.
+        - from_cell: an internal storage register (RW/WO). Matched via
+          get_cells. When from_cell_wide_ok is set, also matches the
+          `<from_cell>0`, `<from_cell>1`, ... chunks used for registers
+          wider than 32 bits.
+
+        The `-to` side always targets `<sync_base>_sync0` (or
+        `<sync_base>0_sync0`, `<sync_base>1_sync0`, ... for wide chunks)
+        via get_cells - the first synchronizer stage is always an internal
+        register, never a port.
         """
         if access_mode == 'RO':
-            direction_arg = '-to'
-            comment_dir = 'module -> AXI (input)'
-        else:  # RW or WO
-            direction_arg = '-from'
-            comment_dir = 'AXI -> module (output)'
+            comment_dir = 'module -> AXI, axi_aclk-domain sync0'
+        else:
+            comment_dir = 'AXI -> module, module_clk-domain sync0'
 
         desc = f" - {description}" if description else ""
-        pin_filter = (f"{{NAME =~ */{signal_name} || "
-                      f"NAME =~ */{signal_name}[*]}}")
+        lines = [f"# {sync_base} ({access_mode}, {comment_dir}){desc}"]
+
+        if from_port is not None:
+            from_expr = (f"[get_pins -of_objects $axion_cells -filter "
+                         f"{{NAME =~ */{from_port} || NAME =~ */{from_port}[*]}}]")
+        else:
+            if from_cell_wide_ok:
+                from_filter = (f"{{NAME =~ */{from_cell} || "
+                               f"NAME =~ */{from_cell}[0-9]*}}")
+            else:
+                from_filter = f"{{NAME =~ */{from_cell}}}"
+            from_expr = f"[get_cells -of_objects $axion_cells -filter {from_filter}]"
+
+        to_filter = (f"{{NAME =~ */{sync_base}_sync0 || "
+                     f"NAME =~ */{sync_base}[0-9]*_sync0}}")
+        to_expr = f"[get_cells -of_objects $axion_cells -filter {to_filter}]"
+
+        lines.append(f"set_false_path -from {from_expr} -to {to_expr}")
+        lines.append("")
+        return lines
+
+    def _toggle_crossing_constraint(self, name, direction):
+        """
+        Build a false-path constraint for a strobe's toggle-synchronizer
+        crossing: from `<name>_<direction>_toggle` (source domain) to
+        `<name>_<direction>_toggle_sync0` (destination domain, first stage).
+        """
+        base = f"{name}_{direction}_toggle"
+        kind = 'read strobe' if direction == 'rd' else 'write strobe'
         return [
-            f"# {signal_name} ({access_mode}, {comment_dir}){desc}",
-            f"set_false_path {direction_arg} [get_pins -of_objects $axion_cells "
-            f"-filter {pin_filter}]",
+            f"# {name} {kind} toggle CDC (axi_aclk -> module_clk)",
+            f"set_false_path -from [get_cells -of_objects $axion_cells -filter "
+            f"{{NAME =~ */{base}}}] -to [get_cells -of_objects $axion_cells "
+            f"-filter {{NAME =~ */{base}_sync0}}]",
             "",
         ]

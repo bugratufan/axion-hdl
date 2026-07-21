@@ -16,6 +16,13 @@ from cocotb.triggers import RisingEdge, FallingEdge, Timer, ClockCycles, First, 
 
 import random
 
+from test_axi_lite import (
+    AxiLiteTestHelper,
+    REG_TEMPERATURE,
+    REG_CONTROL,
+    REG_CALIBRATION,
+)
+
 
 async def start_clocks(dut, axi_period_ns=10, mod_period_ns=17):
     """Start asynchronous clocks with different frequencies"""
@@ -370,28 +377,139 @@ async def test_cdc_data_coherency(dut):
     dut._log.info("CDC Data Coherency PASSED")
 
 
-@cocotb.test()
-async def test_cdc_pulse_sync(dut):
-    """CDC: Single-Cycle Pulse Synchronization"""
-    axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=20)
-
-    if mod_clk is None:
-        dut._log.warning("Pulse sync test: module_clk not found, skipping")
-        return
+async def _check_strobe_toggle_cdc(dut, mod_period_ns, is_write, reg_addr,
+                                    strobe_signal_name, axi_period_ns=10):
+    """
+    Drive one real AXI-Lite transaction and verify the corresponding
+    module_clk-domain strobe port pulses exactly once, for exactly one
+    module_clk cycle, regardless of the axi_aclk/module_clk ratio. This
+    directly exercises the toggle-synchronizer CDC (CDC-018/019): a naive
+    passthrough would either miss the pulse (destination slower than
+    source) or produce a pulse wider/narrower than one destination cycle.
+    """
+    axi_clk, mod_clk = await start_clocks(
+        dut, axi_period_ns=axi_period_ns, mod_period_ns=mod_period_ns)
+    assert mod_clk is not None, "module_clk must exist for a CDC-enabled DUT"
 
     await reset_cdc_dut(dut, axi_clk, mod_clk)
 
-    # Test write strobe (single-cycle pulse) crossing
-    # Strobes need special handling to not be missed
-    if hasattr(dut, 'wr_strobe'):
-        # Generate pulse in source domain
-        await RisingEdge(axi_clk)
-        dut.wr_strobe.value = 1
-        await RisingEdge(axi_clk)
-        dut.wr_strobe.value = 0
+    strobe_sig = getattr(dut, strobe_signal_name)
 
-        # Wait for stretched/synchronized pulse in destination
-        await Timer(100, units="ns")
+    state = {"prev": 0, "cur_run": 0, "max_run": 0, "count": 0, "stop": False}
+
+    async def monitor():
+        while not state["stop"]:
+            await RisingEdge(mod_clk)
+            val = int(strobe_sig.value)
+            if val == 1 and state["prev"] == 0:
+                state["count"] += 1
+            if val == 1:
+                state["cur_run"] += 1
+                state["max_run"] = max(state["max_run"], state["cur_run"])
+            else:
+                state["cur_run"] = 0
+            state["prev"] = val
+
+    cocotb.start_soon(monitor())
+
+    # Confirm no spurious pulse appears before the transaction
+    await ClockCycles(mod_clk, 5)
+    assert state["count"] == 0, (
+        f"Unexpected {strobe_signal_name} pulse before any transaction")
+
+    helper = AxiLiteTestHelper(dut)
+    if is_write:
+        await helper.write(reg_addr, 0xDEADBEEF)
+    else:
+        await helper.read(reg_addr)
+
+    # Give the synchronizer enough destination-domain cycles to resolve,
+    # regardless of how slow module_clk is relative to axi_aclk.
+    await ClockCycles(mod_clk, 12)
+    state["stop"] = True
+    await ClockCycles(mod_clk, 1)
+
+    assert state["count"] == 1, (
+        f"Expected exactly one {strobe_signal_name} pulse, "
+        f"got {state['count']} (mod_period_ns={mod_period_ns})")
+    assert state["max_run"] == 1, (
+        f"{strobe_signal_name} pulse width must be exactly one module_clk "
+        f"cycle, was {state['max_run']} (mod_period_ns={mod_period_ns})")
+
+
+@cocotb.test()
+async def test_cdc_pulse_sync(dut):
+    """CDC: Single-Cycle Pulse Synchronization"""
+    if getattr(dut, 'module_clk', None) is None:
+        dut._log.warning("Pulse sync test: module_clk not found, skipping")
+        return
+    await _check_strobe_toggle_cdc(
+        dut, mod_period_ns=20, is_write=True,
+        reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
+    dut._log.info("CDC Pulse Sync PASSED")
+
+
+@cocotb.test()
+async def test_cdc_pulse_sync_ratio_equal(dut):
+    """CDC: write strobe pulse crosses correctly at a 1:1 clock ratio"""
+    if getattr(dut, 'module_clk', None) is None:
+        return
+    await _check_strobe_toggle_cdc(
+        dut, mod_period_ns=10, is_write=True,
+        reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
+
+
+@cocotb.test()
+async def test_cdc_pulse_sync_module_faster(dut):
+    """CDC: write strobe pulse crosses correctly when module_clk is faster than axi_aclk"""
+    if getattr(dut, 'module_clk', None) is None:
+        return
+    await _check_strobe_toggle_cdc(
+        dut, mod_period_ns=3, is_write=True,
+        reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
+
+
+@cocotb.test()
+async def test_cdc_pulse_sync_module_slower(dut):
+    """CDC: write strobe pulse is not missed when module_clk is 5x slower than axi_aclk"""
+    if getattr(dut, 'module_clk', None) is None:
+        return
+    await _check_strobe_toggle_cdc(
+        dut, mod_period_ns=50, is_write=True,
+        reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
+
+
+@cocotb.test()
+async def test_cdc_pulse_sync_prime_ratio(dut):
+    """CDC: write strobe pulse crosses correctly at a worst-case (prime) clock ratio"""
+    if getattr(dut, 'module_clk', None) is None:
+        return
+    await _check_strobe_toggle_cdc(
+        dut, mod_period_ns=17, is_write=True,
+        reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
+
+
+@cocotb.test()
+async def test_cdc_read_strobe_pulse_sync(dut):
+    """CDC: read strobe pulse crosses correctly (module_clk slower than axi_aclk)"""
+    if getattr(dut, 'module_clk', None) is None:
+        return
+    await _check_strobe_toggle_cdc(
+        dut, mod_period_ns=50, is_write=False,
+        reg_addr=REG_TEMPERATURE, strobe_signal_name='temperature_reg_rd_strobe')
+
+
+@cocotb.test()
+async def test_cdc_rw_register_both_strobes(dut):
+    """CDC: an RW register's read and write strobes are independently synchronized"""
+    if getattr(dut, 'module_clk', None) is None:
+        return
+    await _check_strobe_toggle_cdc(
+        dut, mod_period_ns=17, is_write=True,
+        reg_addr=REG_CALIBRATION, strobe_signal_name='calibration_reg_wr_strobe')
+    await _check_strobe_toggle_cdc(
+        dut, mod_period_ns=17, is_write=False,
+        reg_addr=REG_CALIBRATION, strobe_signal_name='calibration_reg_rd_strobe')
 
     dut._log.info("CDC Pulse Sync PASSED")
 

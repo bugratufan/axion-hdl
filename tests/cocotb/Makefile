@@ -95,6 +95,12 @@ test_axi_lite: generate
 test_cdc: generate
 	$(MAKE) MODULE=test_cdc DUT=sensor_controller
 
+# Run CDC tests against a different CDC_STAGE depth (2, vs. sensor_controller's
+# 3) to prove the strobe/data synchronizers work correctly regardless of the
+# configured stage count, not just the default.
+test_cdc_stage2: generate
+	$(MAKE) MODULE=test_cdc DUT=sensor_controller_stage2
+
 # Run Subregister tests
 test_sub: generate
 	$(MAKE) MODULE=test_subregisters DUT=sensor_controller

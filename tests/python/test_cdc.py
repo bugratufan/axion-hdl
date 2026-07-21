@@ -763,6 +763,143 @@ registers:
             self.assertIn(line, content_yaml,
                 f"YAML-input SV must contain: {line}")
 
+    # =========================================================================
+    # CDC-018: Strobe Pulse CDC (Toggle Synchronizer)
+    # =========================================================================
+
+    STROBE_CDC_VHDL = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x0000 CDC_EN CDC_STAGE={stages}
+entity {module} is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of {module} is
+    signal status_reg : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x00 R_STROBE
+    signal config_reg : std_logic_vector(31 downto 0); -- @axion RW ADDR=0x04 W_STROBE R_STROBE
+begin
+end architecture;
+'''
+
+    def test_cdc_018_strobe_uses_toggle_not_direct_passthrough(self):
+        """CDC-018: strobe ports are driven by a toggle synchronizer, not directly by the axi_aclk pulse condition"""
+        content = self._generate_and_read_vhdl(
+            self.STROBE_CDC_VHDL.format(module="strobe_toggle_vhdl", stages=2),
+            "strobe_toggle_vhdl")
+        # The axi_aclk-domain pulse condition must land on an internal "_int"
+        # signal, not directly on the port.
+        self.assertIn("status_reg_rd_strobe_int <= '1' when", content,
+            "RO read strobe condition must be redirected to an internal signal when CDC is enabled")
+        self.assertNotIn("status_reg_rd_strobe <= '1' when", content,
+            "RO read strobe port must not be driven directly by the combinational condition when CDC is enabled")
+        # A toggle register must exist and flip on the internal strobe condition
+        self.assertIn("status_reg_rd_toggle <= not status_reg_rd_toggle;", content,
+            "Read strobe must drive a toggle flip-flop")
+        self.assertIn("config_reg_wr_toggle <= not config_reg_wr_toggle;", content,
+            "Write strobe must drive a toggle flip-flop")
+        # The final port must be driven by the edge-detect XOR, not the toggle directly
+        self.assertIn("status_reg_rd_strobe <= status_reg_rd_toggle_sync1 xor status_reg_rd_toggle_prev;",
+            content, "Regenerated pulse must come from the toggle sync chain's edge detector")
+
+    def test_cdc_018_strobe_toggle_async_reg_tagged(self):
+        """CDC-018: strobe toggle sync stages carry ASYNC_REG, same as data sync stages"""
+        content = self._generate_and_read_vhdl(
+            self.STROBE_CDC_VHDL.format(module="strobe_async_reg_vhdl", stages=2),
+            "strobe_async_reg_vhdl")
+        self.assertIn('attribute ASYNC_REG of status_reg_rd_toggle_sync0 : signal is "TRUE";', content)
+        self.assertIn('attribute ASYNC_REG of status_reg_rd_toggle_sync1 : signal is "TRUE";', content)
+        self.assertIn('attribute ASYNC_REG of config_reg_wr_toggle_sync0 : signal is "TRUE";', content)
+        # The edge-detect delay register ("_prev") is a same-domain hop and
+        # must NOT be tagged - it isn't crossing a clock boundary.
+        self.assertNotIn('attribute ASYNC_REG of status_reg_rd_toggle_prev', content,
+            "The same-domain edge-detect delay register must not carry ASYNC_REG")
+
+    def test_cdc_018_strobe_cdc_disabled_unchanged(self):
+        """CDC-018: with CDC disabled, strobes keep the original direct combinational assignment"""
+        vhdl = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x0000 CDC_EN=false
+entity strobe_nocdc is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of strobe_nocdc is
+    signal status_reg : std_logic_vector(31 downto 0); -- @axion RO ADDR=0x00 R_STROBE
+begin
+end architecture;
+'''
+        content = self._generate_and_read_vhdl(vhdl, "strobe_nocdc")
+        self.assertIn("status_reg_rd_strobe <= '1' when", content,
+            "Without CDC, the strobe port must keep the direct combinational assignment")
+        self.assertNotIn("toggle", content,
+            "Without CDC, no toggle synchronizer should be generated at all")
+
+    def test_cdc_018_sv_strobe_toggle_parity(self):
+        """CDC-018: SystemVerilog implements the same toggle-synchronizer strobe CDC as VHDL"""
+        content = self._generate_from_vhdl(
+            self.STROBE_CDC_VHDL.format(module="strobe_toggle_sv", stages=2),
+            "strobe_toggle_sv", systemverilog=True)
+        self.assertIn("assign status_reg_rd_strobe_int = (state == READ_DATA", content,
+            "SV read strobe condition must be redirected to an internal signal when CDC is enabled")
+        self.assertIn("if (status_reg_rd_strobe_int) status_reg_rd_toggle <= ~status_reg_rd_toggle;",
+            content, "SV read strobe must drive a toggle flip-flop")
+        self.assertIn("if (config_reg_wr_strobe_int) config_reg_wr_toggle <= ~config_reg_wr_toggle;",
+            content, "SV write strobe must drive a toggle flip-flop")
+        self.assertIn(
+            "status_reg_rd_strobe <= status_reg_rd_toggle_sync[1] ^ status_reg_rd_toggle_prev;",
+            content, "SV regenerated pulse must come from the toggle sync chain's edge detector")
+        self.assertIn('(* ASYNC_REG = "TRUE" *) logic status_reg_rd_toggle_sync [2];', content,
+            "SV strobe toggle sync chain must carry ASYNC_REG")
+
+    def test_cdc_019_strobe_stage_count_honored(self):
+        """CDC-019: strobe toggle chain depth follows the configured CDC_STAGE, in VHDL and SV"""
+        for stages in (2, 3, 5):
+            with self.subTest(stages=stages):
+                vhdl_content = self._generate_and_read_vhdl(
+                    self.STROBE_CDC_VHDL.format(module=f"strobe_stages_v{stages}", stages=stages),
+                    f"strobe_stages_v{stages}")
+                for stage in range(stages):
+                    self.assertIn(f"status_reg_rd_toggle_sync{stage}", vhdl_content,
+                        f"VHDL strobe chain must contain stage {stage} for CDC_STAGE={stages}")
+                self.assertNotIn(f"status_reg_rd_toggle_sync{stages}", vhdl_content,
+                    f"VHDL strobe chain must not exceed the configured depth ({stages})")
+                self.assertIn(
+                    f"status_reg_rd_strobe <= status_reg_rd_toggle_sync{stages-1} xor status_reg_rd_toggle_prev;",
+                    vhdl_content, "VHDL edge detector must use the last configured stage")
+
+                sv_content = self._generate_from_vhdl(
+                    self.STROBE_CDC_VHDL.format(module=f"strobe_stages_sv{stages}", stages=stages),
+                    f"strobe_stages_sv{stages}", systemverilog=True)
+                self.assertIn(f"(* ASYNC_REG = \"TRUE\" *) logic status_reg_rd_toggle_sync [{stages}];",
+                    sv_content, f"SV strobe sync array must be sized {stages} for CDC_STAGE={stages}")
+                self.assertIn(
+                    f"status_reg_rd_strobe <= status_reg_rd_toggle_sync[{stages-1}] ^ status_reg_rd_toggle_prev;",
+                    sv_content, "SV edge detector must use the last configured stage")
+
+    def test_cdc_019_packed_strobe_toggle(self):
+        """CDC-019: packed register parent-level strobes also get the toggle synchronizer"""
+        vhdl = '''
+library ieee;
+use ieee.std_logic_1164.all;
+-- @axion_def BASE_ADDR=0x0000 CDC_EN CDC_STAGE=3
+entity packed_strobe_cdc is
+    port (clk : in std_logic);
+end entity;
+architecture rtl of packed_strobe_cdc is
+    signal ctrl_enable : std_logic;  -- @axion RW ADDR=0x00 REG_NAME=control BIT_OFFSET=0 R_STROBE W_STROBE
+    signal ctrl_mode   : std_logic_vector(1 downto 0);  -- @axion RW ADDR=0x00 REG_NAME=control BIT_OFFSET=1
+begin
+end architecture;
+'''
+        content = self._generate_and_read_vhdl(vhdl, "packed_strobe_cdc")
+        self.assertIn("control_rd_strobe_int <= '1' when", content)
+        self.assertIn("control_wr_strobe_int <= '1' when", content)
+        self.assertIn("control_rd_toggle <= not control_rd_toggle;", content)
+        self.assertIn("control_wr_toggle <= not control_wr_toggle;", content)
+        for stage in range(3):
+            self.assertIn(f"control_rd_toggle_sync{stage}", content)
+            self.assertIn(f"control_wr_toggle_sync{stage}", content)
+
 
 def run_cdc_tests():
     """Run all CDC tests and return results"""
