@@ -45,7 +45,7 @@ jobs:
       if: steps.verilator-cache.outputs.cache-hit != 'true'
       run: |
         sudo apt-get install -y git help2man perl make autoconf g++ flex bison ccache \
-          libgoogle-perftools-dev numactl perl-doc libfl2 libfl-dev zlib1g zlib1g-dev
+          libfl2 libfl-dev zlib1g zlib1g-dev
         git clone --depth 1 --branch stable https://github.com/verilator/verilator.git /tmp/verilator-src
         cd /tmp/verilator-src
         autoconf
