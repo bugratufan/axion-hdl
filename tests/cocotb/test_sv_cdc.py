@@ -31,9 +31,7 @@ from test_cdc import start_clocks, reset_cdc_dut, _check_strobe_toggle_cdc
 async def test_sv_cdc_006_ro_path_sync(dut):
     """CDC-015: SV RO register path is synchronized module_clk -> axi_aclk"""
     axi_clk, mod_clk = await start_clocks(dut)
-    if mod_clk is None:
-        dut._log.warning("SV CDC-006: module_clk not found, skipping")
-        return
+    assert mod_clk is not None, "SV CDC-006: module_clk must exist for a CDC-enabled DUT"
 
     await reset_cdc_dut(dut, axi_clk, mod_clk)
 
@@ -55,9 +53,7 @@ async def test_sv_cdc_006_ro_path_sync(dut):
 async def test_sv_cdc_007_rw_path_sync(dut):
     """CDC-015: SV RW register path is synchronized axi_aclk -> module_clk"""
     axi_clk, mod_clk = await start_clocks(dut)
-    if mod_clk is None:
-        dut._log.warning("SV CDC-007: module_clk not found, skipping")
-        return
+    assert mod_clk is not None, "SV CDC-007: module_clk must exist for a CDC-enabled DUT"
 
     await reset_cdc_dut(dut, axi_clk, mod_clk)
 
@@ -74,10 +70,20 @@ async def test_sv_cdc_007_rw_path_sync(dut):
 
 
 @cocotb.test()
+async def test_sv_cdc_pulse_sync_ratio_2x(dut):
+    """CDC-018: SV write strobe toggle sync at a 2:1 clock ratio (module_clk 2x slower)"""
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
+    await _check_strobe_toggle_cdc(
+        dut, mod_period_ns=20, is_write=True,
+        reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
+
+
+@cocotb.test()
 async def test_sv_cdc_pulse_sync_ratio_equal(dut):
     """CDC-018: SV write strobe toggle sync at a 1:1 clock ratio"""
-    if getattr(dut, 'module_clk', None) is None:
-        return
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=10, is_write=True,
         reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
@@ -86,8 +92,8 @@ async def test_sv_cdc_pulse_sync_ratio_equal(dut):
 @cocotb.test()
 async def test_sv_cdc_pulse_sync_module_faster(dut):
     """CDC-018: SV write strobe toggle sync, module_clk faster than axi_aclk"""
-    if getattr(dut, 'module_clk', None) is None:
-        return
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=3, is_write=True,
         reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
@@ -96,8 +102,8 @@ async def test_sv_cdc_pulse_sync_module_faster(dut):
 @cocotb.test()
 async def test_sv_cdc_pulse_sync_module_slower(dut):
     """CDC-018: SV write strobe toggle sync, module_clk 5x slower - must not be missed"""
-    if getattr(dut, 'module_clk', None) is None:
-        return
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=50, is_write=True,
         reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
@@ -106,8 +112,8 @@ async def test_sv_cdc_pulse_sync_module_slower(dut):
 @cocotb.test()
 async def test_sv_cdc_pulse_sync_prime_ratio(dut):
     """CDC-018: SV write strobe toggle sync at a worst-case (prime) clock ratio"""
-    if getattr(dut, 'module_clk', None) is None:
-        return
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=17, is_write=True,
         reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
@@ -116,8 +122,8 @@ async def test_sv_cdc_pulse_sync_prime_ratio(dut):
 @cocotb.test()
 async def test_sv_cdc_read_strobe_pulse_sync(dut):
     """CDC-018: SV read strobe toggle sync (module_clk slower than axi_aclk)"""
-    if getattr(dut, 'module_clk', None) is None:
-        return
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=50, is_write=False,
         reg_addr=REG_TEMPERATURE, strobe_signal_name='temperature_reg_rd_strobe',
@@ -127,8 +133,8 @@ async def test_sv_cdc_read_strobe_pulse_sync(dut):
 @cocotb.test()
 async def test_sv_cdc_rw_register_both_strobes(dut):
     """CDC-018: SV RW register read+write strobes are independently synchronized"""
-    if getattr(dut, 'module_clk', None) is None:
-        return
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=17, is_write=True,
         reg_addr=REG_CALIBRATION, strobe_signal_name='calibration_reg_wr_strobe')
@@ -152,8 +158,7 @@ async def test_sv_cdc_rw_register_both_strobes(dut):
 async def test_sv_cdc_clock_ratio_2x(dut):
     """CDC-015: SV RO data path correctness at a 2:1 clock ratio (module_clk 2x slower)"""
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=20)
-    if mod_clk is None:
-        return
+    assert mod_clk is not None, "module_clk must exist for a CDC-enabled DUT"
     await reset_cdc_dut(dut, axi_clk, mod_clk)
     helper = AxiLiteTestHelper(dut)
 
@@ -171,8 +176,7 @@ async def test_sv_cdc_clock_ratio_2x(dut):
 async def test_sv_cdc_clock_ratio_prime(dut):
     """CDC-015: SV RO data path correctness at a worst-case prime clock ratio"""
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=17)
-    if mod_clk is None:
-        return
+    assert mod_clk is not None, "module_clk must exist for a CDC-enabled DUT"
     await reset_cdc_dut(dut, axi_clk, mod_clk)
     helper = AxiLiteTestHelper(dut)
 
@@ -190,8 +194,7 @@ async def test_sv_cdc_clock_ratio_prime(dut):
 async def test_sv_cdc_slow_to_fast(dut):
     """CDC-015: SV RO path, module_clk 5x slower than axi_aclk"""
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=50)
-    if mod_clk is None:
-        return
+    assert mod_clk is not None, "module_clk must exist for a CDC-enabled DUT"
     await reset_cdc_dut(dut, axi_clk, mod_clk)
     helper = AxiLiteTestHelper(dut)
 
@@ -210,8 +213,7 @@ async def test_sv_cdc_slow_to_fast(dut):
 async def test_sv_cdc_fast_to_slow(dut):
     """CDC-015: SV RW path, module_clk 5x slower than axi_aclk"""
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=50)
-    if mod_clk is None:
-        return
+    assert mod_clk is not None, "module_clk must exist for a CDC-enabled DUT"
     await reset_cdc_dut(dut, axi_clk, mod_clk)
     helper = AxiLiteTestHelper(dut)
 
@@ -229,8 +231,7 @@ async def test_sv_cdc_fast_to_slow(dut):
 async def test_sv_cdc_async_reset(dut):
     """CDC-015: SV axi_aresetn clears the RO sync chain and RW storage (no module_resetn port)"""
     axi_clk, mod_clk = await start_clocks(dut)
-    if mod_clk is None:
-        return
+    assert mod_clk is not None, "module_clk must exist for a CDC-enabled DUT"
     await reset_cdc_dut(dut, axi_clk, mod_clk)
     helper = AxiLiteTestHelper(dut)
 
@@ -287,8 +288,7 @@ async def test_sv_cdc_async_reset(dut):
 async def test_sv_cdc_ro_multibit_settle_no_torn_reads(dut):
     """CDC-015: SV RO synchronizer never exposes a torn/mixed value mid-crossing"""
     axi_clk, mod_clk = await start_clocks(dut, axi_period_ns=10, mod_period_ns=13)
-    if mod_clk is None:
-        return
+    assert mod_clk is not None, "module_clk must exist for a CDC-enabled DUT"
     await reset_cdc_dut(dut, axi_clk, mod_clk)
     helper = AxiLiteTestHelper(dut)
 

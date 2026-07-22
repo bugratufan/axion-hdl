@@ -649,9 +649,8 @@ async def _check_strobe_toggle_cdc(dut, mod_period_ns, is_write, reg_addr,
 @cocotb.test()
 async def test_cdc_pulse_sync(dut):
     """CDC: Single-Cycle Pulse Synchronization"""
-    if getattr(dut, 'module_clk', None) is None:
-        dut._log.warning("Pulse sync test: module_clk not found, skipping")
-        return
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=20, is_write=True,
         reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
@@ -661,8 +660,8 @@ async def test_cdc_pulse_sync(dut):
 @cocotb.test()
 async def test_cdc_pulse_sync_ratio_equal(dut):
     """CDC: write strobe pulse crosses correctly at a 1:1 clock ratio"""
-    if getattr(dut, 'module_clk', None) is None:
-        return
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=10, is_write=True,
         reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
@@ -671,8 +670,8 @@ async def test_cdc_pulse_sync_ratio_equal(dut):
 @cocotb.test()
 async def test_cdc_pulse_sync_module_faster(dut):
     """CDC: write strobe pulse crosses correctly when module_clk is faster than axi_aclk"""
-    if getattr(dut, 'module_clk', None) is None:
-        return
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=3, is_write=True,
         reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
@@ -681,8 +680,8 @@ async def test_cdc_pulse_sync_module_faster(dut):
 @cocotb.test()
 async def test_cdc_pulse_sync_module_slower(dut):
     """CDC: write strobe pulse is not missed when module_clk is 5x slower than axi_aclk"""
-    if getattr(dut, 'module_clk', None) is None:
-        return
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=50, is_write=True,
         reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
@@ -691,8 +690,8 @@ async def test_cdc_pulse_sync_module_slower(dut):
 @cocotb.test()
 async def test_cdc_pulse_sync_prime_ratio(dut):
     """CDC: write strobe pulse crosses correctly at a worst-case (prime) clock ratio"""
-    if getattr(dut, 'module_clk', None) is None:
-        return
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=17, is_write=True,
         reg_addr=REG_CONTROL, strobe_signal_name='control_reg_wr_strobe')
@@ -701,8 +700,8 @@ async def test_cdc_pulse_sync_prime_ratio(dut):
 @cocotb.test()
 async def test_cdc_read_strobe_pulse_sync(dut):
     """CDC: read strobe pulse crosses correctly (module_clk slower than axi_aclk)"""
-    if getattr(dut, 'module_clk', None) is None:
-        return
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=50, is_write=False,
         reg_addr=REG_TEMPERATURE, strobe_signal_name='temperature_reg_rd_strobe',
@@ -712,8 +711,8 @@ async def test_cdc_read_strobe_pulse_sync(dut):
 @cocotb.test()
 async def test_cdc_rw_register_both_strobes(dut):
     """CDC: an RW register's read and write strobes are independently synchronized"""
-    if getattr(dut, 'module_clk', None) is None:
-        return
+    assert getattr(dut, 'module_clk', None) is not None, \
+        "module_clk must exist for a CDC-enabled DUT"
     await _check_strobe_toggle_cdc(
         dut, mod_period_ns=17, is_write=True,
         reg_addr=REG_CALIBRATION, strobe_signal_name='calibration_reg_wr_strobe')

@@ -2537,6 +2537,31 @@ def run_cocotb_tests() -> List[TestResult]:
         ("test_cdc_006_ro_path_sync", "CDC-019: RO Data Path Sync with CDC_STAGE=2"),
     ]
 
+    # Functional CDC for packed (mixed RW/RO) and wide (>32-bit) registers -
+    # paths that were previously proven only structurally (CDC-010/011/013/014).
+    # DUT: cdc_packed_controller (CDC_STAGE=3). See tests/cocotb/test_cdc_packed.py.
+    cocotb_cdc_packed_tests = [
+        ("test_cdc_packed_rw_field_sync", "CDC-011: Packed RW Fields -> per-field module_clk ports"),
+        ("test_cdc_packed_rw_field_sync_slow", "CDC-011: Packed RW Fields, module_clk 5x Slower"),
+        ("test_cdc_packed_ro_field_sync", "CDC-010: Packed RO Field Inputs -> AXI read word"),
+        ("test_cdc_packed_ro_field_sync_slow", "CDC-010: Packed RO Field Inputs, module_clk 5x Slower"),
+        ("test_cdc_packed_mixed_rw_ro", "CDC-010/011: Packed RW+RO Fields Independently Synced"),
+        ("test_cdc_wide_rw_chunk_sync", "CDC-014: Wide 64-bit RW Register Chunk Sync"),
+        ("test_cdc_wide_rw_chunk_sync_slow", "CDC-014: Wide 64-bit RW Register, module_clk 5x Slower"),
+        ("test_cdc_wide_ro_chunk_sync", "CDC-014: Wide 64-bit RO Register Chunk Sync"),
+        ("test_cdc_wide_ro_chunk_sync_slow", "CDC-014: Wide 64-bit RO Register, module_clk 5x Slower"),
+    ]
+
+    # Same packed/wide tests against the CDC_STAGE=2 DUT variant (CDC-013:
+    # stage count honored on packed-field and wide-chunk chains, functionally).
+    cocotb_cdc_packed_stage2_tests = [
+        ("test_cdc_packed_rw_field_sync", "CDC-013: Packed RW Fields with CDC_STAGE=2"),
+        ("test_cdc_packed_ro_field_sync", "CDC-013: Packed RO Fields with CDC_STAGE=2"),
+        ("test_cdc_packed_mixed_rw_ro", "CDC-013: Packed RW+RO Fields with CDC_STAGE=2"),
+        ("test_cdc_wide_rw_chunk_sync", "CDC-013: Wide 64-bit RW Register with CDC_STAGE=2"),
+        ("test_cdc_wide_ro_chunk_sync", "CDC-013: Wide 64-bit RO Register with CDC_STAGE=2"),
+    ]
+
     cocotb_sub_tests = [
         ("test_subreg_001_single_bit_control", "SUB-001: Single Bit Control Access"),
         ("test_subreg_002_status_capture", "SUB-002: Status Register Capture"),
@@ -2577,7 +2602,17 @@ def run_cocotb_tests() -> List[TestResult]:
             results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "skipped", 0,
                                       f"{skip_reason} ({skip_msg})",
                                       category="cocotb", subcategory="cdc"))
-                                      
+
+        for test_id, desc in cocotb_cdc_packed_tests:
+            results.append(TestResult(f"cocotb.cdc_packed.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})",
+                                      category="cocotb", subcategory="cdc"))
+
+        for test_id, desc in cocotb_cdc_packed_stage2_tests:
+            results.append(TestResult(f"cocotb.cdc_packed_stage2.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})",
+                                      category="cocotb", subcategory="cdc"))
+
         for test_id, desc in cocotb_sub_tests:
             results.append(TestResult(f"cocotb.sub.{test_id}", desc, "skipped", 0,
                                       f"{skip_reason} ({skip_msg})",
@@ -2715,6 +2750,68 @@ def run_cocotb_tests() -> List[TestResult]:
             results.append(TestResult(result_id, desc, "skipped", 0,
                                       "Test not executed", category="cocotb", subcategory="cdc"))
 
+    # Run functional packed/wide-register CDC tests (CDC-010/011/014) against
+    # the default 3-stage packed DUT.
+    _, duration, output = run_command(
+        ["make", "test_cdc_packed", "DUT=cdc_packed_controller"],
+        cwd=str(cocotb_dir),
+        timeout=300,
+        env=venv_env,
+        stream_output=True
+    )
+
+    cdc_packed_results = {}
+    for match in test_pattern.finditer(output):
+        cdc_packed_results[match.group(1).split('.')[-1]] = match.group(2).lower()
+
+    for test_id, desc in cocotb_cdc_packed_tests:
+        result_id = f"cocotb.cdc_packed.{test_id}"
+        if test_id in cdc_packed_results:
+            status = cdc_packed_results[test_id]
+            if status == "pass":
+                results.append(TestResult(result_id, desc, "passed", 0,
+                                          "", category="cocotb", subcategory="cdc"))
+            elif status == "fail":
+                results.append(TestResult(result_id, desc, "failed", 0,
+                                          "Assertion failed", category="cocotb", subcategory="cdc"))
+            else:
+                results.append(TestResult(result_id, desc, "skipped", 0,
+                                          "", category="cocotb", subcategory="cdc"))
+        else:
+            results.append(TestResult(result_id, desc, "skipped", 0,
+                                      "Test not executed", category="cocotb", subcategory="cdc"))
+
+    # Run the same packed/wide CDC tests against the CDC_STAGE=2 packed DUT
+    # (CDC-013: stage count honored on packed-field and wide-chunk chains).
+    _, duration, output = run_command(
+        ["make", "test_cdc_packed_stage2", "DUT=cdc_packed_controller_stage2"],
+        cwd=str(cocotb_dir),
+        timeout=300,
+        env=venv_env,
+        stream_output=True
+    )
+
+    cdc_packed_stage2_results = {}
+    for match in test_pattern.finditer(output):
+        cdc_packed_stage2_results[match.group(1).split('.')[-1]] = match.group(2).lower()
+
+    for test_id, desc in cocotb_cdc_packed_stage2_tests:
+        result_id = f"cocotb.cdc_packed_stage2.{test_id}"
+        if test_id in cdc_packed_stage2_results:
+            status = cdc_packed_stage2_results[test_id]
+            if status == "pass":
+                results.append(TestResult(result_id, desc, "passed", 0,
+                                          "", category="cocotb", subcategory="cdc"))
+            elif status == "fail":
+                results.append(TestResult(result_id, desc, "failed", 0,
+                                          "Assertion failed", category="cocotb", subcategory="cdc"))
+            else:
+                results.append(TestResult(result_id, desc, "skipped", 0,
+                                          "", category="cocotb", subcategory="cdc"))
+        else:
+            results.append(TestResult(result_id, desc, "skipped", 0,
+                                      "Test not executed", category="cocotb", subcategory="cdc"))
+
     # Run Subregister tests
     _, duration, output = run_command(
         ["make", "test_sub", "DUT=sensor_controller"],
@@ -2795,6 +2892,7 @@ def run_sv_cocotb_tests() -> List[TestResult]:
     cocotb_sv_cdc_tests = [
         ("test_sv_cdc_006_ro_path_sync", "CDC-015: SV RO Register Path Sync"),
         ("test_sv_cdc_007_rw_path_sync", "CDC-015: SV RW Register Path Sync"),
+        ("test_sv_cdc_pulse_sync_ratio_2x", "CDC-018: SV Strobe Toggle Sync at 2:1 Clock Ratio"),
         ("test_sv_cdc_pulse_sync_ratio_equal", "CDC-018: SV Strobe Toggle Sync at 1:1 Clock Ratio"),
         ("test_sv_cdc_pulse_sync_module_faster", "CDC-018: SV Strobe Toggle Sync, module_clk Faster"),
         ("test_sv_cdc_pulse_sync_module_slower", "CDC-018: SV Strobe Toggle Sync, module_clk 5x Slower"),
@@ -2815,6 +2913,26 @@ def run_sv_cocotb_tests() -> List[TestResult]:
         ("test_sv_cdc_006_ro_path_sync", "CDC-019: SV RO Data Path Sync with CDC_STAGE=2"),
     ]
 
+    # SV parity for the functional packed/wide-register CDC tests (CDC-015).
+    cocotb_sv_cdc_packed_tests = [
+        ("test_sv_cdc_packed_rw_field_sync", "CDC-015: SV Packed RW Fields -> per-field module_clk ports"),
+        ("test_sv_cdc_packed_rw_field_sync_slow", "CDC-015: SV Packed RW Fields, module_clk 5x Slower"),
+        ("test_sv_cdc_packed_ro_field_sync", "CDC-015: SV Packed RO Field Inputs -> AXI read word"),
+        ("test_sv_cdc_packed_ro_field_sync_slow", "CDC-015: SV Packed RO Field Inputs, module_clk 5x Slower"),
+        ("test_sv_cdc_packed_mixed_rw_ro", "CDC-015: SV Packed RW+RO Fields Independently Synced"),
+        ("test_sv_cdc_wide_rw_chunk_sync", "CDC-015: SV Wide 64-bit RW Register Chunk Sync"),
+        ("test_sv_cdc_wide_rw_chunk_sync_slow", "CDC-015: SV Wide 64-bit RW Register, module_clk 5x Slower"),
+        ("test_sv_cdc_wide_ro_chunk_sync", "CDC-015: SV Wide 64-bit RO Register Chunk Sync"),
+        ("test_sv_cdc_wide_ro_chunk_sync_slow", "CDC-015: SV Wide 64-bit RO Register, module_clk 5x Slower"),
+    ]
+
+    cocotb_sv_cdc_packed_stage2_tests = [
+        ("test_sv_cdc_packed_rw_field_sync", "CDC-013: SV Packed RW Fields with CDC_STAGE=2"),
+        ("test_sv_cdc_packed_ro_field_sync", "CDC-013: SV Packed RO Fields with CDC_STAGE=2"),
+        ("test_sv_cdc_wide_rw_chunk_sync", "CDC-013: SV Wide 64-bit RW Register with CDC_STAGE=2"),
+        ("test_sv_cdc_wide_ro_chunk_sync", "CDC-013: SV Wide 64-bit RO Register with CDC_STAGE=2"),
+    ]
+
     venv_cocotb_config = PROJECT_ROOT / "venv" / "bin" / "cocotb-config"
     if venv_cocotb_config.exists():
         cocotb_config_available = True
@@ -2832,6 +2950,12 @@ def run_sv_cocotb_tests() -> List[TestResult]:
                                       f"{skip_reason} ({skip_msg})", category="cocotb_sv", subcategory="sv_cdc"))
         for test_id, desc in cocotb_sv_cdc_stage2_tests:
             results.append(TestResult(f"cocotb_sv.cdc_stage2.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})", category="cocotb_sv", subcategory="sv_cdc"))
+        for test_id, desc in cocotb_sv_cdc_packed_tests:
+            results.append(TestResult(f"cocotb_sv.cdc_packed.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})", category="cocotb_sv", subcategory="sv_cdc"))
+        for test_id, desc in cocotb_sv_cdc_packed_stage2_tests:
+            results.append(TestResult(f"cocotb_sv.cdc_packed_stage2.{test_id}", desc, "skipped", 0,
                                       f"{skip_reason} ({skip_msg})", category="cocotb_sv", subcategory="sv_cdc"))
         return results
 
@@ -2891,6 +3015,51 @@ def run_sv_cocotb_tests() -> List[TestResult]:
         result_id = f"cocotb_sv.cdc_stage2.{test_id}"
         if test_id in sv_stage2_results:
             status = sv_stage2_results[test_id]
+            if status == "pass":
+                results.append(TestResult(result_id, desc, "passed", 0, "", category="cocotb_sv", subcategory="sv_cdc"))
+            elif status == "fail":
+                results.append(TestResult(result_id, desc, "failed", 0, "Assertion failed", category="cocotb_sv", subcategory="sv_cdc"))
+            else:
+                results.append(TestResult(result_id, desc, "skipped", 0, "", category="cocotb_sv", subcategory="sv_cdc"))
+        else:
+            results.append(TestResult(result_id, desc, "skipped", 0, "Test not executed", category="cocotb_sv", subcategory="sv_cdc"))
+
+    # Run functional packed/wide-register CDC tests (CDC-015 parity) against
+    # the default 3-stage packed DUT.
+    _, duration, output = run_command(
+        ["make", "-f", "Makefile.sv", "test_cdc_packed", "DUT=cdc_packed_controller"],
+        cwd=str(cocotb_dir), timeout=300, env=venv_env, stream_output=True)
+
+    sv_packed_results = {}
+    for match in test_pattern.finditer(output):
+        sv_packed_results[match.group(1).split('.')[-1]] = match.group(2).lower()
+
+    for test_id, desc in cocotb_sv_cdc_packed_tests:
+        result_id = f"cocotb_sv.cdc_packed.{test_id}"
+        if test_id in sv_packed_results:
+            status = sv_packed_results[test_id]
+            if status == "pass":
+                results.append(TestResult(result_id, desc, "passed", 0, "", category="cocotb_sv", subcategory="sv_cdc"))
+            elif status == "fail":
+                results.append(TestResult(result_id, desc, "failed", 0, "Assertion failed", category="cocotb_sv", subcategory="sv_cdc"))
+            else:
+                results.append(TestResult(result_id, desc, "skipped", 0, "", category="cocotb_sv", subcategory="sv_cdc"))
+        else:
+            results.append(TestResult(result_id, desc, "skipped", 0, "Test not executed", category="cocotb_sv", subcategory="sv_cdc"))
+
+    # Run the same packed/wide CDC tests against the CDC_STAGE=2 packed DUT.
+    _, duration, output = run_command(
+        ["make", "-f", "Makefile.sv", "test_cdc_packed_stage2", "DUT=cdc_packed_controller_stage2"],
+        cwd=str(cocotb_dir), timeout=300, env=venv_env, stream_output=True)
+
+    sv_packed_stage2_results = {}
+    for match in test_pattern.finditer(output):
+        sv_packed_stage2_results[match.group(1).split('.')[-1]] = match.group(2).lower()
+
+    for test_id, desc in cocotb_sv_cdc_packed_stage2_tests:
+        result_id = f"cocotb_sv.cdc_packed_stage2.{test_id}"
+        if test_id in sv_packed_stage2_results:
+            status = sv_packed_stage2_results[test_id]
             if status == "pass":
                 results.append(TestResult(result_id, desc, "passed", 0, "", category="cocotb_sv", subcategory="sv_cdc"))
             elif status == "fail":

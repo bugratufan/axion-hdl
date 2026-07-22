@@ -25,7 +25,7 @@ VERILOG_SOURCES += $(OUTPUT_DIR)/$(DUT)_axion_reg.sv
 include $(shell cocotb-config --makefiles)/Makefile.sim
 
 # Custom targets
-.PHONY: test_sv_basic test_cdc test_cdc_stage2 generate
+.PHONY: test_sv_basic test_cdc test_cdc_stage2 test_cdc_packed test_cdc_packed_stage2 generate
 
 # Run basic SV smoke test
 test_sv_basic: generate
@@ -40,6 +40,14 @@ test_cdc: generate
 # configured stage count, not just the default.
 test_cdc_stage2: generate
 	$(MAKE) MODULE=test_sv_cdc DUT=sensor_controller_stage2
+
+# Run packed/wide-register CDC tests (SV parity for test_cdc_packed.py).
+test_cdc_packed: generate
+	$(MAKE) MODULE=test_sv_cdc_packed DUT=cdc_packed_controller
+
+# Same packed/wide CDC tests against the CDC_STAGE=2 DUT variant.
+test_cdc_packed_stage2: generate
+	$(MAKE) MODULE=test_sv_cdc_packed DUT=cdc_packed_controller_stage2
 
 # Custom target to generate SV
 generate:
