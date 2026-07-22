@@ -8,7 +8,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
--- Enable CDC with 3 synchronization stages
+-- Enable CDC with 2 synchronization stages
 -- @axion_def CDC_EN CDC_STAGE=2
 
 entity sensor_controller_stage2 is

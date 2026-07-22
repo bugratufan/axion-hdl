@@ -50,6 +50,18 @@ begin
 end architecture;
 '''
 
+CDC_SV = '''
+// @axion_def BASE_ADDR=0x0000 CDC_EN CDC_STAGE=2
+module xdc_cdc_sv_test (
+    input logic clk
+);
+    logic [31:0] status_reg; // @axion RO ADDR=0x00 R_STROBE
+    logic [31:0] config_reg; // @axion RW ADDR=0x04 W_STROBE
+    logic [15:0] tx_reg;     // @axion WO ADDR=0x08
+    logic        enable_bit; // @axion RW ADDR=0x0C
+endmodule
+'''
+
 PACKED_VHDL = '''
 library ieee;
 use ieee.std_logic_1164.all;
@@ -125,7 +137,8 @@ class TestXDCRequirements(unittest.TestCase):
         return filepath
 
     def _generate_xdc(self, content: str, module_name: str,
-                      extension: str = "vhd", expect_file: bool = True):
+                      extension: str = "vhd", expect_file: bool = True,
+                      backend: str = "vhdl"):
         """
         Generate XDC from source content.
 
@@ -133,15 +146,22 @@ class TestXDCRequirements(unittest.TestCase):
         file exists). Returns the path to where the file WOULD be (without
         asserting existence) if expect_file is False, for tests that verify
         a module is correctly skipped.
+
+        backend selects which HDL backend the constraints are generated
+        for ('vhdl' or 'systemverilog') - see XDCGenerator. The VHDL
+        backend keeps the plain `<module>_axion_reg.xdc` filename; the
+        SystemVerilog backend uses `<module>_axion_reg_sv.xdc`.
         """
         src = self._write_source(f"{module_name}.{extension}", content)
 
         axion = AxionHDL(output_dir=self.output_dir)
         axion.add_source(src)
         axion.analyze()
-        self.assertTrue(axion.generate_xdc())
+        self.assertTrue(axion.generate_xdc(backend=backend))
 
-        gen_file = os.path.join(self.output_dir, f"{module_name}_axion_reg.xdc")
+        suffix = '_sv' if backend == 'systemverilog' else ''
+        gen_file = os.path.join(self.output_dir,
+                                 f"{module_name}_axion_reg{suffix}.xdc")
         if not expect_file:
             self.assertFalse(os.path.exists(gen_file),
                              f"XDC file should not have been generated: {gen_file}")
@@ -414,6 +434,176 @@ class TestXDCRequirements(unittest.TestCase):
 
         self.assertEqual(_strip_version(content_2), _strip_version(content_5),
             "XDC output must be identical regardless of CDC_STAGE")
+
+    # =========================================================================
+    # XDC-014: SystemVerilog backend - RO crossing constraint targets the
+    # real array-index cell name, not the VHDL discrete-signal name
+    # =========================================================================
+    def test_xdc_014_sv_ro_crossing_constraint(self):
+        """XDC-014: for the SystemVerilog backend, RO false-path targets
+        <name>_sync[0] (array element), matching SystemVerilogGenerator's
+        actual `(* ASYNC_REG *) logic <name>_sync [N];` declaration - NOT
+        <name>_sync0, which is the VHDL-only discrete-signal naming and
+        never exists in generated SV RTL (the bug Copilot flagged on
+        PR #130)."""
+        content = self._generate_xdc(CDC_SV, "xdc_cdc_sv_test",
+                                     extension="sv", backend="systemverilog")
+        lines = [l for l in self._active_lines(content)
+                 if l.startswith("set_false_path")]
+
+        status_lines = [l for l in lines if "status_reg" in l and "toggle" not in l]
+        self.assertEqual(len(status_lines), 1,
+            "Exactly one crossing constraint expected for status_reg")
+        line = status_lines[0]
+        self.assertIn("-from [get_pins", line)
+        self.assertIn("*/status_reg ", line)
+        self.assertIn("*/status_reg[*]", line)
+        self.assertIn("-to [get_cells", line)
+        self.assertIn("*/status_reg_sync[0]", line,
+            "SV destination must be the array-index cell name sync[0]")
+        self.assertNotIn("status_reg_sync0", line,
+            "SV output must never use the VHDL-only discrete _sync0 naming")
+        self.assertNotIn("status_reg_sync[1]", line,
+            "Only stage 0 (the actual crossing) should be constrained")
+
+    def test_xdc_015_sv_rw_wo_crossing_constraint(self):
+        """XDC-015: SV RW/WO false-path targets the storage cell -> sync[0]"""
+        content = self._generate_xdc(CDC_SV, "xdc_cdc_sv_test",
+                                     extension="sv", backend="systemverilog")
+        lines = [l for l in self._active_lines(content)
+                 if l.startswith("set_false_path")]
+
+        for name in ("config_reg", "tx_reg", "enable_bit"):
+            matches = [l for l in lines if f"{name}_reg" in l and "toggle" not in l]
+            self.assertEqual(len(matches), 1,
+                f"Exactly one crossing constraint expected for {name}")
+            line = matches[0]
+            self.assertIn("-from [get_cells", line)
+            self.assertIn(f"*/{name}_reg", line)
+            self.assertIn("-to [get_cells", line)
+            self.assertIn(f"*/{name}_sync[0]", line,
+                "SV destination must be the array-index cell name sync[0]")
+            self.assertNotIn(f"{name}_sync0", line)
+
+    def test_xdc_016_sv_strobe_toggle_crossing(self):
+        """XDC-016: SV strobe toggle crossing targets <base>_sync[0], not <base>_sync0"""
+        content = self._generate_xdc(CDC_SV, "xdc_cdc_sv_test",
+                                     extension="sv", backend="systemverilog")
+        lines = [l for l in self._active_lines(content)
+                 if l.startswith("set_false_path")]
+
+        rd_toggle = [l for l in lines if "status_reg_rd_toggle" in l]
+        self.assertEqual(len(rd_toggle), 1)
+        self.assertIn("-from [get_cells", rd_toggle[0])
+        self.assertIn("*/status_reg_rd_toggle}", rd_toggle[0])
+        self.assertIn("*/status_reg_rd_toggle_sync[0]", rd_toggle[0])
+        self.assertNotIn("status_reg_rd_toggle_sync0", rd_toggle[0])
+
+        wr_toggle = [l for l in lines if "config_reg_wr_toggle" in l]
+        self.assertEqual(len(wr_toggle), 1)
+        self.assertIn("*/config_reg_wr_toggle}", wr_toggle[0])
+        self.assertIn("*/config_reg_wr_toggle_sync[0]", wr_toggle[0])
+        self.assertNotIn("config_reg_wr_toggle_sync0", wr_toggle[0])
+
+        for line in lines:
+            self.assertNotIn("*/status_reg_rd_strobe}", line)
+            self.assertNotIn("*/config_reg_wr_strobe}", line)
+
+    # NOTE: there is no SV counterpart to test_xdc_005_packed_field_constraints
+    # here. Unlike the VHDL parser, axion_hdl/systemverilog_parser.py does not
+    # currently assemble REG_NAME/BIT_OFFSET-annotated signals into a
+    # `packed_registers` list with `reg_name`/`fields` (its module-level
+    # `_parse_module_config` only reacts to an unused `PACK=` @axion_def
+    # attribute, and per-signal `bits`/`reg` grouping is never folded into
+    # module_data['packed_registers']). SystemVerilogGenerator and
+    # XDCGenerator both already handle `packed_registers` correctly *if*
+    # populated - this is a pre-existing SV-parser gap unrelated to the XDC
+    # backend-naming bug this test file targets, and is out of scope here.
+    # Flagged for separate follow-up.
+
+    def test_xdc_018_sv_stage_count_independence(self):
+        """XDC-018: SV constraints always target sync[0] only, regardless of CDC_STAGE"""
+        def _stage_sv(stages):
+            return f'''
+// @axion_def BASE_ADDR=0x0000 CDC_EN CDC_STAGE={stages}
+module xdc_stage_sv_test (
+    input logic clk
+);
+    logic [31:0] status_reg; // @axion RO ADDR=0x00 R_STROBE
+    logic [31:0] config_reg; // @axion RW ADDR=0x04 W_STROBE
+endmodule
+'''
+        content_2 = self._generate_xdc(_stage_sv(2), "xdc_stage_sv_test",
+                                       extension="sv", backend="systemverilog")
+
+        self.output_dir = os.path.join(self.temp_dir, "output5_sv")
+        content_5 = self._generate_xdc(_stage_sv(5), "xdc_stage_sv_test",
+                                       extension="sv", backend="systemverilog")
+
+        for content, stages in ((content_2, 2), (content_5, 5)):
+            self.assertIn("*/status_reg_sync[0]", content)
+            self.assertIn("*/config_reg_sync[0]", content)
+            self.assertIn("*/status_reg_rd_toggle_sync[0]", content)
+            self.assertIn("*/config_reg_wr_toggle_sync[0]", content)
+            for stage in range(1, stages):
+                self.assertNotIn(f"_sync[{stage}]", content,
+                    f"XDC must not reference stage {stage} (CDC_STAGE={stages})")
+
+        def _strip_version(text):
+            return '\n'.join(l for l in text.splitlines()
+                             if not l.startswith("# Generated by Axion-HDL"))
+
+        self.assertEqual(_strip_version(content_2), _strip_version(content_5),
+            "XDC output must be identical regardless of CDC_STAGE")
+
+    def test_xdc_019_cli_systemverilog_xdc_flag(self):
+        """XDC-019: `--systemverilog --xdc` on the CLI produces a real SV XDC
+        file (<module>_axion_reg_sv.xdc) whose -to filter uses SV array-index
+        naming, and does not silently reuse the VHDL naming/filename."""
+        self._write_source("xdc_cdc_sv_test.sv", CDC_SV)
+
+        result = subprocess.run(
+            [sys.executable, '-m', 'axion_hdl.cli',
+             '-s', self.temp_dir, '-o', self.output_dir,
+             '--systemverilog', '--xdc'],
+            capture_output=True, text=True, cwd=str(project_root))
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        gen_file = os.path.join(self.output_dir, "xdc_cdc_sv_test_axion_reg_sv.xdc")
+        self.assertTrue(os.path.exists(gen_file),
+            "CLI --systemverilog --xdc must produce a *_sv.xdc file")
+        with open(gen_file) as f:
+            content = f.read()
+        self.assertIn("*/status_reg_sync[0]", content)
+        self.assertNotIn("status_reg_sync0", content)
+
+    def test_xdc_020_cli_both_backends_no_collision(self):
+        """XDC-020: `--vhdl --systemverilog --xdc` together must produce two
+        distinct, correctly-named XDC files (one per backend) rather than
+        one backend's file silently overwriting the other's."""
+        self._write_source("xdc_cdc_test.vhd", CDC_VHDL)
+        self._write_source("xdc_cdc_sv_test.sv", CDC_SV)
+
+        result = subprocess.run(
+            [sys.executable, '-m', 'axion_hdl.cli',
+             '-s', self.temp_dir, '-o', self.output_dir,
+             '--vhdl', '--systemverilog', '--xdc'],
+            capture_output=True, text=True, cwd=str(project_root))
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        vhdl_xdc = os.path.join(self.output_dir, "xdc_cdc_test_axion_reg.xdc")
+        sv_xdc = os.path.join(self.output_dir, "xdc_cdc_sv_test_axion_reg_sv.xdc")
+        self.assertTrue(os.path.exists(vhdl_xdc), "VHDL XDC file missing")
+        self.assertTrue(os.path.exists(sv_xdc), "SystemVerilog XDC file missing")
+
+        with open(vhdl_xdc) as f:
+            vhdl_content = f.read()
+        with open(sv_xdc) as f:
+            sv_content = f.read()
+        self.assertIn("_sync0", vhdl_content)
+        self.assertNotIn("_sync[0]", vhdl_content)
+        self.assertIn("_sync[0]", sv_content)
+        self.assertNotIn("_sync0", sv_content)
 
 
 if __name__ == '__main__':

@@ -10,21 +10,32 @@ own internally-generated synchronizer chain, so the exact internal
 crossing point (source register/port -> the first synchronizer stage) is
 known and can be false-pathed precisely:
 
-- RO registers/fields: the module-side input port drives `<name>_sync0`
-  in the axi_aclk domain -> `set_false_path -from <port> -to <name>_sync0`.
+- RO registers/fields: the module-side input port drives the first
+  synchronizer stage in the axi_aclk domain ->
+  `set_false_path -from <port> -to <first stage>`.
 - RW/WO registers/fields: the AXI-domain storage register `<name>_reg`
-  drives `<name>_sync0` in the module_clk domain ->
-  `set_false_path -from <name>_reg -to <name>_sync0`.
+  drives the first synchronizer stage in the module_clk domain ->
+  `set_false_path -from <name>_reg -to <first stage>`.
 - Read/write strobes: the axi_aclk-domain toggle register `<name>_rd/wr_toggle`
-  drives `<name>_rd/wr_toggle_sync0` in the module_clk domain -> same
-  pattern, targeting the toggle crossing only. The regenerated
-  single-cycle pulse on the actual `<name>_rd/wr_strobe` port is a normal,
-  fully-synchronized module_clk-domain signal and needs no exception.
+  drives the first stage of its own synchronizer chain in the module_clk
+  domain -> same pattern, targeting the toggle crossing only. The
+  regenerated single-cycle pulse on the actual `<name>_rd/wr_strobe` port
+  is a normal, fully-synchronized module_clk-domain signal and needs no
+  exception.
 
 Only the first synchronizer stage is targeted: subsequent stages
 (stage0 -> stage1 -> ... ) are same-clock-domain register-to-register
 hops that standard timing analysis already checks correctly, so no
 exception is needed (or wanted) for them.
+
+XDCGenerator is backend-aware (constructor `backend='vhdl'|'systemverilog'`)
+because VHDLGenerator and SystemVerilogGenerator name the first
+synchronizer stage differently:
+- VHDL: discrete signals `<name>_sync0`, `<name>_sync1`, ...
+- SystemVerilog: an unpacked array `<name>_sync[N]`, so the first stage is
+  `<name>_sync[0]` - there is no signal literally named `<name>_sync0`.
+See XDCGenerator._sync_stage0_filter() for the exact per-backend pattern
+and the Vivado netlist-naming assumption it documents.
 
 CDC-disabled modules have no internal synchronizer to scope a false path
 to - the register signals are single-clock-domain internally, and any
@@ -53,14 +64,32 @@ import os
 class XDCGenerator:
     """Generates Xilinx XDC timing constraint files for CDC-enabled register modules."""
 
-    def __init__(self, output_dir):
+    def __init__(self, output_dir, backend='vhdl'):
         """
         Initialize XDC generator.
 
         Args:
             output_dir: Directory where generated .xdc files are written
+            backend: Which HDL backend the constraints target - 'vhdl' or
+                     'systemverilog'. This matters because the two
+                     generators declare the first CDC synchronizer stage
+                     under different cell names:
+                       - VHDLGenerator emits discrete signals
+                         `<name>_sync0`, `<name>_sync1`, ...
+                       - SystemVerilogGenerator emits an unpacked array
+                         `(* ASYNC_REG = "TRUE" *) logic <name>_sync [N];`,
+                         so the first stage is `<name>_sync[0]`, never a
+                         signal literally named `<name>_sync0`.
+                     The XDC `-to` filter must match the backend that will
+                     actually be synthesized, or the constraint silently
+                     matches nothing (see PR #130 Copilot review).
         """
         self.output_dir = output_dir
+        if backend not in ('vhdl', 'systemverilog'):
+            raise ValueError(
+                f"XDCGenerator: unknown backend {backend!r}, expected "
+                f"'vhdl' or 'systemverilog'")
+        self.backend = backend
 
     def generate_xdc(self, module_data):
         """
@@ -76,12 +105,21 @@ class XDCGenerator:
         Returns:
             Path of the generated .xdc file, or None if the module has CDC
             disabled (no file is written).
+
+        Note on file naming: the VHDL backend (the original/default XDC
+        target) keeps the plain `<module>_axion_reg.xdc` name for backward
+        compatibility with existing projects and tests. The SystemVerilog
+        backend writes `<module>_axion_reg_sv.xdc` instead, so generating
+        XDC for both backends in the same output directory (e.g. a
+        `--vhdl --systemverilog --xdc` run) produces two distinct files
+        rather than the second silently overwriting the first.
         """
         if not module_data.get('cdc_enabled'):
             return None
 
         module_name = module_data['name']
         entity_name = f"{module_name}_axion_reg"
+        file_suffix = '_sv' if self.backend == 'systemverilog' else ''
 
         lines = self._generate_header(module_data, entity_name)
         lines.extend(self._generate_cell_lookup(entity_name))
@@ -89,7 +127,7 @@ class XDCGenerator:
         lines.extend(self._generate_packed_register_constraints(module_data))
         lines.extend(self._generate_strobe_constraints(module_data))
 
-        output_path = os.path.join(self.output_dir, f"{entity_name}.xdc")
+        output_path = os.path.join(self.output_dir, f"{entity_name}{file_suffix}.xdc")
         with open(output_path, 'w') as f:
             f.write('\n'.join(lines) + '\n')
 
@@ -103,10 +141,12 @@ class XDCGenerator:
         """Generate the file header with usage notes."""
         from axion_hdl import __version__
 
+        backend_label = 'SystemVerilog' if self.backend == 'systemverilog' else 'VHDL'
         return [
             "#" * 78,
             f"# {entity_name}.xdc",
             f"# Timing constraints for the {entity_name} AXI4-Lite register interface",
+            f"# Target HDL backend: {backend_label}",
             "#",
             f"# Generated by Axion-HDL v{__version__}",
             "#",
@@ -202,20 +242,6 @@ class XDCGenerator:
         module_clk-domain signal and needs no exception.
         """
         lines = []
-        names = set()
-        for reg in module_data.get('registers', []):
-            if reg.get('is_packed'):
-                continue
-            if reg.get('read_strobe'):
-                names.add(reg['signal_name'])
-            if reg.get('write_strobe'):
-                names.add(reg['signal_name'])
-        for pr in module_data.get('packed_registers', []):
-            if pr.get('read_strobe'):
-                names.add(pr['reg_name'])
-            if pr.get('write_strobe'):
-                names.add(pr['reg_name'])
-
         for reg in module_data.get('registers', []):
             if reg.get('is_packed'):
                 continue
@@ -234,13 +260,43 @@ class XDCGenerator:
     # Helpers
     # ------------------------------------------------------------------
 
+    def _sync_stage0_filter(self, sync_base):
+        """
+        Build the `NAME =~` filter alternatives that match the first CDC
+        synchronizer stage cell for `sync_base`, for the active backend.
+
+        VHDL (VHDLGenerator) declares discrete signals `<sync_base>_sync0`,
+        `<sync_base>_sync1`, ... (and `<sync_base>0_sync0`, `<sync_base>1_sync0`,
+        ... for chunks of registers wider than 32 bits) - see generator.py.
+
+        SystemVerilog (SystemVerilogGenerator) declares an unpacked array
+        `(* ASYNC_REG = "TRUE" *) logic <sync_base>_sync [N];`, so there is
+        no signal literally named `<sync_base>_sync0`; the first stage is
+        element 0 of the array. Assumption (not verified against a real
+        Vivado synthesis run): Vivado's `get_cells`/`get_pins` NAME
+        matching exposes unpacked-array register elements using
+        SystemVerilog bracket-index syntax, i.e. the first stage cell name
+        is `<sync_base>_sync[0]` (mirroring the RTL declaration and the
+        standard Xilinx ASYNC_REG idiom for SV arrays per UG901). This is
+        distinct from the Verilator/cocotb VPI view, which flattens the
+        same array into scalar handles `<sync_base>_sync0`, `_sync1`, ...
+        for simulation only (see tests/cocotb/test_sv_cdc.py) - that
+        flattening is a simulator/VPI artifact and does not reflect Vivado
+        netlist cell naming, so it must not be used here.
+        """
+        if self.backend == 'systemverilog':
+            return (f"{{NAME =~ */{sync_base}_sync[0] || "
+                     f"NAME =~ */{sync_base}[0-9]*_sync[0]}}")
+        return (f"{{NAME =~ */{sync_base}_sync0 || "
+                f"NAME =~ */{sync_base}[0-9]*_sync0}}")
+
     def _cdc_crossing_constraint(self, sync_base, access_mode, description="",
                                   from_port=None, from_cell=None,
                                   from_cell_wide_ok=False):
         """
         Build a false-path constraint scoped to one CDC crossing hop: from
         the source-domain register/port to the D input of the first
-        synchronizer stage (`<sync_base>_sync0`).
+        synchronizer stage.
 
         Exactly one of from_port/from_cell must be given:
         - from_port: a top-level port pin of the module (RO register/field
@@ -250,15 +306,15 @@ class XDCGenerator:
           `<from_cell>0`, `<from_cell>1`, ... chunks used for registers
           wider than 32 bits.
 
-        The `-to` side always targets `<sync_base>_sync0` (or
-        `<sync_base>0_sync0`, `<sync_base>1_sync0`, ... for wide chunks)
-        via get_cells - the first synchronizer stage is always an internal
-        register, never a port.
+        The `-to` side always targets the first synchronizer stage via
+        get_cells - the first synchronizer stage is always an internal
+        register, never a port. The exact cell-name pattern depends on the
+        active backend; see _sync_stage0_filter().
         """
         if access_mode == 'RO':
-            comment_dir = 'module -> AXI, axi_aclk-domain sync0'
+            comment_dir = 'module -> AXI, axi_aclk-domain sync stage 0'
         else:
-            comment_dir = 'AXI -> module, module_clk-domain sync0'
+            comment_dir = 'AXI -> module, module_clk-domain sync stage 0'
 
         desc = f" - {description}" if description else ""
         lines = [f"# {sync_base} ({access_mode}, {comment_dir}){desc}"]
@@ -274,8 +330,7 @@ class XDCGenerator:
                 from_filter = f"{{NAME =~ */{from_cell}}}"
             from_expr = f"[get_cells -of_objects $axion_cells -filter {from_filter}]"
 
-        to_filter = (f"{{NAME =~ */{sync_base}_sync0 || "
-                     f"NAME =~ */{sync_base}[0-9]*_sync0}}")
+        to_filter = self._sync_stage0_filter(sync_base)
         to_expr = f"[get_cells -of_objects $axion_cells -filter {to_filter}]"
 
         lines.append(f"set_false_path -from {from_expr} -to {to_expr}")
@@ -285,15 +340,17 @@ class XDCGenerator:
     def _toggle_crossing_constraint(self, name, direction):
         """
         Build a false-path constraint for a strobe's toggle-synchronizer
-        crossing: from `<name>_<direction>_toggle` (source domain) to
-        `<name>_<direction>_toggle_sync0` (destination domain, first stage).
+        crossing: from `<name>_<direction>_toggle` (source domain) to the
+        first stage of its synchronizer chain (destination domain). See
+        _sync_stage0_filter() for the backend-specific cell-name pattern.
         """
         base = f"{name}_{direction}_toggle"
         kind = 'read strobe' if direction == 'rd' else 'write strobe'
+        to_filter = self._sync_stage0_filter(base)
         return [
             f"# {name} {kind} toggle CDC (axi_aclk -> module_clk)",
             f"set_false_path -from [get_cells -of_objects $axion_cells -filter "
             f"{{NAME =~ */{base}}}] -to [get_cells -of_objects $axion_cells "
-            f"-filter {{NAME =~ */{base}_sync0}}]",
+            f"-filter {to_filter}]",
             "",
         ]

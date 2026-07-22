@@ -1062,7 +1062,7 @@ class AxionHDL:
         print(f"\nSystemVerilog files generated in: {self.output_dir}")
         return True
 
-    def generate_xdc(self):
+    def generate_xdc(self, backend='vhdl'):
         """
         Generate Xilinx XDC timing constraint files (\*_axion_reg.xdc) for
         every analyzed module with CDC enabled.
@@ -1076,6 +1076,16 @@ class AxionHDL:
 
         Modules with CDC disabled have no internal synchronizer to scope a
         false path to, so no file is generated for them.
+
+        Args:
+            backend: Which HDL backend the constraints are generated for -
+                     'vhdl' (default) or 'systemverilog'. This matters
+                     because VHDLGenerator and SystemVerilogGenerator name
+                     the first CDC synchronizer stage differently (discrete
+                     `<name>_sync0` signals vs. an unpacked array element
+                     `<name>_sync[0]`) - see XDCGenerator for details. XDC
+                     constraints generated for the wrong backend silently
+                     match no cells in Vivado.
         """
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")
@@ -1085,14 +1095,14 @@ class AxionHDL:
             return False
 
         print(f"\n{'='*60}")
-        print("Generating XDC constraint files...")
+        print(f"Generating XDC constraint files ({backend})...")
         print(f"{'='*60}")
 
         # Create output directory if it doesn't exist
         os.makedirs(self.output_dir, exist_ok=True)
 
         # Generate XDC files (CDC-enabled modules only)
-        generator = XDCGenerator(self.output_dir)
+        generator = XDCGenerator(self.output_dir, backend=backend)
         for module in self.analyzed_modules:
             output_path = generator.generate_xdc(module)
             if output_path is not None:
