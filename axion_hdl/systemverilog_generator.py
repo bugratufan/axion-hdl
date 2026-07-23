@@ -614,11 +614,13 @@ class SystemVerilogGenerator:
                 lines.append("    // Strobe pulse CDC (toggle synchronizer)")
                 for name in rd_names:
                     lines.append(f"    logic {name}_rd_toggle;")
-                    lines.append(f"    (* ASYNC_REG = \"TRUE\" *) logic {name}_rd_toggle_sync [{cdc_stages}];")
+                    for stage in range(cdc_stages):
+                        lines.append(f"    (* ASYNC_REG = \"TRUE\" *) logic {name}_rd_toggle_sync{stage};")
                     lines.append(f"    logic {name}_rd_toggle_prev;")
                 for name in wr_names:
                     lines.append(f"    logic {name}_wr_toggle;")
-                    lines.append(f"    (* ASYNC_REG = \"TRUE\" *) logic {name}_wr_toggle_sync [{cdc_stages}];")
+                    for stage in range(cdc_stages):
+                        lines.append(f"    (* ASYNC_REG = \"TRUE\" *) logic {name}_wr_toggle_sync{stage};")
                     lines.append(f"    logic {name}_wr_toggle_prev;")
                 lines.append("")
 
@@ -658,20 +660,21 @@ class SystemVerilogGenerator:
 
         for name, sv_type, _, kind in ro_chains:
             lines.append(f"    // CDC for {name} ({kind})")
-            lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {name}_sync [{cdc_stages}];")
+            for stage in range(cdc_stages):
+                lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {name}_sync{stage};")
 
         if ro_chains:
             lines.append("")
             lines.append(f"    always_ff @(posedge axi_aclk or negedge axi_aresetn) begin")
             lines.append(f"        if (!axi_aresetn) begin")
             for name, _, _, _ in ro_chains:
-                for i in range(cdc_stages):
-                    lines.append(f"            {name}_sync[{i}] <= '0;")
+                for stage in range(cdc_stages):
+                    lines.append(f"            {name}_sync{stage} <= '0;")
             lines.append(f"        end else begin")
             for name, _, source, _ in ro_chains:
-                lines.append(f"            {name}_sync[0] <= {source};")
-                for i in range(1, cdc_stages):
-                    lines.append(f"            {name}_sync[{i}] <= {name}_sync[{i-1}];")
+                lines.append(f"            {name}_sync0 <= {source};")
+                for stage in range(1, cdc_stages):
+                    lines.append(f"            {name}_sync{stage} <= {name}_sync{stage-1};")
             lines.append(f"        end")
             lines.append(f"    end")
         else:
@@ -702,20 +705,21 @@ class SystemVerilogGenerator:
 
         for name, sv_type, _, kind in out_chains:
             lines.append(f"    // CDC for {name} ({kind})")
-            lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {name}_sync [{cdc_stages}];")
+            for stage in range(cdc_stages):
+                lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {name}_sync{stage};")
 
         if out_chains:
             lines.append("")
             lines.append(f"    always_ff @(posedge module_clk or negedge axi_aresetn) begin")
             lines.append(f"        if (!axi_aresetn) begin")
             for name, _, _, _ in out_chains:
-                for i in range(cdc_stages):
-                    lines.append(f"            {name}_sync[{i}] <= '0;")
+                for stage in range(cdc_stages):
+                    lines.append(f"            {name}_sync{stage} <= '0;")
             lines.append(f"        end else begin")
             for name, _, source, _ in out_chains:
-                lines.append(f"            {name}_sync[0] <= {source};")
-                for i in range(1, cdc_stages):
-                    lines.append(f"            {name}_sync[{i}] <= {name}_sync[{i-1}];")
+                lines.append(f"            {name}_sync0 <= {source};")
+                for stage in range(1, cdc_stages):
+                    lines.append(f"            {name}_sync{stage} <= {name}_sync{stage-1};")
             lines.append(f"        end")
             lines.append(f"    end")
         else:
@@ -773,27 +777,27 @@ class SystemVerilogGenerator:
         ])
         for name in rd_names:
             for stage in range(cdc_stages):
-                lines.append(f"            {name}_rd_toggle_sync[{stage}] <= 1'b0;")
+                lines.append(f"            {name}_rd_toggle_sync{stage} <= 1'b0;")
             lines.append(f"            {name}_rd_toggle_prev <= 1'b0;")
             lines.append(f"            {name}_rd_strobe <= 1'b0;")
         for name in wr_names:
             for stage in range(cdc_stages):
-                lines.append(f"            {name}_wr_toggle_sync[{stage}] <= 1'b0;")
+                lines.append(f"            {name}_wr_toggle_sync{stage} <= 1'b0;")
             lines.append(f"            {name}_wr_toggle_prev <= 1'b0;")
             lines.append(f"            {name}_wr_strobe <= 1'b0;")
         lines.append("        end else begin")
         for name in rd_names:
-            lines.append(f"            {name}_rd_toggle_sync[0] <= {name}_rd_toggle;")
+            lines.append(f"            {name}_rd_toggle_sync0 <= {name}_rd_toggle;")
             for stage in range(1, cdc_stages):
-                lines.append(f"            {name}_rd_toggle_sync[{stage}] <= {name}_rd_toggle_sync[{stage-1}];")
-            lines.append(f"            {name}_rd_toggle_prev <= {name}_rd_toggle_sync[{cdc_stages-1}];")
-            lines.append(f"            {name}_rd_strobe <= {name}_rd_toggle_sync[{cdc_stages-1}] ^ {name}_rd_toggle_prev;")
+                lines.append(f"            {name}_rd_toggle_sync{stage} <= {name}_rd_toggle_sync{stage-1};")
+            lines.append(f"            {name}_rd_toggle_prev <= {name}_rd_toggle_sync{cdc_stages-1};")
+            lines.append(f"            {name}_rd_strobe <= {name}_rd_toggle_sync{cdc_stages-1} ^ {name}_rd_toggle_prev;")
         for name in wr_names:
-            lines.append(f"            {name}_wr_toggle_sync[0] <= {name}_wr_toggle;")
+            lines.append(f"            {name}_wr_toggle_sync0 <= {name}_wr_toggle;")
             for stage in range(1, cdc_stages):
-                lines.append(f"            {name}_wr_toggle_sync[{stage}] <= {name}_wr_toggle_sync[{stage-1}];")
-            lines.append(f"            {name}_wr_toggle_prev <= {name}_wr_toggle_sync[{cdc_stages-1}];")
-            lines.append(f"            {name}_wr_strobe <= {name}_wr_toggle_sync[{cdc_stages-1}] ^ {name}_wr_toggle_prev;")
+                lines.append(f"            {name}_wr_toggle_sync{stage} <= {name}_wr_toggle_sync{stage-1};")
+            lines.append(f"            {name}_wr_toggle_prev <= {name}_wr_toggle_sync{cdc_stages-1};")
+            lines.append(f"            {name}_wr_strobe <= {name}_wr_toggle_sync{cdc_stages-1} ^ {name}_wr_toggle_prev;")
         lines.extend([
             "        end",
             "    end",
@@ -832,7 +836,7 @@ class SystemVerilogGenerator:
                 sig_name = f"{reg_name}_{field['name']}"
                 if field['access_mode'] == 'RO':
                     # RO bits come from the module inputs (synced when CDC on)
-                    source = f"{sig_name}_sync[{last}]" if cdc_enabled else sig_name
+                    source = f"{sig_name}_sync{last}" if cdc_enabled else sig_name
                 else:
                     # RW/WO bits read back from the axi_aclk-domain storage
                     source = f"{reg_name}_reg{self._field_slice(field)}"
@@ -1074,7 +1078,7 @@ class SystemVerilogGenerator:
                         # when CDC on), RW/WO bits from axi_aclk-domain storage
                         source = f"{signal_name}_val"
                     elif cdc_enabled and access_mode == 'RO':
-                        source = f"{signal_name}_sync[{cdc_stages-1}]"
+                        source = f"{signal_name}_sync{cdc_stages-1}"
                     elif access_mode == 'RO':
                         source = signal_name
                     else:
@@ -1159,7 +1163,7 @@ class SystemVerilogGenerator:
             if access_mode in ['RW', 'WO'] and not reg.get('is_packed'):
                 if cdc_enabled:
                      # Use the last stage of the synchronizer
-                     lines.append(f"    assign {signal_name} = {signal_name}_sync[{cdc_stages-1}];")
+                     lines.append(f"    assign {signal_name} = {signal_name}_sync{cdc_stages-1};")
                 else:
                      lines.append(f"    assign {signal_name} = {signal_name}_reg;")
 
@@ -1188,7 +1192,7 @@ class SystemVerilogGenerator:
             if not writable_fields:
                 continue
             reg_name = pr['reg_name']
-            src_base = f"{reg_name}_reg_sync[{cdc_stages-1}]" if cdc_enabled else f"{reg_name}_reg"
+            src_base = f"{reg_name}_reg_sync{cdc_stages-1}" if cdc_enabled else f"{reg_name}_reg"
             lines.append(f"    // Field outputs for packed register {reg_name}")
             for field in writable_fields:
                 sig_name = f"{reg_name}_{field['name']}"

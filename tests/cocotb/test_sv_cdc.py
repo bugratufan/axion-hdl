@@ -250,18 +250,18 @@ async def test_sv_cdc_async_reset(dut):
     dut.axi_aresetn.value = 0
     await ClockCycles(axi_clk, 5)
 
-    # Check the last RO synchronizer stage directly (status_reg_sync[N-1]
+    # Check the last RO synchronizer stage directly (status_reg_sync{N-1}
     # in the generated SV source is what the read mux uses, e.g.
-    # `rdata_reg = status_reg_sync[2]` for a 3-stage DUT) while reset is
+    # `rdata_reg = status_reg_sync2` for a 3-stage DUT) while reset is
     # still held, rather than through an AXI read: the read handshake
     # takes several more axi_aclk edges, by which time the chain would
     # already have re-filled with the still-live module_clk input and mask
-    # the behavior under test. Verilator's VPI exposes this unpacked SV
-    # array as flattened scalar handles (status_reg_sync0, _sync1, ...)
-    # rather than an indexable dut.status_reg_sync[N] - verified
-    # empirically against this DUT. The stage count varies (3 for
-    # sensor_controller, 2 for sensor_controller_stage2), so probe for the
-    # highest-numbered stage that actually exists instead of hardcoding it.
+    # the behavior under test. The SV generator declares each stage as a
+    # discrete scalar signal (status_reg_sync0, _sync1, ...), matching the
+    # VHDL backend's naming, so these are accessed directly by name. The
+    # stage count varies (3 for sensor_controller, 2 for
+    # sensor_controller_stage2), so probe for the highest-numbered stage
+    # that actually exists instead of hardcoding it.
     stage = 0
     while hasattr(dut, f"status_reg_sync{stage + 1}"):
         stage += 1

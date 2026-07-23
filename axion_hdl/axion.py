@@ -1079,13 +1079,12 @@ class AxionHDL:
 
         Args:
             backend: Which HDL backend the constraints are generated for -
-                     'vhdl' (default) or 'systemverilog'. This matters
-                     because VHDLGenerator and SystemVerilogGenerator name
-                     the first CDC synchronizer stage differently (discrete
-                     `<name>_sync0` signals vs. an unpacked array element
-                     `<name>_sync[0]`) - see XDCGenerator for details. XDC
-                     constraints generated for the wrong backend silently
-                     match no cells in Vivado.
+                     'vhdl' (default) or 'systemverilog'. Both backends
+                     name the first CDC synchronizer stage the same way
+                     (discrete `<name>_sync0` signals) - see XDCGenerator
+                     for details. This only affects the output file suffix,
+                     so generating XDC for both backends produces two
+                     distinct files instead of one overwriting the other.
         """
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")

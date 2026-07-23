@@ -587,13 +587,13 @@ registers:
         content = self._generate_from_yaml(
             self.PACKED_CDC_YAML.format(module="sv_ro_cdc", stages=2),
             "sv_ro_cdc", systemverilog=True)
-        self.assertIn('mix_reg_ready_bit_sync[0] <= mix_reg_ready_bit;', content,
+        self.assertIn('mix_reg_ready_bit_sync0 <= mix_reg_ready_bit;', content,
             "Packed RO field must enter a synchronizer chain")
-        self.assertIn('mix_reg_version_sync[0] <= mix_reg_version;', content,
+        self.assertIn('mix_reg_version_sync0 <= mix_reg_version;', content,
             "Packed multi-bit RO field must enter a synchronizer chain")
-        self.assertIn('mix_reg_val[8] = mix_reg_ready_bit_sync[1];', content,
+        self.assertIn('mix_reg_val[8] = mix_reg_ready_bit_sync1;', content,
             "Packed RO field read value must come from the last sync stage")
-        self.assertIn('mix_reg_val[15:12] = mix_reg_version_sync[1];', content,
+        self.assertIn('mix_reg_val[15:12] = mix_reg_version_sync1;', content,
             "Packed RO vector field read value must come from the last sync stage")
         self.assertNotIn('mix_reg_val[8] = mix_reg_ready_bit;', content,
             "Packed RO field must not enter the AXI read path unsynchronized")
@@ -603,13 +603,13 @@ registers:
         content = self._generate_from_yaml(
             self.PACKED_CDC_YAML.format(module="sv_rw_cdc", stages=2),
             "sv_rw_cdc", systemverilog=True)
-        self.assertIn('mix_reg_reg_sync[0] <= mix_reg_reg;', content,
+        self.assertIn('mix_reg_reg_sync0 <= mix_reg_reg;', content,
             "Packed register storage must enter a module_clk synchronizer chain")
         self.assertIn('always_ff @(posedge module_clk', content,
             "Packed RW/WO synchronizer must be clocked by module_clk")
-        self.assertIn('assign mix_reg_go_bit = mix_reg_reg_sync[1][0];', content,
+        self.assertIn('assign mix_reg_go_bit = mix_reg_reg_sync1[0];', content,
             "Packed RW field output must come from the last sync stage")
-        self.assertIn('assign mix_reg_speed = mix_reg_reg_sync[1][3:1];', content,
+        self.assertIn('assign mix_reg_speed = mix_reg_reg_sync1[3:1];', content,
             "Packed RW vector field output must come from the last sync stage")
         self.assertNotIn('assign mix_reg_go_bit = mix_reg_reg[0];', content,
             "Packed RW field output must not bypass the synchronizer chain")
@@ -624,13 +624,13 @@ registers:
             "sv_stages_cdc", systemverilog=True)
         for sig in ['mix_reg_reg', 'mix_reg_ready_bit', 'mix_reg_version']:
             for stage in range(4):
-                self.assertIn(f'{sig}_sync[{stage}]', content,
+                self.assertIn(f'{sig}_sync{stage}', content,
                     f"{sig} chain must contain stage {stage}")
-            self.assertNotIn(f'{sig}_sync[4]', content,
+            self.assertNotIn(f'{sig}_sync4', content,
                 f"{sig} chain must not exceed the configured depth")
-        self.assertIn('assign mix_reg_go_bit = mix_reg_reg_sync[3][0];', content,
+        self.assertIn('assign mix_reg_go_bit = mix_reg_reg_sync3[0];', content,
             "Packed RW field output must use the last configured stage")
-        self.assertIn('mix_reg_val[8] = mix_reg_ready_bit_sync[3];', content,
+        self.assertIn('mix_reg_val[8] = mix_reg_ready_bit_sync3;', content,
             "Packed RO field read value must use the last configured stage")
 
     def test_cdc_015_sv_wide_register(self):
@@ -656,8 +656,8 @@ registers:
         self.assertIn('rdata_reg = big_cfg_reg[63:32];', content,
             "Wide SV register must have upper-word read access")
         self.assertIn('(* ASYNC_REG = "TRUE" *) logic [63:0]', content,
-            "Wide SV sync array must span the full register width")
-        self.assertIn('assign big_cfg = big_cfg_sync[1];', content,
+            "Wide SV sync signal must span the full register width")
+        self.assertIn('assign big_cfg = big_cfg_sync1;', content,
             "Wide SV output port must be driven from the last sync stage")
 
     # =========================================================================
@@ -676,12 +676,12 @@ registers:
         'attribute ASYNC_REG : string;',
     ]
     SV_CDC_PARITY_LINES = [
-        'mix_reg_ready_bit_sync[0] <= mix_reg_ready_bit;',
-        'mix_reg_reg_sync[0] <= mix_reg_reg;',
-        'assign mix_reg_go_bit = mix_reg_reg_sync[1][0];',
-        'assign mix_reg_speed = mix_reg_reg_sync[1][3:1];',
-        'mix_reg_val[8] = mix_reg_ready_bit_sync[1];',
-        'mix_reg_val[15:12] = mix_reg_version_sync[1];',
+        'mix_reg_ready_bit_sync0 <= mix_reg_ready_bit;',
+        'mix_reg_reg_sync0 <= mix_reg_reg;',
+        'assign mix_reg_go_bit = mix_reg_reg_sync1[0];',
+        'assign mix_reg_speed = mix_reg_reg_sync1[3:1];',
+        'mix_reg_val[8] = mix_reg_ready_bit_sync1;',
+        'mix_reg_val[15:12] = mix_reg_version_sync1;',
         'always_ff @(posedge module_clk',
         '(* ASYNC_REG = "TRUE" *)',
     ]
@@ -846,10 +846,12 @@ end architecture;
         self.assertIn("if (config_reg_wr_strobe_int) config_reg_wr_toggle <= ~config_reg_wr_toggle;",
             content, "SV write strobe must drive a toggle flip-flop")
         self.assertIn(
-            "status_reg_rd_strobe <= status_reg_rd_toggle_sync[1] ^ status_reg_rd_toggle_prev;",
+            "status_reg_rd_strobe <= status_reg_rd_toggle_sync1 ^ status_reg_rd_toggle_prev;",
             content, "SV regenerated pulse must come from the toggle sync chain's edge detector")
-        self.assertIn('(* ASYNC_REG = "TRUE" *) logic status_reg_rd_toggle_sync [2];', content,
+        self.assertIn('(* ASYNC_REG = "TRUE" *) logic status_reg_rd_toggle_sync0;', content,
             "SV strobe toggle sync chain must carry ASYNC_REG")
+        self.assertIn('(* ASYNC_REG = "TRUE" *) logic status_reg_rd_toggle_sync1;', content,
+            "SV strobe toggle sync chain must carry ASYNC_REG on every stage")
 
     def test_cdc_019_strobe_stage_count_honored(self):
         """CDC-019: strobe toggle chain depth follows the configured CDC_STAGE, in VHDL and SV"""
@@ -870,10 +872,14 @@ end architecture;
                 sv_content = self._generate_from_vhdl(
                     self.STROBE_CDC_VHDL.format(module=f"strobe_stages_sv{stages}", stages=stages),
                     f"strobe_stages_sv{stages}", systemverilog=True)
-                self.assertIn(f"(* ASYNC_REG = \"TRUE\" *) logic status_reg_rd_toggle_sync [{stages}];",
-                    sv_content, f"SV strobe sync array must be sized {stages} for CDC_STAGE={stages}")
+                for stage in range(stages):
+                    self.assertIn(
+                        f"(* ASYNC_REG = \"TRUE\" *) logic status_reg_rd_toggle_sync{stage};",
+                        sv_content, f"SV strobe sync chain must contain stage {stage} for CDC_STAGE={stages}")
+                self.assertNotIn(f"status_reg_rd_toggle_sync{stages}", sv_content,
+                    f"SV strobe sync chain must not exceed the configured depth ({stages})")
                 self.assertIn(
-                    f"status_reg_rd_strobe <= status_reg_rd_toggle_sync[{stages-1}] ^ status_reg_rd_toggle_prev;",
+                    f"status_reg_rd_strobe <= status_reg_rd_toggle_sync{stages-1} ^ status_reg_rd_toggle_prev;",
                     sv_content, "SV edge detector must use the last configured stage")
 
     def test_cdc_019_packed_strobe_toggle(self):

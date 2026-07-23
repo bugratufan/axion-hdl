@@ -181,42 +181,58 @@ module audio_proc_axion_reg #(
     // Input Synchronizers (Module -> AXI)
     // -----------------------------------
     // CDC for status (RO)
-    logic [2:0]                    status_sync [3];
+    (* ASYNC_REG = "TRUE" *) logic [2:0]                    status_sync0;
+    (* ASYNC_REG = "TRUE" *) logic [2:0]                    status_sync1;
+    (* ASYNC_REG = "TRUE" *) logic [2:0]                    status_sync2;
 
     always_ff @(posedge axi_aclk or negedge axi_aresetn) begin
         if (!axi_aresetn) begin
-            status_sync <= '{default: '0};
+            status_sync0 <= '0;
+            status_sync1 <= '0;
+            status_sync2 <= '0;
         end else begin
-            status_sync[0] <= status;
-            status_sync[1] <= status_sync[0];
-            status_sync[2] <= status_sync[1];
+            status_sync0 <= status;
+            status_sync1 <= status_sync0;
+            status_sync2 <= status_sync1;
         end
     end
 
     // Output Synchronizers (AXI -> Module)
     // ------------------------------------
     // CDC for volume (RW)
-    logic [31:0]                   volume_sync [3];
+    (* ASYNC_REG = "TRUE" *) logic [31:0]                   volume_sync0;
+    (* ASYNC_REG = "TRUE" *) logic [31:0]                   volume_sync1;
+    (* ASYNC_REG = "TRUE" *) logic [31:0]                   volume_sync2;
     // CDC for coeffs (RW)
-    logic [63:0]                   coeffs_sync [3];
+    (* ASYNC_REG = "TRUE" *) logic [63:0]                   coeffs_sync0;
+    (* ASYNC_REG = "TRUE" *) logic [63:0]                   coeffs_sync1;
+    (* ASYNC_REG = "TRUE" *) logic [63:0]                   coeffs_sync2;
     // CDC for cmd (WO)
-    logic [31:0]                   cmd_sync [3];
+    (* ASYNC_REG = "TRUE" *) logic [31:0]                   cmd_sync0;
+    (* ASYNC_REG = "TRUE" *) logic [31:0]                   cmd_sync1;
+    (* ASYNC_REG = "TRUE" *) logic [31:0]                   cmd_sync2;
 
     always_ff @(posedge module_clk or negedge axi_aresetn) begin
         if (!axi_aresetn) begin
-            volume_sync <= '{default: '0};
-            coeffs_sync <= '{default: '0};
-            cmd_sync <= '{default: '0};
+            volume_sync0 <= '0;
+            volume_sync1 <= '0;
+            volume_sync2 <= '0;
+            coeffs_sync0 <= '0;
+            coeffs_sync1 <= '0;
+            coeffs_sync2 <= '0;
+            cmd_sync0 <= '0;
+            cmd_sync1 <= '0;
+            cmd_sync2 <= '0;
         end else begin
-            volume_sync[0] <= volume_reg;
-            volume_sync[1] <= volume_sync[0];
-            volume_sync[2] <= volume_sync[1];
-            coeffs_sync[0] <= coeffs_reg;
-            coeffs_sync[1] <= coeffs_sync[0];
-            coeffs_sync[2] <= coeffs_sync[1];
-            cmd_sync[0] <= cmd_reg;
-            cmd_sync[1] <= cmd_sync[0];
-            cmd_sync[2] <= cmd_sync[1];
+            volume_sync0 <= volume_reg;
+            volume_sync1 <= volume_sync0;
+            volume_sync2 <= volume_sync1;
+            coeffs_sync0 <= coeffs_reg;
+            coeffs_sync1 <= coeffs_sync0;
+            coeffs_sync2 <= coeffs_sync1;
+            cmd_sync0 <= cmd_reg;
+            cmd_sync1 <= cmd_sync0;
+            cmd_sync2 <= cmd_sync1;
         end
     end
 

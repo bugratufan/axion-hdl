@@ -437,15 +437,16 @@ class TestXDCRequirements(unittest.TestCase):
 
     # =========================================================================
     # XDC-014: SystemVerilog backend - RO crossing constraint targets the
-    # real array-index cell name, not the VHDL discrete-signal name
+    # same discrete-signal cell name as the VHDL backend
     # =========================================================================
     def test_xdc_014_sv_ro_crossing_constraint(self):
         """XDC-014: for the SystemVerilog backend, RO false-path targets
-        <name>_sync[0] (array element), matching SystemVerilogGenerator's
-        actual `(* ASYNC_REG *) logic <name>_sync [N];` declaration - NOT
-        <name>_sync0, which is the VHDL-only discrete-signal naming and
-        never exists in generated SV RTL (the bug Copilot flagged on
-        PR #130)."""
+        <name>_sync0, matching SystemVerilogGenerator's actual
+        `(* ASYNC_REG *) logic <name>_sync0;` declaration - the same
+        discrete-signal naming convention VHDLGenerator uses (SV previously
+        declared these as an unpacked array `<name>_sync[N]`, which required
+        the XDC generator to special-case the SV cell-name pattern; see
+        PR #130 and the follow-up fix that aligned SV's naming with VHDL)."""
         content = self._generate_xdc(CDC_SV, "xdc_cdc_sv_test",
                                      extension="sv", backend="systemverilog")
         lines = [l for l in self._active_lines(content)
@@ -459,15 +460,15 @@ class TestXDCRequirements(unittest.TestCase):
         self.assertIn("*/status_reg ", line)
         self.assertIn("*/status_reg[*]", line)
         self.assertIn("-to [get_cells", line)
-        self.assertIn("*/status_reg_sync[0]", line,
-            "SV destination must be the array-index cell name sync[0]")
-        self.assertNotIn("status_reg_sync0", line,
-            "SV output must never use the VHDL-only discrete _sync0 naming")
-        self.assertNotIn("status_reg_sync[1]", line,
+        self.assertIn("*/status_reg_sync0", line,
+            "SV destination must be the discrete-signal cell name sync0")
+        self.assertNotIn("status_reg_sync[0]", line,
+            "SV output must never use the old array-index naming")
+        self.assertNotIn("status_reg_sync1", line,
             "Only stage 0 (the actual crossing) should be constrained")
 
     def test_xdc_015_sv_rw_wo_crossing_constraint(self):
-        """XDC-015: SV RW/WO false-path targets the storage cell -> sync[0]"""
+        """XDC-015: SV RW/WO false-path targets the storage cell -> sync0"""
         content = self._generate_xdc(CDC_SV, "xdc_cdc_sv_test",
                                      extension="sv", backend="systemverilog")
         lines = [l for l in self._active_lines(content)
@@ -481,12 +482,12 @@ class TestXDCRequirements(unittest.TestCase):
             self.assertIn("-from [get_cells", line)
             self.assertIn(f"*/{name}_reg", line)
             self.assertIn("-to [get_cells", line)
-            self.assertIn(f"*/{name}_sync[0]", line,
-                "SV destination must be the array-index cell name sync[0]")
-            self.assertNotIn(f"{name}_sync0", line)
+            self.assertIn(f"*/{name}_sync0", line,
+                "SV destination must be the discrete-signal cell name sync0")
+            self.assertNotIn(f"{name}_sync[0]", line)
 
     def test_xdc_016_sv_strobe_toggle_crossing(self):
-        """XDC-016: SV strobe toggle crossing targets <base>_sync[0], not <base>_sync0"""
+        """XDC-016: SV strobe toggle crossing targets <base>_sync0, same as VHDL"""
         content = self._generate_xdc(CDC_SV, "xdc_cdc_sv_test",
                                      extension="sv", backend="systemverilog")
         lines = [l for l in self._active_lines(content)
@@ -496,14 +497,14 @@ class TestXDCRequirements(unittest.TestCase):
         self.assertEqual(len(rd_toggle), 1)
         self.assertIn("-from [get_cells", rd_toggle[0])
         self.assertIn("*/status_reg_rd_toggle}", rd_toggle[0])
-        self.assertIn("*/status_reg_rd_toggle_sync[0]", rd_toggle[0])
-        self.assertNotIn("status_reg_rd_toggle_sync0", rd_toggle[0])
+        self.assertIn("*/status_reg_rd_toggle_sync0", rd_toggle[0])
+        self.assertNotIn("status_reg_rd_toggle_sync[0]", rd_toggle[0])
 
         wr_toggle = [l for l in lines if "config_reg_wr_toggle" in l]
         self.assertEqual(len(wr_toggle), 1)
         self.assertIn("*/config_reg_wr_toggle}", wr_toggle[0])
-        self.assertIn("*/config_reg_wr_toggle_sync[0]", wr_toggle[0])
-        self.assertNotIn("config_reg_wr_toggle_sync0", wr_toggle[0])
+        self.assertIn("*/config_reg_wr_toggle_sync0", wr_toggle[0])
+        self.assertNotIn("config_reg_wr_toggle_sync[0]", wr_toggle[0])
 
         for line in lines:
             self.assertNotIn("*/status_reg_rd_strobe}", line)
@@ -522,7 +523,7 @@ class TestXDCRequirements(unittest.TestCase):
     # Flagged for separate follow-up.
 
     def test_xdc_018_sv_stage_count_independence(self):
-        """XDC-018: SV constraints always target sync[0] only, regardless of CDC_STAGE"""
+        """XDC-018: SV constraints always target sync0 only, regardless of CDC_STAGE"""
         def _stage_sv(stages):
             return f'''
 // @axion_def BASE_ADDR=0x0000 CDC_EN CDC_STAGE={stages}
@@ -541,12 +542,12 @@ endmodule
                                        extension="sv", backend="systemverilog")
 
         for content, stages in ((content_2, 2), (content_5, 5)):
-            self.assertIn("*/status_reg_sync[0]", content)
-            self.assertIn("*/config_reg_sync[0]", content)
-            self.assertIn("*/status_reg_rd_toggle_sync[0]", content)
-            self.assertIn("*/config_reg_wr_toggle_sync[0]", content)
+            self.assertIn("*/status_reg_sync0", content)
+            self.assertIn("*/config_reg_sync0", content)
+            self.assertIn("*/status_reg_rd_toggle_sync0", content)
+            self.assertIn("*/config_reg_wr_toggle_sync0", content)
             for stage in range(1, stages):
-                self.assertNotIn(f"_sync[{stage}]", content,
+                self.assertNotIn(f"_sync{stage} ", content + " ",
                     f"XDC must not reference stage {stage} (CDC_STAGE={stages})")
 
         def _strip_version(text):
@@ -558,8 +559,9 @@ endmodule
 
     def test_xdc_019_cli_systemverilog_xdc_flag(self):
         """XDC-019: `--systemverilog --xdc` on the CLI produces a real SV XDC
-        file (<module>_axion_reg_sv.xdc) whose -to filter uses SV array-index
-        naming, and does not silently reuse the VHDL naming/filename."""
+        file (<module>_axion_reg_sv.xdc) whose -to filter uses the same
+        discrete-signal naming as the VHDL backend, and does not silently
+        reuse the VHDL filename."""
         self._write_source("xdc_cdc_sv_test.sv", CDC_SV)
 
         result = subprocess.run(
@@ -574,8 +576,8 @@ endmodule
             "CLI --systemverilog --xdc must produce a *_sv.xdc file")
         with open(gen_file) as f:
             content = f.read()
-        self.assertIn("*/status_reg_sync[0]", content)
-        self.assertNotIn("status_reg_sync0", content)
+        self.assertIn("*/status_reg_sync0", content)
+        self.assertNotIn("status_reg_sync[0]", content)
 
     def test_xdc_020_cli_both_backends_no_collision(self):
         """XDC-020: `--vhdl --systemverilog --xdc` together must produce two
@@ -602,8 +604,8 @@ endmodule
             sv_content = f.read()
         self.assertIn("_sync0", vhdl_content)
         self.assertNotIn("_sync[0]", vhdl_content)
-        self.assertIn("_sync[0]", sv_content)
-        self.assertNotIn("_sync0", sv_content)
+        self.assertIn("_sync0", sv_content)
+        self.assertNotIn("_sync[0]", sv_content)
 
 
 if __name__ == '__main__':

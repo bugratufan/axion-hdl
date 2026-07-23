@@ -28,14 +28,16 @@ Only the first synchronizer stage is targeted: subsequent stages
 hops that standard timing analysis already checks correctly, so no
 exception is needed (or wanted) for them.
 
-XDCGenerator is backend-aware (constructor `backend='vhdl'|'systemverilog'`)
-because VHDLGenerator and SystemVerilogGenerator name the first
-synchronizer stage differently:
-- VHDL: discrete signals `<name>_sync0`, `<name>_sync1`, ...
-- SystemVerilog: an unpacked array `<name>_sync[N]`, so the first stage is
-  `<name>_sync[0]` - there is no signal literally named `<name>_sync0`.
-See XDCGenerator._sync_stage0_filter() for the exact per-backend pattern
-and the Vivado netlist-naming assumption it documents.
+VHDLGenerator and SystemVerilogGenerator both name the first synchronizer
+stage the same way: discrete signals `<name>_sync0`, `<name>_sync1`, ...
+(SystemVerilogGenerator previously declared these as an unpacked array
+`<name>_sync[N]`, which required XDCGenerator to special-case the SV
+backend's cell-name pattern - see PR #130 and the follow-up fix that
+switched SV to the same discrete-signal convention as VHDL. XDCGenerator
+no longer needs to know which backend it targets for cell-naming
+purposes; the `backend` constructor parameter is kept only to pick the
+output file suffix, so `--vhdl --systemverilog --xdc` runs still produce
+two distinct files instead of one overwriting the other.)
 
 CDC-disabled modules have no internal synchronizer to scope a false path
 to - the register signals are single-clock-domain internally, and any
@@ -70,19 +72,15 @@ class XDCGenerator:
 
         Args:
             output_dir: Directory where generated .xdc files are written
-            backend: Which HDL backend the constraints target - 'vhdl' or
-                     'systemverilog'. This matters because the two
-                     generators declare the first CDC synchronizer stage
-                     under different cell names:
-                       - VHDLGenerator emits discrete signals
-                         `<name>_sync0`, `<name>_sync1`, ...
-                       - SystemVerilogGenerator emits an unpacked array
-                         `(* ASYNC_REG = "TRUE" *) logic <name>_sync [N];`,
-                         so the first stage is `<name>_sync[0]`, never a
-                         signal literally named `<name>_sync0`.
-                     The XDC `-to` filter must match the backend that will
-                     actually be synthesized, or the constraint silently
-                     matches nothing (see PR #130 Copilot review).
+            backend: Which HDL backend the constraints are generated for -
+                     'vhdl' (default) or 'systemverilog'. Both backends
+                     declare the first CDC synchronizer stage under the
+                     same discrete signal name (`<name>_sync0`), so this
+                     no longer affects the constraint cell-name patterns.
+                     It only selects the output file suffix (see
+                     generate_xdc()), so generating XDC for both backends
+                     in the same output directory produces two distinct
+                     files instead of one overwriting the other.
         """
         self.output_dir = output_dir
         if backend not in ('vhdl', 'systemverilog'):
@@ -263,30 +261,14 @@ class XDCGenerator:
     def _sync_stage0_filter(self, sync_base):
         """
         Build the `NAME =~` filter alternatives that match the first CDC
-        synchronizer stage cell for `sync_base`, for the active backend.
+        synchronizer stage cell for `sync_base`.
 
-        VHDL (VHDLGenerator) declares discrete signals `<sync_base>_sync0`,
-        `<sync_base>_sync1`, ... (and `<sync_base>0_sync0`, `<sync_base>1_sync0`,
-        ... for chunks of registers wider than 32 bits) - see generator.py.
-
-        SystemVerilog (SystemVerilogGenerator) declares an unpacked array
-        `(* ASYNC_REG = "TRUE" *) logic <sync_base>_sync [N];`, so there is
-        no signal literally named `<sync_base>_sync0`; the first stage is
-        element 0 of the array. Assumption (not verified against a real
-        Vivado synthesis run): Vivado's `get_cells`/`get_pins` NAME
-        matching exposes unpacked-array register elements using
-        SystemVerilog bracket-index syntax, i.e. the first stage cell name
-        is `<sync_base>_sync[0]` (mirroring the RTL declaration and the
-        standard Xilinx ASYNC_REG idiom for SV arrays per UG901). This is
-        distinct from the Verilator/cocotb VPI view, which flattens the
-        same array into scalar handles `<sync_base>_sync0`, `_sync1`, ...
-        for simulation only (see tests/cocotb/test_sv_cdc.py) - that
-        flattening is a simulator/VPI artifact and does not reflect Vivado
-        netlist cell naming, so it must not be used here.
+        Both VHDLGenerator and SystemVerilogGenerator declare discrete
+        signals `<sync_base>_sync0`, `<sync_base>_sync1`, ... (and
+        `<sync_base>0_sync0`, `<sync_base>1_sync0`, ... for chunks of
+        VHDL registers wider than 32 bits) - see generator.py and
+        systemverilog_generator.py.
         """
-        if self.backend == 'systemverilog':
-            return (f"{{NAME =~ */{sync_base}_sync[0] || "
-                     f"NAME =~ */{sync_base}[0-9]*_sync[0]}}")
         return (f"{{NAME =~ */{sync_base}_sync0 || "
                 f"NAME =~ */{sync_base}[0-9]*_sync0}}")
 
@@ -308,8 +290,8 @@ class XDCGenerator:
 
         The `-to` side always targets the first synchronizer stage via
         get_cells - the first synchronizer stage is always an internal
-        register, never a port. The exact cell-name pattern depends on the
-        active backend; see _sync_stage0_filter().
+        register, never a port. See _sync_stage0_filter() for the exact
+        cell-name pattern.
         """
         if access_mode == 'RO':
             comment_dir = 'module -> AXI, axi_aclk-domain sync stage 0'
@@ -342,7 +324,7 @@ class XDCGenerator:
         Build a false-path constraint for a strobe's toggle-synchronizer
         crossing: from `<name>_<direction>_toggle` (source domain) to the
         first stage of its synchronizer chain (destination domain). See
-        _sync_stage0_filter() for the backend-specific cell-name pattern.
+        _sync_stage0_filter() for the exact cell-name pattern.
         """
         base = f"{name}_{direction}_toggle"
         kind = 'read strobe' if direction == 'rd' else 'write strobe'
