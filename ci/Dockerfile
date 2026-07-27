@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ghdl \
         git help2man perl make autoconf g++ flex bison ccache \
         libfl2 libfl-dev zlib1g zlib1g-dev \
+        python3 \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
