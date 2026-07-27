@@ -7,41 +7,16 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  build-verilator:
-    runs-on: ubuntu-22.04
-
-    steps:
-    - name: Cache Verilator build
-      id: verilator-cache
-      uses: actions/cache@v4
-      with:
-        path: |
-          /usr/local/bin/verilator*
-          /usr/local/share/verilator
-        # cocotb requires Verilator >=5.036; Ubuntu 22.04's apt package (4.038)
-        # is too old, so build "stable" from source instead. Bump the key
-        # suffix if the required minimum version ever changes.
-        key: verilator-stable-${{ runner.os }}-v1
-
-    - name: Build and install Verilator (>=5.036, required by cocotb)
-      if: steps.verilator-cache.outputs.cache-hit != 'true'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y git help2man perl make autoconf g++ flex bison ccache \
-          libfl2 libfl-dev zlib1g zlib1g-dev
-        git clone --depth 1 --branch stable https://github.com/verilator/verilator.git /tmp/verilator-src
-        cd /tmp/verilator-src
-        autoconf
-        ./configure
-        make -j"$(nproc)"
-        sudo make install
-
-    - name: Verify Verilator version
-      run: verilator --version
-
   test:
-    needs: build-verilator
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/axion-hdl-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     strategy:
       matrix:
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
@@ -56,23 +31,10 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install GHDL
+    - name: Verify pre-built tools
       run: |
-        sudo apt-get update
-        sudo apt-get install -y ghdl
         ghdl --version
-
-    - name: Restore Verilator build
-      id: verilator-cache
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          /usr/local/bin/verilator*
-          /usr/local/share/verilator
-        key: verilator-stable-${{ runner.os }}-v1
-
-    - name: Verify Verilator version
-      run: verilator --version
+        verilator --version
 
     - name: Install dependencies
       run: |
