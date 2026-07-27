@@ -23,13 +23,39 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     
-    - name: Install GHDL and Verilator
+    - name: Install GHDL
       run: |
         sudo apt-get update
-        sudo apt-get install -y ghdl verilator
+        sudo apt-get install -y ghdl
         ghdl --version
-        verilator --version
-    
+
+    - name: Cache Verilator build
+      id: verilator-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          /usr/local/bin/verilator*
+          /usr/local/share/verilator
+        # cocotb requires Verilator >=5.036; Ubuntu 22.04's apt package (4.038)
+        # is too old, so build "stable" from source instead. Bump the key
+        # suffix if the required minimum version ever changes.
+        key: verilator-stable-${{ runner.os }}-v1
+
+    - name: Build and install Verilator (>=5.036, required by cocotb)
+      if: steps.verilator-cache.outputs.cache-hit != 'true'
+      run: |
+        sudo apt-get install -y git help2man perl make autoconf g++ flex bison ccache \
+          libfl2 libfl-dev zlib1g zlib1g-dev
+        git clone --depth 1 --branch stable https://github.com/verilator/verilator.git /tmp/verilator-src
+        cd /tmp/verilator-src
+        autoconf
+        ./configure
+        make -j"$(nproc)"
+        sudo make install
+
+    - name: Verify Verilator version
+      run: verilator --version
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip

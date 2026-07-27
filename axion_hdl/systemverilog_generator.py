@@ -91,6 +91,7 @@ class SystemVerilogGenerator:
         # CDC synchronizers (if enabled)
         if module_data.get('cdc_enabled', False):
             sections.append(self._generate_cdc_logic(module_data))
+            sections.append(self._generate_strobe_cdc_logic(module_data))
 
         # Packed register field mapping (combined read values)
         if module_data.get('packed_registers', []):
@@ -227,6 +228,26 @@ class SystemVerilogGenerator:
     def _packed_has_writable_fields(packed_reg: Dict) -> bool:
         """True if the packed register has RW/WO fields (outputs to module domain)."""
         return any(f['access_mode'] in ('RW', 'WO') for f in packed_reg.get('fields', []))
+
+    @staticmethod
+    def _get_strobe_cdc_names(module_data: Dict):
+        """
+        Collect the base names of every read/write strobe that needs CDC.
+
+        Unlike VHDL, SystemVerilog's `registers` list already includes the
+        packed-register container entries (is_packed=True) alongside plain
+        registers, and both carry read_strobe/write_strobe directly - so a
+        single pass over `registers` (no is_packed filtering, no separate
+        walk of packed_registers) covers both cases without double-counting.
+        """
+        rd_names = []
+        wr_names = []
+        for reg in module_data.get('registers', []):
+            if reg.get('read_strobe'):
+                rd_names.append(reg['signal_name'])
+            if reg.get('write_strobe'):
+                wr_names.append(reg['signal_name'])
+        return rd_names, wr_names
 
     @staticmethod
     def _field_width(field: Dict) -> int:
@@ -567,13 +588,41 @@ class SystemVerilogGenerator:
             ])
 
         # Strobe signals
+        cdc_enabled = module_data.get('cdc_enabled', False)
+        cdc_stages = module_data.get('cdc_stages', 2)
         has_strobes = any(reg.get('read_strobe') or reg.get('write_strobe') for reg in registers)
         if has_strobes:
             lines.append("    // Strobe signals")
             for reg in registers:
                 if reg.get('write_strobe'):
                     lines.append(f"    logic {reg['signal_name']}_wr_strobe_int;")
+                if reg.get('read_strobe') and cdc_enabled:
+                    lines.append(f"    logic {reg['signal_name']}_rd_strobe_int;")
             lines.append("")
+
+        # Strobe pulse CDC: toggle synchronizer (clock-ratio independent).
+        # Strobes are single-cycle pulses, so the level-signal N-stage sync
+        # used for register data is not safe for them (a fast pulse can be
+        # missed entirely by a slower destination clock). Each strobe gets
+        # its own toggle flip-flop in axi_aclk, an ASYNC_REG-tagged sync
+        # chain into module_clk, and an edge detector that regenerates a
+        # clean single-cycle pulse regardless of the module_clk/axi_aclk
+        # ratio.
+        if cdc_enabled:
+            rd_names, wr_names = self._get_strobe_cdc_names(module_data)
+            if rd_names or wr_names:
+                lines.append("    // Strobe pulse CDC (toggle synchronizer)")
+                for name in rd_names:
+                    lines.append(f"    logic {name}_rd_toggle;")
+                    for stage in range(cdc_stages):
+                        lines.append(f"    (* ASYNC_REG = \"TRUE\" *) logic {name}_rd_toggle_sync{stage};")
+                    lines.append(f"    logic {name}_rd_toggle_prev;")
+                for name in wr_names:
+                    lines.append(f"    logic {name}_wr_toggle;")
+                    for stage in range(cdc_stages):
+                        lines.append(f"    (* ASYNC_REG = \"TRUE\" *) logic {name}_wr_toggle_sync{stage};")
+                    lines.append(f"    logic {name}_wr_toggle_prev;")
+                lines.append("")
 
         return '\n'.join(lines)
 
@@ -611,20 +660,21 @@ class SystemVerilogGenerator:
 
         for name, sv_type, _, kind in ro_chains:
             lines.append(f"    // CDC for {name} ({kind})")
-            lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {name}_sync [{cdc_stages}];")
+            for stage in range(cdc_stages):
+                lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {name}_sync{stage};")
 
         if ro_chains:
             lines.append("")
             lines.append(f"    always_ff @(posedge axi_aclk or negedge axi_aresetn) begin")
             lines.append(f"        if (!axi_aresetn) begin")
             for name, _, _, _ in ro_chains:
-                for i in range(cdc_stages):
-                    lines.append(f"            {name}_sync[{i}] <= '0;")
+                for stage in range(cdc_stages):
+                    lines.append(f"            {name}_sync{stage} <= '0;")
             lines.append(f"        end else begin")
             for name, _, source, _ in ro_chains:
-                lines.append(f"            {name}_sync[0] <= {source};")
-                for i in range(1, cdc_stages):
-                    lines.append(f"            {name}_sync[{i}] <= {name}_sync[{i-1}];")
+                lines.append(f"            {name}_sync0 <= {source};")
+                for stage in range(1, cdc_stages):
+                    lines.append(f"            {name}_sync{stage} <= {name}_sync{stage-1};")
             lines.append(f"        end")
             lines.append(f"    end")
         else:
@@ -655,24 +705,103 @@ class SystemVerilogGenerator:
 
         for name, sv_type, _, kind in out_chains:
             lines.append(f"    // CDC for {name} ({kind})")
-            lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {name}_sync [{cdc_stages}];")
+            for stage in range(cdc_stages):
+                lines.append(f"    (* ASYNC_REG = \"TRUE\" *) {sv_type:30} {name}_sync{stage};")
 
         if out_chains:
             lines.append("")
             lines.append(f"    always_ff @(posedge module_clk or negedge axi_aresetn) begin")
             lines.append(f"        if (!axi_aresetn) begin")
             for name, _, _, _ in out_chains:
-                for i in range(cdc_stages):
-                    lines.append(f"            {name}_sync[{i}] <= '0;")
+                for stage in range(cdc_stages):
+                    lines.append(f"            {name}_sync{stage} <= '0;")
             lines.append(f"        end else begin")
             for name, _, source, _ in out_chains:
-                lines.append(f"            {name}_sync[0] <= {source};")
-                for i in range(1, cdc_stages):
-                    lines.append(f"            {name}_sync[{i}] <= {name}_sync[{i-1}];")
+                lines.append(f"            {name}_sync0 <= {source};")
+                for stage in range(1, cdc_stages):
+                    lines.append(f"            {name}_sync{stage} <= {name}_sync{stage-1};")
             lines.append(f"        end")
             lines.append(f"    end")
         else:
              lines.append("    // No RW/WO registers found")
+
+        return '\n'.join(lines)
+
+    def _generate_strobe_cdc_logic(self, module_data: Dict) -> str:
+        """
+        Generate toggle-synchronizer CDC for read/write strobe pulses.
+
+        Strobes are single-cycle pulses decoded in the axi_aclk domain. The
+        plain N-stage level synchronizer used for register data is not safe
+        for them: if module_clk is slower than axi_aclk, a fast pulse can be
+        sampled as high for zero destination cycles and missed entirely.
+        Each strobe is instead converted to a toggle in axi_aclk,
+        resynchronized into module_clk through an ASYNC_REG-tagged chain,
+        and turned back into a clean single-cycle pulse via edge detection.
+        This works correctly regardless of the module_clk/axi_aclk frequency
+        ratio in either direction.
+        """
+        cdc_stages = module_data.get('cdc_stages', 2)
+        rd_names, wr_names = self._get_strobe_cdc_names(module_data)
+
+        if not rd_names and not wr_names:
+            return ""
+
+        lines = [
+            "    //-------------------------------------------------------------------------",
+            "    // Strobe Pulse CDC (toggle synchronizer, clock-ratio independent)",
+            "    // axi_aclk: strobe pulse -> toggle flip-flop",
+            "    // module_clk: toggle sync chain -> edge detect -> regenerated pulse",
+            "    //-------------------------------------------------------------------------",
+            "",
+            "    // CDC: strobe toggle generation (axi_aclk domain)",
+            "    always_ff @(posedge axi_aclk or negedge axi_aresetn) begin",
+            "        if (!axi_aresetn) begin",
+        ]
+        for name in rd_names:
+            lines.append(f"            {name}_rd_toggle <= 1'b0;")
+        for name in wr_names:
+            lines.append(f"            {name}_wr_toggle <= 1'b0;")
+        lines.append("        end else begin")
+        for name in rd_names:
+            lines.append(f"            if ({name}_rd_strobe_int) {name}_rd_toggle <= ~{name}_rd_toggle;")
+        for name in wr_names:
+            lines.append(f"            if ({name}_wr_strobe_int) {name}_wr_toggle <= ~{name}_wr_toggle;")
+        lines.extend([
+            "        end",
+            "    end",
+            "",
+            "    // CDC: strobe toggle resync and pulse regeneration (module_clk domain)",
+            "    always_ff @(posedge module_clk or negedge axi_aresetn) begin",
+            "        if (!axi_aresetn) begin",
+        ])
+        for name in rd_names:
+            for stage in range(cdc_stages):
+                lines.append(f"            {name}_rd_toggle_sync{stage} <= 1'b0;")
+            lines.append(f"            {name}_rd_toggle_prev <= 1'b0;")
+            lines.append(f"            {name}_rd_strobe <= 1'b0;")
+        for name in wr_names:
+            for stage in range(cdc_stages):
+                lines.append(f"            {name}_wr_toggle_sync{stage} <= 1'b0;")
+            lines.append(f"            {name}_wr_toggle_prev <= 1'b0;")
+            lines.append(f"            {name}_wr_strobe <= 1'b0;")
+        lines.append("        end else begin")
+        for name in rd_names:
+            lines.append(f"            {name}_rd_toggle_sync0 <= {name}_rd_toggle;")
+            for stage in range(1, cdc_stages):
+                lines.append(f"            {name}_rd_toggle_sync{stage} <= {name}_rd_toggle_sync{stage-1};")
+            lines.append(f"            {name}_rd_toggle_prev <= {name}_rd_toggle_sync{cdc_stages-1};")
+            lines.append(f"            {name}_rd_strobe <= {name}_rd_toggle_sync{cdc_stages-1} ^ {name}_rd_toggle_prev;")
+        for name in wr_names:
+            lines.append(f"            {name}_wr_toggle_sync0 <= {name}_wr_toggle;")
+            for stage in range(1, cdc_stages):
+                lines.append(f"            {name}_wr_toggle_sync{stage} <= {name}_wr_toggle_sync{stage-1};")
+            lines.append(f"            {name}_wr_toggle_prev <= {name}_wr_toggle_sync{cdc_stages-1};")
+            lines.append(f"            {name}_wr_strobe <= {name}_wr_toggle_sync{cdc_stages-1} ^ {name}_wr_toggle_prev;")
+        lines.extend([
+            "        end",
+            "    end",
+        ])
 
         return '\n'.join(lines)
 
@@ -707,7 +836,7 @@ class SystemVerilogGenerator:
                 sig_name = f"{reg_name}_{field['name']}"
                 if field['access_mode'] == 'RO':
                     # RO bits come from the module inputs (synced when CDC on)
-                    source = f"{sig_name}_sync[{last}]" if cdc_enabled else sig_name
+                    source = f"{sig_name}_sync{last}" if cdc_enabled else sig_name
                 else:
                     # RW/WO bits read back from the axi_aclk-domain storage
                     source = f"{reg_name}_reg{self._field_slice(field)}"
@@ -949,7 +1078,7 @@ class SystemVerilogGenerator:
                         # when CDC on), RW/WO bits from axi_aclk-domain storage
                         source = f"{signal_name}_val"
                     elif cdc_enabled and access_mode == 'RO':
-                        source = f"{signal_name}_sync[{cdc_stages-1}]"
+                        source = f"{signal_name}_sync{cdc_stages-1}"
                     elif access_mode == 'RO':
                         source = signal_name
                     else:
@@ -1034,18 +1163,26 @@ class SystemVerilogGenerator:
             if access_mode in ['RW', 'WO'] and not reg.get('is_packed'):
                 if cdc_enabled:
                      # Use the last stage of the synchronizer
-                     lines.append(f"    assign {signal_name} = {signal_name}_sync[{cdc_stages-1}];")
+                     lines.append(f"    assign {signal_name} = {signal_name}_sync{cdc_stages-1};")
                 else:
                      lines.append(f"    assign {signal_name} = {signal_name}_reg;")
 
-            # Strobe assignments
+            # Strobe assignments. When CDC is enabled, the port itself is
+            # driven by the toggle-synchronizer's edge detector (see
+            # _generate_strobe_cdc_logic) instead of directly - route the
+            # axi_aclk-domain pulse condition into the "_int" signal that
+            # feeds the toggle instead.
             if reg.get('write_strobe'):
-                lines.append(f"    assign {signal_name}_wr_strobe = {signal_name}_wr_strobe_int;")
+                if cdc_enabled:
+                    lines.append(f"    // {signal_name}_wr_strobe driven by strobe CDC toggle synchronizer below")
+                else:
+                    lines.append(f"    assign {signal_name}_wr_strobe = {signal_name}_wr_strobe_int;")
 
             if reg.get('read_strobe'):
                 # Read strobe is asserted when reading this register
                 signal_name_upper = signal_name.upper()
-                lines.append(f"    assign {signal_name}_rd_strobe = (state == READ_DATA && read_addr == ADDR_{signal_name_upper});")
+                rd_target = f"{signal_name}_rd_strobe_int" if cdc_enabled else f"{signal_name}_rd_strobe"
+                lines.append(f"    assign {rd_target} = (state == READ_DATA && read_addr == ADDR_{signal_name_upper});")
 
         # Packed register RW/WO field outputs, sliced from the storage word
         # (from the last module_clk-domain sync stage when CDC is enabled)
@@ -1055,7 +1192,7 @@ class SystemVerilogGenerator:
             if not writable_fields:
                 continue
             reg_name = pr['reg_name']
-            src_base = f"{reg_name}_reg_sync[{cdc_stages-1}]" if cdc_enabled else f"{reg_name}_reg"
+            src_base = f"{reg_name}_reg_sync{cdc_stages-1}" if cdc_enabled else f"{reg_name}_reg"
             lines.append(f"    // Field outputs for packed register {reg_name}")
             for field in writable_fields:
                 sig_name = f"{reg_name}_{field['name']}"

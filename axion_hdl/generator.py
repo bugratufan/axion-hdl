@@ -189,6 +189,33 @@ class VHDLGenerator:
         return any(f['access_mode'] in ('RW', 'WO') for f in packed_reg.get('fields', []))
 
     @staticmethod
+    def _get_strobe_cdc_names(module_data: Dict):
+        """
+        Collect the base names of every read/write strobe that needs CDC.
+
+        Strobes are always generated in the axi_aclk domain (decoded from
+        the AXI state machine) and always cross into module_clk when CDC is
+        enabled, regardless of the parent register's own access mode.
+        Returns (rd_names, wr_names) using the same base name as the
+        `<name>_rd_strobe`/`<name>_wr_strobe` port.
+        """
+        rd_names = []
+        wr_names = []
+        for reg in module_data['registers']:
+            if reg.get('is_packed'):
+                continue
+            if reg.get('read_strobe'):
+                rd_names.append(reg['signal_name'])
+            if reg.get('write_strobe'):
+                wr_names.append(reg['signal_name'])
+        for pr in module_data.get('packed_registers', []):
+            if pr.get('read_strobe'):
+                rd_names.append(pr['reg_name'])
+            if pr.get('write_strobe'):
+                wr_names.append(pr['reg_name'])
+        return rd_names, wr_names
+
+    @staticmethod
     def _field_type(field: Dict) -> str:
         """VHDL type of a packed register field."""
         width = field['bit_high'] - field['bit_low'] + 1
@@ -657,6 +684,35 @@ class VHDLGenerator:
                         sig = f"{pr['reg_name']}_{f['name']}_sync{stage}"
                         cdc_sync_signals.append(sig)
                         lines.append(f"    signal {sig} : {ftype} := {init};")
+
+            # Strobe pulse CDC: toggle synchronizer (clock-ratio independent).
+            # Strobes are single-cycle pulses, so the level-signal N-stage
+            # sync above is not safe for them (a fast pulse can be missed by
+            # a slower destination clock). Each strobe gets its own toggle
+            # flip-flop in axi_aclk, an ASYNC_REG-tagged sync chain into
+            # module_clk, and an edge detector that regenerates a clean
+            # single-cycle pulse regardless of the module_clk/axi_aclk ratio.
+            rd_strobe_names, wr_strobe_names = self._get_strobe_cdc_names(module_data)
+            if rd_strobe_names or wr_strobe_names:
+                lines.append("    ")
+                lines.append("    -- Strobe pulse CDC (toggle synchronizer)")
+                for name in rd_strobe_names:
+                    lines.append(f"    signal {name}_rd_strobe_int : std_logic;")
+                    lines.append(f"    signal {name}_rd_toggle : std_logic := '0';")
+                    for stage in range(module_data['cdc_stages']):
+                        sig = f"{name}_rd_toggle_sync{stage}"
+                        cdc_sync_signals.append(sig)
+                        lines.append(f"    signal {sig} : std_logic := '0';")
+                    lines.append(f"    signal {name}_rd_toggle_prev : std_logic := '0';")
+                for name in wr_strobe_names:
+                    lines.append(f"    signal {name}_wr_strobe_int : std_logic;")
+                    lines.append(f"    signal {name}_wr_toggle : std_logic := '0';")
+                    for stage in range(module_data['cdc_stages']):
+                        sig = f"{name}_wr_toggle_sync{stage}"
+                        cdc_sync_signals.append(sig)
+                        lines.append(f"    signal {sig} : std_logic := '0';")
+                    lines.append(f"    signal {name}_wr_toggle_prev : std_logic := '0';")
+
             if cdc_sync_signals:
                 lines.append("    ")
                 lines.append("    -- CDC attributes: keep synchronizer flops adjacent, prevent SRL inference")
@@ -932,7 +988,8 @@ class VHDLGenerator:
         # Generate CDC synchronizer process if CDC is enabled
         if module_data['cdc_enabled']:
             lines.extend(self._generate_cdc_process(module_data))
-        
+            lines.extend(self._generate_strobe_cdc_process(module_data))
+
         # Generate write address valid detection (combinational, uses axi_awaddr)
         lines.extend([
             "    -- Write Address Valid Detection (combinational)",
@@ -1202,11 +1259,12 @@ class VHDLGenerator:
                         chunk_offset = offset + (i * 4)
                         addr_checks.append(f"unsigned(rd_addr_reg) = unsigned(BASE_ADDR) + {chunk_offset}")
                     addr_cond = " or ".join(addr_checks)
+                    rd_target = f"{reg['signal_name']}_rd_strobe_int" if cdc_enabled else f"{reg['signal_name']}_rd_strobe"
                     if num_regs > 1:
-                        lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and ({addr_cond})) else '0';")
+                        lines.append(f"    {rd_target} <= '1' when (axi_state = RD_DATA and axi_rready = '1' and ({addr_cond})) else '0';")
                     else:
-                        lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and {addr_cond}) else '0';")
-                
+                        lines.append(f"    {rd_target} <= '1' when (axi_state = RD_DATA and axi_rready = '1' and {addr_cond}) else '0';")
+
                 # RO is 'in' port - assign chunks from input to internal registers
                 if num_regs == 1:
                     if cdc_enabled:
@@ -1239,11 +1297,12 @@ class VHDLGenerator:
                         chunk_offset = offset + (i * 4)
                         addr_checks.append(f"unsigned(wr_addr_reg) = unsigned(BASE_ADDR) + {chunk_offset}")
                     addr_cond = " or ".join(addr_checks)
+                    wr_target = f"{reg['signal_name']}_wr_strobe_int" if cdc_enabled else f"{reg['signal_name']}_wr_strobe"
                     if num_regs > 1:
-                        lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and ({addr_cond})) else '0';")
+                        lines.append(f"    {wr_target} <= '1' when (axi_state = WR_DO_WRITE and ({addr_cond})) else '0';")
                     else:
-                        lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and {addr_cond}) else '0';")
-                
+                        lines.append(f"    {wr_target} <= '1' when (axi_state = WR_DO_WRITE and {addr_cond}) else '0';")
+
                 # WO is 'out' port - concatenate chunks to output
                 if num_regs == 1:
                     sliced_reg = self._slice_from_32bit(f"{reg['signal_name']}_reg", signal_type)
@@ -1276,10 +1335,11 @@ class VHDLGenerator:
                         chunk_offset = offset + (i * 4)
                         addr_checks_rd.append(f"unsigned(rd_addr_reg) = unsigned(BASE_ADDR) + {chunk_offset}")
                     addr_cond_rd = " or ".join(addr_checks_rd)
+                    rd_target = f"{reg['signal_name']}_rd_strobe_int" if cdc_enabled else f"{reg['signal_name']}_rd_strobe"
                     if num_regs > 1:
-                        lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and ({addr_cond_rd})) else '0';")
+                        lines.append(f"    {rd_target} <= '1' when (axi_state = RD_DATA and axi_rready = '1' and ({addr_cond_rd})) else '0';")
                     else:
-                        lines.append(f"    {reg['signal_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and {addr_cond_rd}) else '0';")
+                        lines.append(f"    {rd_target} <= '1' when (axi_state = RD_DATA and axi_rready = '1' and {addr_cond_rd}) else '0';")
 
                 if reg['write_strobe']:
                     # Check all address chunks for wide signals
@@ -1288,10 +1348,11 @@ class VHDLGenerator:
                         chunk_offset = offset + (i * 4)
                         addr_checks_wr.append(f"unsigned(wr_addr_reg) = unsigned(BASE_ADDR) + {chunk_offset}")
                     addr_cond_wr = " or ".join(addr_checks_wr)
+                    wr_target = f"{reg['signal_name']}_wr_strobe_int" if cdc_enabled else f"{reg['signal_name']}_wr_strobe"
                     if num_regs > 1:
-                        lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and ({addr_cond_wr})) else '0';")
+                        lines.append(f"    {wr_target} <= '1' when (axi_state = WR_DO_WRITE and ({addr_cond_wr})) else '0';")
                     else:
-                        lines.append(f"    {reg['signal_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and {addr_cond_wr}) else '0';")
+                        lines.append(f"    {wr_target} <= '1' when (axi_state = WR_DO_WRITE and {addr_cond_wr}) else '0';")
                 
                 # RW is 'out' port - concatenate chunks to output
                 if num_regs == 1:
@@ -1321,9 +1382,11 @@ class VHDLGenerator:
             
             # Strobe logic (Parent level)
             if packed_reg.get('read_strobe'):
-                lines.append(f"    {packed_reg['reg_name']}_rd_strobe <= '1' when (axi_state = RD_DATA and axi_rready = '1' and unsigned(rd_addr_reg) = unsigned(BASE_ADDR) + {offset}) else '0';")
+                rd_target = f"{packed_reg['reg_name']}_rd_strobe_int" if cdc_enabled else f"{packed_reg['reg_name']}_rd_strobe"
+                lines.append(f"    {rd_target} <= '1' when (axi_state = RD_DATA and axi_rready = '1' and unsigned(rd_addr_reg) = unsigned(BASE_ADDR) + {offset}) else '0';")
             if packed_reg.get('write_strobe'):
-                lines.append(f"    {packed_reg['reg_name']}_wr_strobe <= '1' when (axi_state = WR_DO_WRITE and unsigned(wr_addr_reg) = unsigned(BASE_ADDR) + {offset}) else '0';")
+                wr_target = f"{packed_reg['reg_name']}_wr_strobe_int" if cdc_enabled else f"{packed_reg['reg_name']}_wr_strobe"
+                lines.append(f"    {wr_target} <= '1' when (axi_state = WR_DO_WRITE and unsigned(wr_addr_reg) = unsigned(BASE_ADDR) + {offset}) else '0';")
             
             lines.append("    ")
         
@@ -1457,5 +1520,92 @@ class VHDLGenerator:
                 "    end process;",
                 "    ",
             ])
-        
+
+        return lines
+
+    def _generate_strobe_cdc_process(self, module_data: Dict) -> List[str]:
+        """
+        Generate toggle-synchronizer CDC for read/write strobe pulses.
+
+        Strobes are single-cycle pulses decoded in the axi_aclk domain. The
+        plain N-stage level synchronizer used for register data above is
+        not safe for them: if module_clk is slower than axi_aclk, a fast
+        pulse can be sampled as high for zero destination cycles and missed
+        entirely. Each strobe is instead converted to a toggle in axi_aclk,
+        resynchronized into module_clk through the same ASYNC_REG-tagged
+        chain used for data signals, and turned back into a clean
+        single-cycle pulse via edge detection. This works correctly
+        regardless of the module_clk/axi_aclk frequency ratio in either
+        direction.
+        """
+        lines = []
+        cdc_stages = module_data['cdc_stages']
+        rd_names, wr_names = self._get_strobe_cdc_names(module_data)
+
+        if not rd_names and not wr_names:
+            return lines
+
+        lines.extend([
+            "    ---------------------------------------------------------------------------",
+            "    -- Strobe Pulse CDC (toggle synchronizer, clock-ratio independent)",
+            "    -- axi_aclk: strobe pulse -> toggle flip-flop",
+            "    -- module_clk: toggle sync chain -> edge detect -> regenerated pulse",
+            "    ---------------------------------------------------------------------------",
+        ])
+
+        # axi_aclk domain: toggle generation
+        lines.extend([
+            "    -- CDC: strobe toggle generation (axi_aclk domain)",
+            "    process(axi_aclk)",
+            "    begin",
+            "        if rising_edge(axi_aclk) then",
+            "            if axi_aresetn = '0' then",
+        ])
+        for name in rd_names:
+            lines.append(f"                {name}_rd_toggle <= '0';")
+        for name in wr_names:
+            lines.append(f"                {name}_wr_toggle <= '0';")
+        lines.append("            else")
+        for name in rd_names:
+            lines.append(f"                if {name}_rd_strobe_int = '1' then")
+            lines.append(f"                    {name}_rd_toggle <= not {name}_rd_toggle;")
+            lines.append("                end if;")
+        for name in wr_names:
+            lines.append(f"                if {name}_wr_strobe_int = '1' then")
+            lines.append(f"                    {name}_wr_toggle <= not {name}_wr_toggle;")
+            lines.append("                end if;")
+        lines.extend([
+            "            end if;",
+            "        end if;",
+            "    end process;",
+            "    ",
+        ])
+
+        # module_clk domain: resync + edge detect + pulse regeneration
+        lines.extend([
+            "    -- CDC: strobe toggle resync and pulse regeneration (module_clk domain)",
+            "    process(module_clk)",
+            "    begin",
+            "        if rising_edge(module_clk) then",
+        ])
+        for name in rd_names:
+            lines.append(f"            -- {name}_rd_strobe toggle resync")
+            lines.append(f"            {name}_rd_toggle_sync0 <= {name}_rd_toggle;")
+            for stage in range(1, cdc_stages):
+                lines.append(f"            {name}_rd_toggle_sync{stage} <= {name}_rd_toggle_sync{stage-1};")
+            lines.append(f"            {name}_rd_toggle_prev <= {name}_rd_toggle_sync{cdc_stages-1};")
+            lines.append(f"            {name}_rd_strobe <= {name}_rd_toggle_sync{cdc_stages-1} xor {name}_rd_toggle_prev;")
+        for name in wr_names:
+            lines.append(f"            -- {name}_wr_strobe toggle resync")
+            lines.append(f"            {name}_wr_toggle_sync0 <= {name}_wr_toggle;")
+            for stage in range(1, cdc_stages):
+                lines.append(f"            {name}_wr_toggle_sync{stage} <= {name}_wr_toggle_sync{stage-1};")
+            lines.append(f"            {name}_wr_toggle_prev <= {name}_wr_toggle_sync{cdc_stages-1};")
+            lines.append(f"            {name}_wr_strobe <= {name}_wr_toggle_sync{cdc_stages-1} xor {name}_wr_toggle_prev;")
+        lines.extend([
+            "        end if;",
+            "    end process;",
+            "    ",
+        ])
+
         return lines

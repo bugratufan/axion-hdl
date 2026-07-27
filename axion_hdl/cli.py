@@ -488,7 +488,21 @@ For more information, visit: https://axion-hdl.readthedocs.io
         if args.systemverilog:
             success &= axion.generate_systemverilog()
         if args.xdc:
-            success &= axion.generate_xdc()
+            # XDC constraints are backend-specific (VHDL and SystemVerilog
+            # name the first CDC synchronizer stage differently - see
+            # XDCGenerator). Generate one XDC set per backend the user
+            # actually requested output for; if neither --vhdl nor
+            # --systemverilog was given, default to VHDL for backward
+            # compatibility with existing --xdc-only invocations.
+            xdc_backends = []
+            if args.vhdl:
+                xdc_backends.append('vhdl')
+            if args.systemverilog:
+                xdc_backends.append('systemverilog')
+            if not xdc_backends:
+                xdc_backends.append('vhdl')
+            for xdc_backend in xdc_backends:
+                success &= axion.generate_xdc(backend=xdc_backend)
         if args.doc:
             success &= axion.generate_documentation(format=args.doc_format)
         if args.xml:

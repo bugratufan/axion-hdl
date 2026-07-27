@@ -85,7 +85,7 @@ COCOTB_RESULTS_FILE ?= results.xml
 include $(shell cocotb-config --makefiles)/Makefile.sim
 
 # Custom targets
-.PHONY: test_axi_lite test_cdc test_all clean_cocotb generate
+.PHONY: test_axi_lite test_cdc test_cdc_stage2 test_cdc_packed test_cdc_packed_stage2 test_all clean_cocotb generate
 
 # Run AXI-Lite protocol tests
 test_axi_lite: generate
@@ -94,6 +94,21 @@ test_axi_lite: generate
 # Run CDC tests
 test_cdc: generate
 	$(MAKE) MODULE=test_cdc DUT=sensor_controller
+
+# Run CDC tests against a different CDC_STAGE depth (2, vs. sensor_controller's
+# 3) to prove the strobe/data synchronizers work correctly regardless of the
+# configured stage count, not just the default.
+test_cdc_stage2: generate
+	$(MAKE) MODULE=test_cdc DUT=sensor_controller_stage2
+
+# Run packed/wide-register CDC tests (functional CDC for packed mixed RW/RO
+# fields and >32-bit chunked registers - see tests/cocotb/test_cdc_packed.py).
+test_cdc_packed: generate
+	$(MAKE) MODULE=test_cdc_packed DUT=cdc_packed_controller
+
+# Same packed/wide CDC tests against the CDC_STAGE=2 DUT variant.
+test_cdc_packed_stage2: generate
+	$(MAKE) MODULE=test_cdc_packed DUT=cdc_packed_controller_stage2
 
 # Run Subregister tests
 test_sub: generate

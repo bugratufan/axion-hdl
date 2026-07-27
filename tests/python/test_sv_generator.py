@@ -301,7 +301,12 @@ class TestSystemVerilogGenerator(unittest.TestCase):
             # Check for CDC synchronizers
             assert 'Clock Domain Crossing' in content
             assert 'status_sync' in content
-            assert '[3]' in content  # 3 stages
+            # 3 discrete per-stage signals (status_sync0..status_sync2),
+            # matching the VHDL backend's naming convention
+            assert 'status_sync0' in content
+            assert 'status_sync1' in content
+            assert 'status_sync2' in content
+            assert 'status_sync3' not in content
 
     def test_sv_gen_010_generate_address_decoding(self):
         """SV-GEN-010: Generate address decode logic"""
@@ -681,9 +686,13 @@ class TestSystemVerilogGenerator(unittest.TestCase):
                 with open(output_path, 'r') as f:
                     content = f.read()
 
-                # Check for correct number of stages
-                assert f'[{stages}]' in content
+                # Check for correct number of discrete per-stage signals
+                # (status_sync0..status_sync<stages-1>), matching the VHDL
+                # backend's naming convention
                 assert 'status_sync' in content
+                for stage in range(stages):
+                    assert f'status_sync{stage}' in content
+                assert f'status_sync{stages}' not in content
 
     def test_sv_gen_022_syntax_validation(self):
         """SV-GEN-022: Generated code has valid SystemVerilog syntax"""

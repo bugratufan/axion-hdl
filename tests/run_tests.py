@@ -11,8 +11,8 @@ Covers requirements:
 - PARSER-001 to PARSER-009
 - GEN-001 to GEN-032
 - SUB-007, SUB-008
-- CDC-001 to CDC-017
-- XDC-001 to XDC-012
+- CDC-001 to CDC-019
+- XDC-001 to XDC-013
 - ADDR-001 to ADDR-008
 - ERR-001 to ERR-006
 - CLI-001 to CLI-010
@@ -1092,6 +1092,9 @@ def generate_markdown_report(results: List[TestResult]):
             "axi_lite": "AXI-Lite Protocol Tests",
             "cdc": "CDC Comprehensive Tests"
         }),
+        "cocotb_sv": ("🧪 Cocotb SystemVerilog Tests (Verilator)", {
+            "sv_cdc": "CDC Parity & Strobe Toggle Sync"
+        }),
         "parser": ("📜 Parser Tests (PARSER-xxx)", {
             "requirements": "PARSER Requirements",
             "setup": "Setup"
@@ -1147,7 +1150,7 @@ def generate_markdown_report(results: List[TestResult]):
         })
     }
 
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "xdc"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "cocotb_sv", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "xdc"]:
         if cat not in categories:
             continue
 
@@ -1213,6 +1216,7 @@ def print_results(results: List[TestResult]):
         "c": "⚙️  C",
         "vhdl": "🔧 VHDL (GHDL)",
         "cocotb": "🧪 COCOTB",
+        "cocotb_sv": "🧪 COCOTB-SV",
         "parser": "📜 PARSER",
         "gen": "⚙️ GENERATION",
         "err": "🚨 ERRORS",
@@ -1245,7 +1249,7 @@ def print_results(results: List[TestResult]):
     print(f"{CYAN}{BOLD}  AXION-HDL TEST RESULTS{RESET}")
     print(f"{CYAN}{BOLD}{'═' * 80}{RESET}")
 
-    for cat in ["python", "c", "vhdl", "cocotb", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "enum", "axion_types", "systemverilog", "hier", "reg_model", "xdc"]:
+    for cat in ["python", "c", "vhdl", "cocotb", "cocotb_sv", "parser", "gen", "err", "cli", "cdc", "addr", "stress", "sub", "def", "val", "yaml_input", "toml_input", "xml_input", "json_input", "equiv", "enum", "axion_types", "systemverilog", "hier", "reg_model", "xdc"]:
         if cat not in categories:
             continue
         
@@ -2505,20 +2509,59 @@ def run_cocotb_tests() -> List[TestResult]:
         ("test_cdc_004_module_clock_port", "CDC-004: Module Clock Port Generation"),
         ("test_cdc_006_ro_path_sync", "CDC-006: RO Register Synchronization (module->AXI)"),
         ("test_cdc_007_rw_path_sync", "CDC-007: RW Register Synchronization (AXI->module)"),
-        ("test_cdc_gray_code_counter", "CDC: Gray Code Counter Safe Crossing"),
-        ("test_cdc_handshake_protocol", "CDC: 4-Phase Handshake Protocol"),
-        ("test_cdc_async_reset", "CDC: Asynchronous Reset Across Domains"),
+        ("test_cdc_async_reset", "CDC: Asynchronous Reset Across Domains (axi_aresetn scope)"),
         ("test_cdc_metastability_stress", "CDC: Metastability Stress Test"),
         ("test_cdc_clock_ratio_2x", "CDC: 2:1 Clock Ratio Crossing"),
         ("test_cdc_clock_ratio_prime", "CDC: Prime Number Clock Ratio (Worst Case)"),
-        ("test_cdc_data_coherency", "CDC: Multi-bit Data Coherency"),
+        ("test_cdc_ro_multibit_settle_no_torn_reads", "CDC: Multi-bit RO Settle, No Torn Reads"),
         ("test_cdc_pulse_sync", "CDC: Single-Cycle Pulse Synchronization"),
+        ("test_cdc_pulse_sync_ratio_equal", "CDC-018: Strobe Toggle Sync at 1:1 Clock Ratio"),
+        ("test_cdc_pulse_sync_module_faster", "CDC-018: Strobe Toggle Sync, module_clk Faster"),
+        ("test_cdc_pulse_sync_module_slower", "CDC-018: Strobe Toggle Sync, module_clk 5x Slower"),
+        ("test_cdc_pulse_sync_prime_ratio", "CDC-018: Strobe Toggle Sync at Prime Clock Ratio"),
+        ("test_cdc_read_strobe_pulse_sync", "CDC-018: Read Strobe Toggle Sync (module_clk Slower)"),
+        ("test_cdc_rw_register_both_strobes", "CDC-018: RW Register Read+Write Strobes Independently Synced"),
         ("test_cdc_burst_transfer", "CDC: Burst Data Transfer"),
         ("test_cdc_simultaneous_edges", "CDC: Simultaneous Clock Edges"),
         ("test_cdc_slow_to_fast", "CDC: Slow to Fast Clock Domain Transfer"),
         ("test_cdc_fast_to_slow", "CDC: Fast to Slow Clock Domain Transfer"),
     ]
-    
+
+    # Same test IDs, run again against a DUT with a different CDC_STAGE
+    # (2, vs. sensor_controller's 3) to prove CDC-019 (stage count honored)
+    # holds functionally, not just structurally in the generated RTL.
+    cocotb_cdc_stage2_tests = [
+        ("test_cdc_pulse_sync", "CDC-019: Pulse Sync with CDC_STAGE=2"),
+        ("test_cdc_pulse_sync_module_slower", "CDC-019: Pulse Sync with CDC_STAGE=2, module_clk 5x Slower"),
+        ("test_cdc_read_strobe_pulse_sync", "CDC-019: Read Strobe Pulse Sync with CDC_STAGE=2"),
+        ("test_cdc_006_ro_path_sync", "CDC-019: RO Data Path Sync with CDC_STAGE=2"),
+    ]
+
+    # Functional CDC for packed (mixed RW/RO) and wide (>32-bit) registers -
+    # paths that were previously proven only structurally (CDC-010/011/013/014).
+    # DUT: cdc_packed_controller (CDC_STAGE=3). See tests/cocotb/test_cdc_packed.py.
+    cocotb_cdc_packed_tests = [
+        ("test_cdc_packed_rw_field_sync", "CDC-011: Packed RW Fields -> per-field module_clk ports"),
+        ("test_cdc_packed_rw_field_sync_slow", "CDC-011: Packed RW Fields, module_clk 5x Slower"),
+        ("test_cdc_packed_ro_field_sync", "CDC-010: Packed RO Field Inputs -> AXI read word"),
+        ("test_cdc_packed_ro_field_sync_slow", "CDC-010: Packed RO Field Inputs, module_clk 5x Slower"),
+        ("test_cdc_packed_mixed_rw_ro", "CDC-010/011: Packed RW+RO Fields Independently Synced"),
+        ("test_cdc_wide_rw_chunk_sync", "CDC-014: Wide 64-bit RW Register Chunk Sync"),
+        ("test_cdc_wide_rw_chunk_sync_slow", "CDC-014: Wide 64-bit RW Register, module_clk 5x Slower"),
+        ("test_cdc_wide_ro_chunk_sync", "CDC-014: Wide 64-bit RO Register Chunk Sync"),
+        ("test_cdc_wide_ro_chunk_sync_slow", "CDC-014: Wide 64-bit RO Register, module_clk 5x Slower"),
+    ]
+
+    # Same packed/wide tests against the CDC_STAGE=2 DUT variant (CDC-013:
+    # stage count honored on packed-field and wide-chunk chains, functionally).
+    cocotb_cdc_packed_stage2_tests = [
+        ("test_cdc_packed_rw_field_sync", "CDC-013: Packed RW Fields with CDC_STAGE=2"),
+        ("test_cdc_packed_ro_field_sync", "CDC-013: Packed RO Fields with CDC_STAGE=2"),
+        ("test_cdc_packed_mixed_rw_ro", "CDC-013: Packed RW+RO Fields with CDC_STAGE=2"),
+        ("test_cdc_wide_rw_chunk_sync", "CDC-013: Wide 64-bit RW Register with CDC_STAGE=2"),
+        ("test_cdc_wide_ro_chunk_sync", "CDC-013: Wide 64-bit RO Register with CDC_STAGE=2"),
+    ]
+
     cocotb_sub_tests = [
         ("test_subreg_001_single_bit_control", "SUB-001: Single Bit Control Access"),
         ("test_subreg_002_status_capture", "SUB-002: Status Register Capture"),
@@ -2559,7 +2602,17 @@ def run_cocotb_tests() -> List[TestResult]:
             results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "skipped", 0,
                                       f"{skip_reason} ({skip_msg})",
                                       category="cocotb", subcategory="cdc"))
-                                      
+
+        for test_id, desc in cocotb_cdc_packed_tests:
+            results.append(TestResult(f"cocotb.cdc_packed.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})",
+                                      category="cocotb", subcategory="cdc"))
+
+        for test_id, desc in cocotb_cdc_packed_stage2_tests:
+            results.append(TestResult(f"cocotb.cdc_packed_stage2.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})",
+                                      category="cocotb", subcategory="cdc"))
+
         for test_id, desc in cocotb_sub_tests:
             results.append(TestResult(f"cocotb.sub.{test_id}", desc, "skipped", 0,
                                       f"{skip_reason} ({skip_msg})",
@@ -2663,6 +2716,102 @@ def run_cocotb_tests() -> List[TestResult]:
             results.append(TestResult(f"cocotb.cdc.{test_id}", desc, "skipped", 0,
                                       "Test not executed", category="cocotb", subcategory="cdc"))
 
+    # Run CDC tests again against the CDC_STAGE=2 DUT variant (CDC-019:
+    # stage count must be functionally honored, not just structurally)
+    _, duration, output = run_command(
+        ["make", "test_cdc_stage2", "DUT=sensor_controller_stage2"],
+        cwd=str(cocotb_dir),
+        timeout=300,
+        env=venv_env,
+        stream_output=True
+    )
+
+    cdc_stage2_results = {}
+    for match in test_pattern.finditer(output):
+        full_name = match.group(1)
+        status = match.group(2).lower()
+        test_func = full_name.split('.')[-1]
+        cdc_stage2_results[test_func] = status
+
+    for test_id, desc in cocotb_cdc_stage2_tests:
+        result_id = f"cocotb.cdc_stage2.{test_id}"
+        if test_id in cdc_stage2_results:
+            status = cdc_stage2_results[test_id]
+            if status == "pass":
+                results.append(TestResult(result_id, desc, "passed", 0,
+                                          "", category="cocotb", subcategory="cdc"))
+            elif status == "fail":
+                results.append(TestResult(result_id, desc, "failed", 0,
+                                          "Assertion failed", category="cocotb", subcategory="cdc"))
+            else:
+                results.append(TestResult(result_id, desc, "skipped", 0,
+                                          "", category="cocotb", subcategory="cdc"))
+        else:
+            results.append(TestResult(result_id, desc, "skipped", 0,
+                                      "Test not executed", category="cocotb", subcategory="cdc"))
+
+    # Run functional packed/wide-register CDC tests (CDC-010/011/014) against
+    # the default 3-stage packed DUT.
+    _, duration, output = run_command(
+        ["make", "test_cdc_packed", "DUT=cdc_packed_controller"],
+        cwd=str(cocotb_dir),
+        timeout=300,
+        env=venv_env,
+        stream_output=True
+    )
+
+    cdc_packed_results = {}
+    for match in test_pattern.finditer(output):
+        cdc_packed_results[match.group(1).split('.')[-1]] = match.group(2).lower()
+
+    for test_id, desc in cocotb_cdc_packed_tests:
+        result_id = f"cocotb.cdc_packed.{test_id}"
+        if test_id in cdc_packed_results:
+            status = cdc_packed_results[test_id]
+            if status == "pass":
+                results.append(TestResult(result_id, desc, "passed", 0,
+                                          "", category="cocotb", subcategory="cdc"))
+            elif status == "fail":
+                results.append(TestResult(result_id, desc, "failed", 0,
+                                          "Assertion failed", category="cocotb", subcategory="cdc"))
+            else:
+                results.append(TestResult(result_id, desc, "skipped", 0,
+                                          "", category="cocotb", subcategory="cdc"))
+        else:
+            results.append(TestResult(result_id, desc, "skipped", 0,
+                                      "Test not executed", category="cocotb", subcategory="cdc"))
+
+    # Run the same packed/wide CDC tests against the CDC_STAGE=2 packed DUT
+    # (CDC-013: stage count honored on packed-field and wide-chunk chains).
+    _, duration, output = run_command(
+        ["make", "test_cdc_packed_stage2", "DUT=cdc_packed_controller_stage2"],
+        cwd=str(cocotb_dir),
+        timeout=300,
+        env=venv_env,
+        stream_output=True
+    )
+
+    cdc_packed_stage2_results = {}
+    for match in test_pattern.finditer(output):
+        cdc_packed_stage2_results[match.group(1).split('.')[-1]] = match.group(2).lower()
+
+    for test_id, desc in cocotb_cdc_packed_stage2_tests:
+        result_id = f"cocotb.cdc_packed_stage2.{test_id}"
+        if test_id in cdc_packed_stage2_results:
+            status = cdc_packed_stage2_results[test_id]
+            if status == "pass":
+                results.append(TestResult(result_id, desc, "passed", 0,
+                                          "", category="cocotb", subcategory="cdc"))
+            elif status == "fail":
+                results.append(TestResult(result_id, desc, "failed", 0,
+                                          "Assertion failed", category="cocotb", subcategory="cdc"))
+            else:
+                results.append(TestResult(result_id, desc, "skipped", 0,
+                                          "", category="cocotb", subcategory="cdc"))
+        else:
+            results.append(TestResult(result_id, desc, "skipped", 0,
+                                      "Test not executed", category="cocotb", subcategory="cdc"))
+
     # Run Subregister tests
     _, duration, output = run_command(
         ["make", "test_sub", "DUT=sensor_controller"],
@@ -2718,6 +2867,207 @@ def run_cocotb_tests() -> List[TestResult]:
                 results.append(TestResult(f"cocotb.stress.{test_id}", desc, "skipped", 0, "", category="cocotb", subcategory="stress"))
         else:
             results.append(TestResult(f"cocotb.stress.{test_id}", desc, "skipped", 0, "Test not executed", category="cocotb", subcategory="stress"))
+
+    return results
+
+
+def run_sv_cocotb_tests() -> List[TestResult]:
+    """
+    Run Cocotb SystemVerilog simulation tests (Verilator).
+
+    Mirrors run_cocotb_tests()'s CDC section for the SystemVerilog output,
+    proving CDC-015 (SV/VHDL CDC parity) and CDC-018/019 (strobe toggle
+    synchronizer, honoring the configured CDC_STAGE) hold functionally
+    under simulation, not just structurally in the generated source.
+    """
+    results = []
+
+    try:
+        import cocotb
+    except ImportError:
+        results.append(TestResult("cocotb_sv.setup.import", "Cocotb Available (SV)", "skipped", 0,
+                                  "cocotb not found", category="cocotb_sv", subcategory="sv_cdc"))
+        return results
+
+    cocotb_sv_cdc_tests = [
+        ("test_sv_cdc_006_ro_path_sync", "CDC-015: SV RO Register Path Sync"),
+        ("test_sv_cdc_007_rw_path_sync", "CDC-015: SV RW Register Path Sync"),
+        ("test_sv_cdc_pulse_sync_ratio_2x", "CDC-018: SV Strobe Toggle Sync at 2:1 Clock Ratio"),
+        ("test_sv_cdc_pulse_sync_ratio_equal", "CDC-018: SV Strobe Toggle Sync at 1:1 Clock Ratio"),
+        ("test_sv_cdc_pulse_sync_module_faster", "CDC-018: SV Strobe Toggle Sync, module_clk Faster"),
+        ("test_sv_cdc_pulse_sync_module_slower", "CDC-018: SV Strobe Toggle Sync, module_clk 5x Slower"),
+        ("test_sv_cdc_pulse_sync_prime_ratio", "CDC-018: SV Strobe Toggle Sync at Prime Clock Ratio"),
+        ("test_sv_cdc_read_strobe_pulse_sync", "CDC-018: SV Read Strobe Toggle Sync (module_clk Slower)"),
+        ("test_sv_cdc_rw_register_both_strobes", "CDC-018: SV RW Register Read+Write Strobes Independently Synced"),
+        ("test_sv_cdc_clock_ratio_2x", "CDC-015: SV RO Data Path at 2:1 Clock Ratio"),
+        ("test_sv_cdc_clock_ratio_prime", "CDC-015: SV RO Data Path at Prime Clock Ratio"),
+        ("test_sv_cdc_slow_to_fast", "CDC-015: SV RO Path, module_clk 5x Slower"),
+        ("test_sv_cdc_fast_to_slow", "CDC-015: SV RW Path, module_clk 5x Slower"),
+        ("test_sv_cdc_async_reset", "CDC-015: SV Async Reset Across Domains (axi_aresetn scope)"),
+        ("test_sv_cdc_ro_multibit_settle_no_torn_reads", "CDC-015: SV Multi-bit RO Settle, No Torn Reads"),
+    ]
+
+    cocotb_sv_cdc_stage2_tests = [
+        ("test_sv_cdc_pulse_sync_module_slower", "CDC-019: SV Pulse Sync with CDC_STAGE=2, module_clk 5x Slower"),
+        ("test_sv_cdc_read_strobe_pulse_sync", "CDC-019: SV Read Strobe Pulse Sync with CDC_STAGE=2"),
+        ("test_sv_cdc_006_ro_path_sync", "CDC-019: SV RO Data Path Sync with CDC_STAGE=2"),
+    ]
+
+    # SV parity for the functional packed/wide-register CDC tests (CDC-015).
+    cocotb_sv_cdc_packed_tests = [
+        ("test_sv_cdc_packed_rw_field_sync", "CDC-015: SV Packed RW Fields -> per-field module_clk ports"),
+        ("test_sv_cdc_packed_rw_field_sync_slow", "CDC-015: SV Packed RW Fields, module_clk 5x Slower"),
+        ("test_sv_cdc_packed_ro_field_sync", "CDC-015: SV Packed RO Field Inputs -> AXI read word"),
+        ("test_sv_cdc_packed_ro_field_sync_slow", "CDC-015: SV Packed RO Field Inputs, module_clk 5x Slower"),
+        ("test_sv_cdc_packed_mixed_rw_ro", "CDC-015: SV Packed RW+RO Fields Independently Synced"),
+        ("test_sv_cdc_wide_rw_chunk_sync", "CDC-015: SV Wide 64-bit RW Register Chunk Sync"),
+        ("test_sv_cdc_wide_rw_chunk_sync_slow", "CDC-015: SV Wide 64-bit RW Register, module_clk 5x Slower"),
+        ("test_sv_cdc_wide_ro_chunk_sync", "CDC-015: SV Wide 64-bit RO Register Chunk Sync"),
+        ("test_sv_cdc_wide_ro_chunk_sync_slow", "CDC-015: SV Wide 64-bit RO Register, module_clk 5x Slower"),
+    ]
+
+    cocotb_sv_cdc_packed_stage2_tests = [
+        ("test_sv_cdc_packed_rw_field_sync", "CDC-013: SV Packed RW Fields with CDC_STAGE=2"),
+        ("test_sv_cdc_packed_ro_field_sync", "CDC-013: SV Packed RO Fields with CDC_STAGE=2"),
+        ("test_sv_cdc_wide_rw_chunk_sync", "CDC-013: SV Wide 64-bit RW Register with CDC_STAGE=2"),
+        ("test_sv_cdc_wide_ro_chunk_sync", "CDC-013: SV Wide 64-bit RO Register with CDC_STAGE=2"),
+    ]
+
+    venv_cocotb_config = PROJECT_ROOT / "venv" / "bin" / "cocotb-config"
+    if venv_cocotb_config.exists():
+        cocotb_config_available = True
+    else:
+        cocotb_config_available, _, _ = run_command(["which", "cocotb-config"])
+
+    verilator_available, _, _ = run_command(["which", "verilator"])
+
+    if not cocotb_config_available or not verilator_available:
+        skip_reason = "cocotb not installed" if not cocotb_config_available else "verilator not found"
+        skip_msg = "pip install cocotb cocotb-bus cocotbext-axi" if not cocotb_config_available else "Install the Verilator simulator"
+
+        for test_id, desc in cocotb_sv_cdc_tests:
+            results.append(TestResult(f"cocotb_sv.cdc.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})", category="cocotb_sv", subcategory="sv_cdc"))
+        for test_id, desc in cocotb_sv_cdc_stage2_tests:
+            results.append(TestResult(f"cocotb_sv.cdc_stage2.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})", category="cocotb_sv", subcategory="sv_cdc"))
+        for test_id, desc in cocotb_sv_cdc_packed_tests:
+            results.append(TestResult(f"cocotb_sv.cdc_packed.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})", category="cocotb_sv", subcategory="sv_cdc"))
+        for test_id, desc in cocotb_sv_cdc_packed_stage2_tests:
+            results.append(TestResult(f"cocotb_sv.cdc_packed_stage2.{test_id}", desc, "skipped", 0,
+                                      f"{skip_reason} ({skip_msg})", category="cocotb_sv", subcategory="sv_cdc"))
+        return results
+
+    _, _, cocotb_version = run_command(["cocotb-config" if not venv_cocotb_config.exists() else str(venv_cocotb_config), "--version"])
+    cocotb_version = cocotb_version.strip() if cocotb_version else "unknown"
+    results.append(TestResult("cocotb_sv.setup", f"Cocotb SV Setup (v{cocotb_version})", "passed", 0,
+                              f"cocotb {cocotb_version}, verilator available",
+                              category="cocotb_sv", subcategory="sv_cdc"))
+
+    cocotb_dir = PROJECT_ROOT / "tests" / "cocotb"
+    venv_env = os.environ.copy()
+    venv_bin = str(PROJECT_ROOT / "venv" / "bin")
+    venv_env["PATH"] = venv_bin + ":" + venv_env.get("PATH", "")
+    venv_env["VIRTUAL_ENV"] = str(PROJECT_ROOT / "venv")
+
+    import re
+    test_pattern = re.compile(r'\*\*\s+(test_\w+\.test_\w+)\s+(PASS|FAIL|SKIP)')
+
+    print(f"{BOLD}Running SystemVerilog CDC Tests (Verilator)...{RESET}")
+    _, duration, output = run_command(
+        ["make", "-f", "Makefile.sv", "test_cdc", "DUT=sensor_controller"],
+        cwd=str(cocotb_dir), timeout=300, env=venv_env, stream_output=True)
+
+    sv_results = {}
+    for match in test_pattern.finditer(output):
+        full_name = match.group(1)
+        status = match.group(2).lower()
+        test_func = full_name.split('.')[-1]
+        sv_results[test_func] = status
+
+    for test_id, desc in cocotb_sv_cdc_tests:
+        result_id = f"cocotb_sv.cdc.{test_id}"
+        if test_id in sv_results:
+            status = sv_results[test_id]
+            if status == "pass":
+                results.append(TestResult(result_id, desc, "passed", 0, "", category="cocotb_sv", subcategory="sv_cdc"))
+            elif status == "fail":
+                results.append(TestResult(result_id, desc, "failed", 0, "Assertion failed", category="cocotb_sv", subcategory="sv_cdc"))
+            else:
+                results.append(TestResult(result_id, desc, "skipped", 0, "", category="cocotb_sv", subcategory="sv_cdc"))
+        else:
+            results.append(TestResult(result_id, desc, "skipped", 0, "Test not executed", category="cocotb_sv", subcategory="sv_cdc"))
+
+    # Run CDC tests again against the CDC_STAGE=2 DUT variant
+    _, duration, output = run_command(
+        ["make", "-f", "Makefile.sv", "test_cdc_stage2", "DUT=sensor_controller_stage2"],
+        cwd=str(cocotb_dir), timeout=300, env=venv_env, stream_output=True)
+
+    sv_stage2_results = {}
+    for match in test_pattern.finditer(output):
+        full_name = match.group(1)
+        status = match.group(2).lower()
+        test_func = full_name.split('.')[-1]
+        sv_stage2_results[test_func] = status
+
+    for test_id, desc in cocotb_sv_cdc_stage2_tests:
+        result_id = f"cocotb_sv.cdc_stage2.{test_id}"
+        if test_id in sv_stage2_results:
+            status = sv_stage2_results[test_id]
+            if status == "pass":
+                results.append(TestResult(result_id, desc, "passed", 0, "", category="cocotb_sv", subcategory="sv_cdc"))
+            elif status == "fail":
+                results.append(TestResult(result_id, desc, "failed", 0, "Assertion failed", category="cocotb_sv", subcategory="sv_cdc"))
+            else:
+                results.append(TestResult(result_id, desc, "skipped", 0, "", category="cocotb_sv", subcategory="sv_cdc"))
+        else:
+            results.append(TestResult(result_id, desc, "skipped", 0, "Test not executed", category="cocotb_sv", subcategory="sv_cdc"))
+
+    # Run functional packed/wide-register CDC tests (CDC-015 parity) against
+    # the default 3-stage packed DUT.
+    _, duration, output = run_command(
+        ["make", "-f", "Makefile.sv", "test_cdc_packed", "DUT=cdc_packed_controller"],
+        cwd=str(cocotb_dir), timeout=300, env=venv_env, stream_output=True)
+
+    sv_packed_results = {}
+    for match in test_pattern.finditer(output):
+        sv_packed_results[match.group(1).split('.')[-1]] = match.group(2).lower()
+
+    for test_id, desc in cocotb_sv_cdc_packed_tests:
+        result_id = f"cocotb_sv.cdc_packed.{test_id}"
+        if test_id in sv_packed_results:
+            status = sv_packed_results[test_id]
+            if status == "pass":
+                results.append(TestResult(result_id, desc, "passed", 0, "", category="cocotb_sv", subcategory="sv_cdc"))
+            elif status == "fail":
+                results.append(TestResult(result_id, desc, "failed", 0, "Assertion failed", category="cocotb_sv", subcategory="sv_cdc"))
+            else:
+                results.append(TestResult(result_id, desc, "skipped", 0, "", category="cocotb_sv", subcategory="sv_cdc"))
+        else:
+            results.append(TestResult(result_id, desc, "skipped", 0, "Test not executed", category="cocotb_sv", subcategory="sv_cdc"))
+
+    # Run the same packed/wide CDC tests against the CDC_STAGE=2 packed DUT.
+    _, duration, output = run_command(
+        ["make", "-f", "Makefile.sv", "test_cdc_packed_stage2", "DUT=cdc_packed_controller_stage2"],
+        cwd=str(cocotb_dir), timeout=300, env=venv_env, stream_output=True)
+
+    sv_packed_stage2_results = {}
+    for match in test_pattern.finditer(output):
+        sv_packed_stage2_results[match.group(1).split('.')[-1]] = match.group(2).lower()
+
+    for test_id, desc in cocotb_sv_cdc_packed_stage2_tests:
+        result_id = f"cocotb_sv.cdc_packed_stage2.{test_id}"
+        if test_id in sv_packed_stage2_results:
+            status = sv_packed_stage2_results[test_id]
+            if status == "pass":
+                results.append(TestResult(result_id, desc, "passed", 0, "", category="cocotb_sv", subcategory="sv_cdc"))
+            elif status == "fail":
+                results.append(TestResult(result_id, desc, "failed", 0, "Assertion failed", category="cocotb_sv", subcategory="sv_cdc"))
+            else:
+                results.append(TestResult(result_id, desc, "skipped", 0, "", category="cocotb_sv", subcategory="sv_cdc"))
+        else:
+            results.append(TestResult(result_id, desc, "skipped", 0, "Test not executed", category="cocotb_sv", subcategory="sv_cdc"))
 
     return results
 
@@ -3214,7 +3564,7 @@ def main():
     print(f"Testing requirements: AXION, AXI-LITE, PARSER, GEN, ERR, CLI, ADDR, CDC, STRESS, SUB, DEF, VAL, YAML-INPUT, TOML-INPUT, XML-INPUT, JSON-INPUT, EQUIV, GEN-019..036, ENUM-001..042, AXION-TYPES-001..021, HIER-001..025, SV-PARSER, SV-GEN, SV-ADV, REG-MODEL-001..065 + Cocotb\n")
 
     all_results = []
-    total_steps = 30
+    total_steps = 31
 
     # Run Python unit tests (core functionality)
     print(f"  [1/{total_steps}] Running Python unit tests...", flush=True)
@@ -3304,36 +3654,40 @@ def main():
     print(f"  [22/{total_steps}] Running Cocotb VHDL tests...", flush=True)
     all_results.extend(run_cocotb_tests())
 
+    # Run Cocotb SystemVerilog tests (Verilator)
+    print(f"  [23/{total_steps}] Running Cocotb SystemVerilog tests...", flush=True)
+    all_results.extend(run_sv_cocotb_tests())
+
     # Run SystemVerilog parser tests
-    print(f"  [23/{total_steps}] Running SystemVerilog parser tests...", flush=True)
+    print(f"  [24/{total_steps}] Running SystemVerilog parser tests...", flush=True)
     all_results.extend(run_systemverilog_parser_tests())
 
     # Run SystemVerilog generator tests
-    print(f"  [24/{total_steps}] Running SystemVerilog generator tests...", flush=True)
+    print(f"  [25/{total_steps}] Running SystemVerilog generator tests...", flush=True)
     all_results.extend(run_systemverilog_generator_tests())
 
     # Run SystemVerilog advanced tests (lint, equivalence, stress)
-    print(f"  [25/{total_steps}] Running SystemVerilog advanced tests...", flush=True)
+    print(f"  [26/{total_steps}] Running SystemVerilog advanced tests...", flush=True)
     all_results.extend(run_systemverilog_advanced_tests())
 
     # Run axion-types tests (AXION-TYPES-001..021)
-    print(f"  [26/{total_steps}] Running axion-types (typed AXI ports) tests...", flush=True)
+    print(f"  [27/{total_steps}] Running axion-types (typed AXI ports) tests...", flush=True)
     all_results.extend(run_axion_types_tests())
 
     # Run hierarchy tests (HIER-001..025)
-    print(f"  [27/{total_steps}] Running hierarchy file support tests...", flush=True)
+    print(f"  [28/{total_steps}] Running hierarchy file support tests...", flush=True)
     all_results.extend(run_hierarchy_tests())
 
     # Run Python register model tests (REG-MODEL-001..065)
-    print(f"  [28/{total_steps}] Running Python register model tests...", flush=True)
+    print(f"  [29/{total_steps}] Running Python register model tests...", flush=True)
     all_results.extend(run_register_model_tests())
 
     # Run documentation and XML output correctness tests (GEN-033..036)
-    print(f"  [29/{total_steps}] Running documentation output correctness tests...", flush=True)
+    print(f"  [30/{total_steps}] Running documentation output correctness tests...", flush=True)
     all_results.extend(run_doc_output_correctness_tests())
 
     # Run XDC tests (XDC requirements)
-    print(f"  [30/{total_steps}] Running XDC constraint generation tests...", flush=True)
+    print(f"  [31/{total_steps}] Running XDC constraint generation tests...", flush=True)
     all_results.extend(run_xdc_tests())
 
     # Save and generate reports
