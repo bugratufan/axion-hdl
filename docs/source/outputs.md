@@ -229,8 +229,12 @@ axion-hdl -s regs.yaml -o output/ --sv --use-axion-types
 
 **File:** `<module>_axion_reg.xdc` (requires `--xdc`, not included in `--all`)
 
-A Xilinx Vivado constraint file that declares timing exceptions (false paths)
-for the module-side register signals of the generated `*_axion_reg` module.
+**Only generated for modules with CDC enabled.** Axion-HDL always builds its
+own synchronizer chain for CDC-enabled register signals and strobes, so the
+exact internal crossing point is known and can be false-pathed precisely.
+Modules with CDC disabled have no such internal crossing to scope a
+constraint to, so no file is produced for them - see
+[Constraint Scope](#constraint-scope) below.
 
 ### Instance Independence
 
@@ -242,41 +246,53 @@ names chosen by the integrator:
 ```tcl
 set axion_cells [get_cells -hierarchical -filter {REF_NAME == spi_master_axion_reg || ORIG_REF_NAME == spi_master_axion_reg}]
 
-# status_reg (RO, module -> AXI (input))
-set_false_path -to [get_pins -of_objects $axion_cells -filter {NAME =~ */status_reg || NAME =~ */status_reg[*]}]
+# status_reg (RO, module -> AXI, axi_aclk-domain sync0)
+set_false_path -from [get_pins -of_objects $axion_cells -filter {NAME =~ */status_reg || NAME =~ */status_reg[*]}] -to [get_cells -of_objects $axion_cells -filter {NAME =~ */status_reg_sync0 || NAME =~ */status_reg[0-9]*_sync0}]
 
-# control_reg (RW, AXI -> module (output))
-set_false_path -from [get_pins -of_objects $axion_cells -filter {NAME =~ */control_reg || NAME =~ */control_reg[*]}]
+# control_reg (RW, AXI -> module, module_clk-domain sync0)
+set_false_path -from [get_cells -of_objects $axion_cells -filter {NAME =~ */control_reg_reg || NAME =~ */control_reg_reg[0-9]*}] -to [get_cells -of_objects $axion_cells -filter {NAME =~ */control_reg_sync0 || NAME =~ */control_reg[0-9]*_sync0}]
 ```
 
 `ORIG_REF_NAME` keeps the match working even when Vivado synthesis renames or
 uniquifies the module during hierarchy rebuilding.
 
-### Constraint Rules
+### Constraint Scope
 
-| Register Type | Module Port Direction | Constraint |
-|---------------|-----------------------|------------|
-| RO | input (module → AXI) | `set_false_path -to` |
-| RW / WO | output (AXI → module) | `set_false_path -from` |
-| Packed fields | per field access mode | `<reg_name>_<field_name>` pins |
-| `*_rd_strobe` / `*_wr_strobe` | output | **not** false-pathed (emitted commented-out) |
-| AXI bus pins (`axi_*`) | — | never constrained |
+Every exception is scoped to exactly one CDC crossing hop: from the
+source-domain register/port to the **first** stage of Axion-HDL's own
+synchronizer chain (`<name>_sync0`). Later stages (`sync0 -> sync1 -> ...`)
+are same-clock-domain register-to-register transfers that standard timing
+analysis already checks correctly, so they are never referenced - and
+neither is the module-side output port itself. This means:
 
-Strobe outputs are single-cycle pulses; false-pathing them would hide real
-timing failures, so the corresponding constraints are only emitted as
-comments that can be enabled deliberately.
+- The exact same file is produced regardless of the configured `CDC_STAGE`
+  depth (2, 3, 5, ...) - only `sync0` is ever targeted.
+- Downstream logic in the consuming clock domain (fed from the
+  fully-synchronized output port) still gets normal, un-exempted timing
+  analysis; only the genuine asynchronous hop is excepted.
+
+| Register Type | Crossing Constrained | Endpoints |
+|---------------|----------------------|-----------|
+| RO | module port -> `sync0` (axi_aclk domain) | `get_pins` -> `get_cells` |
+| RW / WO | `<name>_reg` -> `sync0` (module_clk domain) | `get_cells` -> `get_cells` |
+| Packed RO field | `<reg>_<field>` port -> `sync0` | `get_pins` -> `get_cells` |
+| Packed RW/WO fields | `<reg>_reg` -> `sync0` (one constraint per register, not per field) | `get_cells` -> `get_cells` |
+| `*_rd_strobe` / `*_wr_strobe` | `<name>_rd/wr_toggle` -> `<name>_rd/wr_toggle_sync0` | `get_cells` -> `get_cells` |
+| AXI bus pins (`axi_*`) | never constrained | — |
+
+Read/write strobes get their own crossing constraint because, with CDC
+enabled, they are synchronized through a dedicated toggle synchronizer
+(pulse -> toggle flip-flop -> ASYNC_REG-tagged sync chain -> edge detector)
+rather than passed through directly - only the internal toggle register's
+crossing needs the exception; the regenerated pulse on the actual strobe
+port is a normal, fully-synchronized module_clk-domain signal and is never
+constrained.
 
 ### Usage
 
 Add the file to the Vivado project like any other constraint file
 (`add_files` / `read_xdc`), ordered together with (or after) the constraints
 that create the design clocks.
-
-**Warning:** the false paths declare the register signals as
-asynchronous / quasi-static. For modules generated **without** CDC
-(`CDC_EN=false`), the file carries an explicit warning header: only apply it
-if the logic connected to the register signals runs in a different clock
-domain than `axi_aclk`.
 
 ---
 

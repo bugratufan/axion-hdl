@@ -169,6 +169,16 @@ Testing and verification are automated via `make test`, which maps tests back to
 | CDC-015 | SystemVerilog CDC Parity | SystemVerilog outputs implement the same CDC structure as VHDL outputs: packed registers expose per-field ports, RO fields (full and packed) are synchronized into the `axi_aclk` domain, writable registers and packed storage are synchronized into the `module_clk` domain with field outputs sliced from the last stage, the configured stage count is honored in every chain, and wide registers are chunk-addressed with a full-width synchronizer. | Python Unit Test (`cdc.test_cdc_015`) |
 | CDC-016 | Input-Format Independence | Enabling CDC via source annotations (`@axion_def CDC_EN CDC_STAGE=N`) or via structured config (`cdc_en`/`cdc_stage` in YAML/JSON/TOML/XML) produces equivalent synchronizer logic for the same register definitions, in both VHDL and SystemVerilog outputs. | Python Unit Test (`cdc.test_cdc_016`) |
 | CDC-017 | GUI Template Round-Trip | VHDL module templates created from the GUI carry `@axion_def`/`@axion` annotations that the analyzer parses, so CDC settings (`CDC_EN`, `CDC_STAGE`), access modes, strobes, defaults and descriptions survive a template-then-analyze round trip. | Python Unit Test (`cdc.test_cdc_017`) |
+| CDC-018 | Strobe Pulse Toggle Synchronizer | When CDC is enabled, `_rd_strobe`/`_wr_strobe` outputs are driven by a toggle synchronizer (axi_aclk-domain toggle flip-flop -> ASYNC_REG-tagged sync chain -> module_clk-domain edge detector), not by the raw axi_aclk-domain pulse condition directly. The toggle sync stages carry `ASYNC_REG`; the same-domain edge-detect delay register does not. With CDC disabled, strobes keep the original direct combinational assignment, in both VHDL and SystemVerilog. | Python Unit Test (`cdc.test_cdc_018`) |
+| CDC-019 | Strobe Synchronizer Stage Count | The strobe toggle sync chain depth follows the configured `CDC_STAGE` exactly like the data-signal sync chains (including for packed-register parent-level strobes), in both VHDL and SystemVerilog. | Python Unit Test (`cdc.test_cdc_019`) |
+
+> [!NOTE]
+> The toggle synchronizer used for strobes is not a full 4-phase handshake: the source domain does
+> not wait for an acknowledgement. This is intentional and sufficient for AXI register read/write
+> strobes, since a single AXI transaction already spans multiple `axi_aclk` cycles, keeping
+> consecutive strobes far enough apart to resolve through the sync chain. It is not appropriate for
+> back-to-back pulse trains arriving faster than the synchronizer's resolution latency (roughly
+> `CDC_STAGE + 2` destination-domain cycles) - those would need a full handshake or a FIFO instead.
 
 > [!NOTE]
 > Multi-bit values are synchronized with per-bit multi-FF chains. This is safe for quasi-static
@@ -259,17 +269,23 @@ Testing and verification are automated via `make test`, which maps tests back to
 
 ## 14. XDC Constraint Generation (XDC)
 
+XDC files are only generated for CDC-enabled modules. Axion-HDL always knows the exact internal
+crossing point of its own synchronizer chains (source register/port -> first sync stage), so every
+constraint is scoped to that single hop rather than to the module's boundary ports - downstream
+logic in the consuming clock domain still receives normal, un-exempted timing analysis.
+
 | ID | Definition | Acceptance Criteria | Test Method |
 |----|------------|---------------------|-------------|
-| XDC-001 | CLI Flag Generation | The `--xdc` CLI flag must generate one `<module>_axion_reg.xdc` file per analyzed module in the output directory. | Python Unit Test (`test_xdc_001_cli_flag_generation`) |
+| XDC-001 | CLI Flag Generation | The `--xdc` CLI flag must generate one `<module>_axion_reg.xdc` file for every analyzed module that has CDC enabled. | Python Unit Test (`test_xdc_001_cli_flag_generation`) |
 | XDC-002 | Instance Independence | The generated XDC must locate cells via `REF_NAME`/`ORIG_REF_NAME` equality matching on `<module>_axion_reg`, so constraints apply to every instance without knowing user instance names. No hard-coded instance path may appear in the file. | Python Unit Test (`test_xdc_002_instance_independence`) |
-| XDC-003 | RO False Path Direction | Every non-packed RO register must produce a `set_false_path -to` constraint targeting its module-side pins (module -> AXI input). | Python Unit Test (`test_xdc_003_ro_false_path_to`) |
-| XDC-004 | RW/WO False Path Direction | Every non-packed RW or WO register must produce a `set_false_path -from` constraint targeting its module-side pins (AXI -> module output). | Python Unit Test (`test_xdc_004_rw_wo_false_path_from`) |
-| XDC-005 | Packed Field Constraints | Every packed register field must produce a false-path constraint on the `<reg_name>_<field_name>` pin with direction chosen by the field access mode. | Python Unit Test (`test_xdc_005_packed_field_constraints`) |
-| XDC-006 | Strobe Exclusion | `*_rd_strobe` / `*_wr_strobe` outputs must NOT be actively false-pathed; they may only appear as commented-out constraints with an explanatory note. | Python Unit Test (`test_xdc_006_strobe_exclusion`) |
-| XDC-007 | Vector Pin Coverage | Each register pin filter must match both the scalar pin name (`<sig>`) and the vector bit pins (`<sig>[*]`) so vector and wide (multi-word) registers are covered. | Python Unit Test (`test_xdc_007_vector_pin_coverage`) |
-| XDC-008 | AXI Port Exclusion | No active false-path constraint may target the AXI4-Lite bus pins (`axi_*`). | Python Unit Test (`test_xdc_008_axi_port_exclusion`) |
-| XDC-009 | Non-CDC Warning Header | Modules with CDC disabled must carry a header warning that the false paths are only valid for asynchronous consumers; CDC-enabled modules must not carry this warning. | Python Unit Test (`test_xdc_009_non_cdc_warning`) |
+| XDC-003 | RO Crossing Constraint | Every non-packed RO register produces exactly one `set_false_path` from its module-side port (`get_pins`) to its first synchronizer stage `<name>_sync0` only (`get_cells`) - not to the boundary port, and not referencing any later stage. | Python Unit Test (`test_xdc_003_ro_crossing_constraint`) |
+| XDC-004 | RW/WO Crossing Constraint | Every non-packed RW/WO register produces exactly one `set_false_path` from its internal AXI-domain storage cell `<name>_reg` (`get_cells`) to its first synchronizer stage `<name>_sync0` only (`get_cells`). | Python Unit Test (`test_xdc_004_rw_wo_crossing_constraint`) |
+| XDC-005 | Packed Field Crossing Constraints | Each packed RO field produces one crossing constraint (`<reg>_<field>` port -> `<reg>_<field>_sync0`); all writable fields of a packed register share one crossing constraint on the shared storage word (`<reg>_reg` -> `<reg>_reg_sync0`), not one per field. | Python Unit Test (`test_xdc_005_packed_field_constraints`) |
+| XDC-006 | Strobe Toggle Crossing Constraint | Each `_rd_strobe`/`_wr_strobe` with CDC enabled produces one crossing constraint on its toggle synchronizer (`<name>_rd/wr_toggle` -> `<name>_rd/wr_toggle_sync0`, both `get_cells`). The regenerated pulse on the actual strobe port is never constrained - it is a normal, fully-synchronized module_clk-domain signal. | Python Unit Test (`test_xdc_006_strobe_toggle_crossing`) |
+| XDC-007 | Vector Pin Coverage | Port-side (`get_pins`) filters match both the scalar pin name (`<sig>`) and the vector bit pins (`<sig>[*]`) so vector registers are covered. | Python Unit Test (`test_xdc_007_vector_pin_coverage`) |
+| XDC-008 | AXI Port Exclusion | No false-path constraint may target the AXI4-Lite bus pins (`axi_*`). | Python Unit Test (`test_xdc_008_axi_port_exclusion`) |
+| XDC-009 | CDC-Disabled Modules Produce No File | A module with CDC disabled has no internal synchronizer to scope a false path to (any crossing, if it exists, happens entirely in logic Axion-HDL cannot see) - no `.xdc` file is generated for it. | Python Unit Test (`test_xdc_009_cdc_disabled_no_file`) |
 | XDC-010 | Explicit Opt-In | `--xdc` alone must generate only XDC output (no implicit `--all` fallback), and `--all` must not emit XDC files. | Python Unit Test (`test_xdc_010_explicit_opt_in`) |
 | XDC-011 | Input Format Independence | XDC generation must work for modules parsed from any supported input format (VHDL annotations, YAML, etc.). | Python Unit Test (`test_xdc_011_input_format_independence`) |
 | XDC-012 | API Safety | `AxionHDL.generate_xdc()` must return False when called before `analyze()` and True after successful generation. | Python Unit Test (`test_xdc_012_api_safety`) |
+| XDC-013 | Stage-Count Independence | Constraints always target `<name>_sync0` (the first synchronizer stage) regardless of the configured `CDC_STAGE` value - later stages are same-clock-domain hops that need no exception, so XDC output is identical across different `CDC_STAGE` settings for the same register set. | Python Unit Test (`test_xdc_013_stage_count_independence`) |

@@ -24,8 +24,32 @@ VERILOG_SOURCES += $(OUTPUT_DIR)/$(DUT)_axion_reg.sv
 # Include cocotb makefiles
 include $(shell cocotb-config --makefiles)/Makefile.sim
 
+# Custom targets
+.PHONY: test_sv_basic test_cdc test_cdc_stage2 test_cdc_packed test_cdc_packed_stage2 generate
+
+# Run basic SV smoke test
+test_sv_basic: generate
+	$(MAKE) MODULE=test_sv_basic
+
+# Run CDC tests (mirrors tests/cocotb/test_cdc.py against the SV/Verilator DUT)
+test_cdc: generate
+	$(MAKE) MODULE=test_sv_cdc
+
+# Run CDC tests against a different CDC_STAGE depth (2, vs. sensor_controller's
+# 3) to prove the strobe/data synchronizers work correctly regardless of the
+# configured stage count, not just the default.
+test_cdc_stage2: generate
+	$(MAKE) MODULE=test_sv_cdc DUT=sensor_controller_stage2
+
+# Run packed/wide-register CDC tests (SV parity for test_cdc_packed.py).
+test_cdc_packed: generate
+	$(MAKE) MODULE=test_sv_cdc_packed DUT=cdc_packed_controller
+
+# Same packed/wide CDC tests against the CDC_STAGE=2 DUT variant.
+test_cdc_packed_stage2: generate
+	$(MAKE) MODULE=test_sv_cdc_packed DUT=cdc_packed_controller_stage2
+
 # Custom target to generate SV
-.PHONY: generate
 generate:
 	@echo "Generating SystemVerilog for $(DUT)..."
 	cd $(PROJECT_ROOT) && python3 -c "\

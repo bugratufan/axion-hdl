@@ -1062,16 +1062,29 @@ class AxionHDL:
         print(f"\nSystemVerilog files generated in: {self.output_dir}")
         return True
 
-    def generate_xdc(self):
+    def generate_xdc(self, backend='vhdl'):
         """
-        Generate Xilinx XDC timing constraint files (\*_axion_reg.xdc) for all
-        analyzed modules.
+        Generate Xilinx XDC timing constraint files (\*_axion_reg.xdc) for
+        every analyzed module with CDC enabled.
 
-        Each file false-paths the module-side register signals of the
-        corresponding \*_axion_reg module. The constraints locate cells via
-        REF_NAME/ORIG_REF_NAME matching, so they are independent of the
-        instance names chosen by the integrator and apply to every instance
-        of the module in the design hierarchy.
+        Each file false-paths exactly the CDC crossing hops that Axion-HDL's
+        own synchronizer chain creates (register/port -> first sync stage,
+        for both data registers and strobe toggles). The constraints locate
+        cells via REF_NAME/ORIG_REF_NAME matching, so they are independent
+        of the instance names chosen by the integrator and apply to every
+        instance of the module in the design hierarchy.
+
+        Modules with CDC disabled have no internal synchronizer to scope a
+        false path to, so no file is generated for them.
+
+        Args:
+            backend: Which HDL backend the constraints are generated for -
+                     'vhdl' (default) or 'systemverilog'. Both backends
+                     name the first CDC synchronizer stage the same way
+                     (discrete `<name>_sync0` signals) - see XDCGenerator
+                     for details. This only affects the output file suffix,
+                     so generating XDC for both backends produces two
+                     distinct files instead of one overwriting the other.
         """
         if not self.is_analyzed:
             print("Error: Analysis not performed. Call analyze() first.")
@@ -1081,17 +1094,20 @@ class AxionHDL:
             return False
 
         print(f"\n{'='*60}")
-        print("Generating XDC constraint files...")
+        print(f"Generating XDC constraint files ({backend})...")
         print(f"{'='*60}")
 
         # Create output directory if it doesn't exist
         os.makedirs(self.output_dir, exist_ok=True)
 
-        # Generate XDC files
-        generator = XDCGenerator(self.output_dir)
+        # Generate XDC files (CDC-enabled modules only)
+        generator = XDCGenerator(self.output_dir, backend=backend)
         for module in self.analyzed_modules:
             output_path = generator.generate_xdc(module)
-            print(f"  Generated: {os.path.basename(output_path)}")
+            if output_path is not None:
+                print(f"  Generated: {os.path.basename(output_path)}")
+            else:
+                print(f"  Skipped: {module['name']} (CDC disabled, no crossing to constrain)")
 
         print(f"\nXDC files generated in: {self.output_dir}")
         return True

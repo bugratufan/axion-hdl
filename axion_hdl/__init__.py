@@ -45,7 +45,7 @@ from .bit_field_manager import BitFieldManager, BitOverlapError, BitField
 from .register_model import RegisterSpaceModel, RegisterModel, FieldModel, ReadOnlyError, AddressError
 
 # Package metadata
-__version__ = "1.7.0"
+__version__ = "1.7.1"
 __author__ = "Bugra Tufan"
 __email__ = "bugratufan97@gmail.com"
 __license__ = "MIT"
