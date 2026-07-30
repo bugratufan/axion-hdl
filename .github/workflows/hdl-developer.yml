@@ -1,0 +1,85 @@
+name: HDL Developer Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      focus:
+        description: "Optional: specific scenario or area to focus testing on"
+        required: false
+        type: string
+
+jobs:
+  run:
+    runs-on: [self-hosted, self-hosted-personal]
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Pick smartest active local model
+        id: model
+        run: |
+          AGENT=$(bash .github/scripts/pick_local_agent.sh) || {
+            echo "::error::No suitable local model is currently active on the dashboard (http://localhost:3333)"
+            exit 1
+          }
+          echo "agent=$AGENT" >> "$GITHUB_OUTPUT"
+          echo "Selected opencode agent: $AGENT"
+
+      - name: Build agent image
+        run: docker build -t axion-hdl-agent:latest -f ci/Dockerfile.agent ci
+
+      - name: Run hdl-developer agent
+        env:
+          FOCUS_HINT: ${{ inputs.focus }}
+          PICKED_AGENT: ${{ steps.model.outputs.agent }}
+        run: |
+          rm -f HDL_DEVELOPER_REPORT.md
+          PROMPT=$(cat <<EOF
+          You are acting as a real end user of the axion-hdl tool (an AXI4-Lite
+          register-interface generator from VHDL annotations, YAML, XML, or JSON). Working
+          inside this checked-out repo, install the package (pip install -e '.[dev]') and
+          put together several realistic usage scenarios of your own choosing that a
+          hardware engineer would actually try: different input formats, edge cases in
+          register/bit-field definitions, CDC options, GUI usage where relevant. Actually
+          run them with the CLI/GUI, and use ghdl/verilator to sanity-check generated
+          VHDL where applicable. Note anything confusing, broken, or surprising. ${FOCUS_HINT}
+
+          When you are done, write your findings as a single well-structured markdown
+          report (what you tried, what worked, what didn't, suggested fixes) to
+          /workspace/HDL_DEVELOPER_REPORT.md. Do not modify any other file, and do not
+          run any git commands - reporting only.
+          EOF
+          )
+
+          docker run --rm \
+            --network host \
+            --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -v "$PWD:/workspace" \
+            -v /home/admin/.opencode/bin/opencode:/usr/local/bin/opencode:ro \
+            -v /home/admin/.config/opencode:/tmp/.config/opencode:ro \
+            -w /workspace \
+            axion-hdl-agent:latest \
+            opencode run --agent "$PICKED_AGENT" --auto "$PROMPT"
+
+      - name: Open report as GitHub issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -f HDL_DEVELOPER_REPORT.md ]; then
+            echo "::error::Agent did not produce HDL_DEVELOPER_REPORT.md"
+            exit 1
+          fi
+          gh label create "hdl-developer-report" \
+            --color "0e8a16" \
+            --description "Automated report from the hdl-developer agent" 2>/dev/null || true
+          gh issue create \
+            --title "hdl-developer report: $(date +%Y-%m-%d\ %H:%M)" \
+            --body-file HDL_DEVELOPER_REPORT.md \
+            --label "hdl-developer-report"

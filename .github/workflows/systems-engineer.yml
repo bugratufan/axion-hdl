@@ -1,0 +1,104 @@
+name: Systems Engineer Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Optional extra focus for the agent (leave empty to just gap-fill requirements vs implementation)"
+        required: false
+        type: string
+
+jobs:
+  run:
+    runs-on: [self-hosted, self-hosted-personal]
+    timeout-minutes: 180
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "systems-engineer-agent"
+          git config user.email "actions@users.noreply.github.com"
+
+      - name: Create req/ branch
+        id: branch
+        run: |
+          BRANCH="req/auto-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Pick smartest active local model
+        id: model
+        run: |
+          AGENT=$(bash .github/scripts/pick_local_agent.sh) || {
+            echo "::error::No suitable local model is currently active on the dashboard (http://localhost:3333)"
+            exit 1
+          }
+          echo "agent=$AGENT" >> "$GITHUB_OUTPUT"
+          echo "Selected opencode agent: $AGENT"
+
+      - name: Build agent image
+        run: docker build -t axion-hdl-agent:latest -f ci/Dockerfile.agent ci
+
+      - name: Run systems-engineer agent
+        env:
+          TASK_HINT: ${{ inputs.task }}
+          PICKED_AGENT: ${{ steps.model.outputs.agent }}
+        run: |
+          PROMPT=$(cat <<EOF
+          You are the systems engineer for the axion-hdl project (an AXI4-Lite
+          register-interface generator from VHDL annotations, YAML, XML, or JSON input).
+
+          Read docs/requirements/core.md and docs/requirements/gui.md, then compare them
+          against the current implementation in axion_hdl/. Identify gaps: requirements
+          that are missing, only partially implemented, or where the implementation has
+          drifted from spec. ${TASK_HINT}
+
+          Pick the single highest-priority gap you find and implement it directly in
+          this working directory. Keep the change focused, and add/update tests under
+          tests/ so it is verified. Do not run any git branch/commit/push commands
+          yourself - that is handled outside this run.
+          EOF
+          )
+
+          docker run --rm \
+            --network host \
+            --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -v "$PWD:/workspace" \
+            -v /home/admin/.opencode/bin/opencode:/usr/local/bin/opencode:ro \
+            -v /home/admin/.config/opencode:/tmp/.config/opencode:ro \
+            -w /workspace \
+            axion-hdl-agent:latest \
+            opencode run --agent "$PICKED_AGENT" --auto "$PROMPT"
+
+      - name: Commit and push
+        id: commit
+        run: |
+          git add -A
+          if git diff --staged --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Agent made no changes - nothing to commit."
+            exit 0
+          fi
+          git commit -m "req: automated requirements gap-fill by systems-engineer agent"
+          git push -u origin "${{ steps.branch.outputs.branch }}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Open PR to develop
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base develop \
+            --head "${{ steps.branch.outputs.branch }}" \
+            --title "req: automated requirements gap-fill" \
+            --body "Opened automatically by the systems-engineer agent (model: ${{ steps.model.outputs.agent }})."
