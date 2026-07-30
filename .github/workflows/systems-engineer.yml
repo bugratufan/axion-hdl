@@ -77,7 +77,7 @@ jobs:
             -v /home/admin/.config/opencode:/tmp/.config/opencode:ro \
             -w /workspace \
             axion-hdl-agent:latest \
-            opencode run --agent "$PICKED_AGENT" --auto "$PROMPT"
+            opencode run --agent "$PICKED_AGENT" --auto --thinking --log-level INFO "$PROMPT"
 
       - name: Commit and push
         id: commit

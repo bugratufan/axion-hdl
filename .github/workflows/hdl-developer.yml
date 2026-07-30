@@ -34,26 +34,52 @@ jobs:
       - name: Build agent image
         run: docker build -t axion-hdl-agent:latest -f ci/Dockerfile.agent ci
 
+      - name: Ensure report label exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "hdl-developer-report" \
+            --color "0e8a16" \
+            --description "Automated bug report from Bugra, the hdl-developer agent" 2>/dev/null || true
+
+      - name: Install axion-hdl in dev mode
+        run: |
+          docker run --rm \
+            --network host \
+            --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            axion-hdl-agent:latest \
+            bash -c "python3 -m venv .venv && .venv/bin/pip install --upgrade pip && .venv/bin/pip install -e '.[dev,gui]'"
+
       - name: Run hdl-developer agent
         env:
           FOCUS_HINT: ${{ inputs.focus }}
           PICKED_AGENT: ${{ steps.model.outputs.agent }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          rm -f HDL_DEVELOPER_REPORT.md
           PROMPT=$(cat <<EOF
           You are Bugra, acting as a real end user of the axion-hdl tool (an AXI4-Lite
-          register-interface generator from VHDL annotations, YAML, XML, or JSON). Working
-          inside this checked-out repo, install the package (pip install -e '.[dev]') and
-          put together several realistic usage scenarios of your own choosing that a
+          register-interface generator from VHDL annotations, YAML, XML, or JSON).
+
+          The repo is already installed in dev mode in a virtual environment at
+          .venv (run "source .venv/bin/activate" before using the axion-hdl CLI or
+          running pytest - do not reinstall it yourself).
+
+          Put together several realistic usage scenarios of your own choosing that a
           hardware engineer would actually try: different input formats, edge cases in
           register/bit-field definitions, CDC options, GUI usage where relevant. Actually
           run them with the CLI/GUI, and use ghdl/verilator to sanity-check generated
           VHDL where applicable. Note anything confusing, broken, or surprising. ${FOCUS_HINT}
 
-          When you are done, write your findings as a single well-structured markdown
-          report (what you tried, what worked, what didn't, suggested fixes) to
-          /workspace/HDL_DEVELOPER_REPORT.md. Do not modify any other file, and do not
-          run any git commands - reporting only.
+          For every distinct bug, broken behavior, or point of confusion you find, open
+          it immediately as its own GitHub issue with "gh issue create --title '...'
+          --body '...' --label hdl-developer-report" (gh is already authenticated via
+          GH_TOKEN). One issue per distinct problem - never bundle multiple unrelated
+          problems into a single issue, and do not open an issue for scenarios that
+          worked fine. Do not write a summary report file and do not run any git
+          commands - filing issues as you go is the whole job.
           EOF
           )
 
@@ -61,25 +87,11 @@ jobs:
             --network host \
             --user "$(id -u):$(id -g)" \
             -e HOME=/tmp \
+            -e GH_TOKEN \
+            -e GH_REPO="${{ github.repository }}" \
             -v "$PWD:/workspace" \
             -v /home/admin/.opencode/bin/opencode:/usr/local/bin/opencode:ro \
             -v /home/admin/.config/opencode:/tmp/.config/opencode:ro \
             -w /workspace \
             axion-hdl-agent:latest \
-            opencode run --agent "$PICKED_AGENT" --auto "$PROMPT"
-
-      - name: Open report as GitHub issue
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ ! -f HDL_DEVELOPER_REPORT.md ]; then
-            echo "::error::Agent did not produce HDL_DEVELOPER_REPORT.md"
-            exit 1
-          fi
-          gh label create "hdl-developer-report" \
-            --color "0e8a16" \
-            --description "Automated report from Bugra, the hdl-developer agent" 2>/dev/null || true
-          gh issue create \
-            --title "Bugra's HDL developer report: $(date +%Y-%m-%d\ %H:%M)" \
-            --body-file HDL_DEVELOPER_REPORT.md \
-            --label "hdl-developer-report"
+            opencode run --agent "$PICKED_AGENT" --auto --thinking --log-level INFO "$PROMPT"
