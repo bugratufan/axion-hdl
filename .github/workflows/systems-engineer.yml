@@ -1,4 +1,4 @@
-name: Systems Engineer Agent
+name: Cisil (Systems Engineer Agent)
 
 on:
   workflow_dispatch:
@@ -24,8 +24,8 @@ jobs:
 
       - name: Configure git
         run: |
-          git config user.name "systems-engineer-agent"
-          git config user.email "actions@users.noreply.github.com"
+          git config user.name "Cisil"
+          git config user.email "cisil-agent@users.noreply.github.com"
 
       - name: Create req/ branch
         id: branch
@@ -53,7 +53,7 @@ jobs:
           PICKED_AGENT: ${{ steps.model.outputs.agent }}
         run: |
           PROMPT=$(cat <<EOF
-          You are the systems engineer for the axion-hdl project (an AXI4-Lite
+          You are Cisil, the systems engineer for the axion-hdl project (an AXI4-Lite
           register-interface generator from VHDL annotations, YAML, XML, or JSON input).
 
           Read docs/requirements/core.md and docs/requirements/gui.md, then compare them
@@ -88,7 +88,7 @@ jobs:
             echo "Agent made no changes - nothing to commit."
             exit 0
           fi
-          git commit -m "req: automated requirements gap-fill by systems-engineer agent"
+          git commit -m "req: automated requirements gap-fill by Cisil (systems-engineer agent)"
           git push -u origin "${{ steps.branch.outputs.branch }}"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
@@ -101,4 +101,4 @@ jobs:
             --base develop \
             --head "${{ steps.branch.outputs.branch }}" \
             --title "req: automated requirements gap-fill" \
-            --body "Opened automatically by the systems-engineer agent (model: ${{ steps.model.outputs.agent }})."
+            --body "Opened automatically by Cisil, the systems-engineer agent (model: ${{ steps.model.outputs.agent }})."

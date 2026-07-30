@@ -1,4 +1,4 @@
-name: HDL Developer Agent
+name: Bugra (HDL Developer Agent)
 
 on:
   workflow_dispatch:
@@ -41,7 +41,7 @@ jobs:
         run: |
           rm -f HDL_DEVELOPER_REPORT.md
           PROMPT=$(cat <<EOF
-          You are acting as a real end user of the axion-hdl tool (an AXI4-Lite
+          You are Bugra, acting as a real end user of the axion-hdl tool (an AXI4-Lite
           register-interface generator from VHDL annotations, YAML, XML, or JSON). Working
           inside this checked-out repo, install the package (pip install -e '.[dev]') and
           put together several realistic usage scenarios of your own choosing that a
@@ -78,8 +78,8 @@ jobs:
           fi
           gh label create "hdl-developer-report" \
             --color "0e8a16" \
-            --description "Automated report from the hdl-developer agent" 2>/dev/null || true
+            --description "Automated report from Bugra, the hdl-developer agent" 2>/dev/null || true
           gh issue create \
-            --title "hdl-developer report: $(date +%Y-%m-%d\ %H:%M)" \
+            --title "Bugra's HDL developer report: $(date +%Y-%m-%d\ %H:%M)" \
             --body-file HDL_DEVELOPER_REPORT.md \
             --label "hdl-developer-report"
