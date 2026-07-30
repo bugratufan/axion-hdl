@@ -29,6 +29,9 @@ jobs:
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
 
     steps:
+    - name: Configure git for container
+      run: git config --global --add safe.directory '*'
+
     - uses: actions/checkout@v4
       with:
         submodules: recursive
