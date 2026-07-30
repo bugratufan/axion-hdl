@@ -63,6 +63,10 @@ jobs:
         name: test-results
         path: TEST_RESULTS.md
 
+    - name: Fix workspace ownership for next job
+      if: always()
+      run: chown -R 1000:1000 /__w || true
+
   lint:
     needs: pick-runner
     runs-on: ${{ fromJSON(needs.pick-runner.outputs.labels) }}
@@ -92,6 +96,10 @@ jobs:
       run: |
         flake8 axion_hdl/ --count --select=E9,F63,F7,F82 --show-source --statistics
         flake8 axion_hdl/ --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+
+    - name: Fix workspace ownership for next job
+      if: always()
+      run: chown -R 1000:1000 /__w || true
 
   gui-test:
     needs: pick-runner
@@ -137,3 +145,7 @@ jobs:
           test-results/
           playwright-report/
         if-no-files-found: ignore
+
+    - name: Fix workspace ownership for next job
+      if: always()
+      run: chown -R 1000:1000 /__w || true
