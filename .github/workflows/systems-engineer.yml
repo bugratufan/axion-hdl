@@ -11,7 +11,7 @@ on:
 jobs:
   run:
     runs-on: [self-hosted, self-hosted-personal]
-    timeout-minutes: 180
+    timeout-minutes: 1440
     permissions:
       contents: write
       pull-requests: write
