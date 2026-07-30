@@ -63,6 +63,14 @@ jobs:
   lint:
     needs: pick-runner
     runs-on: ${{ fromJSON(needs.pick-runner.outputs.labels) }}
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/axion-hdl-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
     - uses: actions/checkout@v4
@@ -85,6 +93,14 @@ jobs:
   gui-test:
     needs: pick-runner
     runs-on: ${{ fromJSON(needs.pick-runner.outputs.labels) }}
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/axion-hdl-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
     - uses: actions/checkout@v4
