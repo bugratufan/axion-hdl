@@ -12,8 +12,15 @@ env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/axion-hdl-ci
 
 jobs:
+  pick-runner:
+    uses: ./.github/workflows/pick-runner.yml
+    secrets: inherit
+    with:
+      fallback: ubuntu-22.04
+
   build-and-push:
-    runs-on: ubuntu-22.04
+    needs: pick-runner
+    runs-on: ${{ fromJSON(needs.pick-runner.outputs.labels) }}
     permissions:
       contents: read
       packages: write

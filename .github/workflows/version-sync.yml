@@ -16,11 +16,18 @@ permissions:
   pull-requests: read
 
 jobs:
+  pick-runner:
+    uses: ./.github/workflows/pick-runner.yml
+    secrets: inherit
+    with:
+      fallback: ubuntu-latest
+
   # Version sync for develop PRs (NO version bump, just sync existing)
   version-sync-develop:
     if: github.base_ref == 'develop'
-    runs-on: ubuntu-latest
-    
+    needs: pick-runner
+    runs-on: ${{ fromJSON(needs.pick-runner.outputs.labels) }}
+
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
@@ -58,8 +65,9 @@ jobs:
   # Version sync for main PRs (analyze changes and bump)
   version-sync-main:
     if: github.base_ref == 'main'
-    runs-on: ubuntu-latest
-    
+    needs: pick-runner
+    runs-on: ${{ fromJSON(needs.pick-runner.outputs.labels) }}
+
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
@@ -127,16 +135,34 @@ jobs:
             HAS_FEATURE=true
             echo "✅ Current branch is a feature branch"
           fi
-          
+
+          # Branch prefixes that never trigger a version bump (requirements
+          # analysis, docs-only changes, chores) - checked the same way as
+          # feature detection: merge commit messages or the PR branch name.
+          NO_BUMP=false
+
+          if echo "$MERGE_COMMITS" | grep -qiE "(req/|docs/|chore/)"; then
+            NO_BUMP=true
+            echo "⏭️ Found no-bump branch merges (req/docs/chore) in merge commits"
+          fi
+
+          if [[ "$CURRENT_BRANCH" == req/* ]] || [[ "$CURRENT_BRANCH" == docs/* ]] || [[ "$CURRENT_BRANCH" == chore/* ]]; then
+            NO_BUMP=true
+            echo "⏭️ Current branch is a no-bump branch (req/docs/chore)"
+          fi
+
           # Get all commit messages for checking if there are any changes
           ALL_COMMIT_MSGS=$(git log origin/main..HEAD --oneline 2>/dev/null || echo "")
-          
+
           if [ "$HAS_FEATURE" = true ]; then
             echo "bump_type=minor" >> $GITHUB_OUTPUT
             echo "should_bump=true" >> $GITHUB_OUTPUT
             echo "📦 Will bump MINOR version (feature branch detected)"
+          elif [ "$NO_BUMP" = true ]; then
+            echo "should_bump=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipping bump (req/docs/chore branch)"
           else
-            # Check if there are any commits at all (bugfix/wip/fix/docs/refactor)
+            # Check if there are any commits at all (bugfix/wip/fix/refactor)
             if [ -n "$ALL_COMMIT_MSGS" ]; then
               echo "bump_type=patch" >> $GITHUB_OUTPUT
               echo "should_bump=true" >> $GITHUB_OUTPUT

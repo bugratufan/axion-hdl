@@ -1,0 +1,35 @@
+name: Pick Runner
+
+on:
+  workflow_call:
+    inputs:
+      fallback:
+        description: "GitHub-hosted runner label to use when the personal runner is offline"
+        type: string
+        default: 'ubuntu-latest'
+    outputs:
+      labels:
+        description: "JSON array to pass to runs-on"
+        value: ${{ jobs.check.outputs.labels }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      labels: ${{ steps.check.outputs.labels }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ secrets.RUNNER_STATUS_PAT }}
+        run: |
+          ONLINE=$(gh api "repos/${{ github.repository }}/actions/runners" \
+            --jq '[.runners[] | select(.status=="online" and (.labels[].name=="self-hosted-personal"))] | length' \
+            2>/dev/null || echo 0)
+
+          if [ "$ONLINE" -gt 0 ]; then
+            echo 'labels=["self-hosted-personal"]' >> "$GITHUB_OUTPUT"
+            echo "Personal runner is online - using it"
+          else
+            echo "labels=[\"${{ inputs.fallback }}\"]" >> "$GITHUB_OUTPUT"
+            echo "Personal runner is offline - falling back to ${{ inputs.fallback }}"
+          fi
